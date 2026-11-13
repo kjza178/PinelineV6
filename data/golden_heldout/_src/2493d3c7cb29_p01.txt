@@ -1,0 +1,147 @@
+# HELD-OUT — KHÔNG dùng để seed lexicon/prompt/quy tắc. Định dạng: i|spk|to|self|call|ref3|tags|vi_gold|note
+# vi_gold rỗng = giữ vi_system ; ∅ = câu nên gộp/bỏ. vi_system ở job này CHƯA qua REVIEW (rv=0).
+@scene s1 1815 1817 Tuyết Đế dặn đồng đội trước khi đi Nguyệt Luân Ma Cung
+1815|td|team|ta/tôi|-|-|||
+1816|td|team|-|các cậu/mọi người/các ngươi|-|||
+1817|td|team|-|-|-|style|Củng cố nền tảng cho tốt.|
+@scene s2 1818 1834 Nguyệt Luân Ma Cung lo Phàm Điện khởi binh; nghênh đón Tuyết Đế
+1818|?|-|-|-|-|name|Phàm Điện rốt cuộc có thái độ gì?|樊殿/梵殿 = ASR của 凡殿 (Phàm Điện)
+1819|?|-|-|-|-|||
+1820|?|-|-|-|-|||
+1821|?|nlk|-|-|-|||
+1822|?|nlk|-|-|-|||
+1823|?|nlk|-|-|-|name|Nếu Phàm Điện thật sự khởi binh chinh phạt,|
+1824|?|nlk|-|-|-|||
+1825|truyenlenh|-|-|-|-|||
+1826|truyenlenh|cc|-|-|-|style|Bẩm công chúa,|
+1827|truyenlenh|cc|-|-|-|||
+1828|nlk|truyenlenh|-|-|-|style|Mau mời vào.|
+1829|nlk|truyenlenh|-|-|-|||
+1830|nlk|truyenlenh|-|-|-|||
+1831|nlk|td|-|-|-|||
+1832|nlk|td|-|-|-|idiom|Không ra đón từ xa, thật thất lễ.|有失远迎 — «có kẻ không ra đón» sai
+1833|nlk|td|-|-|-|||
+1834|nlk|-|-|-|-|meaning|Dâng trà Mặc Hương thượng hạng, đặc sản của Nguyệt Luân Ma Cung chúng ta.|
+@scene s3 1835 1952 Tuyết Đế ↔ Nguyệt Luân Khách đàm phán, đe doạ, tuyên chiến (cường giả đối đầu: ta–ngươi)
+1835|td|nlk|-|-|-|||月轮客簇 = ASR của 月轮客
+1836|td|nlk|ta/bổn đế/bản đế|-|-|pronoun|Mục đích ta đến lần này,|
+1837|td|nlk|-|ngươi|-|pronoun|trong lòng ngươi hẳn đã rõ.|
+1838|nlk|td|-|-|-|style|Hiểu rồi.|
+1839|nlk|td|-|-|-|||
+1840|nlk|td|-|-|-|||
+1841|nlk|td|-|-|-|||
+1842|nlk|td|-|-|-|||
+1843|nlk|td|-|-|-|||
+1844|nlk|td|ta/bổn tọa/bản tọa|-|-|pronoun|Nguyệt Luân đế quốc ta không chỉ nguyện cắt nhượng trọn một phần ba lãnh thổ,|
+1845|nlk|td|-|-|-|meaning|mà còn nguyện năm năm triều cống,|
+1846|td|nlk|-|-|-|||
+1847|td|nlk|-|ngươi|-|pronoun|Ngươi đã sớm có ý lui về giữ biển,|
+1848|td|nlk|ta/bổn đế/bản đế|ngươi|-|pronoun|ta sẽ thành toàn cho ngươi.|
+1849|td|nlk|-|-|-|||
+1850|td|nlk|ta/bổn đế/bản đế|ngươi|-|pronoun|Ta mở cho ngươi một lối ở U Minh hải vực.|
+1851|td|nlk|-|ngươi|-|pronoun|Ngươi dẫn người từ đó rút xuống biển sâu đi. Cái gì?|«什么？» là lời Nguyệt Luân Khách dính vào cue
+1852|nlk|td|-|-|-|meaning|Bắt cả tộc chúng ta rời khỏi Hạo Miểu đại lục?|
+1853|nlk|td|-|-|-|||
+1854|nlk|td|-|ngươi|-|pronoun|Ngươi đừng khinh người quá đáng!|
+1855|nlk|td|-|-|-|||
+1856|td|nlk|-|-|-|name,meaning|Nguyệt Luân Khách,|月轮刻醋 = ASR của 月轮客; «ghen tuông» sai
+1857|td|nlk|-|ngươi|-|pronoun|Ngươi còn chưa hiểu sao?|
+1858|td|nlk|-|-|-|||
+1859|td|nlk|ta/bổn đế/bản đế|các ngươi|-|pronoun|chính là muốn lấy các ngươi làm bia đỡ đạn để tiêu hao ta.|
+1860|td|nlk|-|ngươi|-|pronoun|Chỉ cần ngươi không rút,|
+1861|td|nlk|-|-|n|||他们 = các thánh địa
+1862|nlk|td|-|-|-|||
+1863|nlk|td|-|ngươi|-|pronoun|Ngươi vẫn còn quá trẻ.|
+1864|nlk|td|ta|ngươi|-|pronoun|Đây rõ ràng là dương mưu nhắm vào cả ngươi lẫn ta.|
+1865|nlk|td|-|-|-|idiom|Nếu chúng ta đánh nhau tối tăm mặt mũi ở tiền tuyến,|昏天黑地 (ASR 血) — «hôn thiên huyết địa» sai
+1866|nlk|td|-|-|-|||
+1867|nlk|td|-|ngươi|-|pronoun,meaning|phái thần linh đánh thẳng vào sào huyệt Phàm Điện của ngươi.|抄老巢 ≠ «tịch thu»
+1868|td|nlk|-|-|-|style|Được.|
+1869|td|nlk|-|ngươi|-|pronoun|Vậy ngươi nghĩ xem,|
+1870|td|nlk|-|-|-|meaning|nếu đám thế lực ở Hạo Miểu đại lục kéo đến đánh úp,|抄家 ở đây = đánh úp sào huyệt
+1871|td|nlk|-|-|-|||
+1872|nlk|td|-|-|-|style|Hừ.|
+1873|nlk|td|-|-|-|||
+1874|nlk|td|-|-|-|||
+1875|td|nlk|-|-|-|meaning|Vậy chẳng phải xong rồi sao?|
+1876|td|nlk|ta/bổn đế/bản đế|-|-|pronoun|Trong bố trí của ta,|
+1877|td|nlk|-|các ngươi|-|pronoun|chính diện san bằng Nguyệt Luân đế quốc các ngươi,|
+1878|td|nlk|-|-|-|||
+1879|td|nlk|-|-|-|name|Sào huyệt Phàm Điện,|
+1880|td|nlk|-|-|-|||
+1881|nlk|td|-|-|-|||
+1882|td|nlk|ta/bổn đế/bản đế|-|-|pronoun|Ta mang thuật truyền tống toàn bản đồ.|
+1883|td|nlk|-|các ngươi/ngươi|-|pronoun,meaning|Nếu bốn vị thần linh không san bằng được Nguyệt Luân Ma Cung của ngươi,|踏不平 ≠ «không ngồi yên»
+1884|td|nlk|ta/bổn đế/bản đế|-|-|pronoun|ta chỉ cần búng tay một cái,|
+1885|td|nlk|-|-|-|||
+1886|td|nlk|-|ngươi|-|pronoun|Chỉ hỏi ngươi có nuốt trôi nổi không.|
+1887|nlk|td|-|-|-|idiom|Nói bậy nói bạ!|一派胡言 — «một phái nói nhảm» sai
+1888|nlk|td|-|các ngươi|-|pronoun|Phàm Điện các ngươi chẳng qua chỉ là thế lực mới nổi.|
+1889|nlk|td|-|-|-|||
+1890|nlk|td|-|-|-|||
+1891|nlk|td|-|ngươi|-|pronoun,meaning|ngươi dám nói càn điều động mười vị thần linh?|纵容 ≈ ASR của 调动
+1892|td|nlk|ta/bổn đế/bản đế|-|-|pronoun|Ta chưa bao giờ nói dối người chết.|
+1893|td|nlk|-|-|-|||
+1894|td|nlk|-|-|-|style|Vốn dĩ đàm phán không xong thì động thủ.|
+1895|nlk|td|-|-|-|||
+1896|?|-|-|-|-|||thần linh giáng lâm — lời hô
+1897|?|-|-|-|-|||神威林氏 có thể là ASR (神威降临)
+1898|?|-|-|-|-|idiom,meaning|Tương tiến tửu, chén chớ dừng.|câu thơ Lý Bạch 将进酒 杯莫停
+1899|?|-|-|-|-|idiom|Mãi mãi là thần!|永远的神 (lóng mạng)
+1900|?|-|-|-|-|||
+1901|?|-|-|-|-|||
+1902|nlk|-|-|-|-|||
+1903|nlk|-|-|-|-|meaning|Thần Uy này đúng là Chân Thần hàng thật giá thật!|货真价实
+1904|nlk|-|-|-|-|||
+1905|td|nlk|-|-|-|meaning|Nguyệt Luân Khách,|月轮客去 — «đi» thừa (ASR)
+1906|td|nlk|-|ngươi|-|pronoun|Hạo Miểu đại lục, ngươi lui hay không lui?|
+1907|td|nlk|-|-|-|||
+1908|td|nlk|-|-|-|||
+1909|td|nlk|-|-|-|||
+1910|td|nlk|bổn đế/bản đế/ta|-|-|||
+1911|nlk|td|ta/bổn tọa/bản tọa|-|-|pronoun|Nếu ta rút đi,|
+1912|nlk|td|-|-|-|||
+1913|nlk|td|-|-|-|||
+1914|nlk|td|-|-|n|||
+1915|td|nlk|-|-|-|||
+1916|td|nlk|ta/bổn đế/bản đế|ngươi|n|pronoun|Ngươi cứ dẫn ta đi gặp bọn họ.|
+1917|td|nlk|bổn đế/bản đế/ta|-|n|||
+1918|td|nlk|-|-|-|meaning|chọn sẵn chốn về tốt nhất rồi.|归宿
+1919|nlk|td|-|-|-|||
+1920|nlk|td|-|-|-|||ASR khó hiểu (睡地)
+1921|nlk|td|-|ngươi|-|pronoun|Ngươi là kẻ tàn nhẫn đến Chân Thần cũng giết được.|
+1922|nlk|td|ta/bổn tọa/bản tọa|ngươi|-|pronoun|Nếu ta dẫn ngươi tới nơi phong ấn,|
+1923|nlk|td|-|-|-|||
+1924|td|nlk|-|-|-|||
+1925|td|nlk|ta/bổn đế/bản đế|-|-|pronoun|Hôm nay ta chỉ cần một câu dứt khoát.|
+1926|td|nlk|-|các ngươi|-|pronoun|Nguyệt Luân Ma Cung các ngươi rốt cuộc rút vào biển sâu hay chiến?|
+1927|nlk|td|-|-|-|||
+1928|td|nlk|-|-|-|name,meaning|Biết rõ mình đã thành quân cờ pháo hôi bị các thánh địa Hạo Miểu vứt bỏ,|浩渺 = tên (Hạo Miểu), không phải «xa xôi»
+1929|td|nlk|-|ngươi|-|pronoun|ngươi vẫn cố chấp đòi chiến?|
+1930|nlk|td|-|-|-|||
+1931|nlk|td|-|-|-|style|Làm công cụ thì đã sao?|
+1932|nlk|td|-|-|-|||
+1933|nlk|td|-|-|-|||
+1934|nlk|td|-|-|-|||
+1935|nlk|td|-|-|-|style|Áp đảo Đông Phương,|
+1936|nlk|td|-|-|-|style|san bằng Sơn Hải.|
+1937|nlk|td|-|các ngươi|-|pronoun|Các ngươi đã bị giẫm dưới chân nhiều năm như vậy,|
+1938|nlk|td|-|-|-|||
+1939|nlk|td|ta/bổn tọa/bản tọa|-|-|pronoun|Nguyệt Luân Khách ta|
+1940|nlk|td|-|các ngươi|-|pronoun|tuyệt không cho phép các ngươi phục hưng.|
+1941|td|nlk|-|ngươi|-|pronoun|Ngươi đã bao giờ nghĩ tới chưa,|
+1942|td|nlk|-|-|-|idiom|truy về cội nguồn,|溯源归宗
+1943|td|nlk|-|các ngươi|-|pronoun|các ngươi chẳng qua chỉ là một nhánh của dòng dõi viễn cổ phương Đông.|
+1944|nlk|td|-|-|-|style|Hừ.|
+1945|nlk|td|ta/bổn tọa/bản tọa|-|-|pronoun|Đừng hòng dùng mấy thần thoại viễn cổ này tẩy não ta.|
+1946|nlk|td|ta/bổn tọa/bản tọa|-|-|pronoun|Đối với ta mà nói,|
+1947|nlk|td|-|-|-|style|đây hoàn toàn là một trò cười.|
+1948|td|nlk|-|-|-|style|Hừ.|
+1949|td|nlk|-|ngươi|-|pronoun|Ngươi muốn chiến?|
+1950|td|nlk|-|-|-|||
+1951|td|nlk|-|-|-|||ASR khó hiểu (藏魂缸)
+1952|td|nlk|-|ngươi|-|pronoun|Tự khắc sẽ chừa cho ngươi một cỗ quan tài.|
+@scene s4 1953 1955 Thuộc hạ Phàm Điện hỏi kết quả đàm phán
+1953|thuocha|td|-|điện chủ|-|||
+1954|thuocha|td|-|-|-|||
+1955|td|thuocha|-|-|-|||

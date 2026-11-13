@@ -1,0 +1,20 @@
+{
+  "name": "test",
+  "port": 8899,
+  "work_root": "./scratch/test_work",
+  "temp": "./scratch/test_tmp",
+  "routers": [],
+  "desktop": false,
+  "agent_brain": false,
+  "agent_watch": false,
+  "telegram": false,
+  "auto_publish": false,
+  "hg_merge_resume": false,
+  "title_translate": false,
+  "queue_autostart": false,
+  "render_subprocess": true,
+  "feeder": false,
+  "preset_switch": false,
+  "translate_pipeline": "simple",
+  "asr_use_demucs": true
+}

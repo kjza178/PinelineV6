@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Pineline V6",
+  "version": "0.6.0",
+  "identifier": "local.pineline.v6",
+  "build": { "frontendDist": "../splash" },
+  "app": {
+    "windows": [
+      { "label": "main", "title": "Pineline V6", "width": 1440, "height": 900, "minWidth": 1024, "minHeight": 640 }
+    ],
+    "security": { "csp": null }
+  },
+  "bundle": { "active": true, "targets": ["nsis"], "icon": ["icons/icon.ico"] }
+}

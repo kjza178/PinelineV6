@@ -1,0 +1,128 @@
+{
+  "NgayCuoi": {
+    "ref": "voices/f5_refs/NgayCuoi.wav",
+    "text": "Giả vờ cao quý cái gì trước, chẳng phải cô thấy trú thần bây giờ đã trở thành người thừa kế của Hàu Môn dù sao. Nên mới chạy đến đây cứ sẽ chú gì. Muốn hôi của chú gì, tôi nói cho cô biết, tình cảm bao nhiêu năm qua của Mộng Hàn và trú thần. Không phải loại tiện nhân như cô có thể xem vào đâu."
+  },
+  "NgocHuyen": {
+    "ref": "voices/f5_refs/NgocHuyen_full.wav",
+    "text": "chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng."
+  },
+  "XuyenThanh": {
+    "ref": "voices/clone_refs/XuyenThanh.wav",
+    "text": "Đúng vậy, làm như thế, mới có thể thực sự nhìn ra ai mới là người có tay học thực sự. Hồng rồi thế từ, nếu như gia đề tại chỗ, thì ba bài thương ngày học thuộc..."
+  },
+  "N2": {
+    "ref": "voices\\f5_refs\\N2.wav",
+    "text": "Làn đà mụn đợt xa ngư, hàn bồ vỡ mộn thí đị phộng Nên ra là nít thiên dưng của mình Nói là dạ đầm thích, tâm giả đín trong đế cơm mụn tái đành đô đềm Lời xây"
+  },
+  "GiongBe": {
+    "ref": "voices\\f5_refs\\GiongBe.wav",
+    "text": "Lâu lắm rồi mới đặt tay lên bàn phím viết một cái gì đó dành cho những cảm xúc của bản thân, thay vì những chiếc dịt sân bơ dập bơ sân trồng tréo nhau đến mức đôi lúc mình"
+  },
+  "DeNghe": {
+    "ref": "voices\\f5_refs\\DeNghe.wav",
+    "text": "Có những khi mình nghĩ bản thân chỉ cần sống thoải mái như thế này, không lo nghĩ về tương lai, không suy xét về những mối quan hệ xung quanh"
+  },
+  "VieNeu_MinhDuc": {
+    "ref": "voices/vieneu_bac/MinhDuc.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Minh Đức",
+    "region": "Bắc",
+    "description": "Nam · Bắc · Phong cách tin tức"
+  },
+  "VieNeu_PhamTuyen": {
+    "ref": "voices/vieneu_bac/PhamTuyen.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Phạm Tuyên",
+    "region": "Bắc",
+    "description": "Nam · Bắc · Phong cách tự nhiên"
+  },
+  "VieNeu_ThanhBinh": {
+    "ref": "voices/vieneu_bac/ThanhBinh.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Thanh Bình",
+    "region": "Bắc",
+    "description": "Nam · Bắc · Phong cách kể chuyện"
+  },
+  "VieNeu_TrucLy": {
+    "ref": "voices/vieneu_bac/TrucLy.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Trúc Ly",
+    "region": "Bắc",
+    "description": "Nữ · Bắc · Phong cách tự nhiên"
+  },
+  "VieNeu_NgocLinh": {
+    "ref": "voices/vieneu_bac/NgocLinh.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Ngọc Linh",
+    "region": "Bắc",
+    "description": "Nữ · Bắc · Phong cách kể chuyện"
+  },
+  "VieNeu_DoanTrang": {
+    "ref": "voices/vieneu_bac/DoanTrang.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Đoan Trang",
+    "region": "Bắc",
+    "description": "Nữ · Bắc · Phong cách tự nhiên"
+  },
+  "VieNeu_MaiAnh": {
+    "ref": "voices/vieneu_bac/MaiAnh.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Mai Anh",
+    "region": "Bắc",
+    "description": "Nữ · Bắc · Phong cách tin tức"
+  },
+  "VieNeu_QuynhAnh": {
+    "ref": "voices/vieneu_bac/QuynhAnh.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Quỳnh Anh",
+    "region": "Bắc",
+    "description": "Nữ · Bắc · Phong cách đọc truyện"
+  },
+  "VieNeu_NgocHuyen_VieNeu": {
+    "ref": "voices/vieneu_bac/NgocHuyen_VieNeu.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Ngọc Huyền",
+    "region": "Bắc",
+    "description": "Nữ · Bắc · Giọng đọc tự nhiên"
+  },
+  "Res": {
+    "ref": "voices/clone_refs/Res.wav",
+    "text": "Độc của ta đã hoàn toàn giải trừ rồi.",
+    "source": "clone_ref",
+    "description": "Giọng Res (clip sạch từ dataset UVR/ASR, ~6.8s)"
+  },
+  "v1": {
+    "ref": "voices/clone_refs/v1.wav",
+    "text": ""
+  },
+  "v2": {
+    "ref": "voices/clone_refs/v2.wav",
+    "text": ""
+  },
+  "v3": {
+    "ref": "voices/clone_refs/v3.wav",
+    "text": ""
+  },
+  "v4": {
+    "ref": "voices/clone_refs/v4.wav",
+    "text": ""
+  },
+  "v5": {
+    "ref": "voices/clone_refs/v5.wav",
+    "text": ""
+  },
+  "v6": {
+    "ref": "voices/clone_refs/v6.wav",
+    "text": ""
+  }
+}

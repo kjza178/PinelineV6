@@ -1,0 +1,151 @@
+# i|spk|to|self|call|ref3|tags|vi_gold|note
+# vi_gold = ∅ nghĩa là câu nên gộp/bỏ (câu cắt đôi lặp ý)
+@scene s1 2496 2513 Cảnh sát dặn Trần Huyền trước khi vào kho lạnh cứu con tin
+2496|canhsat|tranhuyen|-|-|-|name|Chu Nguyệt có ý thức chống trinh sát rất mạnh,|ASR 周月/周越/周夜 cùng một người
+2497|canhsat|tranhuyen|-|-|m|||
+2498|canhsat|tranhuyen|-|-|-|halfcue_dup|∅|cue lặp với 2499 (ASR)
+2499|canhsat|tranhuyen|-|anh/Trần tiên sinh|-|halfcue_dup|Sau khi anh Trần vào trong,|
+2500|canhsat|tranhuyen|-|-|-||tốt nhất nên mang theo thiết bị liên lạc.|
+2501|?|-|tôi|-|-||Tôi biết rồi,|người nói không chắc
+2502|canhsat|tranhuyen|-|-|m|||
+2503|tranhuyen|canhsat|-|-|-|||
+2504|tranhuyen|canhsat|tôi|-|-|||
+2505|tranhuyen|canhsat|tôi|các anh|-|pronoun|các anh cứ chở tôi tới đó là được.|«các người» thô với cảnh sát đang giúp
+2506|tranhuyen|canhsat|tôi|các anh/mọi người|-|meaning|Đợi tôi cứu được cô Tần,|ASR đảo thứ tự 2506/2507 (cùng mốc giờ) — gold theo trật tự nghĩa
+2507|tranhuyen|canhsat|tôi|các anh/mọi người|-|meaning|tôi sẽ báo cho các anh.|
+2508|tranhuyen|self|-|-|-||Quả nhiên có thiết bị cảnh báo,|
+2509|tranhuyen|self|-|-|-|||
+2510|tranhuyen|self|-|-|-|meaning|Vết cắt còn mới,|ASR 心瘤 (≈新留) — «khối u tim» vô nghĩa
+2511|tranhuyen|self|-|-|-|name|Chu Nguyệt đã kiểm tra chỗ này từ lâu.|
+2512|tranhuyen|self|-|-|-|||
+2513|tranhuyen|self|-|-|-|meaning|Phía trong cửa ra vào và cửa sổ toàn là bẫy, chỉ có thể vào từ chỗ khác.|
+@scene s2 2514 2550 Chu Nguyệt (tài xế, kẻ bắt cóc, nam) và Tần Vũ Phi (con tin, nữ)
+2514|chunguyet|tanvuphi|tôi/tao|-|-||Đừng nhìn tôi như thế,|
+2515|chunguyet|tanvuphi|tôi/tao|cô/mày|-|pronoun|lấy được tiền tôi sẽ thả cô đi.|người nghe là nữ — «anh» sai giới
+2516|chunguyet|tanvuphi|-|cô/mày|-|pronoun|Miễn là bố cô cắn câu.|
+2517|tanvuphi|chunguyet|tôi|anh/mày|-||Bố tôi sẽ không đưa tiền cho anh đâu.|
+2518|chunguyet|tanvuphi|-|-|-|meaning|Một trăm triệu với nhà họ Tần đâu phải số tiền lớn,|一个亿 = 100 triệu — «một tỷ» sai số
+2519|tanvuphi|chunguyet|-|-|m|||người nói suy: Tần Vũ Phi — confidence thấp
+2520|tanvuphi|chunguyet|tôi|anh/mày|-|||
+2521|tanvuphi|chunguyet|tôi|-|-|meaning|Bố tôi mà đến chuyện này cũng không nhìn ra,|còn chữ Hán «连» trong VI
+2522|tanvuphi|chunguyet|-|-|-|halfcue_dup|thì nhà họ Tần đã bị người ta nuốt sạch từ lâu rồi.|cue dính đầu câu sau (你比以) — bỏ phần thừa
+2523|tanvuphi|chunguyet|-|-|-|halfcue_dup|∅|mảnh ASR lặp «干净了»
+2524|chunguyet|tanvuphi|-|cô/mày|-|pronoun|Cô thông minh hơn trước rồi đấy.|nói với nữ — «anh» sai
+2525|tanvuphi|chunguyet|tôi|anh/mày|-|||
+2526|tanvuphi|chunguyet|-|-|-|||
+2527|tanvuphi|chunguyet|-|anh/mày|-|halfcue_dup|Anh giết nhiều người như vậy,|
+2528|tanvuphi|chunguyet|-|-|-|halfcue_dup|∅|mảnh lặp với 2529
+2529|tanvuphi|chunguyet|tôi|-|-|halfcue_dup|lại chạy tới nhà họ Tần làm tài xế cho tôi,|
+2530|tanvuphi|chunguyet|-|-|-|halfcue_dup|là vì nghĩ nơi nguy hiểm nhất là nơi an toàn nhất sao? – Đúng vậy,|cue ghép 2 người nói («没错» của Chu Nguyệt)
+2531|chunguyet|tanvuphi|-|-|-|||
+2532|chunguyet|tanvuphi|-|-|-|||
+2533|chunguyet|tanvuphi|-|-|-|halfcue_dup|∅|mảnh lặp với 2535
+2534|chunguyet|tanvuphi|-|-|-|halfcue_dup|∅|mảnh lặp
+2535|chunguyet|tanvuphi|tôi|-|m|||
+2536|chunguyet|tanvuphi|-|-|-|||
+2537|chunguyet|tanvuphi|-|-|-|||
+2538|chunguyet|tanvuphi|-|-|m|||他 = bố cô (Tần Chính)
+2539|chunguyet|tanvuphi|-|-|-|name|Cô Tần,|秦小姐 → «Cô Tống» sai tên
+2540|chunguyet|tanvuphi|tôi/tao|cô/mày|-||tôi cảnh cáo cô,|
+2541|chunguyet|tanvuphi|-|cô/mày|-|||
+2542|chunguyet|tanvuphi|-|-|-|||
+2543|chunguyet|tanvuphi|-|-|-|meaning|người bên ngoài khu xưởng chỉ cần tới gần,|
+2544|chunguyet|tanvuphi|-|-|-|halfcue_dup|∅|mảnh lặp với 2545–2546
+2545|chunguyet|tanvuphi|tôi|-|-|halfcue_dup,meaning|là tôi biết trước ngay.|
+2546|chunguyet|tanvuphi|-|-|-|meaning|Mấy lối ra của kho lạnh này,|«biết trước vài lối thoát» sai cấu trúc câu
+2547|chunguyet|tanvuphi|tôi|-|-|meaning|tôi đều đã cài đồ cả rồi,|
+2548|chunguyet|tanvuphi|-|-|-|||
+2549|chunguyet|tanvuphi|tôi|-|-|||
+2550|chunguyet|tanvuphi|-|-|-|||
+@scene s3 2551 2570 Trần Huyền đột nhập, khống chế Chu Nguyệt
+2551|?|-|-|-|-|||
+2552|chunguyet|tranhuyen|-|mày/anh|-||Là mày.|kẻ bắt cóc đối địch — chấp nhận mày/anh
+2553|chunguyet|tranhuyen|-|mày/anh|-|||
+2554|chunguyet|tranhuyen|-|mày/anh|-|||
+2555|tranhuyen|chunguyet|-|-|-|||
+2556|tranhuyen|chunguyet|tôi/tao|anh/mày|-|||
+2557|tranhuyen|chunguyet|-|anh/mày|-|||
+2558|chunguyet|tranhuyen|tôi/tao|anh/mày|-|||
+2559|tranhuyen|chunguyet|-|-|-|halfcue_dup|∅|mảnh lặp với 2560 — VI hiện tại vô nghĩa
+2560|tranhuyen|chunguyet|tôi/tao|anh/mày|-||Là tôi, trên người anh có quá nhiều mạng người,|
+2561|tranhuyen|chunguyet|-|-|-|||
+2562|?|-|-|-|-|||
+2563|tranhuyen|chunguyet|-|-|-|||
+2564|tranhuyen|chunguyet|-|anh/mày|-|||
+2565|tranhuyen|chunguyet|-|-|-|||
+2566|tranhuyen|chunguyet|tôi/tao|anh/mày|-|||
+2567|chunguyet|tranhuyen|-|mày|-|pronoun|Trần Huyền, mày cứ chờ đấy,|lời đe dọa thù hằn — «anh» quá nhẹ; chấp nhận mày
+2568|chunguyet|tranhuyen|tao/tôi|mày/anh|-|||
+2569|tranhuyen|chunguyet|-|anh/mày|-|||
+2570|tranhuyen|chunguyet|tôi/tao|anh/mày|-|||
+@scene s4 2571 2615 Giải cứu Tần Vũ Phi; gọi người nhà họ Tần vào
+2571|tanvuphi|tranhuyen|-|anh|-|name,meaning|Trần Huyền, anh...|ASR 陈轩 = 陈玄
+2572|tanvuphi|tranhuyen|-|anh|-|||
+2573|tanvuphi|tranhuyen|-|-|-|halfcue_dup|∅|lặp «才来呀»
+2574|tanvuphi|tranhuyen|em/tôi|-|-||Em tưởng mình chết thật rồi.|quan hệ đổi theo cảnh (sợ hãi, nương tựa): chấp nhận em/tôi
+2575|tanvuphi|tranhuyen|-|-|-|||
+2576|tanvuphi|tranhuyen|-|-|m|||
+2577|tanvuphi|tranhuyen|-|-|-|||
+2578|tanvuphi|tranhuyen|-|-|m||hắn là kẻ giết người hàng loạt,|
+2579|tanvuphi|tranhuyen|-|-|m|||
+2580|tanvuphi|tranhuyen|em/tôi|-|m|||
+2581|tanvuphi|tranhuyen|-|-|m||Vừa nãy hắn còn định...|
+2582|tranhuyen|tanvuphi|-|-|-||Không sao rồi,|
+2583|tranhuyen|tanvuphi|-|-|-|halfcue_dup|∅|mảnh lặp với 2584–2585
+2584|tranhuyen|tanvuphi|-|-|-|||
+2585|tranhuyen|tanvuphi|-|-|-|name|Chu Nguyệt không cử động được nữa rồi,|
+2586|tranhuyen|tanvuphi|-|cô/em|-|||plan: Trần→Vũ Phi tôi/cô; chấp nhận em trong cảnh an ủi
+2587|tranhuyen|tanvuphi|-|-|-|||
+2588|tanvuphi|tranhuyen|em/tôi|-|-|||
+2589|tanvuphi|tranhuyen|em/tôi|-|-|||
+2590|tranhuyen|tanvuphi|-|-|-|||
+2591|tranhuyen|self|-|-|-|||
+2592|tranhuyen|tanchinh|-|-|-|||gọi điện
+2593|tranhuyen|tanchinh|-|-|f|||
+2594|tranhuyen|tanchinh|-|-|-|||
+2595|tranhuyen|tanchinh|-|-|-||Nhưng không nguy hiểm đến tính mạng,|
+2596|tranhuyen|tanchinh|-|các anh/mọi người|-|||
+2597|tanchinh|tranhuyen|-|-|-|meaning|Cứu được thật rồi sao?|người nghe bên kia điện thoại hỏi lại
+2598|tanchinh|tranhuyen|-|-|-|halfcue_dup|∅|lặp
+2599|tranhuyen|tanchinh|tôi|-|-||Người đang ở ngay cạnh tôi,|
+2600|tranhuyen|tanchinh|-|-|-||Chu Nguyệt cũng vẫn còn sống,|
+2601|tranhuyen|tanchinh|-|-|-|||
+2602|tranhuyen|tanchinh|-|các anh|-|||
+2603|tranhuyen|tanchinh|-|-|-|||
+2604|tanchinh|tranhuyen|tôi|-|-|name|Tôi qua ngay. Vũ Phi...|ASR 玉妃 = 雨菲
+2605|tranhuyen|tanchinh|-|-|f|||
+2606|tranhuyen|tanchinh|-|-|-|||
+2607|tranhuyen|tanchinh|-|-|-|||
+2608|tranhuyen|tanchinh|-|-|-|||
+2609|tranhuyen|tanchinh|-|-|f|||
+2610|tranhuyen|tanvuphi|-|cô|m|pronoun|Đừng sợ, bố cô tới rồi.|你父亲 = cách nói của người ngoài; «bố của con» sai vai — người nói suy từ ngữ cảnh (confidence vừa)
+2611|tanchinh|self|-|-|-|meaning|Nếu chiêu được kỳ nhân như Trần Huyền về làm rể nhà họ Tần,|招赘 = cưới về làm rể, không phải «chiêu mộ»
+2612|tanchinh|self|-|-|-|||
+2613|tanchinh|tranhuyen|-|-|-|||
+2614|tanchinh|tranhuyen|-|anh|-|meaning|lần này đều nhờ có anh, ân tình này|ASR 全亏有你这个情 — tách đúng
+2615|tanchinh|tranhuyen|tôi|-|-|name|Tần Chính tôi xin ghi nhớ.|ASR 秦正海 = 秦正
+@scene s5 2616 2639 Cảnh sát làm việc với Trần Huyền
+2616|canhsat|tranhuyen|-|-|-|||
+2617|canhsat|tranhuyen|-|-|-|||
+2618|canhsat|tranhuyen|-|-|-||Trần tiên sinh,|
+2619|canhsat|tranhuyen|-|anh/ngài|-|meaning|anh vào từ chỗ nào vậy?|«đột nhập» mang nghĩa xấu
+2620|tranhuyen|canhsat|-|-|-|||
+2621|tranhuyen|canhsat|-|-|-|meaning|rồi từ đường ống kho lạnh phía sau vào lớp kẹp thông gió,|ASR 日冷 ≈ 冷库
+2622|tranhuyen|canhsat|-|-|-|name|nhân lúc Chu Nguyệt bị phân tâm thì leo xuống,|
+2623|canhsat|tranhuyen|-|-|-|halfcue_dup|∅|mảnh lặp với 2624
+2624|canhsat|tranhuyen|-|anh|-|meaning|Camera bên ngoài không quay được anh.|«Tạm thời xuống rồi» là mảnh ASR
+2625|tranhuyen|canhsat|tôi|-|-|meaning|Đương nhiên, tôi cố ý tránh tầm camera.|ASR 当年 ≈ 当然; «Năm đó» sai
+2626|canhsat|tranhuyen|-|anh|m|meaning|Tuy anh đánh gãy hai chân hắn,|
+2627|canhsat|tranhuyen|-|-|-|||
+2628|canhsat|tranhuyen|-|-|-|meaning|nhưng lúc đó Chu Nguyệt cầm súng và giữ điều khiển kích nổ,|
+2629|canhsat|tranhuyen|-|anh|-||anh ra tay khống chế hắn,|
+2630|canhsat|tranhuyen|-|-|m|meaning|thì dù hắn có bị đánh chết tại chỗ,|nghĩa nhượng bộ — VI hiện tại thành khẳng định sai
+2631|canhsat|tranhuyen|-|-|-|term|cũng hoàn toàn thuộc hành vi nghĩa hiệp cộng tình thế cấp thiết.|见义勇为 + 紧急避险 (thuật ngữ pháp lý)
+2632|canhsat|tranhuyen|-|-|m|||
+2633|canhsat|tranhuyen|-|-|-|halfcue_dup|∅|mảnh lặp
+2634|canhsat|tranhuyen|-|anh|-|halfcue_dup|anh không phải chịu trách nhiệm hình sự,|bỏ phần «hắn tự làm tự chịu» lặp với 2632
+2635|canhsat|tranhuyen|-|-|-|||
+2636|canhsat|tranhuyen|-|-|-|||
+2637|canhsat|tranhuyen|-|-|-|||
+2638|canhsat|tranhuyen|-|anh|-|term|nhưng sau đó vẫn cần anh phối hợp làm một bản tường trình chi tiết, được chứ?|
+2639|tranhuyen|canhsat|-|-|-||Được.|

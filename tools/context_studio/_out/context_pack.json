@@ -1,0 +1,17 @@
+{
+  "ready_for_translate": true,
+  "skip_plan": true,
+  "files": {
+    "glossary": "context_studio\\_out\\glossary.json",
+    "style_lock": "context_studio\\_out\\style_lock.json",
+    "qa_flags": "context_studio\\_out\\qa_flags.json"
+  },
+  "summary": {
+    "genre": "tu tiên / xianxia",
+    "style": "xianxia",
+    "characters": 2,
+    "pronouns": 4,
+    "flags": 3,
+    "suspicious": 1
+  }
+}

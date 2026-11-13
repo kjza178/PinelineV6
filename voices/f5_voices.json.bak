@@ -1,0 +1,10 @@
+{
+  "NgayCuoi": {
+    "ref": "voices\\f5_refs\\NgayCuoi.wav",
+    "text": "Đã đưa phí đổi cách xưng hô chưa? Mà đã đòi gọi tôi là mẹ rồi. Muốn vào cửa thì đưa tiền đây. 88 triệu, thiếu một xu cũng không được."
+  },
+  "NgocHuyen": {
+    "ref": "voices\\f5_refs\\NgocHuyen.mp3",
+    "text": "Chào mừng đến với website của chúng tôi. Đây là trang web cung cấp một giải pháp chuyển văn bản thành giọng nói. Trên cơ sở đó, nó hỗ trợ các doanh nghiệp xây dựng hệ thống trung tâm cuộc gọi tự động, hệ thống thông báo công khai, trợ lý ảo, tin tức âm thanh, podcast, sách âm thanh và từng thuật phim."
+  }
+}

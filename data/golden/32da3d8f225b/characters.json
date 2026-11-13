@@ -1,0 +1,65 @@
+{
+ "job": "32da3d8f225b",
+ "status": "silver",
+ "characters": [
+  {
+   "id": "cothanh",
+   "zh": "顾青",
+   "vi": "Cố Thanh",
+   "gender": "nam",
+   "role": "Nam chính, sinh viên năm trên (学长), thành viên Dạ Đình",
+   "relations": {
+    "hathunhien": "học muội, thân mật (gần như người yêu)",
+    "makinh": "chủ nhân của pháp bảo"
+   }
+  },
+  {
+   "id": "hathunhien",
+   "zh": "夏舒然",
+   "vi": "Hạ Thư Nhiên",
+   "gender": "nữ",
+   "role": "Học muội (学妹) của Cố Thanh, nữ chính tình cảm",
+   "relations": {
+    "cothanh": "gọi 学长, plan chốt em–anh"
+   }
+  },
+  {
+   "id": "hahaikhon",
+   "zh": "何海坤",
+   "vi": "Hà Hải Khôn",
+   "gender": "nam",
+   "role": "Đội trưởng Dạ Đình, nội gián cấu kết Hồ tộc",
+   "relations": {
+    "minuong": "đồng mưu"
+   }
+  },
+  {
+   "id": "minuong",
+   "zh": "媚娘",
+   "vi": "Mị Nương",
+   "gender": "nữ",
+   "role": "Người có địa vị trong Hồ Nữ nhất tộc",
+   "relations": {
+    "hahaikhon": "đồng mưu, dụ dỗ"
+   }
+  },
+  {
+   "id": "makinh",
+   "zh": "魔镜",
+   "vi": "Ma Kính",
+   "gender": "nữ",
+   "role": "Pháp bảo có ý thức (tàn hồn Diệt Quốc Ma Nữ)",
+   "relations": {
+    "cothanh": "gọi 主人"
+   }
+  },
+  {
+   "id": "me_cothanh",
+   "zh": "温婉仪",
+   "vi": "Ôn Uyển Nghi (mẹ Cố Thanh)",
+   "gender": "nữ",
+   "role": "Chỉ được nhắc tới (ref3)",
+   "relations": {}
+  }
+ ]
+}

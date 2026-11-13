@@ -1,0 +1,146 @@
+# i|spk|to|self|call|ref3|tags|vi_gold|note
+# vi_gold = ∅ nghĩa là câu nên gộp/bỏ (câu cắt đôi lặp ý)
+@scene s1 560 568 Long Khiếu Thiên thấy đại ca Long Ngạo Thiên còn sống
+560|?|-|-|-|-|||
+561|lkt|lnt|-|đại ca|-|||
+562|lkt|self|ta/đệ/tôi|-|-|style|Đúng là đại ca, ta biết mà,|độc thoại cổ phong: «ta»; «tôi» chấp nhận nhưng lệch giọng
+563|lkt|self|ta/đệ/tôi|-|m|style|ta biết đại ca không dễ vẫn lạc như vậy,|
+564|lkt|self|-|-|m|style|đại ca quả nhiên vẫn còn sống.|大哥他 — «hắn» cho đại ca ruột là sai sắc thái; bỏ ref3
+565|?|self|-|-|-|||người nói không rõ (người Thánh Điện)
+566|?|self|-|-|-|||
+567|?|self|-|-|-|||
+568|?|self|-|-|-|name|tên Long Khiếu Thiên kia cũng chẳng chạy đâu được.|ASR có thể là 龙啸天 (em) — confidence thấp; giữ nghĩa
+@scene s2 569 610 Long Ngạo Thiên (mới nhận truyền thừa) chặn người Thiên Hư Thánh Điện; đấu với Âm Dương Huyền Triệt
+569|lnt|group|-|các ngươi|-|pronoun|Các ngươi là ai?|người lạ đối đầu, cổ phong: ta–các ngươi
+570|lnt|group|-|-|-|||
+571|lnt|group|ta|-|-|pronoun,meaning|Vậy thì qua được cửa ải của ta trước đã.|不妨就先 = vậy thì cứ … trước
+572|dth|adht|-|sư đệ|-||Huyền Triệt sư đệ.|
+573|dth|adht|-|đệ/sư đệ|-|pronoun|Giao cho đệ đấy.|plan: Diệp → Âm Dương: huynh/sư đệ
+574|adht|dth|-|-|-|style|Được thôi.|
+575|adht|lnt|-|-|-||Vừa đột phá đã muốn đánh nhau,|
+576|adht|lnt|-|-|-|||
+577|adht|lnt|ta|ngươi|-|pronoun|Nhưng ngươi chắc muốn đấu với ta?|
+578|lnt|adht|-|-|-|meaning|Hây!|驾 là tiếng hô; «Giá.» vô nghĩa
+579|lnt|self|-|-|-||Hợp Thể trung kỳ?|
+580|lnt|self|-|-|-|||
+581|adht|lnt|ta|ngươi|-|pronoun|Hiện tại ngươi còn chưa phải đối thủ của ta.|
+582|adht|lnt|-|ngươi|-|pronoun|Nếu ngươi dung hợp triệt để bản nguyên Ngũ Trảo Kim Long,|
+583|adht|lnt|-|-|-|||
+584|adht|lnt|-|-|-|||
+585|adht|lnt|-|-|-|||
+586|adht|lnt|-|-|-|||
+587|adht|lnt|-|-|-|||
+588|lnt|self|ta|-|m|pronoun|Âm Dương nhị khí của hắn trời sinh khắc chế sức mạnh Long tộc của ta,|độc thoại
+589|lnt|self|ta|-|-|pronoun|nhưng ta là truyền nhân Ngũ Trảo Kim Long,|
+590|lnt|self|-|-|-|||
+591|lnt|self|-|-|-|meaning|Sao có thể dễ dàng chịu thua.|ASR thừa 赢了 → «nhận thua thắng» vô nghĩa
+592|lnt|adht|-|-|-||Đánh tiếp!|
+593|lnt|adht|ta|-|-|pronoun|Trúng một đòn toàn lực của bản thể Ngũ Trảo Kim Long của ta,|
+594|lnt|adht|-|ngươi|-|pronoun|dù ngươi là Hợp Thể trung kỳ cũng phải tan thành tro bụi.|
+595|adht|lnt|-|-|-|||
+596|adht|lnt|-|tiểu tử/ngươi|-|pronoun|Tiểu tử, vừa rồi ngươi đánh sướng tay chứ?|
+597|lnt|self|ta|-|-|pronoun|Ta đã hiển hóa bản thể Ngũ Trảo Kim Long.|
+598|lnt|self|-|-|-|||
+599|lnt|self|-|-|m|||
+600|lkt|adht|-|-|-|idiom|Hạ thủ lưu tình!|手下留人 (≈手下留情) — «Thuộc hạ lưu người» sai hoàn toàn
+601|lkt|adht|-|sư huynh|-||Âm Dương sư huynh.|
+602|lkt|adht|đệ|-|m|pronoun|Huynh ấy là đại ca của đệ.|plan: Long Khiếu Thiên → Âm Dương: đệ/sư huynh
+603|lkt|adht|-|sư huynh/huynh|m|pronoun|Xin sư huynh đừng giết huynh ấy.|
+604|?|-|-|-|-|||
+605|adht|-|-|-|-|||
+606|adht|lkt|-|-|-|||
+607|adht|lkt|-|-|-|||
+608|?|-|-|-|-|||
+609|?|-|-|-|-|||
+610|lnt|ngaohoang|-|-|-|pronoun|Vãn bối thua rồi.|chấp nhận «Ta thua rồi»; «Tôi» lệch giọng — không chấm (self '-')
+@scene s3 611 635 Ngao Hoàng (lão phu) an ủi Long Ngạo Thiên, rồi ra tay với người Thánh Điện
+611|ngaohoang|lnt|-|-|-||Không cần tự trách.|
+612|ngaohoang|lnt|-|-|-|||
+613|ngaohoang|lnt|-|-|-|||
+614|ngaohoang|lnt|-|-|-|||
+615|ngaohoang|lnt|-|ngươi/tiểu tử|-|pronoun|ngươi vừa đột phá truyền thừa,|
+616|ngaohoang|lnt|-|-|-|||
+617|ngaohoang|lnt|-|-|-|||
+618|lnt|ngaohoang|-|tiền bối|-|meaning|Nhưng tiền bối...|可是 = nhưng; «Nhưng là» calque
+619|lnt|ngaohoang|vãn bối|-|-|pronoun|vãn bối ngay cả ba chiêu cũng không đỡ nổi,|plan: vãn bối/tiền bối
+620|ngaohoang|lnt|-|-|-||Ba chiêu thì đã sao?|
+621|ngaohoang|lnt|lão phu|-|-|||
+622|ngaohoang|lnt|-|-|-|||
+623|ngaohoang|lnt|-|-|-|||
+624|ngaohoang|lnt|-|-|-|meaning|Cường giả chân chính,|câu trần thuật, VI biến thành câu hỏi
+625|ngaohoang|lnt|-|-|-|||
+626|ngaohoang|lnt|-|-|-|meaning|mà là sau khi thất bại,|
+627|ngaohoang|lnt|-|-|-|||
+628|lnt|ngaohoang|đệ tử/vãn bối|-|-|halfcue_dup|Đệ tử hiểu rồi.|cue ghép 2 người nói (也罢 thuộc Ngao Hoàng câu sau) — tách
+629|ngaohoang|group|-|-|-|halfcue_dup|Thôi vậy, đã định sẵn phải vẫn lạc,|nhận «也罢» từ cue trước
+630|ngaohoang|group|-|-|-|||
+631|ngaohoang|group|-|các ngươi|-|pronoun|để đám tiểu bối các ngươi mở mang tầm mắt,|
+632|ngaohoang|group|-|-|-|||
+633|ngaohoang|group|lão phu|-|-|||
+634|ngaohoang|group|-|các ngươi|-|pronoun|nhưng tội mạo phạm tiên điện vừa rồi của các ngươi,|
+635|ngaohoang|group|-|-|-|||
+@scene s4 636 699 Mặc Kỳ Lân lộ diện, thuyết phục Ngao Hoàng gia nhập Thánh Điện
+636|lkt|lnt|-|đại ca/huynh|-|meaning|Đại ca, huynh...|哥哥 → «ca ca» Hán hóa; LKT gọi «đại ca»
+637|?|mkl|-|tiền bối|-||Mặc Kỳ Lân tiền bối,|người nói: một đệ tử Thánh Điện (không rõ ai)
+638|?|mkl|-|lão nhân gia|-|pronoun|lão nhân gia còn chưa ra tay sao?|你老人家 — «lão nhân gia cậu» sai
+639|mkl|?|-|tiểu tử/ngươi|-|pronoun|Thảo nào tiểu tử nhà ngươi dám to gan lớn mật như vậy.|
+640|mkl|?|lão phu|-|-|||
+641|ngaohoang|mkl|-|ngươi|-|pronoun,name|Mặc Kỳ Lân, là ngươi?|ASR 莫启林 = 墨麒麟
+642|ngaohoang|mkl|-|ngươi|-|pronoun|Ngươi vậy mà vẫn còn sống.|
+643|mkl|ngaohoang|-|-|-|||
+644|mkl|ngaohoang|-|-|-|||
+645|mkl|ngaohoang|-|-|-|||
+646|mkl|ngaohoang|ta/bản tọa|ngươi|-|pronoun,style|ta còn tưởng ngươi bị vây khốn đã vẫn lạc rồi, hừ.|
+647|mkl|ngaohoang|-|ngươi|-|pronoun,idiom|Không ngờ ngươi vẫn còn thoi thóp sống tạm đến tận bây giờ.|苟延残喘
+648|ngaohoang|mkl|-|-|-|idiom|Bốn chữ «thoi thóp sống tạm» dùng hay lắm,|苟延残喘 — «cẩu kéo dài hơi tàn» là calque cấm
+649|ngaohoang|mkl|lão phu|-|-|idiom|lão phu quả thực đang thoi thóp sống tạm,|
+650|ngaohoang|mkl|-|ngươi|-|pronoun,meaning|có điều giờ ngươi lại quy phục thế lực Nhân tộc,|ASR 恢复 ≈ 归附; «khôi phục thế lực» sai nghĩa
+651|ngaohoang|mkl|ta/lão phu|ngươi|-|pronoun|ta nhớ năm xưa ngươi ghét nhất bị kẻ khác cưỡi lên đầu.|
+652|mkl|ngaohoang|-|-|-|idiom|Lúc này khác lúc xưa rồi.|此一时彼一时
+653|mkl|ngaohoang|ta/bản tọa|-|-|pronoun|Nay ta đã quy phục Thiên Hư Thánh Điện,|
+654|mkl|ngaohoang|-|-|-|||
+655|mkl|ngaohoang|-|ngươi|-|pronoun|thủ đoạn của chủ nhân vượt xa sức tưởng tượng của ngươi.|
+656|mkl|ngaohoang|-|ngươi|-|pronoun|Nếu ngươi bằng lòng gia nhập Thánh Điện,|
+657|mkl|ngaohoang|-|-|-|||
+658|mkl|ngaohoang|-|ngươi|-|pronoun|bằng không với tình trạng hiện giờ của ngươi,|
+659|mkl|ngaohoang|-|-|-|||
+660|mkl|ngaohoang|-|-|-|idiom,meaning|chỉ có thể hóa thành một nắm đất vàng mà thôi.|一抔黄土 (ASR 盆) — «một chậu đất vàng» sai
+661|ngaohoang|mkl|-|-|-||Chủ nhân?|
+662|ngaohoang|mkl|-|-|-||Có thể khiến Mặc Kỳ Lân cam tâm tình nguyện gọi một tiếng chủ nhân,|
+663|ngaohoang|mkl|lão phu|-|-|||
+664|mkl|ngaohoang|-|-|-|meaning|Nể tình quen biết một phen,|念在相识一场
+665|mkl|ngaohoang|bản tọa|ngươi|-|pronoun|bản tọa không ngại nói cho ngươi biết,|
+666|mkl|ngaohoang|-|ngươi|-|pronoun|nếu ngươi bằng lòng gia nhập Thánh Điện,|
+667|mkl|ngaohoang|-|-|-|||
+668|mkl|ngaohoang|-|ngươi|-|pronoun,term|tái tạo long khu cho ngươi,|ASR 龙区 = 龙躯
+669|mkl|ngaohoang|-|-|-|meaning,term|trị tận gốc đạo thương,|ASR 道商 = 道伤; «căn cứ vào thương nhân đạo lý» vô nghĩa
+670|mkl|ngaohoang|-|-|-|||
+671|mkl|ngaohoang|-|-|-|||
+672|mkl|ngaohoang|-|ngươi|-|pronoun|ngươi không chỉ sống sót,|
+673|mkl|ngaohoang|-|-|-|||
+674|mkl|ngaohoang|-|-|-|halfcue_dup|tiến thêm một bước nữa.|ASR lặp «重塑龙躯，根治道伤» — bỏ phần lặp
+675|mkl|ngaohoang|-|-|-|halfcue_dup|∅|lặp ý 668–669 (ASR); gom/bỏ
+676|ngaohoang|mkl|-|-|-|||
+677|mkl|ngaohoang|-|-|-|||
+678|mkl|ngaohoang|-|-|-|idiom|quân tử nhất ngôn,|君无戏言 (ở đây đùa: lời đã nói không rút) — giữ «quân vô hí ngôn» cũng chấp nhận
+679|mkl|ngaohoang|-|-|-|||
+680|mkl|ngaohoang|-|-|-|||
+681|mkl|ngaohoang|-|ngươi|-|pronoun|điểm này ngươi không cần lo.|
+682|ngaohoang|mkl|-|-|-|||
+683|ngaohoang|mkl|lão phu|-|-|||
+684|ngaohoang|mkl|-|ngươi|-|pronoun|dù có cố ra tay cũng không phải đối thủ của ngươi.|
+685|?|ngaohoang|-|tiền bối|-||Tiền bối.|đệ tử Thánh Điện (có thể Diệp Thiên Huyền) — không chắc
+686|?|ngaohoang|vãn bối|-|-|||
+687|?|ngaohoang|-|tiền bối|-|||
+688|?|ngaohoang|vãn bối|tiền bối|-|||
+689|?|ngaohoang|-|-|-|||
+690|?|ngaohoang|-|-|-|||
+691|?|ngaohoang|-|-|-|meaning|hơn hẳn canh giữ tòa tiên điện tàn tạ này!|
+692|?|ngaohoang|-|tiền bối|-|||
+693|?|ngaohoang|-|tiền bối|-|||
+694|ngaohoang|group|-|-|-|||
+695|ngaohoang|?|-|-|-|meaning|làm phiền tiểu hữu dẫn đường.|ASR 有老小有 ≈ 有劳小友
+696|ngaohoang|group|lão phu|-|-|style|thì bộ xương già này của lão phu theo chư vị đi một chuyến.|
+697|?|-|-|-|-|||
+698|?|ngaohoang|-|tiền bối|-||Tiền bối anh minh.|
+699|?|lnt|-|ngươi/huynh|-|pronoun|Còn ngươi thì sao?|người hỏi không rõ; chấp nhận ngươi/huynh

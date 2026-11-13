@@ -1,0 +1,61 @@
+{
+ "job": "2493d3c7cb29_p01",
+ "status": "silver",
+ "characters": [
+  {
+   "id": "td",
+   "zh": "雪帝",
+   "vi": "Tuyết Đế",
+   "gender": "nam",
+   "role": "Nam chính (易, «Nhất ca»), chủ Phàm Điện (凡殿), tự xưng 本帝",
+   "relations": {
+    "nlk": "đối thủ, đàm phán rồi tuyên chiến",
+    "thuocha": "chủ"
+   }
+  },
+  {
+   "id": "nlk",
+   "zh": "月轮客",
+   "vi": "Nguyệt Luân Khách",
+   "gender": "nam",
+   "role": "Chủ Nguyệt Luân Ma Cung / Nguyệt Luân đế quốc (giới tính giả định nam — không có 他/她 nhắc tới)",
+   "relations": {
+    "td": "đối thủ"
+   }
+  },
+  {
+   "id": "cc",
+   "zh": "公主",
+   "vi": "công chúa (Nguyệt Luân)",
+   "gender": "nữ",
+   "role": "Chỉ được bẩm báo, không nói trong mẫu",
+   "relations": {}
+  },
+  {
+   "id": "truyenlenh",
+   "zh": "",
+   "vi": "lính truyền lệnh",
+   "gender": "?",
+   "role": "Báo tin Tuyết Đế cầu kiến",
+   "relations": {}
+  },
+  {
+   "id": "thuocha",
+   "zh": "属下",
+   "vi": "thuộc hạ Phàm Điện",
+   "gender": "?",
+   "role": "Hỏi kết quả đàm phán",
+   "relations": {
+    "td": "gọi 殿主大人"
+   }
+  },
+  {
+   "id": "team",
+   "zh": "",
+   "vi": "đồng đội (Chu Tiểu Béo…)",
+   "gender": "?",
+   "role": "Nhóm người nghe ở s1",
+   "relations": {}
+  }
+ ]
+}

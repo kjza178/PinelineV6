@@ -1,0 +1,290 @@
+{
+ "job": "d1e00b9e7393",
+ "status": "silver",
+ "pairs": [
+  {
+   "spk": "canhsat",
+   "to": "tranhuyen",
+   "self": [
+    "tôi",
+    "chúng tôi"
+   ],
+   "call": [
+    "anh",
+    "Trần tiên sinh"
+   ],
+   "evidence": [
+    {
+     "i": 2499,
+     "zh": "环境陈先生进入以后，"
+    },
+    {
+     "i": 2619,
+     "zh": "您是从什么地方进来的？"
+    },
+    {
+     "i": 2629,
+     "zh": "您出手制服他，"
+    }
+   ],
+   "confidence": "high",
+   "note": "陈先生 / 您 → anh (lịch sự)",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "tranhuyen",
+   "to": "canhsat",
+   "self": [
+    "tôi"
+   ],
+   "call": [
+    "các anh"
+   ],
+   "evidence": [
+    {
+     "i": 2505,
+     "zh": "你们载我过去就行。"
+    },
+    {
+     "i": 2507,
+     "zh": "等我救下秦小姐以后，"
+    }
+   ],
+   "confidence": "high",
+   "note": "你们 → các anh (không «các người»)",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "chunguyet",
+   "to": "tanvuphi",
+   "self": [
+    "tôi",
+    "tao"
+   ],
+   "call": [
+    "cô",
+    "mày"
+   ],
+   "evidence": [
+    {
+     "i": 2515,
+     "zh": "拿到钱我就放你走。"
+    },
+    {
+     "i": 2524,
+     "zh": "你比以前聪明了一些。"
+    },
+    {
+     "i": 2540,
+     "zh": "我可警告你，"
+    }
+   ],
+   "confidence": "high",
+   "note": "Người nghe là NỮ — mọi «anh» là sai giới",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "tanvuphi",
+   "to": "chunguyet",
+   "self": [
+    "tôi"
+   ],
+   "call": [
+    "anh",
+    "mày"
+   ],
+   "evidence": [
+    {
+     "i": 2517,
+     "zh": "我爸不会给你钱的。"
+    },
+    {
+     "i": 2520,
+     "zh": "可你拿到钱以后也不会放我回去，"
+    },
+    {
+     "i": 2525,
+     "zh": "这些年在我面前装的那么老实，"
+    }
+   ],
+   "confidence": "medium",
+   "note": "Chu Nguyệt là tài xế cũ của cô",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "chunguyet",
+   "to": "tranhuyen",
+   "self": [
+    "tao",
+    "tôi"
+   ],
+   "call": [
+    "mày",
+    "anh"
+   ],
+   "evidence": [
+    {
+     "i": 2552,
+     "zh": "是你。"
+    },
+    {
+     "i": 2567,
+     "zh": "陈玄，你给我等着，"
+    },
+    {
+     "i": 2568,
+     "zh": "我做鬼都不会放过你的。"
+    }
+   ],
+   "confidence": "medium",
+   "note": "Thù địch",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "tranhuyen",
+   "to": "chunguyet",
+   "self": [
+    "tôi",
+    "tao"
+   ],
+   "call": [
+    "anh",
+    "mày"
+   ],
+   "evidence": [
+    {
+     "i": 2556,
+     "zh": "我以为你都不在乎鬼不鬼的了。"
+    },
+    {
+     "i": 2566,
+     "zh": "那就再废你一条。"
+    },
+    {
+     "i": 2570,
+     "zh": "我现在把你第三条腿也废掉。"
+    }
+   ],
+   "confidence": "medium",
+   "note": "Lạnh lùng; cả hai bộ đều chấp nhận",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "tanvuphi",
+   "to": "tranhuyen",
+   "self": [
+    "tôi",
+    "em"
+   ],
+   "call": [
+    "anh"
+   ],
+   "evidence": [
+    {
+     "i": 2572,
+     "zh": "你怎么才来呀？"
+    },
+    {
+     "i": 2574,
+     "zh": "我以为我真的要死了。"
+    },
+    {
+     "i": 2588,
+     "zh": "我真的好害怕。"
+    }
+   ],
+   "confidence": "medium",
+   "range": [
+    2571,
+    2589
+   ],
+   "note": "Plan: tôi–anh; trong cảnh được cứu chấp nhận «em» (đổi quan hệ – chờ chủ dự án chốt)",
+   "source": "silver"
+  },
+  {
+   "spk": "tranhuyen",
+   "to": "tanvuphi",
+   "self": [
+    "tôi"
+   ],
+   "call": [
+    "cô",
+    "em"
+   ],
+   "evidence": [
+    {
+     "i": 2586,
+     "zh": "没有人能再伤害你，"
+    },
+    {
+     "i": 2610,
+     "zh": "别怕，是你父亲来了。"
+    }
+   ],
+   "confidence": "medium",
+   "note": "Plan: tôi–cô",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "tanchinh",
+   "to": "tranhuyen",
+   "self": [
+    "tôi"
+   ],
+   "call": [
+    "anh",
+    "Trần đại sư"
+   ],
+   "evidence": [
+    {
+     "i": 2613,
+     "zh": "陈大师，"
+    },
+    {
+     "i": 2614,
+     "zh": "这次全亏有你这个情，"
+    },
+    {
+     "i": 2615,
+     "zh": "我秦正海记下了。"
+    }
+   ],
+   "confidence": "high",
+   "note": "Plan: tôi–anh",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "tranhuyen",
+   "to": "tanchinh",
+   "self": [
+    "tôi"
+   ],
+   "call": [
+    "anh",
+    "các anh"
+   ],
+   "evidence": [
+    {
+     "i": 2599,
+     "zh": "人就在我身边，"
+    },
+    {
+     "i": 2602,
+     "zh": "让你们的人进来时小心一些，"
+    }
+   ],
+   "confidence": "high",
+   "note": "Plan: tôi–anh",
+   "range": null,
+   "source": "silver"
+  }
+ ]
+}

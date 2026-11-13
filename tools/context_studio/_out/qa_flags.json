@@ -1,0 +1,42 @@
+{
+  "flags": [
+    {
+      "line": 3,
+      "category": "number",
+      "original": "我一共三万一千一血。",
+      "detected": [
+        "一",
+        "三万一千一"
+      ],
+      "problem": "Cụm số nhỏ (万) nằm gần ngữ cảnh có 亿/兆 — có thể ASR lệch; KHÔNG tự sửa transcript.",
+      "suspicious": true,
+      "correction": null
+    },
+    {
+      "line": 4,
+      "category": "number",
+      "original": "刚才那一击八百亿伤害。",
+      "detected": [
+        "一",
+        "八百亿"
+      ],
+      "problem": "Có đơn vị 万/亿/兆 — giữ nguyên bậc số khi dịch.",
+      "suspicious": false,
+      "correction": null
+    },
+    {
+      "line": 5,
+      "category": "number",
+      "original": "回血速度三千一百亿每秒。",
+      "detected": [
+        "三千一百亿"
+      ],
+      "problem": "Có đơn vị 万/亿/兆 — giữ nguyên bậc số khi dịch.",
+      "suspicious": false,
+      "correction": null
+    }
+  ],
+  "n_suspicious": 1,
+  "n_total": 3,
+  "policy": "AI may FLAG conflicts but MUST NOT rewrite Chinese transcript without evidence."
+}

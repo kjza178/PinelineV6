@@ -1,0 +1,148 @@
+# HELD-OUT — KHÔNG dùng để seed lexicon/prompt/quy tắc. Định dạng: i|spk|to|self|call|ref3|tags|vi_gold|note
+# vi_gold rỗng = giữ vi_system ; ∅ = câu nên gộp/bỏ
+@scene s1 0 46 Thẩm tra gian tế Ma Nhân ở thành Hy Vọng số 1 (Lục Phóng + lão Chu là hai «trưởng quan»)
+0|?|-|-|-|-|||
+1|?|-|-|-|-|||
+2|?|group|-|-|-|||người nói không rõ
+3|?|-|-|-|-|||
+4|lc|lp|-|-|-|meaning|Lão Lục, còn ba tên chạy mất rồi.|老陆 là hô ngữ (gọi Lục Phóng), không phải chủ ngữ
+5|lp|lc|-|-|-|||
+6|laitai|-|-|-|-|||mèo Lai Tài
+7|nghipham|lp|-|-|-|||
+8|nghipham|lp|-|các anh/các ngài/các người/trưởng quan|-|pronoun|Các anh làm vậy là có ý gì?|người bị tạm giữ → hai trưởng quan: «các cậu» lệch vai
+9|nghipham|lp|-|-|-|pronoun|Chúng tôi có làm gì đâu.|«chúng ta» gồm cả người nghe → sai, phải «chúng tôi» (bộ trích bỏ qua ngôi gộp nên không chấm tự động)
+10|nghipham|lp|-|các anh/các ngài/các người/trưởng quan|-|pronoun|vậy mà bị các anh bắt tới đây,|
+11|nghipham|lp|-|các anh/các ngài/các người/trưởng quan|-|pronoun|Các anh phải cho chúng tôi một lời giải thích.|
+12|?|lp|-|-|-|||
+13|lp|group|-|-|-|pronoun|Chúng tôi nhận được tin báo,|trưởng quan nói với người bị giữ: «chúng tôi», không phải «chúng ta»
+14|lp|group|-|-|-|||
+15|lp|group|-|mọi người|-|pronoun|Mong mọi người phối hợp với công việc của chúng tôi.|
+16|?|-|-|-|-|||
+17|?|-|-|-|-|||
+18|nghipham2|lp|-|trưởng quan|-|||
+19|nghipham2|lp|tôi|-|-|||
+20|nghipham2|lp|tôi|-|-|||
+21|lp|group|-|mọi người|-|||
+22|lp|group|-|-|-|pronoun|Phối hợp với công việc của chúng tôi.|
+23|lp|group|-|-|-|||
+24|lp|group|tôi|-|-|meaning|thì tôi sẽ coi người đó là gian tế. Lão Chu,|老周 là hô ngữ mở đầu câu sau
+25|lp|lc|-|cậu/mày/ông|-|||
+26|lc|lp|-|-|-|||chỉ từng người
+27|lc|lp|-|-|-|||
+28|lc|lp|-|-|-|||
+29|lc|lp|-|-|-|||
+30|lc|lp|-|-|-|||
+31|lc|lp|-|-|-|||
+32|lc|lp|-|-|-|||
+33|lp|group|-|-|-|||
+34|?|-|-|-|-|||
+35|nghipham|lc|-|trưởng quan|-|||
+36|nghipham|lc|-|-|-|||
+37|nghipham|lc|-|anh/ngài/các người/ông/mày|-|pronoun|Sao anh có thể nói bừa như vậy,|
+38|nghipham|lc|tôi|-|-|||
+39|nghipham|lc|-|-|-|idiom|Muốn đổ tội thì thiếu gì cớ!|欲加之罪何患无辞
+40|?|-|-|-|-|||
+41|nghipham|lp|-|anh/các anh/ngài/các người/ông/mày|-|pronoun|Các người đã muốn đuổi tận giết tuyệt chúng tôi,|lộ mặt Ma Nhân, thù địch: «các người»
+42|nghipham|lp|-|anh/các anh/ngài/các người/ông/mày|-|pronoun|thì chúng tôi giết các người trước.|
+43|lp|self|-|-|-|||
+44|lp|self|-|-|-|||
+45|?|-|-|-|-|||
+46|lp|laitai|-|-|-|||
+@scene s2 47 102 Lục Phóng ↔ lão Chu (Chu Thành Vũ): xong nhiệm vụ, thử tiên tri cát hung để chọn nhiệm vụ
+47|lc|lp|tôi/tao/mình|cậu/mày/ông|-|||
+48|lp|lc|-|-|-|||
+49|lc|lp|-|-|-|||
+50|lc|lp|-|-|-|||
+51|lc|lp|-|-|-|||
+52|lc|lp|-|-|-|meaning|Sao đến thú cưng cũng biến thái thế chứ.|恐怖 ≈ ASR của 宠物 (thú cưng)
+53|lp|lc|-|-|-|||
+54|lp|lc|-|-|-|style|Lão Chu, lần này làm tốt lắm.|
+55|lp|lc|-|-|-|style|Nhiệm vụ này lỗ quá.|
+56|lp|lc|-|-|-|||
+57|lp|lc|-|-|-|||
+58|lp|lc|-|-|-|style|Haiz.|
+59|lp|lc|-|-|-|meaning|Chỉ riêng lọc người khả nghi đã mất mấy tiếng đồng hồ.|
+60|lp|lc|tôi/tao/mình|-|-|meaning|Tôi là Cửu Nguyệt Thiên Long, phải làm xong một nhiệm vụ mới nhận được nhiệm vụ tiếp theo.|接任务 = nhận nhiệm vụ («đón tiếp» sai); 九月天龙 có thể là ASR — giữ âm
+61|lp|lc|-|-|-|meaning|Muốn nhận cùng lúc hai nhiệm vụ,|
+62|lp|lc|-|-|-|meaning|ít nhất phải lên Thất Nguyệt Thiên.|
+63|lp|lc|-|-|-|||
+64|lp|lc|tôi/tao/mình|cậu/mày/ông|-|meaning|Trước khi tới, tôi còn tưởng cậu có thể tiên đoán thẳng vị trí của tất cả gian tế.|间隙 = ASR của 奸细
+65|lp|lc|-|-|-|||
+66|lc|lp|-|-|-|||
+67|lc|lp|tôi/tao/mình|-|-|||
+68|lc|lp|-|-|-|||
+69|lc|lp|-|-|-|||
+70|lc|lp|-|-|-|meaning|Nếu có yếu tố gây nhiễu,|
+71|lc|lp|-|-|-|||
+72|lp|lc|-|-|-|||
+73|lp|lc|-|cậu/mày/ông|-|idiom|Vậy tiên tri của cậu có đoán được nhiệm vụ nào đáng làm không?|性价比 ≠ «tỷ giá»
+74|lc|lp|tôi/tao/mình|-|-|idiom|Tôi không đoán được lời lỗ.|
+75|lc|lp|tôi/tao/mình|-|-|||
+76|lc|lp|-|-|-|style|Thường thì càng cát,|
+77|lc|lp|tôi/tao/mình|-|-|style|thu hoạch của tôi càng nhiều,|
+78|lc|lp|-|-|-|||
+79|lc|lp|-|-|-|||
+80|lp|lc|-|-|-|||
+81|lp|lc|-|-|-|style|Có lẽ cát hung có liên quan tới lời lỗ.|
+82|lc|lp|-|-|-|||
+83|lp|lc|-|-|-|||
+84|lc|lp|-|-|-|style|Được.|
+85|lc|lp|-|-|-|meaning|Là cát.|吉 = quẻ cát; «sư huynh» có thể là ASR thừa — confidence thấp
+86|lc|lp|-|-|-|||
+87|?|-|-|-|-|||bảng nhiệm vụ
+88|?|-|-|-|-|||
+89|?|-|-|-|-|||
+90|?|-|-|-|-|||
+91|lc|lp|-|cậu/mày/ông|-|||
+92|lp|lc|-|-|-|||
+93|lc|lp|-|-|-|||
+94|lc|lp|-|-|-|||
+95|lp|lc|-|-|-|||
+96|lp|lc|-|-|-|style|Điểm bỏ ra bây giờ,|
+97|lp|lc|-|-|-|style|sau này sẽ quay về nhanh hơn.|
+98|lc|lp|-|-|-|meaning|Tiểu hung.|小兄 = ASR của 小凶
+99|?|-|-|-|-|||
+100|?|-|-|-|-|||
+101|lc|lp|-|-|-|||
+102|lc|lp|-|-|-|||
+@scene s3 103 116 Các đội khác bàn tán tiểu đội 189 «cướp đơn»
+103|?|-|-|-|-|meaning,term|Tiểu đội 189 này bật hack rồi à.|幺八九 = 189
+104|?|-|-|-|-|||
+105|?|-|-|-|-|||
+106|?|-|-|-|-|||
+107|?|-|-|-|-|||
+108|?|-|-|-|m|||
+109|?|-|-|-|-|||
+110|?|-|-|-|-|||
+111|?|-|-|-|m|||
+112|?|-|-|-|-|||
+113|?|-|-|-|m|||
+114|?|-|-|-|-|||
+115|?|-|-|-|-|||
+116|laitai|-|-|-|-|||
+@scene s4 117 141 Lục Phóng chốt cách chọn nhiệm vụ theo cát hung; các đội khác theo dõi
+117|lp|lc|-|-|-|||
+118|lp|lc|-|-|-|||
+119|lp|lc|-|-|-|||
+120|lp|lc|-|cậu/mày/ông|-|||
+121|lp|lc|-|-|-|meaning|Kết quả càng hung,|
+122|lp|lc|-|-|-|||
+123|lp|lc|-|-|-|||
+124|lp|lc|-|-|-|meaning,term|Hơn nữa chỉ cần từ Trung Hung trở lên,|中胸 = ASR của 中凶
+125|lp|lc|-|-|-|||
+126|lp|lc|-|-|-|||
+127|lp|lc|-|-|-|meaning,term|chúng ta chỉ nhận nhiệm vụ từ Trung Hung trở lên.|
+128|lc|lp|tôi/tao/mình|cậu/mày/ông|-|style|Cứ thấy thuật tiên tri của tôi từ khi gặp cậu|
+129|lc|lp|-|-|-|||
+130|lp|lc|-|-|-|||
+131|lc|lp|-|-|-|meaning,term|Trung Hung?|中修 = ASR của 中凶
+132|lp|lc|-|-|-|||
+133|lc|lp|-|-|-|term|Đúng là nhiệm vụ Trung Hung.|
+134|lc|lp|-|-|-|idiom|Hời quá đi chứ.|性价比太高
+135|lc|lp|-|-|-|||
+136|lc|lp|-|-|-|||
+137|lp|lc|-|-|-|style|Bắt đầu cày.|开刷 (lóng game)
+138|?|-|-|-|-|meaning|Tiểu đội 189 cũng thuộc Sư đoàn 89 đấy.|ASR lỗi nặng — đoán nghĩa, confidence thấp
+139|?|-|-|-|-|meaning|Đứng thứ ba từ dưới lên rồi.|倒数第三
+140|?|-|-|-|-|||
+141|?|-|-|-|-|||

@@ -1,0 +1,49 @@
+{
+ "title": "仙界归来家人竟护了我十年肉身",
+ "title_vi": "Tiên Giới Trở Về (mùa 1)",
+ "genre": "mixed",
+ "genre_note": "Đô thị + tu tiên (plan: mixed). Cảnh mẫu: bắt cóc – giải cứu – cảnh sát (đô thị hình sự) do nam chính tu tiên xử lý. Job này KHÔNG có cờ mt (LLM dịch, không NMT primary) — đối chứng hữu ích.",
+ "range": [
+  2496,
+  2639
+ ],
+ "job": "d1e00b9e7393",
+ "status": "silver",
+ "reviewer": "agent (Claude) — chờ chủ dự án xác nhận",
+ "built": "2026-11-11",
+ "n_lines": 144,
+ "scenes": [
+  {
+   "id": "s1",
+   "from": 2496,
+   "to": 2513,
+   "desc": "Cảnh sát dặn Trần Huyền trước khi vào kho lạnh cứu con tin"
+  },
+  {
+   "id": "s2",
+   "from": 2514,
+   "to": 2550,
+   "desc": "Chu Nguyệt (tài xế, kẻ bắt cóc, nam) và Tần Vũ Phi (con tin, nữ)"
+  },
+  {
+   "id": "s3",
+   "from": 2551,
+   "to": 2570,
+   "desc": "Trần Huyền đột nhập, khống chế Chu Nguyệt"
+  },
+  {
+   "id": "s4",
+   "from": 2571,
+   "to": 2615,
+   "desc": "Giải cứu Tần Vũ Phi; gọi người nhà họ Tần vào"
+  },
+  {
+   "id": "s5",
+   "from": 2616,
+   "to": 2639,
+   "desc": "Cảnh sát làm việc với Trần Huyền"
+  }
+ ],
+ "script_lines_total": 2878,
+ "script_has_mt": false
+}

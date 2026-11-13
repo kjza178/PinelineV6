@@ -1,0 +1,149 @@
+# i|spk|to|self|call|ref3|tags|vi_gold|note
+# vi_gold = ∅ nghĩa là câu nên gộp/bỏ (câu cắt đôi lặp ý)
+@scene s1 438 474 Bát Kỳ Đại Xà xuất hiện ngoài đời thực; đồng đội báo Trần Phong
+438|dongdoi|tranphong|-|lão đại/anh|-|meaning,pronoun|Anh mau thoát game ra xem đi.|下线 = thoát game; «xuống online» sai nghĩa; đồng đội gọi lão đại/anh
+439|tranphong|dongdoi|-|-|-|meaning|Được.|好 = đồng ý, «Tốt.» lệch
+440|tranphong|dongdoi|-|-|-||Xảy ra chuyện gì vậy?|
+441|dongdoi|tranphong|-|lão đại|-|||
+442|tranphong|self|-|-|-|||我操 — tiếng chửi cảm thán; «Mẹ kiếp» chấp nhận
+443|tranphong|dongdoi|-|-|-|||
+444|tranphong|dongdoi|tôi/anh|-|-|meaning|nó xuất hiện ở Bạch Tượng thì tôi không lạ.|cấu trúc câu đảo nghĩa
+445|tranphong|dongdoi|-|-|-||Nhưng đây là Hoa Hạ.|
+446|tranphong|dongdoi|-|-|-|||
+447|tranphong|dongdoi|-|-|-|||
+448|dongdoi|tranphong|-|-|-|||
+449|dongdoi|tranphong|-|-|n|gender_ref3|Rồi nó chui ra từ trong hố đen,|他 = quái vật → «nó»; «hắn» chấp nhận nhẹ
+450|dongdoi|tranphong|-|-|-|||
+451|tranphong|dongdoi|-|-|-|term|Hố đen hư không.|
+452|tranphong|dongdoi|tôi/anh|-|-|||
+453|tranphong|dongdoi|tôi/anh|-|-|meaning|Hồi trước tôi chính là bị Minh Vương mở Hư Không Động|
+454|tranphong|dongdoi|-|-|-|||
+455|?|tranphong|-|-|-|||người giải thích không rõ (Trần Phong hoặc Tử Du)
+456|?|tranphong|-|-|m|meaning|chỉ có thể là bên này có vật luyện từ tinh huyết bản mệnh của nó,|
+457|?|tranphong|-|-|m|||
+458|?|tranphong|-|-|-|||
+459|?|tranphong|-|-|-|||
+460|?|tranphong|-|-|-|||
+461|?|-|-|-|-|||
+462|tranphong|self|-|-|-|idiom|Vãi thật.|我去 — cảm thán, không phải «Tôi đi»
+463|tranphong|dongdoi|tôi/anh|-|-|||
+464|tranphong|dongdoi|-|-|-|||
+465|dongdoi|tranphong|-|lão đại|-|||
+466|dongdoi2|tranphong|-|anh/lão đại|-|pronoun|Ý anh là thứ này có người cố tình tạo ra?|đồng đội → lão đại: «cậu» sai vai
+467|dongdoi2|tranphong|-|-|-|idiom,meaning|Chắc chắn là bọn Nhật.|脚盆(鸡) = lóng chỉ Nhật Bản; «trong chậu chân» sai hoàn toàn
+468|dongdoi2|tranphong|-|-|-|||
+469|tranphong|dongdoi|tôi/anh|-|-|style|Tôi cũng thấy vậy.|
+470|tranphong|dongdoi|-|-|-|||
+471|tranphong|dongdoi|-|-|-|||
+472|tranphong|dongdoi|-|-|-|meaning|chúng cũng chẳng cần tồn tại nữa.|
+473|dongdoi|tranphong|-|-|-|||
+474|dongdoi|tranphong|-|-|-||Bá khí.|
+@scene s2 475 495 Trần Phong hỏi Tử Du (nữ, Ma tộc) cách triệu hồi Đằng Xà
+475|tranphong|tudu|-|Tử Du|-||Tử Du.|
+476|tranphong|tudu|-|-|-|||
+477|tudu|tranphong|-|-|-|term|Thần cấp.|ASR 沈锦 ≈ 神境/神级 — «Thẩm Cẩm» là tên bịa
+478|tudu|tranphong|-|-|-|name|Hơn nữa thực lực còn trên lão Đằng.|
+479|tranphong|self|-|-|-|||
+480|tranphong|self|-|-|-|||
+481|tranphong|self|-|-|-|name|Lôi lão Đằng ra trước đã.|老头 (≈老藤) chỉ Đằng Xà
+482|tranphong|tudu|-|Tử Du|-||Tử Du.|
+483|tranphong|tudu|-|-|-|name|Có cách nào hay để triệu hồi lão Đằng không?|ASR 老陶 = 老藤; «lão Đào» sai tên
+484|tranphong|tudu|-|-|m|||
+485|tranphong|tudu|tôi|-|-|||
+486|tudu|tranphong|-|cậu|-||Cậu cứ trực tiếp triệu hồi là được.|plan: Tử Du → Trần Phong ta/cậu
+487|tudu|tranphong|-|-|-|||
+488|tudu|tranphong|-|-|-|||
+489|tudu|tranphong|-|-|-|||
+490|tudu|tranphong|-|-|-|||
+491|tranphong|tudu|tôi|-|-|meaning|Nhưng ngoài đời thực tôi thả nó ra kiểu gì?|放生/放出 — «phóng khoáng» sai nghĩa
+492|tudu|tranphong|-|-|-||Không cần.|
+493|tudu|tranphong|-|-|-|||
+494|tudu|tranphong|-|cậu|m|||
+495|tranphong|tudu|-|-|-|||
+@scene s3 496 529 Đằng Xà được triệu hồi, phá nhà; được giao đi đánh Bát Kỳ Đại Xà
+496|dongdoi|tranphong|-|lão đại|-||Lão đại.|
+497|dongdoi|tranphong|-|-|-|||
+498|dongdoi|tranphong|-|-|-|||
+499|dangxa|tranphong|-|-|-||Ha ha,|
+500|dangxa|tranphong|-|-|-|||
+501|tranphong|dangxa|-|-|-|idiom|Cười cái con khỉ.|笑个屁 — lóng
+502|tranphong|dangxa|anh/tôi|-|-|pronoun|Đền nhà cho tôi.|«nhà ta» sai giọng (Trần Phong hiện đại)
+503|dangxa|tranphong|-|-|-|style|Đây đâu phải lỗi của lão tử?|
+504|dangxa|tranphong|lão tử|tiểu tử/nhóc/Trần tiểu tử/mày|-|pronoun|Nhóc không biết tìm chỗ nào trống trải mà triệu hồi lão tử à?|plan: Đằng Xà → Trần Phong lão tử/Trần tiểu tử
+505|tranphong|dangxa|-|-|-|||
+506|tranphong|dangxa|-|lão Đằng/ông|-|pronoun|Có một nhiệm vụ giao cho ông.|plan: anh/lão Đằng; «ông» tự nhiên trong đấu khẩu
+507|tranphong|dangxa|-|-|-|||
+508|dangxa|tranphong|-|-|-||Nhiệm vụ gì?|
+509|tranphong|dangxa|-|-|-|||
+510|dangxa|self|-|-|-|idiom|Vãi!|我去
+511|dangxa|self|-|-|-|name|Bát Kỳ!|ASR 八七 = 八岐(大蛇)
+512|tranphong|dangxa|-|ông/lão Đằng|-|pronoun|Ông quen nó à?|
+513|tranphong|dangxa|-|-|-|||
+514|dangxa|tranphong|-|Trần tiểu tử/tiểu tử/nhóc|-|||
+515|dangxa|tranphong|lão tử|-|-|pronoun|không phải lão tử không giúp đâu,|
+516|dangxa|tranphong|lão tử|-|m|pronoun|mà là lão tử đánh không lại nó thật.|
+517|dangxa|tranphong|lão tử|-|m|pronoun|Tên này hồi lão tử gặp đã là Thần cấp rồi.|
+518|tranphong|dangxa|-|ông/lão Đằng|-|pronoun|Ông nhát cái con khỉ.|怂个屁 — lóng
+519|tranphong|dangxa|-|ông/lão Đằng|m|pronoun,gender_ref3|Lần trước ông gặp nó,|她 (ASR) = Bát Kỳ (đực) — «nàng» sai
+520|tranphong|dangxa|-|ông/lão Đằng|-|pronoun,term|ông mới chỉ là Thánh cấp thôi.|ASR 圣洁 = 圣级; «thánh khiết» sai
+521|tranphong|dangxa|-|ông/lão Đằng|-|pronoun|Giờ ông cũng là Thần cấp rồi.|
+522|tranphong|dangxa|-|-|-|||怕个毛线 — lóng
+523|tranphong|dangxa|-|-|-|||
+524|tranphong|dangxa|tôi/anh|-|-|||
+525|dangxa|tranphong|lão tử/anh mày|-|-|pronoun|Cũng phải, lão tử đây cũng là Thần cấp rồi, sợ cái quái gì.|哥 tự xưng — «ca» Hán hóa
+526|dangxa|tranphong|-|nhóc/tiểu tử|-|pronoun|Nhưng nhóc thì thôi đi,|
+527|dangxa|tranphong|-|nhóc/tiểu tử|-|pronoun|trận kiểu đó nhóc đừng đi chịu chết.|
+528|tranphong|dangxa|-|-|-|||
+529|tranphong|dangxa|-|ông/lão Đằng|-|pronoun|Thôi được, vậy ông đi đi, cố lên.|
+@scene s4 530 540 Đồng đội lo lắng; Trần Phong quyết định đi
+530|dongdoi|tranphong|-|lão đại|-||Lão đại.|
+531|dongdoi|tranphong|-|-|-|||
+532|tranphong|dongdoi|-|-|-|||
+533|dongdoi|tranphong|-|lão đại/anh|m|pronoun|Vậy mà lão đại còn bảo ông ấy đi.|
+534|tranphong|dongdoi|-|-|-|||
+535|tranphong|dongdoi|-|cậu/em|-||Chẳng lẽ cậu đi?|plan: Trần Phong → đồng đội anh|tôi/cậu
+536|tranphong|?|-|-|-||Thiếu Thần.|tên không có trong plan — giữ
+537|tranphong|?|-|-|-||Còn cách nào khác không?|
+538|?|tranphong|-|-|-|||
+539|tranphong|dongdoi|-|các cậu/mọi người|-|meaning|Các cậu ở nhà,|câu trần thuật, VI thành câu hỏi
+540|tranphong|dongdoi|tôi/anh|-|-|||
+@scene s5 541 579 Ngoài hiện trường: Đằng Xà đấu Bát Kỳ Đại Xà
+541|?|-|-|-|-|||người nói không rõ (phe Nhật?)
+542|?|-|-|-|-|||
+543|?|-|-|-|-|||
+544|?|-|-|-|-||Sy?|
+545|?|-|-|-|-|||
+546|?|-|-|-|-|meaning|Con sâu tám đầu này, ai tới cứu bọn tôi với.|«ai sẽ cứu người chứ» — đối tượng sai
+547|?|group|-|-|-||Khoan đã.|
+548|?|group|-|mọi người/các cậu|-|||
+549|?|group|-|-|-|meaning|Có phải là...|
+550|?|-|-|-|-||Lão Đằng!|
+551|?|-|-|-|-|||
+552|?|-|-|-|-|||
+553|?|-|-|-|-|||
+554|?|-|-|-|-|term|lão Đằng cố lên, xử đẹp con sâu tám đầu này đi!|干死 — «bóp chết» lệch
+555|batky|dangxa|-|ngươi|-|pronoun|Ngươi là con Đằng Xà năm đó.|plan: Bát Kỳ → Đằng Xà bản tôn/ngươi
+556|batky|dangxa|-|ngươi|-|pronoun|Sao ngươi lại xuất hiện ở đây?|
+557|dangxa|batky|-|-|-|||
+558|dangxa|batky|-|mày|-|pronoun|chính là ông nội Đằng của mày đây, hừ.|你藤爷爷 — tự xưng bề trên chửi; «của cậu» sai
+559|dangxa|batky|-|mày|-|pronoun|Mày còn tới được,|
+560|dangxa|batky|-|mày|-|pronoun|thì ông nội Đằng của mày đương nhiên cũng tới được, ha ha.|
+561|batky|dangxa|-|ngươi|-|pronoun|Tuy không biết ngươi thăng Thần cấp bằng cách nào,|
+562|batky|dangxa|-|ngươi|-|pronoun|nhưng ngươi tưởng lên Thần cấp rồi|
+563|batky|dangxa|bản tôn|-|-|||
+564|batky|dangxa|-|-|-|idiom,meaning|Đúng là trò cười.|简直笑话 (我去 thừa — ASR)
+565|dangxa|batky|lão tử|-|-|||
+566|dangxa|batky|-|-|-|idiom|Vênh váo cái quái gì.|拽个毛线 — «Kéo cái gì chứ» calque sai
+567|dangxa|batky|lão tử|mày|-|pronoun|Lão tử mà sống tới tuổi mày,|
+568|dangxa|batky|-|mày|-|pronoun|thì phút mốt là đánh mày tơi tả.|
+569|batky|dangxa|-|-|-|||
+570|batky|dangxa|-|ngươi|-|pronoun|Ngươi đã muốn chết,|
+571|batky|dangxa|bản tôn|ngươi|-|pronoun|vậy bản tôn thành toàn cho ngươi.|
+572|dangxa|batky|-|-|-||Ồ,|
+573|dangxa|batky|-|-|-|meaning|Ối dà, tám đánh một à?|
+574|batky|dangxa|-|-|-|||
+575|batky|dangxa|bản tôn|-|-|||
+576|batky|dangxa|-|-|-||Chịu chết đi.|
+577|dangxa|batky|-|-|-|idiom|Mẹ nó, cũng có tí bản lĩnh đấy.|大爷的 — chửi cảm thán, không phải «Lão gia»
+578|dangxa|batky|-|-|-|||
+579|dangxa|batky|-|mày|-|pronoun|Hôm nay ông nội Đằng của mày chơi tới cùng với mày.|

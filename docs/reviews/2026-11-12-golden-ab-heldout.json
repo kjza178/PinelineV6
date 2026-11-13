@@ -1,0 +1,673 @@
+{
+ "generated": "2026-11-12 08:36",
+ "golden": "data\\golden_heldout",
+ "v2": "Z:\\PinelineV2",
+ "mode": "run",
+ "hint_model": "chatgpt/gpt-6",
+ "variants": {
+  "base": {
+   "jobs": {
+    "2493d3c7cb29_p01": {
+     "metrics": {
+      "lines": 141,
+      "unaligned": 0,
+      "pron_acc": 0.1087,
+      "pron_correct": 5,
+      "pron_wrong": 41,
+      "pron_omitted": 0,
+      "consistency": 0,
+      "switch_sys": 19,
+      "switch_gold": 21,
+      "ref3_acc": 1.0,
+      "ref3_correct": 4,
+      "ref3_wrong": 0,
+      "ref3_omitted": 0,
+      "idiom_acc": 0.68,
+      "idiom_correct": 17,
+      "idiom_wrong": 8,
+      "halfcue_left": 0,
+      "halfcue_tagged": 0,
+      "halfcue_auto": 2,
+      "halfcue_auto_gold": 2,
+      "chrF": 72.34,
+      "edit_rate": 0.1697,
+      "changed": 0.5532,
+      "tagged_by_tag": {
+       "pronoun": 41,
+       "gender_ref3": 0,
+       "idiom": 6,
+       "meaning": 14,
+       "style": 13,
+       "halfcue_dup": 0,
+       "name": 5,
+       "term": 0
+      },
+      "residual_by_tag": {
+       "pronoun": 41,
+       "gender_ref3": 0,
+       "idiom": 6,
+       "meaning": 14,
+       "style": 10,
+       "halfcue_dup": 0,
+       "name": 5,
+       "term": 0
+      }
+     },
+     "run": {
+      "variant_env": {
+       "AGENT_BRAIN": "0",
+       "AUTO_SWITCH_PRESETS": "0",
+       "HALFCUE_MERGE": null,
+       "MT_ZH_VI_ROLE": "primary",
+       "PINELINE_FLAG_PRESET_SWITCH": "0",
+       "PRONOUN_REGEX_MIXED": null,
+       "PYTHONIOENCODING": "utf-8",
+       "PYTHONUTF8": "1",
+       "REVIEW_LOCAL_FALLBACK": "0",
+       "REVIEW_PRONOUN_MASK": "1",
+       "SIMPLE_LEXICON_EXCLUDE_GOLDEN": null,
+       "SIMPLE_PAIR_FILL": null,
+       "SIMPLE_PAIR_RULES": null,
+       "SIMPLE_ZH_SOURCE": null,
+       "TRANSLATE_FILL_MODEL": "auto",
+       "TRANSLATE_PIPELINE": null
+      },
+      "hint": false,
+      "t_translate": 7.7,
+      "ok": true,
+      "t_total": 545.1
+     },
+     "dir": "D:\\PinelineV6_work\\golden_ab\\2493d3c7cb29_p01_base"
+    },
+    "2d3316593ea9": {
+     "metrics": {
+      "lines": 142,
+      "unaligned": 0,
+      "pron_acc": 0.7692,
+      "pron_correct": 20,
+      "pron_wrong": 6,
+      "pron_omitted": 0,
+      "consistency": 0,
+      "switch_sys": 4,
+      "switch_gold": 5,
+      "ref3_acc": 1.0,
+      "ref3_correct": 3,
+      "ref3_wrong": 0,
+      "ref3_omitted": 0,
+      "idiom_acc": 0.9333,
+      "idiom_correct": 14,
+      "idiom_wrong": 1,
+      "halfcue_left": 0,
+      "halfcue_tagged": 0,
+      "halfcue_auto": 1,
+      "halfcue_auto_gold": 1,
+      "chrF": 76.87,
+      "edit_rate": 0.1374,
+      "changed": 0.4648,
+      "tagged_by_tag": {
+       "pronoun": 10,
+       "gender_ref3": 0,
+       "idiom": 4,
+       "meaning": 18,
+       "style": 11,
+       "halfcue_dup": 0,
+       "name": 0,
+       "term": 5
+      },
+      "residual_by_tag": {
+       "pronoun": 9,
+       "gender_ref3": 0,
+       "idiom": 1,
+       "meaning": 17,
+       "style": 10,
+       "halfcue_dup": 0,
+       "name": 0,
+       "term": 4
+      }
+     },
+     "run": {
+      "variant_env": {
+       "AGENT_BRAIN": "0",
+       "AUTO_SWITCH_PRESETS": "0",
+       "HALFCUE_MERGE": null,
+       "MT_ZH_VI_ROLE": "primary",
+       "PINELINE_FLAG_PRESET_SWITCH": "0",
+       "PRONOUN_REGEX_MIXED": null,
+       "PYTHONIOENCODING": "utf-8",
+       "PYTHONUTF8": "1",
+       "REVIEW_LOCAL_FALLBACK": "0",
+       "REVIEW_PRONOUN_MASK": "1",
+       "SIMPLE_LEXICON_EXCLUDE_GOLDEN": null,
+       "SIMPLE_PAIR_FILL": null,
+       "SIMPLE_PAIR_RULES": null,
+       "SIMPLE_ZH_SOURCE": null,
+       "TRANSLATE_FILL_MODEL": "auto",
+       "TRANSLATE_PIPELINE": null
+      },
+      "hint": false,
+      "t_translate": 17.8,
+      "ok": true,
+      "t_total": 666.9
+     },
+     "dir": "D:\\PinelineV6_work\\golden_ab\\2d3316593ea9_base"
+    }
+   },
+   "total": {
+    "lines": 283,
+    "unaligned": 0,
+    "pron_acc": 0.3472,
+    "pron_correct": 25,
+    "pron_wrong": 47,
+    "pron_omitted": 0,
+    "consistency": 0,
+    "switch_sys": 23,
+    "switch_gold": 26,
+    "ref3_acc": 1.0,
+    "ref3_correct": 7,
+    "ref3_wrong": 0,
+    "ref3_omitted": 0,
+    "idiom_acc": 0.775,
+    "idiom_correct": 31,
+    "idiom_wrong": 9,
+    "halfcue_left": 0,
+    "halfcue_tagged": 0,
+    "halfcue_auto": 3,
+    "halfcue_auto_gold": 3,
+    "chrF": 74.61,
+    "edit_rate": 0.1535,
+    "changed": 0.5088,
+    "tagged_by_tag": {
+     "pronoun": 51,
+     "gender_ref3": 0,
+     "idiom": 10,
+     "meaning": 32,
+     "style": 24,
+     "halfcue_dup": 0,
+     "name": 5,
+     "term": 5
+    },
+    "residual_by_tag": {
+     "pronoun": 50,
+     "gender_ref3": 0,
+     "idiom": 7,
+     "meaning": 31,
+     "style": 20,
+     "halfcue_dup": 0,
+     "name": 5,
+     "term": 4
+    }
+   },
+   "n_scored": 2
+  },
+  "nmt_hint_regex_mask_off": {
+   "jobs": {
+    "2493d3c7cb29_p01": {
+     "metrics": {
+      "lines": 141,
+      "unaligned": 0,
+      "pron_acc": 0.9767,
+      "pron_correct": 42,
+      "pron_wrong": 1,
+      "pron_omitted": 3,
+      "consistency": 0,
+      "switch_sys": 13,
+      "switch_gold": 21,
+      "ref3_acc": 1.0,
+      "ref3_correct": 3,
+      "ref3_wrong": 0,
+      "ref3_omitted": 1,
+      "idiom_acc": 0.76,
+      "idiom_correct": 19,
+      "idiom_wrong": 6,
+      "halfcue_left": 0,
+      "halfcue_tagged": 0,
+      "halfcue_auto": 1,
+      "halfcue_auto_gold": 2,
+      "chrF": 65.3,
+      "edit_rate": 0.2147,
+      "changed": 0.8085,
+      "tagged_by_tag": {
+       "pronoun": 41,
+       "gender_ref3": 0,
+       "idiom": 6,
+       "meaning": 14,
+       "style": 13,
+       "halfcue_dup": 0,
+       "name": 5,
+       "term": 0
+      },
+      "residual_by_tag": {
+       "pronoun": 2,
+       "gender_ref3": 0,
+       "idiom": 3,
+       "meaning": 11,
+       "style": 9,
+       "halfcue_dup": 0,
+       "name": 4,
+       "term": 0
+      }
+     },
+     "run": {
+      "variant_env": {
+       "AGENT_BRAIN": "0",
+       "AUTO_SWITCH_PRESETS": "0",
+       "HALFCUE_MERGE": null,
+       "MT_ZH_VI_ROLE": "hint",
+       "PINELINE_FLAG_PRESET_SWITCH": "0",
+       "PRONOUN_REGEX_MIXED": "0",
+       "PYTHONIOENCODING": "utf-8",
+       "PYTHONUTF8": "1",
+       "REVIEW_LOCAL_FALLBACK": "0",
+       "REVIEW_PRONOUN_MASK": "0",
+       "SIMPLE_LEXICON_EXCLUDE_GOLDEN": null,
+       "SIMPLE_PAIR_FILL": null,
+       "SIMPLE_PAIR_RULES": null,
+       "SIMPLE_ZH_SOURCE": null,
+       "TRANSLATE_FILL_MODEL": "auto",
+       "TRANSLATE_PIPELINE": null
+      },
+      "hint": true,
+      "t_translate": 475.1,
+      "ok": true,
+      "t_total": 878.5
+     },
+     "dir": "D:\\PinelineV6_work\\golden_ab\\2493d3c7cb29_p01_nmt_hint_regex_mask_off"
+    },
+    "2d3316593ea9": {
+     "metrics": {
+      "lines": 142,
+      "unaligned": 0,
+      "pron_acc": 1.0,
+      "pron_correct": 25,
+      "pron_wrong": 0,
+      "pron_omitted": 1,
+      "consistency": 0,
+      "switch_sys": 4,
+      "switch_gold": 5,
+      "ref3_acc": 1.0,
+      "ref3_correct": 2,
+      "ref3_wrong": 0,
+      "ref3_omitted": 1,
+      "idiom_acc": 0.7333,
+      "idiom_correct": 11,
+      "idiom_wrong": 4,
+      "halfcue_left": 0,
+      "halfcue_tagged": 0,
+      "halfcue_auto": 1,
+      "halfcue_auto_gold": 1,
+      "chrF": 64.37,
+      "edit_rate": 0.2311,
+      "changed": 0.7535,
+      "tagged_by_tag": {
+       "pronoun": 10,
+       "gender_ref3": 0,
+       "idiom": 4,
+       "meaning": 18,
+       "style": 11,
+       "halfcue_dup": 0,
+       "name": 0,
+       "term": 5
+      },
+      "residual_by_tag": {
+       "pronoun": 2,
+       "gender_ref3": 0,
+       "idiom": 2,
+       "meaning": 11,
+       "style": 9,
+       "halfcue_dup": 0,
+       "name": 0,
+       "term": 1
+      }
+     },
+     "run": {
+      "variant_env": {
+       "AGENT_BRAIN": "0",
+       "AUTO_SWITCH_PRESETS": "0",
+       "HALFCUE_MERGE": null,
+       "MT_ZH_VI_ROLE": "hint",
+       "PINELINE_FLAG_PRESET_SWITCH": "0",
+       "PRONOUN_REGEX_MIXED": "0",
+       "PYTHONIOENCODING": "utf-8",
+       "PYTHONUTF8": "1",
+       "REVIEW_LOCAL_FALLBACK": "0",
+       "REVIEW_PRONOUN_MASK": "0",
+       "SIMPLE_LEXICON_EXCLUDE_GOLDEN": null,
+       "SIMPLE_PAIR_FILL": null,
+       "SIMPLE_PAIR_RULES": null,
+       "SIMPLE_ZH_SOURCE": null,
+       "TRANSLATE_FILL_MODEL": "auto",
+       "TRANSLATE_PIPELINE": null
+      },
+      "hint": true,
+      "t_translate": 268.7,
+      "ok": true,
+      "t_total": 491.8
+     },
+     "dir": "D:\\PinelineV6_work\\golden_ab\\2d3316593ea9_nmt_hint_regex_mask_off"
+    }
+   },
+   "total": {
+    "lines": 283,
+    "unaligned": 0,
+    "pron_acc": 0.9853,
+    "pron_correct": 67,
+    "pron_wrong": 1,
+    "pron_omitted": 4,
+    "consistency": 0,
+    "switch_sys": 17,
+    "switch_gold": 26,
+    "ref3_acc": 1.0,
+    "ref3_correct": 5,
+    "ref3_wrong": 0,
+    "ref3_omitted": 2,
+    "idiom_acc": 0.75,
+    "idiom_correct": 30,
+    "idiom_wrong": 10,
+    "halfcue_left": 0,
+    "halfcue_tagged": 0,
+    "halfcue_auto": 2,
+    "halfcue_auto_gold": 3,
+    "chrF": 64.83,
+    "edit_rate": 0.2229,
+    "changed": 0.7809,
+    "tagged_by_tag": {
+     "pronoun": 51,
+     "gender_ref3": 0,
+     "idiom": 10,
+     "meaning": 32,
+     "style": 24,
+     "halfcue_dup": 0,
+     "name": 5,
+     "term": 5
+    },
+    "residual_by_tag": {
+     "pronoun": 4,
+     "gender_ref3": 0,
+     "idiom": 5,
+     "meaning": 22,
+     "style": 18,
+     "halfcue_dup": 0,
+     "name": 4,
+     "term": 1
+    }
+   },
+   "n_scored": 2
+  },
+  "simple": {
+   "jobs": {
+    "2493d3c7cb29_p01": {
+     "metrics": {
+      "lines": 141,
+      "unaligned": 0,
+      "pron_acc": 0.9737,
+      "pron_correct": 37,
+      "pron_wrong": 1,
+      "pron_omitted": 8,
+      "consistency": 0,
+      "switch_sys": 12,
+      "switch_gold": 21,
+      "ref3_acc": 1.0,
+      "ref3_correct": 3,
+      "ref3_wrong": 0,
+      "ref3_omitted": 1,
+      "idiom_acc": 0.8,
+      "idiom_correct": 20,
+      "idiom_wrong": 5,
+      "halfcue_left": 0,
+      "halfcue_tagged": 0,
+      "halfcue_auto": 4,
+      "halfcue_auto_gold": 2,
+      "chrF": 64.58,
+      "edit_rate": 0.2149,
+      "changed": 0.773,
+      "tagged_by_tag": {
+       "pronoun": 41,
+       "gender_ref3": 0,
+       "idiom": 6,
+       "meaning": 14,
+       "style": 13,
+       "halfcue_dup": 0,
+       "name": 5,
+       "term": 0
+      },
+      "residual_by_tag": {
+       "pronoun": 8,
+       "gender_ref3": 0,
+       "idiom": 2,
+       "meaning": 11,
+       "style": 7,
+       "halfcue_dup": 0,
+       "name": 4,
+       "term": 0
+      }
+     },
+     "run": {
+      "variant_env": {
+       "AGENT_BRAIN": "0",
+       "AUTO_SWITCH_PRESETS": "0",
+       "HALFCUE_MERGE": null,
+       "MT_ZH_VI_ROLE": "primary",
+       "PINELINE_FLAG_PRESET_SWITCH": "0",
+       "PRONOUN_REGEX_MIXED": null,
+       "PYTHONIOENCODING": "utf-8",
+       "PYTHONUTF8": "1",
+       "REVIEW_LOCAL_FALLBACK": "0",
+       "REVIEW_PRONOUN_MASK": "1",
+       "SIMPLE_LEXICON_EXCLUDE_GOLDEN": null,
+       "SIMPLE_PAIR_FILL": null,
+       "SIMPLE_PAIR_RULES": null,
+       "SIMPLE_ZH_SOURCE": null,
+       "TRANSLATE_FILL_MODEL": "auto",
+       "TRANSLATE_PIPELINE": "simple"
+      },
+      "hint": false,
+      "simple": {
+       "status": "done",
+       "gate": {
+        "status": "done",
+        "reasons": [],
+        "n_rows": 164,
+        "n_asr": 164,
+        "coverage_gap": 0,
+        "n_missing": 0,
+        "n_unreviewed": 0,
+        "n_flagged": 0,
+        "n_flag_soft": 0,
+        "flag_limit": 4,
+        "flags_by_kind": {},
+        "flagged_i": []
+       },
+       "review": {
+        "n_todo": 164,
+        "n_ok": 164,
+        "n_fail_lots": 0,
+        "n_left": 0,
+        "lots": 6,
+        "suggest": {
+         "n_model": 2,
+         "n_missing": 2
+        }
+       },
+       "repair": [
+        {
+         "round": 1,
+         "sent": 8,
+         "fixed": 8,
+         "left": 0
+        }
+       ],
+       "t_total": 250.2
+      },
+      "ok": true,
+      "t_total": 250.3
+     },
+     "dir": "D:\\PinelineV6_work\\golden_ab\\2493d3c7cb29_p01_simple"
+    },
+    "2d3316593ea9": {
+     "metrics": {
+      "lines": 142,
+      "unaligned": 0,
+      "pron_acc": 1.0,
+      "pron_correct": 19,
+      "pron_wrong": 0,
+      "pron_omitted": 7,
+      "consistency": 0,
+      "switch_sys": 1,
+      "switch_gold": 5,
+      "ref3_acc": 1.0,
+      "ref3_correct": 2,
+      "ref3_wrong": 0,
+      "ref3_omitted": 1,
+      "idiom_acc": 0.6667,
+      "idiom_correct": 10,
+      "idiom_wrong": 5,
+      "halfcue_left": 0,
+      "halfcue_tagged": 0,
+      "halfcue_auto": 5,
+      "halfcue_auto_gold": 1,
+      "chrF": 59.15,
+      "edit_rate": 0.2554,
+      "changed": 0.7606,
+      "tagged_by_tag": {
+       "pronoun": 10,
+       "gender_ref3": 0,
+       "idiom": 4,
+       "meaning": 18,
+       "style": 11,
+       "halfcue_dup": 0,
+       "name": 0,
+       "term": 5
+      },
+      "residual_by_tag": {
+       "pronoun": 2,
+       "gender_ref3": 0,
+       "idiom": 0,
+       "meaning": 10,
+       "style": 8,
+       "halfcue_dup": 0,
+       "name": 0,
+       "term": 2
+      }
+     },
+     "run": {
+      "variant_env": {
+       "AGENT_BRAIN": "0",
+       "AUTO_SWITCH_PRESETS": "0",
+       "HALFCUE_MERGE": null,
+       "MT_ZH_VI_ROLE": "primary",
+       "PINELINE_FLAG_PRESET_SWITCH": "0",
+       "PRONOUN_REGEX_MIXED": null,
+       "PYTHONIOENCODING": "utf-8",
+       "PYTHONUTF8": "1",
+       "REVIEW_LOCAL_FALLBACK": "0",
+       "REVIEW_PRONOUN_MASK": "1",
+       "SIMPLE_LEXICON_EXCLUDE_GOLDEN": null,
+       "SIMPLE_PAIR_FILL": null,
+       "SIMPLE_PAIR_RULES": null,
+       "SIMPLE_ZH_SOURCE": null,
+       "TRANSLATE_FILL_MODEL": "auto",
+       "TRANSLATE_PIPELINE": "simple"
+      },
+      "hint": false,
+      "simple": {
+       "status": "done",
+       "gate": {
+        "status": "done",
+        "reasons": [],
+        "n_rows": 145,
+        "n_asr": 145,
+        "coverage_gap": 0,
+        "n_missing": 0,
+        "n_unreviewed": 0,
+        "n_flagged": 1,
+        "n_flag_soft": 1,
+        "flag_limit": 4,
+        "flags_by_kind": {
+         "pronoun": 1
+        },
+        "flagged_i": [
+         85
+        ]
+       },
+       "review": {
+        "n_todo": 145,
+        "n_ok": 145,
+        "n_fail_lots": 0,
+        "n_left": 0,
+        "lots": 5,
+        "suggest": {
+         "n_model": 1,
+         "n_missing": 1
+        }
+       },
+       "repair": [
+        {
+         "round": 1,
+         "sent": 3,
+         "fixed": 2,
+         "left": 1
+        },
+        {
+         "round": 2,
+         "sent": 1,
+         "fixed": 0,
+         "left": 1
+        }
+       ],
+       "t_total": 238.0
+      },
+      "ok": true,
+      "t_total": 238.0
+     },
+     "dir": "D:\\PinelineV6_work\\golden_ab\\2d3316593ea9_simple"
+    }
+   },
+   "total": {
+    "lines": 283,
+    "unaligned": 0,
+    "pron_acc": 0.9825,
+    "pron_correct": 56,
+    "pron_wrong": 1,
+    "pron_omitted": 15,
+    "consistency": 0,
+    "switch_sys": 13,
+    "switch_gold": 26,
+    "ref3_acc": 1.0,
+    "ref3_correct": 5,
+    "ref3_wrong": 0,
+    "ref3_omitted": 2,
+    "idiom_acc": 0.75,
+    "idiom_correct": 30,
+    "idiom_wrong": 10,
+    "halfcue_left": 0,
+    "halfcue_tagged": 0,
+    "halfcue_auto": 9,
+    "halfcue_auto_gold": 3,
+    "chrF": 61.86,
+    "edit_rate": 0.2352,
+    "changed": 0.7668,
+    "tagged_by_tag": {
+     "pronoun": 51,
+     "gender_ref3": 0,
+     "idiom": 10,
+     "meaning": 32,
+     "style": 24,
+     "halfcue_dup": 0,
+     "name": 5,
+     "term": 5
+    },
+    "residual_by_tag": {
+     "pronoun": 10,
+     "gender_ref3": 0,
+     "idiom": 2,
+     "meaning": 21,
+     "style": 15,
+     "halfcue_dup": 0,
+     "name": 4,
+     "term": 2
+    }
+   },
+   "n_scored": 2
+  }
+ }
+}

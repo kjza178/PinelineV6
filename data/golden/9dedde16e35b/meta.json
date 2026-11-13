@@ -1,0 +1,43 @@
+{
+ "title": "每秒万年修为一念横推东荒第四季天墟圣殿",
+ "title_vi": "Mỗi Giây Vạn Năm Tu Vi (mùa 4 – Thiên Hư Thánh Điện)",
+ "genre": "tu_tien",
+ "genre_note": "Tiên hiệp/huyền huyễn cổ phong (plan: mixed nhưng ghi rõ «không có tuyến đô thị»). Cảnh mẫu: tông môn, thần thú, truyền thừa.",
+ "range": [
+  560,
+  699
+ ],
+ "job": "9dedde16e35b",
+ "status": "silver",
+ "reviewer": "agent (Claude) — chờ chủ dự án xác nhận",
+ "built": "2026-11-11",
+ "n_lines": 140,
+ "scenes": [
+  {
+   "id": "s1",
+   "from": 560,
+   "to": 568,
+   "desc": "Long Khiếu Thiên thấy đại ca Long Ngạo Thiên còn sống"
+  },
+  {
+   "id": "s2",
+   "from": 569,
+   "to": 610,
+   "desc": "Long Ngạo Thiên (mới nhận truyền thừa) chặn người Thiên Hư Thánh Điện; đấu với Âm Dương Huyền Triệt"
+  },
+  {
+   "id": "s3",
+   "from": 611,
+   "to": 635,
+   "desc": "Ngao Hoàng (lão phu) an ủi Long Ngạo Thiên, rồi ra tay với người Thánh Điện"
+  },
+  {
+   "id": "s4",
+   "from": 636,
+   "to": 699,
+   "desc": "Mặc Kỳ Lân lộ diện, thuyết phục Ngao Hoàng gia nhập Thánh Điện"
+  }
+ ],
+ "script_lines_total": 3031,
+ "script_has_mt": true
+}

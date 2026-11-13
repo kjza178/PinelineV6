@@ -1,0 +1,172 @@
+{
+ "job": "32da3d8f225b",
+ "status": "silver",
+ "pairs": [
+  {
+   "spk": "cothanh",
+   "to": "hathunhien",
+   "self": [
+    "anh"
+   ],
+   "call": [
+    "em",
+    "học muội"
+   ],
+   "evidence": [
+    {
+     "i": 3017,
+     "zh": "我猜你新学会做某种好吃的甜品。"
+    },
+    {
+     "i": 3064,
+     "zh": "你学长我唱的好听，"
+    },
+    {
+     "i": 3070,
+     "zh": "学妹。"
+    },
+    {
+     "i": 3080,
+     "zh": "我决定送你个小奖励。"
+    }
+   ],
+   "confidence": "high",
+   "note": "Plan chốt anh–em; ZH: 学妹 / 你学长我",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "hathunhien",
+   "to": "cothanh",
+   "self": [
+    "em"
+   ],
+   "call": [
+    "anh",
+    "học trưởng"
+   ],
+   "evidence": [
+    {
+     "i": 3014,
+     "zh": "对了学长。"
+    },
+    {
+     "i": 3022,
+     "zh": "既然学长猜不到，"
+    },
+    {
+     "i": 3045,
+     "zh": "我马上学亲手做给你吃。"
+    },
+    {
+     "i": 3095,
+     "zh": "那就麻烦学长啦，"
+    }
+   ],
+   "confidence": "high",
+   "note": "Gọi 学长 liên tục; plan chốt em–anh",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "hahaikhon",
+   "to": "minuong",
+   "self": [
+    "tôi"
+   ],
+   "call": [
+    "cô",
+    "các cô"
+   ],
+   "evidence": [
+    {
+     "i": 2973,
+     "zh": "我给你们策反了个未来执事。"
+    },
+    {
+     "i": 2980,
+     "zh": "我只要超凡资源很多很多。"
+    }
+   ],
+   "confidence": "medium",
+   "note": "Đồng mưu nam–nữ, giọng giao dịch; plan chưa có cặp",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "minuong",
+   "to": "hahaikhon",
+   "self": [
+    "tôi",
+    "ta"
+   ],
+   "call": [
+    "anh"
+   ],
+   "evidence": [
+    {
+     "i": 2976,
+     "zh": "好处少不了你。"
+    },
+    {
+     "i": 2977,
+     "zh": "你想要什么我们给什么。"
+    },
+    {
+     "i": 2982,
+     "zh": "你找时间带他来。"
+    }
+   ],
+   "confidence": "medium",
+   "note": "Hồ nữ dụ dỗ; «cậu» lệch tuổi/vai",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "cothanh",
+   "to": "makinh",
+   "self": [
+    "tôi"
+   ],
+   "call": [
+    "Ma Kính",
+    "cô",
+    "ngươi"
+   ],
+   "evidence": [
+    {
+     "i": 2991,
+     "zh": "魔镜。"
+    },
+    {
+     "i": 2992,
+     "zh": "我刚刚将计就计，"
+    }
+   ],
+   "confidence": "high",
+   "note": "Plan: tôi–Ma Kính",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "makinh",
+   "to": "cothanh",
+   "self": [
+    "ta"
+   ],
+   "call": [
+    "chủ nhân"
+   ],
+   "evidence": [
+    {
+     "i": 2996,
+     "zh": "有沉迷美色的危险。"
+    }
+   ],
+   "confidence": "medium",
+   "note": "Plan: ta–chủ nhân (không có đại từ trong mẫu)",
+   "range": null,
+   "source": "silver"
+  }
+ ]
+}

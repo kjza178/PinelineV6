@@ -1,0 +1,44 @@
+{
+ "title": "无敌财神！我觉醒了唯一隐藏职业第六季",
+ "title_vi": "Thần Tài Vô Địch! Tôi Thức Tỉnh Nghề Ẩn Duy Nhất (mùa 6)",
+ "genre": "do_thi",
+ "genre_note": "Đô thị hiện đại / hệ thống nghề nghiệp (thành Hy Vọng số 1, nhiệm vụ – điểm tích lũy – bảng xếp hạng). Cửa sổ đầu job: thẩm tra gian tế + hai bạn thân bàn nhiệm vụ (lóng: bật hack, tốc độ tay, cướp đơn, phá của). Không có cổ phong. V2 work không có job đô thị «thuần» khác có asr.json (365baf19df54 là cùng phim với golden 32da3d8f225b).",
+ "range": [
+  0,
+  141
+ ],
+ "heldout": true,
+ "job": "2d3316593ea9",
+ "status": "silver",
+ "reviewer": "agent (Claude) — chờ chủ dự án xác nhận",
+ "built": "2026-11-11",
+ "n_lines": 142,
+ "scenes": [
+  {
+   "id": "s1",
+   "from": 0,
+   "to": 46,
+   "desc": "Thẩm tra gian tế Ma Nhân ở thành Hy Vọng số 1 (Lục Phóng + lão Chu là hai «trưởng quan»)"
+  },
+  {
+   "id": "s2",
+   "from": 47,
+   "to": 102,
+   "desc": "Lục Phóng ↔ lão Chu (Chu Thành Vũ): xong nhiệm vụ, thử tiên tri cát hung để chọn nhiệm vụ"
+  },
+  {
+   "id": "s3",
+   "from": 103,
+   "to": 116,
+   "desc": "Các đội khác bàn tán tiểu đội 189 «cướp đơn»"
+  },
+  {
+   "id": "s4",
+   "from": 117,
+   "to": 141,
+   "desc": "Lục Phóng chốt cách chọn nhiệm vụ theo cát hung; các đội khác theo dõi"
+  }
+ ],
+ "script_lines_total": 5136,
+ "script_has_mt": true
+}

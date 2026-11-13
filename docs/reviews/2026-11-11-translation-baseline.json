@@ -1,0 +1,955 @@
+{
+ "mode": "baseline",
+ "jobs": {
+  "32da3d8f225b": {
+   "source": "vi_system (golden)",
+   "title": "标签造神第三季",
+   "genre": "do_thi",
+   "metrics": {
+    "lines": 141,
+    "unaligned": 0,
+    "pron_acc": 0.24,
+    "pron_correct": 18,
+    "pron_wrong": 57,
+    "pron_omitted": 0,
+    "consistency": 4,
+    "switch_sys": 32,
+    "switch_gold": 28,
+    "ref3_acc": 0.8,
+    "ref3_correct": 4,
+    "ref3_wrong": 1,
+    "ref3_omitted": 1,
+    "idiom_acc": 0.875,
+    "idiom_correct": 7,
+    "idiom_wrong": 1,
+    "halfcue_left": 0,
+    "halfcue_tagged": 0,
+    "halfcue_auto": 5,
+    "halfcue_auto_gold": 5,
+    "chrF": 67.05,
+    "edit_rate": 0.2078,
+    "changed": 0.6099,
+    "tagged_by_tag": {
+     "pronoun": 58,
+     "gender_ref3": 1,
+     "idiom": 0,
+     "meaning": 31,
+     "style": 15,
+     "halfcue_dup": 0,
+     "name": 2,
+     "term": 0
+    },
+    "residual_by_tag": {
+     "pronoun": 57,
+     "gender_ref3": 1,
+     "idiom": 0,
+     "meaning": 30,
+     "style": 15,
+     "halfcue_dup": 0,
+     "name": 2,
+     "term": 0
+    }
+   },
+   "examples": {
+    "pronoun": [
+     {
+      "i": 2973,
+      "zh": "我给你们策反了个未来执事。",
+      "vi": "Tôi đã lôi kéo các cậu một chấp sự tương lai.",
+      "gold": "Tôi đã kéo về cho các cô một chấp sự tương lai.",
+      "viol": [
+       [
+        "call",
+        "các cậu"
+       ]
+      ]
+     },
+     {
+      "i": 2976,
+      "zh": "好处少不了你。",
+      "vi": "Lợi ích không thể thiếu cậu.",
+      "gold": "thì lợi lộc không thiếu phần anh đâu.",
+      "viol": [
+       [
+        "call",
+        "cậu"
+       ]
+      ]
+     },
+     {
+      "i": 2977,
+      "zh": "你想要什么我们给什么。",
+      "vi": "Cậu muốn gì chúng ta cho cái đó.",
+      "gold": "Anh muốn gì, bọn tôi cho nấy.",
+      "viol": [
+       [
+        "call",
+        "Cậu"
+       ]
+      ]
+     },
+     {
+      "i": 2979,
+      "zh": "族里任何一只美狐娘随你折腾。",
+      "vi": "Bất kỳ mỹ hồ nương nào trong tộc đều tùy cậu giày vò.",
+      "gold": "mỹ hồ nương nào trong tộc cũng tùy anh hưởng.",
+      "viol": [
+       [
+        "call",
+        "cậu"
+       ]
+      ]
+     }
+    ],
+    "meaning": [
+     {
+      "i": 2973,
+      "zh": "我给你们策反了个未来执事。",
+      "vi": "Tôi đã lôi kéo các cậu một chấp sự tương lai.",
+      "gold": "Tôi đã kéo về cho các cô một chấp sự tương lai.",
+      "note": "策反 = lôi kéo phản bội; «lôi kéo các cậu» sai nghĩa (cho các cô)"
+     },
+     {
+      "i": 2976,
+      "zh": "好处少不了你。",
+      "vi": "Lợi ích không thể thiếu cậu.",
+      "gold": "thì lợi lộc không thiếu phần anh đâu.",
+      "note": "少不了你 = không thiếu phần anh; Mị Nương (nữ) nói với Hà (nam) — «cậu» lệch vai"
+     },
+     {
+      "i": 2978,
+      "zh": "除圣女外，",
+      "vi": "Thánh nữ là ngoại lệ.",
+      "gold": "Trừ Thánh nữ ra,",
+      "note": "除…外 = trừ … ra, không phải «là ngoại lệ.»"
+     },
+     {
+      "i": 2985,
+      "zh": "资源少不了。",
+      "vi": "Tài nguyên không thể thiếu.",
+      "gold": "tài nguyên không thiếu đâu.",
+      "note": ""
+     }
+    ],
+    "style": [
+     {
+      "i": 2974,
+      "zh": "这值多少报酬？",
+      "vi": "Cái này đáng giá bao nhiêu?",
+      "gold": "Vụ này đáng bao nhiêu thù lao?",
+      "note": ""
+     },
+     {
+      "i": 2980,
+      "zh": "我只要超凡资源很多很多。",
+      "vi": "Tôi chỉ cần tài nguyên siêu phàm rất nhiều.",
+      "gold": "Tôi chỉ cần tài nguyên siêu phàm, thật nhiều thật nhiều.",
+      "note": ""
+     },
+     {
+      "i": 2981,
+      "zh": "我感觉离进化下一阶只剩一步没问题。",
+      "vi": "Tôi cảm thấy chỉ còn một bước nữa là đến bậc tiếp theo của tiến hóa không thành vấn đề.",
+      "gold": "Tôi thấy chỉ còn một bước nữa là tiến hóa lên bậc kế tiếp.",
+      "note": "«…không thành vấn đề» thừa/ghép sai"
+     },
+     {
+      "i": 2986,
+      "zh": "真当我是傻子？",
+      "vi": "Thật sự coi tôi là kẻ ngốc sao?",
+      "gold": "Tưởng tôi là thằng ngốc chắc?",
+      "note": "spk suy: Hà sau khi cúp máy (độc thoại) — confidence thấp"
+     }
+    ],
+    "idiom": [
+     {
+      "i": 2998,
+      "zh": "沉迷美色。",
+      "vi": "Thầm mê sắc đẹp.",
+      "gold": "Sa vào mỹ sắc đấy!",
+      "idiom": "沉迷美色"
+     }
+    ],
+    "gender_ref3": [
+     {
+      "i": 3028,
+      "zh": "让他今晚做顿丰盛的给你庆祝，",
+      "vi": "Để tối nay hắn làm một bữa thịnh soạn cho cậu ăn mừng",
+      "gold": "Bảo mẹ tối nay nấu một bữa thật thịnh soạn mừng cho em,",
+      "found": [
+       "hắn"
+      ]
+     }
+    ],
+    "name": [
+     {
+      "i": 3073,
+      "zh": "我小时候人称海城贾斯汀比恩，",
+      "vi": "Hồi nhỏ tôi được gọi là Hải Thành Gustin Bieen,",
+      "gold": "hồi nhỏ anh được gọi là Justin Bieber của Hải Thành đấy,",
+      "note": "贾斯汀比伯 = Justin Bieber"
+     },
+     {
+      "i": 3107,
+      "zh": "Go go go海城第一女骑手起飞。",
+      "vi": "Nữ kỵ sĩ số một thành phố Go gogort cất cánh.",
+      "gold": "Go go go, nữ tay lái số một Hải Thành cất cánh!",
+      "note": "«Go gogort» rác; 海城 = Hải Thành"
+     }
+    ]
+   }
+  },
+  "9dedde16e35b": {
+   "source": "vi_system (golden)",
+   "title": "每秒万年修为一念横推东荒第四季天墟圣殿",
+   "genre": "tu_tien",
+   "metrics": {
+    "lines": 140,
+    "unaligned": 0,
+    "pron_acc": 0.3833,
+    "pron_correct": 23,
+    "pron_wrong": 37,
+    "pron_omitted": 0,
+    "consistency": 0,
+    "switch_sys": 16,
+    "switch_gold": 16,
+    "ref3_acc": 1.0,
+    "ref3_correct": 5,
+    "ref3_wrong": 0,
+    "ref3_omitted": 1,
+    "idiom_acc": 0.7273,
+    "idiom_correct": 8,
+    "idiom_wrong": 3,
+    "halfcue_left": 3,
+    "halfcue_tagged": 4,
+    "halfcue_auto": 1,
+    "halfcue_auto_gold": 1,
+    "chrF": 78.29,
+    "edit_rate": 0.1348,
+    "changed": 0.4571,
+    "tagged_by_tag": {
+     "pronoun": 38,
+     "gender_ref3": 0,
+     "idiom": 7,
+     "meaning": 13,
+     "style": 6,
+     "halfcue_dup": 4,
+     "name": 2,
+     "term": 2
+    },
+    "residual_by_tag": {
+     "pronoun": 38,
+     "gender_ref3": 0,
+     "idiom": 3,
+     "meaning": 12,
+     "style": 5,
+     "halfcue_dup": 3,
+     "name": 2,
+     "term": 2
+    }
+   },
+   "examples": {
+    "style": [
+     {
+      "i": 562,
+      "zh": "是大哥我就知道，",
+      "vi": "Đúng là đại ca, tôi biết ngay mà!",
+      "gold": "Đúng là đại ca, ta biết mà,",
+      "note": "độc thoại cổ phong: «ta»; «tôi» chấp nhận nhưng lệch giọng"
+     },
+     {
+      "i": 563,
+      "zh": "我就知道大哥不会那么易陨落，",
+      "vi": "Tôi biết đại ca sẽ không dễ dàng vẫn lạc như vậy",
+      "gold": "ta biết đại ca không dễ vẫn lạc như vậy,",
+      "note": ""
+     },
+     {
+      "i": 574,
+      "zh": "得嘞。",
+      "vi": "Được rồi.",
+      "gold": "Được thôi.",
+      "note": ""
+     },
+     {
+      "i": 646,
+      "zh": "我还以为身陷重围的你已经陨落了，哼。",
+      "vi": "Tôi còn tưởng rằng cậu đang rơi vào vòng vây đã ngã xuống rồi, hừ.",
+      "gold": "ta còn tưởng ngươi bị vây khốn đã vẫn lạc rồi, hừ.",
+      "note": ""
+     }
+    ],
+    "name": [
+     {
+      "i": 568,
+      "zh": "龙傲天这家伙也跑不远。",
+      "vi": "Tên Long Ngạo Thiên này cũng không chạy được bao xa.",
+      "gold": "tên Long Khiếu Thiên kia cũng chẳng chạy đâu được.",
+      "note": "ASR có thể là 龙啸天 (em) — confidence thấp; giữ nghĩa"
+     },
+     {
+      "i": 641,
+      "zh": "莫启林，是你，",
+      "vi": "Mặc Kỳ Lân, là cậu?",
+      "gold": "Mặc Kỳ Lân, là ngươi?",
+      "note": "ASR 莫启林 = 墨麒麟"
+     }
+    ],
+    "pronoun": [
+     {
+      "i": 569,
+      "zh": "你们是什么人？",
+      "vi": "Các cậu là ai?",
+      "gold": "Các ngươi là ai?",
+      "viol": [
+       [
+        "call",
+        "Các cậu"
+       ]
+      ]
+     },
+     {
+      "i": 571,
+      "zh": "不妨就先过我这一关。",
+      "vi": "Không ngại thì cứ vượt qua cửa ải này của tôi trước.",
+      "gold": "Vậy thì qua được cửa ải của ta trước đã.",
+      "viol": [
+       [
+        "self",
+        "tôi"
+       ]
+      ]
+     },
+     {
+      "i": 573,
+      "zh": "交给你了。",
+      "vi": "Giao cho cậu rồi.",
+      "gold": "Giao cho đệ đấy.",
+      "viol": [
+       [
+        "call",
+        "cậu"
+       ]
+      ]
+     },
+     {
+      "i": 577,
+      "zh": "不过你确定要跟我打？",
+      "vi": "Nhưng cậu chắc chắn muốn đánh với tôi?",
+      "gold": "Nhưng ngươi chắc muốn đấu với ta?",
+      "viol": [
+       [
+        "call",
+        "cậu"
+       ],
+       [
+        "self",
+        "tôi"
+       ]
+      ]
+     }
+    ],
+    "meaning": [
+     {
+      "i": 571,
+      "zh": "不妨就先过我这一关。",
+      "vi": "Không ngại thì cứ vượt qua cửa ải này của tôi trước.",
+      "gold": "Vậy thì qua được cửa ải của ta trước đã.",
+      "note": "不妨就先 = vậy thì cứ … trước"
+     },
+     {
+      "i": 578,
+      "zh": "驾。",
+      "vi": "Giá.",
+      "gold": "Hây!",
+      "note": "驾 là tiếng hô; «Giá.» vô nghĩa"
+     },
+     {
+      "i": 591,
+      "zh": "怎能轻易认输赢了。",
+      "vi": "Sao có thể dễ dàng nhận thua thắng được.",
+      "gold": "Sao có thể dễ dàng chịu thua.",
+      "note": "ASR thừa 赢了 → «nhận thua thắng» vô nghĩa"
+     },
+     {
+      "i": 618,
+      "zh": "可是前辈。",
+      "vi": "Nhưng là tiền bối.",
+      "gold": "Nhưng tiền bối...",
+      "note": "可是 = nhưng; «Nhưng là» calque"
+     }
+    ],
+    "idiom": [
+     {
+      "i": 600,
+      "zh": "手下留人。",
+      "vi": "Thuộc hạ lưu người.",
+      "gold": "Hạ thủ lưu tình!",
+      "idiom": "手下留情(人)"
+     },
+     {
+      "i": 648,
+      "zh": "苟延残喘这个词用的好，",
+      "vi": "Từ \"cẩu kéo dài hơi tàn\" dùng rất tốt,",
+      "gold": "Bốn chữ «thoi thóp sống tạm» dùng hay lắm,",
+      "idiom": "苟延残喘"
+     },
+     {
+      "i": 660,
+      "zh": "便只能彻底化作一盆黄土了。",
+      "vi": "Chỉ có thể hoàn toàn hóa thành một chậu đất vàng.",
+      "gold": "chỉ có thể hóa thành một nắm đất vàng mà thôi.",
+      "idiom": "一抔黄土"
+     }
+    ],
+    "halfcue_dup": [
+     {
+      "i": 629,
+      "zh": "既然注定要陨落，",
+      "vi": "Nếu đã định sẵn phải vẫn lạc,",
+      "gold": "Thôi vậy, đã định sẵn phải vẫn lạc,",
+      "note": "nhận «也罢» từ cue trước"
+     },
+     {
+      "i": 674,
+      "zh": "更进一步重塑龙区，",
+      "vi": "Tiến thêm một bước tái tạo Long Khu,",
+      "gold": "tiến thêm một bước nữa.",
+      "note": "ASR lặp «重塑龙躯，根治道伤» — bỏ phần lặp"
+     },
+     {
+      "i": 675,
+      "zh": "根治道商。",
+      "vi": "Căn nguyên là thương nhân đạo lý.",
+      "gold": "",
+      "note": "lặp ý 668–669 (ASR); gom/bỏ"
+     }
+    ],
+    "term": [
+     {
+      "i": 668,
+      "zh": "你重塑龙区，",
+      "vi": "cậu có thể tái tạo Long Khu,",
+      "gold": "tái tạo long khu cho ngươi,",
+      "note": "ASR 龙区 = 龙躯"
+     },
+     {
+      "i": 669,
+      "zh": "根治道商，",
+      "vi": "Căn cứ vào thương nhân đạo lý,",
+      "gold": "trị tận gốc đạo thương,",
+      "note": "ASR 道商 = 道伤; «căn cứ vào thương nhân đạo lý» vô nghĩa"
+     }
+    ]
+   }
+  },
+  "d1e00b9e7393": {
+   "source": "vi_system (golden)",
+   "title": "仙界归来家人竟护了我十年肉身",
+   "genre": "mixed",
+   "metrics": {
+    "lines": 144,
+    "unaligned": 0,
+    "pron_acc": 0.9091,
+    "pron_correct": 50,
+    "pron_wrong": 5,
+    "pron_omitted": 1,
+    "consistency": 0,
+    "switch_sys": 6,
+    "switch_gold": 10,
+    "ref3_acc": 1.0,
+    "ref3_correct": 16,
+    "ref3_wrong": 0,
+    "ref3_omitted": 1,
+    "idiom_acc": 1.0,
+    "idiom_correct": 5,
+    "idiom_wrong": 0,
+    "halfcue_left": 17,
+    "halfcue_tagged": 19,
+    "halfcue_auto": 6,
+    "halfcue_auto_gold": 0,
+    "chrF": 77.97,
+    "edit_rate": 0.1655,
+    "changed": 0.3611,
+    "tagged_by_tag": {
+     "pronoun": 6,
+     "gender_ref3": 0,
+     "idiom": 0,
+     "meaning": 21,
+     "style": 1,
+     "halfcue_dup": 19,
+     "name": 8,
+     "term": 2
+    },
+    "residual_by_tag": {
+     "pronoun": 6,
+     "gender_ref3": 0,
+     "idiom": 0,
+     "meaning": 21,
+     "style": 1,
+     "halfcue_dup": 17,
+     "name": 6,
+     "term": 2
+    }
+   },
+   "examples": {
+    "halfcue_dup": [
+     {
+      "i": 2498,
+      "zh": "陈先生进入以后。",
+      "vi": "Sau khi anh Trần vào.",
+      "gold": "",
+      "note": "cue lặp với 2499 (ASR)"
+     },
+     {
+      "i": 2499,
+      "zh": "环境陈先生进入以后，",
+      "vi": "Sau khi anh Trần vào,",
+      "gold": "Sau khi anh Trần vào trong,",
+      "note": ""
+     },
+     {
+      "i": 2522,
+      "zh": "秦家早让人吞干净了。你比以",
+      "vi": "Thì nhà họ Tần đã bị người ta nuốt chửng từ lâu rồi. Anh so với...",
+      "gold": "thì nhà họ Tần đã bị người ta nuốt sạch từ lâu rồi.",
+      "note": "cue dính đầu câu sau (你比以) — bỏ phần thừa"
+     },
+     {
+      "i": 2523,
+      "zh": "干净了，",
+      "vi": "...trước đây,",
+      "gold": "",
+      "note": "mảnh ASR lặp «干净了»"
+     }
+    ],
+    "pronoun": [
+     {
+      "i": 2505,
+      "zh": "你们载我过去就行。",
+      "vi": "Các người chở tôi qua là được.",
+      "gold": "các anh cứ chở tôi tới đó là được.",
+      "viol": [
+       [
+        "call",
+        "Các người"
+       ]
+      ]
+     },
+     {
+      "i": 2515,
+      "zh": "拿到钱我就放你走。",
+      "vi": "Lấy được tiền tôi sẽ thả anh đi.",
+      "gold": "lấy được tiền tôi sẽ thả cô đi.",
+      "viol": [
+       [
+        "kin",
+        "anh"
+       ]
+      ]
+     },
+     {
+      "i": 2516,
+      "zh": "前提是你爸要上当，",
+      "vi": "Miễn là bố anh mắc bẫy,",
+      "gold": "Miễn là bố cô cắn câu.",
+      "viol": [
+       [
+        "kin",
+        "anh"
+       ]
+      ]
+     },
+     {
+      "i": 2524,
+      "zh": "你比以前聪明了一些。",
+      "vi": "Anh đã thông minh hơn một chút rồi.",
+      "gold": "Cô thông minh hơn trước rồi đấy.",
+      "viol": [
+       [
+        "kin",
+        "Anh"
+       ]
+      ]
+     }
+    ],
+    "meaning": [
+     {
+      "i": 2506,
+      "zh": "我会通知你们。",
+      "vi": "Tôi sẽ thông báo cho mọi người.",
+      "gold": "Đợi tôi cứu được cô Tần,",
+      "note": "ASR đảo thứ tự 2506/2507 (cùng mốc giờ) — gold theo trật tự nghĩa"
+     },
+     {
+      "i": 2507,
+      "zh": "等我救下秦小姐以后，",
+      "vi": "Đợi sau khi tôi cứu được cô Tần,",
+      "gold": "tôi sẽ báo cho các anh.",
+      "note": ""
+     },
+     {
+      "i": 2510,
+      "zh": "心瘤的切割痕迹，",
+      "vi": "Vết cắt của khối u tim,",
+      "gold": "Vết cắt còn mới,",
+      "note": "ASR 心瘤 (≈新留) — «khối u tim» vô nghĩa"
+     },
+     {
+      "i": 2513,
+      "zh": "门窗内侧全是市井，只能从别处进。",
+      "vi": "Cửa sổ trong nhà toàn là bẫy, chỉ có thể vào từ chỗ khác.",
+      "gold": "Phía trong cửa ra vào và cửa sổ toàn là bẫy, chỉ có thể vào từ chỗ khác.",
+      "note": ""
+     }
+    ],
+    "name": [
+     {
+      "i": 2511,
+      "zh": "周越早就检查过这里。",
+      "vi": "Chu Việt đã kiểm tra chỗ này từ lâu rồi.",
+      "gold": "Chu Nguyệt đã kiểm tra chỗ này từ lâu.",
+      "note": ""
+     },
+     {
+      "i": 2539,
+      "zh": "秦小姐，",
+      "vi": "Cô Tống,",
+      "gold": "Cô Tần,",
+      "note": "秦小姐 → «Cô Tống» sai tên"
+     },
+     {
+      "i": 2571,
+      "zh": "陈轩，你走。",
+      "vi": "Trần Huyền, anh đi.",
+      "gold": "Trần Huyền, anh...",
+      "note": "ASR 陈轩 = 陈玄"
+     },
+     {
+      "i": 2585,
+      "zh": "周越已经动不了了，",
+      "vi": "Chu Việt đã không cử động được nữa,",
+      "gold": "Chu Nguyệt không cử động được nữa rồi,",
+      "note": ""
+     }
+    ],
+    "style": [
+     {
+      "i": 2552,
+      "zh": "是你。",
+      "vi": "Là anh.",
+      "gold": "Là mày.",
+      "note": "kẻ bắt cóc đối địch — chấp nhận mày/anh"
+     }
+    ],
+    "term": [
+     {
+      "i": 2631,
+      "zh": "绝对属于见义勇为加紧急遇险。",
+      "vi": "Đúng là hành động dũng cảm trong tình thế nguy cấp.",
+      "gold": "cũng hoàn toàn thuộc hành vi nghĩa hiệp cộng tình thế cấp thiết.",
+      "note": "见义勇为 + 紧急避险 (thuật ngữ pháp lý)"
+     },
+     {
+      "i": 2638,
+      "zh": "不过后续还需要请您配合做一份详细笔录，可以。",
+      "vi": "Nhưng sau đó cần anh phối hợp làm bản ghi chi tiết, được không?",
+      "gold": "nhưng sau đó vẫn cần anh phối hợp làm một bản tường trình chi tiết, được chứ?",
+      "note": ""
+     }
+    ]
+   }
+  },
+  "f0834acf0cc0": {
+   "source": "vi_system (golden)",
+   "title": "毒帝无双3D版第六季",
+   "genre": "mixed",
+   "metrics": {
+    "lines": 142,
+    "unaligned": 0,
+    "pron_acc": 0.4528,
+    "pron_correct": 24,
+    "pron_wrong": 29,
+    "pron_omitted": 1,
+    "consistency": 0,
+    "switch_sys": 12,
+    "switch_gold": 12,
+    "ref3_acc": 0.8889,
+    "ref3_correct": 8,
+    "ref3_wrong": 1,
+    "ref3_omitted": 0,
+    "idiom_acc": 0.6429,
+    "idiom_correct": 9,
+    "idiom_wrong": 5,
+    "halfcue_left": 0,
+    "halfcue_tagged": 0,
+    "halfcue_auto": 2,
+    "halfcue_auto_gold": 2,
+    "chrF": 76.78,
+    "edit_rate": 0.1498,
+    "changed": 0.3944,
+    "tagged_by_tag": {
+     "pronoun": 30,
+     "gender_ref3": 2,
+     "idiom": 7,
+     "meaning": 13,
+     "style": 2,
+     "halfcue_dup": 0,
+     "name": 4,
+     "term": 4
+    },
+    "residual_by_tag": {
+     "pronoun": 30,
+     "gender_ref3": 1,
+     "idiom": 5,
+     "meaning": 11,
+     "style": 2,
+     "halfcue_dup": 0,
+     "name": 3,
+     "term": 4
+    }
+   },
+   "examples": {
+    "pronoun": [
+     {
+      "i": 438,
+      "zh": "你快下线看看吧。",
+      "vi": "Cậu mau xuống online xem đi.",
+      "gold": "Anh mau thoát game ra xem đi.",
+      "viol": [
+       [
+        "call",
+        "Cậu"
+       ]
+      ]
+     },
+     {
+      "i": 466,
+      "zh": "你是说这玩意儿是有人故意弄出来的。",
+      "vi": "Ý cậu là thứ này có người cố ý tạo ra.",
+      "gold": "Ý anh là thứ này có người cố tình tạo ra?",
+      "viol": [
+       [
+        "call",
+        "cậu"
+       ]
+      ]
+     },
+     {
+      "i": 502,
+      "zh": "赔我房子。",
+      "vi": "Bồi thường nhà ta.",
+      "gold": "Đền nhà cho tôi.",
+      "viol": [
+       [
+        "self",
+        "ta"
+       ]
+      ]
+     },
+     {
+      "i": 504,
+      "zh": "你不知道找个空空点的地方召唤我吗？",
+      "vi": "Cậu không biết tìm một chỗ trống để triệu hồi tôi sao?",
+      "gold": "Nhóc không biết tìm chỗ nào trống trải mà triệu hồi lão tử à?",
+      "viol": [
+       [
+        "call",
+        "Cậu"
+       ],
+       [
+        "self",
+        "tôi"
+       ]
+      ]
+     }
+    ],
+    "meaning": [
+     {
+      "i": 438,
+      "zh": "你快下线看看吧。",
+      "vi": "Cậu mau xuống online xem đi.",
+      "gold": "Anh mau thoát game ra xem đi.",
+      "note": "下线 = thoát game; «xuống online» sai nghĩa; đồng đội gọi lão đại/anh"
+     },
+     {
+      "i": 439,
+      "zh": "好。",
+      "vi": "Tốt.",
+      "gold": "Được.",
+      "note": "好 = đồng ý, «Tốt.» lệch"
+     },
+     {
+      "i": 444,
+      "zh": "在白象出现我不奇怪。",
+      "vi": "Tôi không lấy làm lạ khi Bạch Tượng xuất hiện.",
+      "gold": "nó xuất hiện ở Bạch Tượng thì tôi không lạ.",
+      "note": "cấu trúc câu đảo nghĩa"
+     },
+     {
+      "i": 456,
+      "zh": "只有这边有他本命精血炼制的东西。",
+      "vi": "Chỉ có bên này mới có thứ do tinh huyết bản mệnh của hắn luyện chế.",
+      "gold": "chỉ có thể là bên này có vật luyện từ tinh huyết bản mệnh của nó,",
+      "note": ""
+     }
+    ],
+    "term": [
+     {
+      "i": 451,
+      "zh": "虚空黑洞。",
+      "vi": "Hư không hắc động.",
+      "gold": "Hố đen hư không.",
+      "note": ""
+     },
+     {
+      "i": 477,
+      "zh": "沈锦。",
+      "vi": "Thẩm Cẩm.",
+      "gold": "Thần cấp.",
+      "note": "ASR 沈锦 ≈ 神境/神级 — «Thẩm Cẩm» là tên bịa"
+     },
+     {
+      "i": 520,
+      "zh": "你只不过是圣洁而已。",
+      "vi": "Cậu chỉ là thánh khiết mà thôi.",
+      "gold": "ông mới chỉ là Thánh cấp thôi.",
+      "note": "ASR 圣洁 = 圣级; «thánh khiết» sai"
+     },
+     {
+      "i": 554,
+      "zh": "老藤加油干死这条八头虫，",
+      "vi": "Lão Đằng cố lên bóp chết con Bát Đầu Trùng này,",
+      "gold": "lão Đằng cố lên, xử đẹp con sâu tám đầu này đi!",
+      "note": "干死 — «bóp chết» lệch"
+     }
+    ],
+    "idiom": [
+     {
+      "i": 462,
+      "zh": "我去。",
+      "vi": "Tôi đi.",
+      "gold": "Vãi thật.",
+      "idiom": "我去"
+     },
+     {
+      "i": 467,
+      "zh": "肯定是脚盆中。",
+      "vi": "Chắc chắn là trong chậu chân.",
+      "gold": "Chắc chắn là bọn Nhật.",
+      "idiom": "脚盆(鸡)"
+     },
+     {
+      "i": 510,
+      "zh": "我去。",
+      "vi": "Tôi đi.",
+      "gold": "Vãi!",
+      "idiom": "我去"
+     },
+     {
+      "i": 566,
+      "zh": "拽个毛线。",
+      "vi": "Kéo cái gì chứ.",
+      "gold": "Vênh váo cái quái gì.",
+      "idiom": "拽个毛线"
+     }
+    ],
+    "style": [
+     {
+      "i": 469,
+      "zh": "我也觉得是。",
+      "vi": "Tôi cũng cảm thấy đúng.",
+      "gold": "Tôi cũng thấy vậy.",
+      "note": ""
+     },
+     {
+      "i": 503,
+      "zh": "这不是我的错吧？",
+      "vi": "Đây không phải lỗi của tôi chứ?",
+      "gold": "Đây đâu phải lỗi của lão tử?",
+      "note": ""
+     }
+    ],
+    "name": [
+     {
+      "i": 478,
+      "zh": "而且实力还在老藤之上。",
+      "vi": "Hơn nữa, thực lực còn cao hơn cả Đằng Xà.",
+      "gold": "Hơn nữa thực lực còn trên lão Đằng.",
+      "note": ""
+     },
+     {
+      "i": 481,
+      "zh": "先把老头弄出来再说。",
+      "vi": "Cứ đưa lão già ra trước đã.",
+      "gold": "Lôi lão Đằng ra trước đã.",
+      "note": "老头 (≈老藤) chỉ Đằng Xà"
+     },
+     {
+      "i": 511,
+      "zh": "八七。",
+      "vi": "Tám bảy.",
+      "gold": "Bát Kỳ!",
+      "note": "ASR 八七 = 八岐(大蛇)"
+     }
+    ],
+    "gender_ref3": [
+     {
+      "i": 519,
+      "zh": "你上次见她，",
+      "vi": "Lần trước, khi cậu gặp nàng,",
+      "gold": "Lần trước ông gặp nó,",
+      "found": [
+       "nàng"
+      ]
+     }
+    ]
+   }
+  }
+ },
+ "total": {
+  "lines": 567,
+  "unaligned": 0,
+  "pron_acc": 0.4733,
+  "pron_correct": 115,
+  "pron_wrong": 128,
+  "pron_omitted": 2,
+  "consistency": 4,
+  "switch_sys": 66,
+  "switch_gold": 66,
+  "ref3_acc": 0.9429,
+  "ref3_correct": 33,
+  "ref3_wrong": 2,
+  "ref3_omitted": 3,
+  "idiom_acc": 0.7632,
+  "idiom_correct": 29,
+  "idiom_wrong": 9,
+  "halfcue_left": 20,
+  "halfcue_tagged": 23,
+  "halfcue_auto": 14,
+  "halfcue_auto_gold": 8,
+  "chrF": 75.04,
+  "edit_rate": 0.1645,
+  "changed": 0.455,
+  "tagged_by_tag": {
+   "pronoun": 132,
+   "gender_ref3": 3,
+   "idiom": 14,
+   "meaning": 78,
+   "style": 24,
+   "halfcue_dup": 23,
+   "name": 16,
+   "term": 8
+  },
+  "residual_by_tag": {
+   "pronoun": 131,
+   "gender_ref3": 2,
+   "idiom": 8,
+   "meaning": 74,
+   "style": 23,
+   "halfcue_dup": 20,
+   "name": 13,
+   "term": 8
+  }
+ }
+}

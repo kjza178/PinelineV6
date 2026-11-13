@@ -1,0 +1,24 @@
+{
+  "name": "v6",
+  "port": 8806,
+  "work_root": "D:/PinelineV6_work",
+  "temp": "D:/PinelineV6_tmp",
+  "routers": [
+    "films",
+    "uploader"
+  ],
+  "desktop": true,
+  "agent_brain": false,
+  "agent_watch": false,
+  "telegram": false,
+  "sidecar_port": 8816,
+  "auto_publish": false,
+  "hg_merge_resume": false,
+  "title_translate": false,
+  "queue_autostart": false,
+  "render_subprocess": true,
+  "feeder": false,
+  "preset_switch": false,
+  "translate_pipeline": "simple",
+  "asr_use_demucs": true
+}

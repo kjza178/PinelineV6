@@ -1,0 +1,124 @@
+{
+ "job": "2493d3c7cb29_p01",
+ "status": "silver",
+ "pairs": [
+  {
+   "spk": "td",
+   "to": "nlk",
+   "self": [
+    "ta",
+    "bổn đế",
+    "bản đế"
+   ],
+   "call": [
+    "ngươi",
+    "các ngươi"
+   ],
+   "evidence": [
+    {
+     "i": 1836,
+     "zh": "我此番前来的用意。"
+    },
+    {
+     "i": 1848,
+     "zh": "我便成全你。"
+    },
+    {
+     "i": 1910,
+     "zh": "沦为本帝脚下的战奴。"
+    },
+    {
+     "i": 1916,
+     "zh": "你且带我去见他们。"
+    }
+   ],
+   "confidence": "high",
+   "note": "Cường giả đối đầu, tự xưng 本帝 — glossary tone: «đối thoại giữa cường giả dùng ta – ngươi». «tôi/cậu» (vi_system) lệch giọng",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "nlk",
+   "to": "td",
+   "self": [
+    "ta",
+    "bổn tọa",
+    "bản tọa"
+   ],
+   "call": [
+    "ngươi",
+    "các ngươi"
+   ],
+   "evidence": [
+    {
+     "i": 1854,
+     "zh": "你莫要欺人太甚，"
+    },
+    {
+     "i": 1863,
+     "zh": "你未免太年轻了。"
+    },
+    {
+     "i": 1864,
+     "zh": "这分明是针对你我的阳谋。"
+    },
+    {
+     "i": 1922,
+     "zh": "我若带你前去封印之地，"
+    }
+   ],
+   "confidence": "medium",
+   "note": "Mở đầu khách sáo gọi «Tuyết Đế» (ngôi 3), từ 1854 thù địch: ta–ngươi",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "td",
+   "to": "team",
+   "self": [
+    "ta",
+    "tôi"
+   ],
+   "call": [
+    "các cậu",
+    "mọi người",
+    "các ngươi"
+   ],
+   "evidence": [
+    {
+     "i": 1815,
+     "zh": "我眼下需动身前往月轮魔宫一趟。"
+    },
+    {
+     "i": 1816,
+     "zh": "你们留在殿内。"
+    }
+   ],
+   "confidence": "medium",
+   "note": "Đồng đội thân (gọi 一哥/义父) — chấp nhận cả hiện đại lẫn cổ phong",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "thuocha",
+   "to": "td",
+   "self": [
+    "thuộc hạ"
+   ],
+   "call": [
+    "điện chủ"
+   ],
+   "evidence": [
+    {
+     "i": 1953,
+     "zh": "殿主大人。"
+    }
+   ],
+   "confidence": "high",
+   "note": "殿主大人",
+   "range": null,
+   "source": "silver"
+  }
+ ],
+ "heldout": true
+}

@@ -1,0 +1,146 @@
+{
+ "job": "2d3316593ea9",
+ "status": "silver",
+ "pairs": [
+  {
+   "spk": "lp",
+   "to": "lc",
+   "self": [
+    "tôi",
+    "tao",
+    "mình"
+   ],
+   "call": [
+    "cậu",
+    "mày",
+    "ông"
+   ],
+   "evidence": [
+    {
+     "i": 25,
+     "zh": "接下来就看你的了。"
+    },
+    {
+     "i": 64,
+     "zh": "来之前我还以为你可以直接预言出所有间隙的位置。"
+    },
+    {
+     "i": 120,
+     "zh": "你的吉凶预言完全可以当成是一个反向指标来用。"
+    }
+   ],
+   "confidence": "high",
+   "note": "Bạn thân cùng lứa (老周/老陆): tôi–cậu hoặc tao–mày, «ông» (ông bạn) chấp nhận",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "lc",
+   "to": "lp",
+   "self": [
+    "tôi",
+    "tao",
+    "mình"
+   ],
+   "call": [
+    "cậu",
+    "mày",
+    "ông"
+   ],
+   "evidence": [
+    {
+     "i": 47,
+     "zh": "你别告诉我这三个人是被来财抓回来的。"
+    },
+    {
+     "i": 91,
+     "zh": "你干嘛？"
+    },
+    {
+     "i": 128,
+     "zh": "总感觉我的预言术遇到你以后。"
+    }
+   ],
+   "confidence": "high",
+   "note": "như trên",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "nghipham",
+   "to": "lp",
+   "self": [
+    "tôi",
+    "chúng tôi"
+   ],
+   "call": [
+    "các anh",
+    "anh",
+    "ngài",
+    "các ngài",
+    "các người",
+    "trưởng quan",
+    "ông",
+    "mày"
+   ],
+   "evidence": [
+    {
+     "i": 7,
+     "zh": "两位长官。"
+    },
+    {
+     "i": 8,
+     "zh": "你们这是什么意思？"
+    },
+    {
+     "i": 10,
+     "zh": "就被你们强行带来这里，"
+    },
+    {
+     "i": 11,
+     "zh": "你们必须给我们一个说法。"
+    },
+    {
+     "i": 41,
+     "zh": "既然你要对我们赶尽杀绝，"
+    }
+   ],
+   "confidence": "medium",
+   "note": "Người bị giữ gọi 两位长官: các anh/các ngài; lộ mặt thì «các người». «các cậu» (vi_system) lệch vai; «chúng ta» (gồm người nghe) sai → «chúng tôi»",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "lp",
+   "to": "group",
+   "self": [
+    "tôi",
+    "chúng tôi"
+   ],
+   "call": [
+    "mọi người",
+    "các người",
+    "các anh"
+   ],
+   "evidence": [
+    {
+     "i": 13,
+     "zh": "我们得到情报，"
+    },
+    {
+     "i": 15,
+     "zh": "还请大家配合我们的工作。"
+    },
+    {
+     "i": 21,
+     "zh": "还请大家安静一点。"
+    }
+   ],
+   "confidence": "medium",
+   "note": "Trưởng quan nói với người bị giữ: «chúng tôi» (không gồm người nghe)",
+   "range": null,
+   "source": "silver"
+  }
+ ],
+ "heldout": true
+}

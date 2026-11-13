@@ -1,0 +1,146 @@
+# i|spk|to|self|call|ref3|tags|vi_gold|note    (vi_gold rỗng = giữ vi_system; self/call/ref3 '-' = không kỳ vọng; nhiều dạng chấp nhận cách nhau '/')
+# vi_gold = ∅ nghĩa là câu nên gộp/bỏ (câu cắt đôi lặp ý)
+@scene s1 2972 2990 Hà Hải Khôn gọi điện cho Mị Nương (Hồ tộc) bàn chuyện chiêu mộ Cố Thanh
+2972|hahaikhon|minuong|-|-|-||Mị Nương.|
+2973|hahaikhon|minuong|tôi|các cô/cô|-|meaning,pronoun|Tôi đã kéo về cho các cô một chấp sự tương lai.|策反 = lôi kéo phản bội; «lôi kéo các cậu» sai nghĩa (cho các cô)
+2974|hahaikhon|minuong|-|-|-|style|Vụ này đáng bao nhiêu thù lao?|
+2975|minuong|hahaikhon|-|-|-|||
+2976|minuong|hahaikhon|-|anh|-|pronoun,meaning|thì lợi lộc không thiếu phần anh đâu.|少不了你 = không thiếu phần anh; Mị Nương (nữ) nói với Hà (nam) — «cậu» lệch vai
+2977|minuong|hahaikhon|-|anh|-|pronoun|Anh muốn gì, bọn tôi cho nấy.|
+2978|minuong|hahaikhon|-|-|-|meaning|Trừ Thánh nữ ra,|除…外 = trừ … ra, không phải «là ngoại lệ.»
+2979|minuong|hahaikhon|-|anh|-|pronoun|mỹ hồ nương nào trong tộc cũng tùy anh hưởng.|
+2980|hahaikhon|minuong|tôi|-|-|style|Tôi chỉ cần tài nguyên siêu phàm, thật nhiều thật nhiều.|
+2981|hahaikhon|minuong|tôi|-|-|style|Tôi thấy chỉ còn một bước nữa là tiến hóa lên bậc kế tiếp.|«…không thành vấn đề» thừa/ghép sai
+2982|minuong|hahaikhon|-|anh|m|pronoun|Anh tìm lúc nào đó đưa cậu ta tới đây.|他=Cố Thanh
+2983|minuong|hahaikhon|-|-|m|||
+2984|minuong|hahaikhon|-|anh|-|pronoun|Nếu đúng như anh nói,|
+2985|minuong|hahaikhon|-|-|-|meaning|tài nguyên không thiếu đâu.|
+2986|hahaikhon|self|tôi|-|-|style|Tưởng tôi là thằng ngốc chắc?|spk suy: Hà sau khi cúp máy (độc thoại) — confidence thấp
+2987|hahaikhon|self|-|-|-|||
+2988|hahaikhon|self|tôi|-|-|meaning|Trong ba tháng, tôi sẽ hốt trọn ổ hồ ly tham lam vô độ các người.|«đã tiêu diệt … rồi» sai thì (tương lai); 狐媚 không phải tên riêng
+2989|hahaikhon|self|-|-|-|meaning|Giết sạch.|«rồi» sai thì
+2990|hahaikhon|self|-|-|-|meaning|Không chừa một ai.|ASR 一直不留 → 一个不留
+@scene s2 2991 2999 Cố Thanh nói với Ma Kính (pháp bảo, nữ)
+2991|cothanh|makinh|-|-|-||Ma Kính.|
+2992|cothanh|makinh|tôi|-|-|||
+2993|cothanh|makinh|-|-|-|||
+2994|cothanh|makinh|-|-|-|||
+2995|cothanh|makinh|-|-|-|||
+2996|makinh|cothanh|-|-|-|style|Có nguy cơ sa vào mỹ sắc.|
+2997|cothanh|makinh|tôi|-|-||Vậy thì tôi yên tâm rồi.|
+2998|makinh|cothanh|-|-|-|meaning|Sa vào mỹ sắc đấy!|«Thầm mê» sai chữ — lặp lại để vặn
+2999|cothanh|makinh|-|-|-||Đó gọi là phúc lợi.|
+@scene s3 3000 3112 Cố Thanh (học trưởng) và Hạ Thư Nhiên (học muội) — plan chốt anh/em
+3000|hathunhien|cothanh|em|anh/học trưởng|-|pronoun,meaning|Sao anh nhanh vậy, đợi em dưới lầu từ nãy à?|câu ZH ghép 2 ý; «đợi ở dưới lầu nhanh như vậy» sai nghĩa
+3001|cothanh|hathunhien|anh|em|-|pronoun,meaning|Không, thấy WeChat của em mới xuống đấy,|没有，看你微信才下来的 — VI hiện tại đảo nghĩa
+3002|cothanh|hathunhien|anh|-|-|pronoun|chỉ là anh dùng một kiểu xuống lầu siêu tốc,|
+3003|cothanh|hathunhien|-|-|-|||
+3004|cothanh|hathunhien|-|-|-|||
+3005|hathunhien|self|-|-|-|||nội tâm Hạ Thư Nhiên
+3006|hathunhien|self|-|-|m|style|vậy mà anh ấy chẳng hề hấn gì.|他 = Cố Thanh, người Hạ quý mến → «anh ấy», «hắn» sai sắc thái
+3007|hathunhien|self|-|-|-|||
+3008|hathunhien|cothanh|-|anh/học trưởng|-|pronoun,meaning|Ký túc xá anh ở tầng sáu, nhảy thẳng xuống mà chân không sao à?|
+3009|cothanh|hathunhien|-|-|-||Không sao.|
+3010|cothanh|hathunhien|-|-|-|||
+3011|cothanh|hathunhien|anh|-|-|pronoun|anh đâu có ngốc mà nhảy từ tầng sáu,|
+3012|cothanh|hathunhien|anh|-|-|pronoun,meaning|anh làm gì cũng chắc chắn thôi.|ASR 靓丽 (≈靠谱) → «xinh đẹp» vô nghĩa
+3013|hathunhien|cothanh|-|-|-||Vậy thì tốt rồi.|
+3014|hathunhien|cothanh|-|học trưởng/anh|-|||
+3015|hathunhien|cothanh|em|-|-|pronoun|Em có tin vui muốn kể anh nghe.|
+3016|hathunhien|cothanh|-|anh/học trưởng|-|pronoun|Anh đoán xem là gì?|
+3017|cothanh|hathunhien|anh|em|-|pronoun|Anh đoán em mới học làm được món tráng miệng ngon nào đó.|
+3018|hathunhien|cothanh|-|-|-|meaning|Không đúng, đoán lại đi.|
+3019|cothanh|hathunhien|-|em|-|pronoun|Lão tổ nhà em có bảo bối muốn tặng em.|
+3020|hathunhien|cothanh|-|-|-|meaning|Vẫn sai, đoán tiếp đi.|«không nên đoán tiếp» đảo nghĩa
+3021|cothanh|hathunhien|anh|-|-|pronoun|Vậy thì anh chịu, không đoán ra nổi.|
+3022|hathunhien|cothanh|-|học trưởng/anh|-|style|Học trưởng đã không đoán ra,|
+3023|hathunhien|cothanh|em|-|-|pronoun|thì em không úp mở nữa,|
+3024|hathunhien|cothanh|em|-|-|pronoun|em vừa tiến hóa thành công trong ký túc xá,|
+3025|hathunhien|cothanh|-|-|-|||
+3026|cothanh|hathunhien|-|-|-|||
+3027|cothanh|hathunhien|anh|-|-|pronoun|Anh nói với mẹ anh ngay đây.|
+3028|cothanh|hathunhien|-|em|f|pronoun,gender_ref3|Bảo mẹ tối nay nấu một bữa thật thịnh soạn mừng cho em,|他 (ASR) = mẹ → «hắn» sai giới
+3029|hathunhien|cothanh|-|-|-|||
+3030|hathunhien|cothanh|-|-|-|||
+3031|hathunhien|cothanh|-|-|-|||
+3032|hathunhien|cothanh|-|-|-|||
+3033|hathunhien|cothanh|-|-|-|meaning|làm phiền dì lắm.|ASR 阿姨也行 ≈ 麻烦阿姨; ý: khỏi phiền dì
+3034|cothanh|hathunhien|-|-|-|pronoun|Ừ, không nói với mẹ nữa. Nhưng mà,|
+3035|cothanh|hathunhien|anh|-|-|pronoun|dù anh không nói,|
+3036|cothanh|hathunhien|-|-|-|style|tối nay mẹ anh cũng sẽ nấu một bữa thịnh soạn,|
+3037|cothanh|hathunhien|-|em|-|pronoun|vì em đến nhà ăn cơm,|«nhà ta» sai giọng
+3038|cothanh|hathunhien|-|-|f|style|với mẹ thì vui như Tết.|她 = mẹ → «nàng» sai vai (văn cổ cho mẹ)
+3039|hathunhien|self|-|-|f|style|Dì Ôn Uyển Nghi đối với mình như con gái ruột,|nội tâm: «mình»; chấp nhận «tôi»
+3040|hathunhien|self|-|-|-|||
+3041|hathunhien|cothanh|-|học trưởng/anh|-||Học trưởng.|
+3042|hathunhien|cothanh|em|anh|-|pronoun|Lúc nãy anh đoán em mới học làm đồ ngọt,|
+3043|hathunhien|cothanh|-|anh|-|pronoun,meaning|có phải vì gần đây anh lướt thấy món gì ngon không?|刷到 = lướt thấy (mạng), không phải «kiếm được»
+3044|hathunhien|cothanh|em|-|-|pronoun|Nếu đúng thì nói em biết,|
+3045|hathunhien|cothanh|em|anh|-|pronoun|em học ngay để tự tay làm cho anh ăn.|
+3046|cothanh|hathunhien|-|-|-|meaning|Không, đoán bừa thôi.|«Không hề đoán mò» đảo nghĩa
+3047|hathunhien|cothanh|-|-|-||Thế à.|
+3048|hathunhien|cothanh|em|anh|-|pronoun,meaning|Sau này anh lướt thấy món ngon thì nhớ gửi cho em,|
+3049|hathunhien|cothanh|em|anh|-|pronoun|món nào em cũng học làm cho anh ăn.|
+3050|cothanh|hathunhien|-|-|-||Được.|
+3051|cothanh|hathunhien|-|em|-|pronoun,meaning|Sau này lướt thấy món ngon anh sẽ gửi em ngay.|«xới được» sai từ
+3052|hathunhien|cothanh|-|học trưởng/anh|-|||
+3053|hathunhien|cothanh|-|anh|-|pronoun|anh lôi đâu ra chiếc mô tô to thế?|
+3054|cothanh|hathunhien|-|-|-||Trong không gian trữ vật.|
+3055|hathunhien|cothanh|-|anh|-|pronoun|Không gian trữ vật của anh rộng thật.|
+3056|hathunhien|cothanh|em|-|-|pronoun,style|Vòng tay trữ vật của em chỉ đủ chứa Long Thương với mấy món nhỏ,|«thả» sai từ
+3057|hathunhien|cothanh|-|-|-|||
+3058|cothanh|hathunhien|-|-|-|||
+3059|cothanh|hathunhien|-|-|-|||
+3060|hathunhien|cothanh|-|anh/học trưởng|-|pronoun,meaning|Học trưởng, không gian trữ vật của anh rốt cuộc rộng cỡ nào?|«bao nhiêu tuổi» sai nghĩa; «ngài» sai vai
+3061|cothanh|hathunhien|-|-|-|style|Siêu to khổng lồ vô địch vũ trụ.|
+3062|hathunhien|cothanh|-|anh/học trưởng|-|||
+3063|cothanh|hathunhien|-|-|-|||
+3064|cothanh|hathunhien|anh|em|-|pronoun,meaning|Học trưởng của em hát hay chứ,|你学长我 = «học trưởng của em (là anh đây)» — «của tôi» sai
+3065|cothanh|hathunhien|-|em|-|pronoun,meaning|là em không biết thưởng thức.|没品 ≠ «không có phẩm hạnh»
+3066|cothanh|hathunhien|-|em|-|pronoun|Phạt em nghe suốt đường để bồi dưỡng tế bào nghệ thuật.|
+3067|hathunhien|cothanh|-|-|-|meaning|Hát hay sao lại gọi là phạt,|
+3068|hathunhien|cothanh|-|-|-|||
+3069|hathunhien|cothanh|-|anh|-|pronoun|Anh vậy là gián tiếp thừa nhận mình hát dở rồi.|
+3070|cothanh|hathunhien|-|học muội/em|-||Học muội.|
+3071|cothanh|hathunhien|-|em|-|pronoun|Em nói xem có khi nào là do bài hát không,|
+3072|cothanh|hathunhien|anh|-|-|pronoun|chứ đâu phải do anh,|
+3073|cothanh|hathunhien|anh|-|-|pronoun,name|hồi nhỏ anh được gọi là Justin Bieber của Hải Thành đấy,|贾斯汀比伯 = Justin Bieber
+3074|cothanh|hathunhien|anh|-|-|pronoun|chẳng ai hiểu ca hát bằng anh.|
+3075|hathunhien|cothanh|em|-|-|pronoun|Điểm này thì em đồng ý,|
+3076|hathunhien|cothanh|em|-|-|pronoun,meaning|giọng học trưởng là giọng nam hay nhất em từng nghe,|ASR 男生≈男声; «là chàng trai hay nhất» sai
+3077|hathunhien|cothanh|-|-|-|style|ra mắt luôn cũng được.|
+3078|cothanh|hathunhien|-|-|-|||
+3079|cothanh|hathunhien|anh|-|-|pronoun|Cái miệng nhỏ ngọt thật, anh thích nghe.|
+3080|cothanh|hathunhien|anh|em|-|pronoun|Anh quyết định tặng em một phần thưởng nhỏ.|
+3081|hathunhien|cothanh|-|học trưởng/anh|-||Học trưởng.|
+3082|hathunhien|cothanh|em|-|-|pronoun|Thưởng em cái gì thế?|
+3083|hathunhien|cothanh|em|-|-|meaning,pronoun|Để em đoán, một bộ dụng cụ làm bánh ngọt?|你猜我猜 = để em đoán; VI hiện tại vô nghĩa
+3084|cothanh|hathunhien|-|-|-||Đoán sai rồi.|
+3085|hathunhien|cothanh|-|-|-|||
+3086|cothanh|hathunhien|-|em|-|pronoun|Thưởng em quyền sử dụng một món đạo cụ.|
+3087|hathunhien|cothanh|-|học trưởng/anh|-|||
+3088|hathunhien|cothanh|-|anh|-|pronoun|anh nói không phải là đạo cụ trữ vật của anh đấy chứ?|
+3089|cothanh|hathunhien|-|-|-|||
+3090|cothanh|hathunhien|-|-|-|||
+3091|cothanh|hathunhien|-|em|-|pronoun,meaning|Sau này em có đồ to không tiện mang theo,|
+3092|cothanh|hathunhien|anh|-|-|pronoun,meaning|cứ để vào không gian trữ vật của anh,|«Đặt … cho tôi» sai nghĩa
+3093|cothanh|hathunhien|anh|em|-|pronoun,meaning|anh cất giùm em.|装 = chứa/cất, không phải «lắp»
+3094|hathunhien|cothanh|-|-|-|||
+3095|hathunhien|cothanh|-|học trưởng/anh|-|||
+3096|cothanh|hathunhien|-|-|-||Lên xe xuất phát.|
+3097|hathunhien|cothanh|-|-|-||Ok ok.|
+3098|hathunhien|cothanh|-|học trưởng/anh|-||Học trưởng.|
+3099|hathunhien|cothanh|em|-|-|pronoun|Em tự nhiên tò mò lái mô tô cảm giác thế nào,|
+3100|hathunhien|cothanh|em|-|-|pronoun,style|anh cho em lái thử chút được không?|骑 xe → «lái/chạy», «cưỡi» lệch
+3101|cothanh|hathunhien|-|-|-||Được.|
+3102|cothanh|hathunhien|-|-|-|meaning|Nào, lên xe.|来上车 ≠ «Lại lên xe»
+3103|hathunhien|cothanh|-|học trưởng/anh|-|||
+3104|hathunhien|cothanh|-|học trưởng/anh|-|||
+3105|hathunhien|cothanh|em|-|-|pronoun|đặt tay lên eo em ôm chặt vào,|
+3106|hathunhien|cothanh|em|anh|-|pronoun|không thì em vặn ga một cái là anh không trụ nổi đâu.|
+3107|hathunhien|cothanh|-|-|-|name|Go go go, nữ tay lái số một Hải Thành cất cánh!|«Go gogort» rác; 海城 = Hải Thành
+3108|cothanh|hathunhien|-|-|-|||
+3109|cothanh|hathunhien|-|-|-|||
+3110|hathunhien|cothanh|-|-|-|meaning|Phanh ở đâu?|«Cú phanh» sai
+3111|hathunhien|cothanh|-|-|-|meaning|Phanh kiểu gì vậy?|«Đạp xe kiểu gì» sai nghĩa
+3112|?|-|-|-|-|style|Nhờ niệm lực giữ lại chiếc xe đang chạy ba trăm cây số một giờ.|người nói không chắc (Cố Thanh nội tâm/kể)

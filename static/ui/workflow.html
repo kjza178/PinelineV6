@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sơ Đồ Quy Trình Nhà Máy Pineline V4</title>
+<style>
+  :root {
+    --bg: #0b0f19;
+    --card: #111827;
+    --card-border: #1f2937;
+    --accent: #38bdf8;
+    --ok: #10b981;
+    --warn: #f59e0b;
+    --err: #ef4444;
+    --text: #f3f4f6;
+    --text-dim: #9ca3af;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+  header {
+    background: #0f172a;
+    border-bottom: 1px solid #1e293b;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .brand-badge {
+    background: linear-gradient(135deg, #0284c7, #38bdf8);
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+  }
+  .brand-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .btn {
+    background: #1e293b;
+    color: #e2e8f0;
+    border: 1px solid #334155;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+  }
+  .btn:hover {
+    background: #334155;
+    border-color: #64748b;
+    color: #fff;
+  }
+  .btn.pri {
+    background: #0284c7;
+    border-color: #38bdf8;
+    color: #fff;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.3);
+  }
+  .btn.pri:hover {
+    background: #0369a1;
+  }
+  .btn.danger {
+    background: #7f1d1d;
+    border-color: #ef4444;
+    color: #fecaca;
+  }
+  .btn.danger:hover {
+    background: #991b1b;
+  }
+  .btn.success {
+    background: #064e3b;
+    border-color: #10b981;
+    color: #a7f3d0;
+  }
+
+  main {
+    flex: 1;
+    padding: 24px;
+    max-width: 1500px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* Canvas Visual Conveyor Belt */
+  .canvas-box {
+    background: #070a13;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  #flowCanvas {
+    display: block;
+    width: 100%;
+    height: 480px;
+    background: radial-gradient(circle at 50% 50%, #0d1527 0%, #070a13 100%);
+  }
+
+  /* Control bar */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #111827;
+    border: 1px solid #1f2937;
+    padding: 14px 20px;
+    border-radius: 12px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .tool-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .status-tag {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: #1f2937;
+    color: #cbd5e1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .status-tag.active {
+    background: #0c4a6e;
+    color: #7dd3fc;
+    border: 1px solid #0284c7;
+  }
+  .status-tag.danger {
+    background: #450a0a;
+    color: #fca5a5;
+    border: 1px solid #ef4444;
+  }
+
+  /* Detail Grid */
+  .grid-stages {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 1200px) {
+    .grid-stages { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 700px) {
+    .grid-stages { grid-template-columns: 1fr; }
+  }
+
+  .stage-card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    cursor: pointer;
+    transition: all .2s;
+    position: relative;
+  }
+  .stage-card:hover, .stage-card.selected {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(56, 189, 248, 0.15);
+  }
+  .stage-card.error-highlight {
+    border-color: var(--err) !important;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.4) !important;
+    animation: pulseErr 1.2s infinite;
+  }
+  @keyframes pulseErr {
+    0%, 100% { border-color: #ef4444; }
+    50% { border-color: #ff8787; }
+  }
+  .stage-num {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+  }
+  .stage-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .file-badge {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-family: ui-monospace, monospace;
+    font-size: 11.5px;
+    display: inline-block;
+    margin-top: 2px;
+  }
+  .file-badge.out {
+    color: #38bdf8;
+    border-color: #0369a1;
+    background: #082f49;
+  }
+
+  /* Log Panel */
+  .log-panel {
+    background: #090d16;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-family: ui-monospace, monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: #94a3b8;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .log-line.info { color: #38bdf8; }
+  .log-line.success { color: #10b981; }
+  .log-line.warn { color: #f59e0b; }
+  .log-line.error { color: #ef4444; font-weight: 700; }
+  .log-line.heal { color: #a855f7; font-weight: 700; }
+
+  /* Info Modal / Drawer */
+  .inspector {
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .inspector h3 {
+    color: #fff;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .inspector table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  .inspector th, .inspector td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #1f2937;
+    text-align: left;
+  }
+  .inspector th {
+    color: #94a3b8;
+    width: 220px;
+  }
+  .inspector td {
+    color: #e2e8f0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <a href="/" class="btn" style="padding:6px 12px;border-radius:8px">⬅ Quay lại Studio</a>
+    <div style="height:22px;width:1px;background:#334155"></div>
+    <div class="brand-badge">PINELINE V4</div>
+    <div class="brand-title">Sơ Đồ Băng Chuyền Quy Trình Trực Quan</div>
+  </div>
+  <div style="display:flex;gap:10px">
+    <a href="/films/ui" class="btn">🎬 Phim & Database</a>
+    <a href="/hongguo" class="btn">📥 Hongguo Bridge</a>
+  </div>
+</header>
+
+<main>
+  <!-- Toolbar điều khiển mô phỏng trực tiếp -->
+  <div class="toolbar">
+    <div class="tool-group">
+      <span style="font-weight:600;font-size:13.5px;color:#cbd5e1">Bảng Thử Nghiệm Mô Phỏng:</span>
+      <button class="btn pri" id="btn-run" onclick="startSimulation('normal')">▶ Chạy Mô Phỏng 1 Job (Bình thường)</button>
+      <button class="btn danger" id="btn-err" onclick="startSimulation('fail_translate')">⚠️ Mô Phỏng Lỗi Dịch & Tự Sửa (Auto-Heal)</button>
+      <button class="btn" onclick="resetSimulation()">↺ Đặt lại</button>
+    </div>
+    <div class="tool-group">
+      <span class="status-tag" id="sim-status">Chờ lệnh</span>
+      <span class="status-tag" id="sim-job">Mã Job: Chưa chạy</span>
+    </div>
+  </div>
+
+  <!-- SƠ ĐỒ CANVAS TRỰC QUAN -->
+  <div class="canvas-box">
+    <canvas id="flowCanvas"></canvas>
+  </div>
+
+  <!-- 5 THẺ CHI TIẾT TRẠM SẢN XUẤT -->
+  <div class="grid-stages">
+    <div class="stage-card" id="card-0" onclick="selectStage(0)">
+      <div class="stage-num">TRẠM 1 · NHẬP LIỆU</div>
+      <div class="stage-title">📥 Download / Extract</div>
+      <div style="font-size:12.5px;color:#94a3b8">Tải phim từ Hongguo/YouTube, trích xuất audio 16kHz.</div>
+      <div style="margin-top:auto">
+        <span class="file-badge">In: URL / Raw Video</span><br>
+        <span class="file-badge out">Out: source.mp4, source.wav</span>
+      </div>
+    </div>
+
+    <div class="stage-card" id="card-1" onclick="selectStage(1)">
+      <div class="stage-num">TRẠM 2 · NHẬN DẠNG</div>
+      <div class="stage-title">🎙️ ASR (Bóc chữ)</div>
+      <div style="font-size:12.5px;color:#94a3b8">FunASR / Whisper AI nghe tiếng Trung và cắt mốc thời gian.</div>
+      <div style="margin-top:auto">
+        <span class="file-badge">In: source.wav</span><br>
+        <span class="file-badge out">Out: transcript.json, source.srt</span>
+      </div>
+    </div>
+
+    <div class="stage-card" id="card-2" onclick="selectStage(2)">
+      <div class="stage-num">TRẠM 3 · BIÊN TẬP</div>
+      <div class="stage-title">✍️ Translate (Dịch LLM)</div>
+      <div style="font-size:12.5px;color:#94a3b8">LLM Gemma/DeepSeek dịch sang văn nói Việt, chuẩn hóa xưng hô.</div>
+      <div style="margin-top:auto">
+        <span class="file-badge">In: transcript.json</span><br>
+        <span class="file-badge out">Out: translated.json, translated.srt</span>
+      </div>
+    </div>
+
+    <div class="stage-card" id="card-3" onclick="selectStage(3)">
+      <div class="stage-num">TRẠM 4 · THU ÂM</div>
+      <div class="stage-title">🗣️ TTS (Lồng tiếng AI)</div>
+      <div style="font-size:12.5px;color:#94a3b8">VieNeu / EdgeTTS lồng tiếng Việt chuẩn cảm xúc theo timeline.</div>
+      <div style="margin-top:auto">
+        <span class="file-badge">In: translated.json</span><br>
+        <span class="file-badge out">Out: tts_segments/*.wav, tts_full.wav</span>
+      </div>
+    </div>
+
+    <div class="stage-card" id="card-4" onclick="selectStage(4)">
+      <div class="stage-num">TRẠM 5 · HÒA ÂM</div>
+      <div class="stage-title">🎬 MUX (Xuất Bản)</div>
+      <div style="font-size:12.5px;color:#94a3b8">FFmpeg hạ nhỏ nhạc gốc, đè giọng Việt, add phụ đề xuất video.</div>
+      <div style="margin-top:auto">
+        <span class="file-badge">In: source.mp4 + tts + srt</span><br>
+        <span class="file-badge out">Out: final.mp4, thumbnail.jpg</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- BẢNG THEO DÕI LOGS TIẾN TRÌNH THỰC TẾ -->
+  <div class="log-panel" id="log-box">
+    <div class="log-line info">[Sẵn sàng] Bấm "Chạy Mô Phỏng" ở trên để xem dữ liệu chạy qua từng trạm trên Canvas.</div>
+  </div>
+
+  <!-- CHI TIẾT KỸ THUẬT CỦA TRẠM ĐANG CHỌN -->
+  <div class="inspector" id="inspector">
+    <h3 id="insp-title">🔍 Chi tiết kỹ thuật: Trạm 1 - Download / Extract</h3>
+    <table>
+      <tbody>
+        <tr>
+          <th>Hàm thực thi trong code</th>
+          <td id="insp-func"><code>server.py: _run_stage('download')</code> gọi yt-dlp hoặc ffmpeg copy</td>
+        </tr>
+        <tr>
+          <th>Tiến trình thực thi</th>
+          <td id="insp-proc">Subprocess độc lập (không chặn Web Server)</td>
+        </tr>
+        <tr>
+          <th>Nơi lưu trữ đĩa cứng</th>
+          <td id="insp-dir"><code>Z:\PinelineV4\work\{job_id}\</code> (junction → <code>D:\PinelineV4_work</code> nếu đã migrate)</td>
+        </tr>
+        <tr>
+          <th>Khi gặp lỗi ở bước này</th>
+          <td id="insp-err">Watchdog phát hiện link chết/mất mạng -> Thử lại tải tối đa 2 lần. Nếu vẫn lỗi báo `failed` để người dùng kiểm tra file nguồn.</td>
+        </tr>
+        <tr>
+          <th>Cơ chế tự sửa (Auto-Heal)</th>
+          <td id="insp-heal">Xóa file download dở dang, reset stage về <code>download</code> và thử lại.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+// Canvas Visual Engine
+const canvas = document.getElementById('flowCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width = canvas.parentElement.clientWidth;
+  canvas.height = 480;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+const STAGES = [
+  { id: 'download', name: '1. Download', icon: '📥', file: 'source.mp4 / .wav', func: "server.py: _run_stage('download')", err: 'Mất mạng / link chết / định dạng video lỗi', heal: 'Xóa file dở dang, tải lại' },
+  { id: 'asr', name: '2. ASR Bóc chữ', icon: '🎙️', file: 'transcript.json', func: "_run_asr_engine() -> FunASR/Whisper", err: 'CUDA OOM / file audio trống', heal: 'Khởi động lại mô hình ASR, giảm batch size' },
+  { id: 'translate', name: '3. Translate Dịch', icon: '✍️', file: 'translated.json', func: "_run_translate_engine() -> translate.py", err: 'LLM hết token / API timeout / JSON hỏng', heal: 'Tự động đổi sang model Fallback (openclaw), dịch lại từ transcript.json' },
+  { id: 'tts', name: '4. TTS Lồng tiếng', icon: '🗣️', file: 'tts_full.wav', func: "_run_tts_engine() -> VieNeu/EdgeTTS", err: 'Lỗi phát âm / file audio lệch thời gian', heal: 'Xóa các segment hỏng trong tts_segments/, render lại' },
+  { id: 'mux', name: '5. MUX Xuất video', icon: '🎬', file: 'final.mp4', func: "_run_mux_engine() -> ffmpeg", err: 'Lỗi codec ffmpeg / đầy ổ cứng', heal: 'Dọn dẹp thư mục tạm TMP D:\\, mux lại video' }
+];
+
+let selectedStageIdx = 0;
+let simActive = false;
+let simStep = -1;
+let simProgress = 0;
+let simMode = 'normal';
+let packetX = -100;
+
+function drawCanvas() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const W = canvas.width;
+  const count = STAGES.length;
+  const spacing = (W - 160) / (count - 1);
+  const startX = 80;
+  const centerY = 190;
+
+  // 1. Draw Conveyor Belt Line
+  ctx.beginPath();
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth = 10;
+  ctx.lineCap = 'round';
+  ctx.moveTo(startX, centerY);
+  ctx.lineTo(startX + (count - 1) * spacing, centerY);
+  ctx.stroke();
+
+  // Active glowing line up to current step
+  if (simStep >= 0) {
+    const activeTargetX = startX + Math.min(simStep, count - 1) * spacing;
+    ctx.beginPath();
+    ctx.strokeStyle = simMode === 'fail_translate' && simStep === 2 ? '#ef4444' : '#0284c7';
+    ctx.lineWidth = 6;
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = simMode === 'fail_translate' && simStep === 2 ? '#ef4444' : '#38bdf8';
+    ctx.moveTo(startX, centerY);
+    ctx.lineTo(activeTargetX, centerY);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // 2. Draw Watchdog & Manifest Cloud
+  const manifestY = 70;
+  ctx.fillStyle = '#111827';
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth = 1.5;
+  ctx.roundRect(W / 2 - 200, manifestY - 30, 400, 50, 10);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = 'bold 13px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('📋 manifest.json (Nguồn sự thật duy nhất · Lưu trạng thái từng trạm)', W / 2, manifestY - 6);
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '11px monospace';
+  ctx.fillText('status: ' + (simStep < 0 ? 'idle' : simStep === 5 ? 'done' : simMode === 'fail_translate' && simStep === 2 ? 'failed -> HEALING' : 'running') + ' | work/job_id/', W / 2, manifestY + 12);
+
+  // 3. Draw Stations
+  for (let i = 0; i < count; i++) {
+    const x = startX + i * spacing;
+    const y = centerY;
+    const isPast = simStep > i;
+    const isCurrent = simStep === i;
+    const isFailed = simMode === 'fail_translate' && simStep === 2 && i === 2;
+
+    // Station Node Circle
+    ctx.beginPath();
+    ctx.arc(x, y, 36, 0, Math.PI * 2);
+
+    if (isFailed) {
+      ctx.fillStyle = '#450a0a';
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 4;
+      ctx.shadowColor = '#ef4444';
+      ctx.shadowBlur = 24;
+    } else if (isCurrent) {
+      ctx.fillStyle = '#082f49';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 4;
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = 20;
+    } else if (isPast) {
+      ctx.fillStyle = '#064e3b';
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.fillStyle = '#111827';
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2;
+      ctx.shadowBlur = 0;
+    }
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Icon
+    ctx.font = '24px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(STAGES[i].icon, x, y);
+
+    // Title below node
+    ctx.font = 'bold 14px system-ui';
+    ctx.fillStyle = isCurrent ? '#38bdf8' : isPast ? '#10b981' : isFailed ? '#ef4444' : '#e2e8f0';
+    ctx.fillText(STAGES[i].name, x, y + 54);
+
+    // File generated badge
+    ctx.font = '11px monospace';
+    ctx.fillStyle = isCurrent ? '#7dd3fc' : '#64748b';
+    ctx.fillText(STAGES[i].file, x, y + 74);
+
+    // Dotted line connecting to manifest
+    ctx.beginPath();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = isCurrent ? '#0284c7' : '#1e293b';
+    ctx.lineWidth = 1.5;
+    ctx.moveTo(x, y - 36);
+    ctx.lineTo(x, manifestY + 20);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // 4. Moving Data Packet Animation
+  if (simActive && packetX > 0) {
+    ctx.beginPath();
+    ctx.arc(packetX, centerY, 10, 0, Math.PI * 2);
+    ctx.fillStyle = simMode === 'fail_translate' && simStep === 2 ? '#ef4444' : '#38bdf8';
+    ctx.shadowColor = simMode === 'fail_translate' && simStep === 2 ? '#ef4444' : '#38bdf8';
+    ctx.shadowBlur = 16;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // 5. Watchdog "Bác Sĩ Tự Sửa Lỗi" Banner
+  const watchY = 370;
+  ctx.fillStyle = '#0f172a';
+  ctx.strokeStyle = '#1e3a8a';
+  ctx.lineWidth = 1;
+  ctx.roundRect(80, watchY, W - 160, 65, 10);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#60a5fa';
+  ctx.font = 'bold 13.5px system-ui';
+  ctx.textAlign = 'left';
+  ctx.fillText('🩺 Bác Sĩ Giám Sát Tự Sửa Lỗi (agent_watch.py · Chu kỳ quét 90 giây)', 105, watchY + 25);
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '12px system-ui';
+  ctx.fillText('Nếu 1 trạm bị lỗi / treo > 30 phút: Chỉ xóa file rác trạm đó -> Đổi model Fallback -> Chạy tiếp mà KHÔNG phải làm lại từ đầu!', 105, watchY + 47);
+
+  requestAnimationFrame(drawCanvas);
+}
+requestAnimationFrame(drawCanvas);
+
+// Log Helper
+function addLog(msg, type = 'info') {
+  const box = document.getElementById('log-box');
+  const d = new Date().toLocaleTimeString();
+  const el = document.createElement('div');
+  el.className = 'log-line ' + type;
+  el.textContent = `[${d}] ${msg}`;
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+}
+
+// Stage Selection
+function selectStage(idx) {
+  selectedStageIdx = idx;
+  for (let i = 0; i < 5; i++) {
+    document.getElementById('card-' + i).classList.toggle('selected', i === idx);
+  }
+  const s = STAGES[idx];
+  document.getElementById('insp-title').innerHTML = `🔍 Chi tiết kỹ thuật: Trạm ${idx+1} - ${s.name}`;
+  document.getElementById('insp-func').innerHTML = `<code>${s.func}</code>`;
+  document.getElementById('insp-err').textContent = s.err;
+  document.getElementById('insp-heal').textContent = s.heal;
+}
+selectStage(0);
+
+// Simulation Engine
+let simTimer = null;
+
+function resetSimulation() {
+  clearTimeout(simTimer);
+  simActive = false;
+  simStep = -1;
+  packetX = -100;
+  document.getElementById('sim-status').textContent = 'Chờ lệnh';
+  document.getElementById('sim-status').className = 'status-tag';
+  document.getElementById('sim-job').textContent = 'Mã Job: Chưa chạy';
+  for (let i = 0; i < 5; i++) {
+    document.getElementById('card-' + i).classList.remove('selected', 'error-highlight');
+  }
+  addLog('Đã đặt lại trạng thái băng chuyền.', 'info');
+}
+
+function startSimulation(mode) {
+  resetSimulation();
+  simMode = mode;
+  simActive = true;
+  simStep = 0;
+  const jobId = 'job_' + Math.random().toString(36).substring(2, 8);
+  document.getElementById('sim-job').textContent = 'Mã Job: ' + jobId;
+  document.getElementById('sim-status').textContent = 'Đang chạy Trạm 1';
+  document.getElementById('sim-status').className = 'status-tag active';
+
+  addLog(`BẮT ĐẦU: Nhận video mới -> Cấp thư mục: work/${jobId}/ -> Khởi tạo manifest.json`, 'info');
+
+  const W = canvas.width;
+  const count = STAGES.length;
+  const spacing = (W - 160) / (count - 1);
+  const startX = 80;
+
+  function runNextStep(step) {
+    simStep = step;
+    selectStage(Math.min(step, 4));
+
+    if (step === 0) {
+      packetX = startX;
+      addLog(`[TRẠM 1: DOWNLOAD] Đang tải video gốc và trích xuất source.wav...`, 'info');
+      simTimer = setTimeout(() => {
+        addLog(`[TRẠM 1: Xong] Đã xuất source.mp4 và source.wav. Ghi manifest: stage='download' -> DONE.`, 'success');
+        runNextStep(1);
+      }, 2000);
+    } else if (step === 1) {
+      packetX = startX + 1 * spacing;
+      addLog(`[TRẠM 2: ASR] Nhận source.wav -> Bật subprocess FunASR/Whisper nghe và bóc phụ đề tiếng Trung...`, 'info');
+      simTimer = setTimeout(() => {
+        addLog(`[TRẠM 2: Xong] Đã xuất transcript.json (142 câu). Ghi manifest: stage='asr' -> DONE.`, 'success');
+        runNextStep(2);
+      }, 2500);
+    } else if (step === 2) {
+      packetX = startX + 2 * spacing;
+      addLog(`[TRẠM 3: TRANSLATE] Nhận transcript.json -> Gọi subprocess translate.py dùng mô hình LLM chính...`, 'info');
+
+      if (simMode === 'fail_translate') {
+        simTimer = setTimeout(() => {
+          document.getElementById('card-2').classList.add('error-highlight');
+          document.getElementById('sim-status').textContent = '⚠️ LỖI DỊCH (Translate Failed)';
+          document.getElementById('sim-status').className = 'status-tag danger';
+          addLog(`[CẢNH BÁO] TRẠM 3 GẶP LỖI: LLM timeout / Hết quota API! File translated.json bị hỏng.`, 'error');
+
+          // Watchdog Auto-Heal Trigger
+          simTimer = setTimeout(() => {
+            addLog(`[BÁC SĨ WATCHDOG PHÁT HIỆN] Sau 90s phát hiện job_${jobId} bị failed tại stage 'translate'.`, 'heal');
+            addLog(`[TỰ SỬA 1] Giữ nguyên source.mp4 và transcript.json của Trạm 1 & 2 (Không làm lại từ đầu!).`, 'heal');
+            addLog(`[TỰ SỬA 2] Xóa file dở dang translated.json bị lỗi.`, 'heal');
+            addLog(`[TỰ SỬA 3] Chuyển LLM sang model Fallback: 'openclaw' -> Thử lại Trạm 3...`, 'heal');
+
+            simTimer = setTimeout(() => {
+              document.getElementById('card-2').classList.remove('error-highlight');
+              document.getElementById('sim-status').textContent = 'Đã tự sửa thành công!';
+              document.getElementById('sim-status').className = 'status-tag active';
+              addLog(`[TRẠM 3: Xong bằng Fallback] Đã dịch hoàn tất 142 câu sang tiếng Việt! Ghi manifest -> DONE.`, 'success');
+              runNextStep(3);
+            }, 2500);
+          }, 2000);
+        }, 2200);
+      } else {
+        simTimer = setTimeout(() => {
+          addLog(`[TRẠM 3: Xong] Đã dịch 142 câu tiếng Việt mượt mà. Xuất translated.json + translated.srt.`, 'success');
+          runNextStep(3);
+        }, 2500);
+      }
+    } else if (step === 3) {
+      packetX = startX + 3 * spacing;
+      addLog(`[TRẠM 4: TTS] Nhận translated.json -> Khởi chạy VieNeu/EdgeTTS lồng tiếng từng câu...`, 'info');
+      simTimer = setTimeout(() => {
+        addLog(`[TRẠM 4: Xong] Đã tạo 142 file audio wav và ghép thành tts_full.wav.`, 'success');
+        runNextStep(4);
+      }, 2500);
+    } else if (step === 4) {
+      packetX = startX + 4 * spacing;
+      addLog(`[TRẠM 5: MUX] FFMPEG gom source.mp4 + tts_full.wav + translated.srt hòa âm xuất xưởng...`, 'info');
+      simTimer = setTimeout(() => {
+        addLog(`[TRẠM 5: HOÀN TẤT] Xuất file final.mp4 sắc nét, âm thanh chuẩn!`, 'success');
+        addLog(`[ĐỒNG BỘ] film_db.sync() -> Cập nhật Database SQLite & Sẵn sàng cho yt_uploader.`, 'info');
+        simStep = 5;
+        document.getElementById('sim-status').textContent = '✅ HOÀN TẤT 100%';
+        document.getElementById('sim-status').className = 'status-tag active';
+      }, 2000);
+    }
+  }
+
+  runNextStep(0);
+}
+</script>
+</body>
+</html>

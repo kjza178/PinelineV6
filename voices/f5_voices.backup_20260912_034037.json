@@ -1,0 +1,712 @@
+{
+  "NgayCuoi": {
+    "ref": "voices/f5_refs/NgayCuoi.wav",
+    "text": "Giả vờ cao quý cái gì trước, chẳng phải cô thấy trú thần bây giờ đã trở thành người thừa kế của Hàu Môn dù sao. Nên mới chạy đến đây cứ sẽ chú gì. Muốn hôi của chú gì, tôi nói cho cô biết, tình cảm bao nhiêu năm qua của Mộng Hàn và trú thần. Không phải loại tiện nhân như cô có thể xem vào đâu."
+  },
+  "NgocHuyen": {
+    "ref": "voices/f5_refs/NgocHuyen_full.wav",
+    "text": "chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng."
+  },
+  "Kind_hearted_Girl": {
+    "ref": "voices/dolly_refs/Kind_hearted_Girl.wav",
+    "text": "Thái Công bắt đầu nói thao thao: Thiên hạ là thiên hạ của mọi người trong thiên hạ, chứ không phải thiên hạ của một cá nhân. Lý Trác Nhĩ thật là một cô gái ưu tú, vô luận là bề ngoài hay gia cảnh đều rất ưu tú, cô ấy và Cố Mục Niên rất xứng đôi."
+  },
+  "Cold_Girl": {
+    "ref": "voices/dolly_refs/Cold_Girl.wav",
+    "text": "Cái khác, tôi cũng không có biện pháp. Lý Trác Nhĩ chán nản, Được rồi, tự tôi nghĩ biện pháp. Vì thế cô liền tắt điện thoại. Truyện Ả rập Arabie: Một người trẻ tuổi sau khi ăn cổ họng một con chim lạ, bỗng nhiên trở nên có sức khỏe hơn người."
+  },
+  "Steady_Youth": {
+    "ref": "voices/dolly_refs/Steady_Youth.wav",
+    "text": "Qua chuyện lần này chúng tôi sẽ càng chú trọng chất lượng hơn nữa. Sau một tiếng đồng hồ thì buổi họp báo kết thúc, Khương Dao ở hiện trường bận rộn xử lý công việc xong liền trở về công ty. Cô cũng không biết những người khác có thấy cái hình ảnh hôn môi rất nhỏ kia hay không nhưng mà cô thì cảm nhận được nó rất là chân thật."
+  },
+  "Graceful_Lady": {
+    "ref": "voices/dolly_refs/Graceful_Lady.wav",
+    "text": "Cuối cùng một mảnh khăn giấy ở trên miệng Khương Dao, cô thấy Cố Mục Niên cúi đầu, theo bản năng cô thẹn thùng muốn trốn, ai ngờ của sau gáy của cô bị anh nhẹ nhàng giữ lại, anh cúi người xuống, đem một cái ấm áp hôn vào bên môi cô."
+  },
+  "Steady_Man": {
+    "ref": "voices/dolly_refs/Steady_Man.wav",
+    "text": "Cô cắn răng một cái, Liền Là anh đi. Tiếng vỗ tay nhiệt liệt vang lên, Cố Mục Niên đứng dậy, mọi người thấy anh rộng lượng đi lên như vậy, một chút cũng không có kháng cự, mọi người đang ồn ào trở nên náo nhiệt hơn. Khương Tử Nha hết sức đau đớn, to tiếng than: Hỡi trời xanh ơi! Chả lẽ ông muốn dồn tôi vào con đường chết hay sao? Dứt lời, ông té quỵ xuống đất bất tỉnh."
+  },
+  "Energetic_Woman": {
+    "ref": "voices/dolly_refs/Energetic_Woman.wav",
+    "text": "Mũi vẫn thòng xuống quá ngực rồi quá bụng, và còn dài xuống nữa, xuống nữa, gần chấm đất mới chịu thôi. Ôi! Xấu hổ quá, trông như cái vòi voi! Vợ Đê nước mắt đầm đìa nghĩ đến nhan sắc có một không hai của mình trước đây."
+  },
+  "Wise_Elf": {
+    "ref": "voices/dolly_refs/Wise_Elf.wav",
+    "text": "Khương cũng là một cái người chậm nóng bỏng, tính tình nhàn nhạt, nếu như đối phương nhiệt tình quan tâm đến cô nhưng giữa cô và đối phương chưa thân thiết lắm thì ngược lại cô sẽ cảm thấy lùi bước và không thoải mái."
+  },
+  "Calm_Woman": {
+    "ref": "voices/dolly_refs/Calm_Woman.wav",
+    "text": "Châu Văn Vương sợ đông đảo binh mã của mình kéo tới Bàn Khê sẽ làm cho Khương Tử Nha đang ngồi câu cá phải giật mình, nên ra lệnh binh mã hạ trại tại chỗ, và chuẩn bị sẽ dẫn một số ít người tới gặp Khương Tử Nha thôi."
+  },
+  "Seasoned_Man": {
+    "ref": "voices/dolly_refs/Seasoned_Man.wav",
+    "text": "Lấy chồng, nàng chỉ muốn giúp bố nàng khám phá cho ra cái bí quyết làm giàu nhanh chóng của chồng. Một vị hỏi: Cây bưởi ở một làng nọ đang xanh tốt tại sao lại héo? Nhưng không ngờ anh ta quá sợ hãi, nên đã tự tử chết rồi."
+  },
+  "Strong_willed_Boy": {
+    "ref": "voices/dolly_refs/Strong_willed_Boy.wav",
+    "text": "Cố Mục Niên nhận một cú điện thoại, liền lên lầu xử lý công việc, trùng hợp lúc này Tuyết Mạt cũng phải đi phòng bếp đem canh xử lý một chút, phòng khách trong liền chỉ còn lại hai người là Khương Dao và Lý Trác Nhĩ."
+  },
+  "Serene_Elder": {
+    "ref": "voices/dolly_refs/Serene_Elder.wav",
+    "text": "Nhà vua đang nghĩ đến việc nhà Châu nhiều năm qua tuy được nghỉ ngơi dưỡng sức, đời sống của bá tánh ngày càng sung túc hơn, nhưng nếu đem so sánh giữa triều đình nhà Châu với triều đình nhà Thương, thì triều đình nhà Châu chỉ có một vùng đất bé nhỏ, sức nước lại yếu kém."
+  },
+  "Fascinating_Boy": {
+    "ref": "voices/dolly_refs/Fascinating_Boy.wav",
+    "text": "Về tình tiết hưởng quyền trêu ghẹo gái làng, hay là quyền đêm đầu, người miền Bắc có truyện Đô dũng đại tướng quân: Một người tên là Vũ Đắc Đô có sức khoẻ, giỏi lặn."
+  },
+  "Upset_Girl": {
+    "ref": "voices/dolly_refs/Upset_Girl.wav",
+    "text": "Vì cái gì? Thật ra từ lúc nhỏ tôi chính là bị an bài, tôi căn bản muốn học làm phát thanh chuyên nghiệp, nhưng mà bởi vì gia cho nên tôi phải đi theo con đường thiết kế này, xuất ngoại du học cũng là một tay cha mẹ tôi an bài."
+  },
+  "Thoughtful_Man": {
+    "ref": "voices/dolly_refs/Thoughtful_Man.wav",
+    "text": "Nếu theo đuổ như vậy có thể làm cho nó thoát độc thân, ắt không thể thiếu một cái điều kiện, chính là nó phải cảm thấy hứng thú. Khương Dao: Quả nhiên là mẹ ruột, phân tích đạo lý rất rõ ràng."
+  },
+  "Chatty_Girl": {
+    "ref": "voices/dolly_refs/Chatty_Girl.wav",
+    "text": "Hiện nay có không ít các đại thần ở Triều Ca đang hướng về Văn Vương, nên họ đã cực lực giúp đỡ Bá Ấp Khảo và Tán Nghi Sinh tiến hành việc cứu Văn Vương. Lúc bấy giờ, Võ Vương được mười tám giáp sĩ đi theo hộ vệ, từ ngoài tiến vào hiệu trường, rồi bước lên đài cao cử hành nghi lễ cáo tế trời đất và các thánh thần."
+  },
+  "Young_Gentleman": {
+    "ref": "voices/dolly_refs/Young_Gentleman.wav",
+    "text": "Phải chỉ rõ đấy là nguyên nhân gây rối loạn của các triều đại Ân Thương, đồng thời, cũng ra lệnh nói rõ chế độ thừa kế của nhà Châu từ nay về sau là chế độ đích trưởng thừa kế."
+  },
+  "Frank_Lady": {
+    "ref": "voices/dolly_refs/Frank_Lady.wav",
+    "text": "Ông ta lên mặt thành, mắng chửi Tây Kỳ không biết tôn trọng pháp chế của nhà Thương, tùy ý xua quân thảo phạt các chư hầu, và hăm dọa quân Châu nếu không sớm rút trở về, thì ông ta sẽ báo lên Trụ Vương, cử đại binh của Vương thất đến chinh phạt Tây Kỳ."
+  },
+  "Kind_hearted_girl": {
+    "ref": "voices/dolly_refs/Kind_hearted_girl.wav",
+    "text": "Vì tiến hành cuộc duyệt binh tại Mạnh Tân một là có thể kiểm nghiệm thử thái độ của các nước chư hầu đối với chúng ta, để từ đó chúng ta càng vững bụng. Khương Dao đẩy đẩy bờ vai cô ấy, Ân Cậu sao vậy. Thật a, Hác Bội Bội bắt đầu kịch liệt đung đưa cánh tay Khương Dao, Dao Dao cậu đang nói nghiêm túc sao?"
+  },
+  "Girl_Next_Door": {
+    "ref": "voices/dolly_refs/Girl_Next_Door.wav",
+    "text": "Kỳ thật chuyện này, cô không có quan hệ thế nào, nhưng mà lúc biết được anh cũng không thích Lý Trác Nhĩ, trong lòng cô chợt thở dài nhẹ nhõm một hơi. Khương Dao nhìn màn hình điện thoại khẽ thở dài một cái. Trong đoàn Bội Cẩm, Đỗ Yển nhìn thấy truyền thông đưa tin tức sáng liền nổi giận lôi đình."
+  },
+  "Arrogant_Princess": {
+    "ref": "voices/dolly_refs/Arrogant_Princess.wav",
+    "text": "Dầu gì đi nữa thì tôi cũng là người cố vấn pháp luật cho Chí Sinh, về sau nếu có chuyện thì còn phải tìm tôi đó. Rượu bưng lên, Cố Mục Niên không nói hai lời, cạn hết một ly, lại rót đầy một ly nữa."
+  },
+  "Wise_Woman": {
+    "ref": "voices/dolly_refs/Wise_Woman.wav",
+    "text": "Ai ngờ cô mới vừa mới đi tới cửa phòng của mình, cổ tay liền bị anh cầm lấy, cô bị bắt xoay người, anh hơi dùng lực một chút, cô liền bị anh làm cho lưng tựa vào tường. Nhà vua dừng lại một chốc rồi mới nói tiếp: Những lời nói trên được xem như là di chúc của. ta. do Đại Phu Tán Nghi Sinh ghi chép, và do Thái Công Vọng chấp hành những điều di chúc này."
+  },
+  "Pessimistic_Girl": {
+    "ref": "voices/dolly_refs/Pessimistic_Girl.wav",
+    "text": "Tôi còn tưởng rằng cậu là muốn tìm tôi để nói chuyện phiếm. Cố Mục Niên nghiêm mặt nhìn anh ấy, Tôi rãnh? Cậu tôn trọng tôi một chút được không? Đầu tiên chắc hẳn là, cô không thích cùng người không thân thuộc lắm ngồi cùng bàn ăn cơm, trừ phi có trường hợp quan trọng."
+  },
+  "Shy_Girl": {
+    "ref": "voices/dolly_refs/Shy_Girl.wav",
+    "text": "Vẫn là em cũng rất hi vọng, anh cùng với cô ấy, cho nên bây giờ lại đây giúp cô ấy xem thử thái độ của anh sao? Trong lòng của Cố Mục Niên như gương sáng, kỳ thật đã sớm nhìn thấu tâm tư của Lý Trác Nhĩ."
+  },
+  "Athletic_Student": {
+    "ref": "voices/dolly_refs/Athletic_Student.wav",
+    "text": "Vậy, nếu các vị thủ lãnh của các bang quốc bằng hữu, cho rằng vua Trụ triều nhà Thương là đáng thảo phạt, thì xin hãy cùng minh thệ với tôi! Câu nói của Võ Vương vừa dứt, thì phía dưới lại nổi lên tiếng hoan hô như sấm."
+  },
+  "Steady_Mentor": {
+    "ref": "voices/dolly_refs/Steady_Mentor.wav",
+    "text": "Nàng giữ chặt chiếc mặt nạ và thở từng chặp, nàng hít mạnh và lâu, rồi nàng thở dài, và bác sĩ đưa tay trái gỡ chiếc mặt nạ ra cho nàng. Cơn đau vừa rồi dữ dội lắm Giọng nàng thật khác lạ Em không nguy hiểm gì đâu, anh yêu ạ."
+  },
+  "Confident_Woman": {
+    "ref": "voices/dolly_refs/Confident_Woman.wav",
+    "text": "Ngọc Hoàng thượng đế sợ, bèn phán: Thôi, kíp bảo Thủy thần lập tức rút nước ngay đi, và gọi các thần kia lập tức trở về Trời, mặc cho nó muốn làm gì thì làm, để dịp khác sẽ hay. Hác Bội Bội ngạc nhiên: Bình thường không phải đều là cậu gọi món ăn sao? Cậu gọi đi, tớ không có tâm trạng. Cô chống đầu, ánh mắt nhìn xa xăm."
+  },
+  "Ambitious_Woman": {
+    "ref": "voices/dolly_refs/Ambitious_Woman.wav",
+    "text": "Một vạn binh mã của quân Châu cộng thêm hai nghìn binh mã đã kéo tới trước vây chặt lấy bốn cửa thành. Xe hướng chạy về phía trước, một giờ sau, đến khu nghỉ phép Sơn Trang. Qua đó cũng đủ thấy, chúng ta đã hành động đúng theo ý trời và lòng người."
+  },
+  "Decisive_Queen": {
+    "ref": "voices/dolly_refs/Decisive_Queen.wav",
+    "text": "Riêng nghi biểu thì phải trang nghiêm đường hoàng, bình tĩnh không hấp tấp, khiến mọi người có cảm giác nhà vua là một vị hoàng đế cao siêu như bầu trời không ai với tới, thâm sâu như đáy biển không ai có thể dò được. Thiên Lôi xuống thấy cốt nan tưởng là tội nhân, bèn tới lột da nếm thử một miếng thấy ngon, tức thì lột được bao nhiêu chén hết bấy nhiêu."
+  },
+  "Godfather": {
+    "ref": "voices/dolly_refs/Godfather.wav",
+    "text": "Một con sông có tên là Phạt Ngư Hà, từ giữa hai ngọn núi uốn lượn chảy qua, tiếng nước róc rách suốt ngày, rồi tiếp tục chạy thẳng đến phía Bắc để hòa vào dòng sông Vị Thủy."
+  },
+  "Cheerful_Young_Lady": {
+    "ref": "voices/dolly_refs/Cheerful_Young_Lady.wav",
+    "text": "Nhà vua thở hổn hển một lúc, rồi mỉm cười nhìn Thái Công và Cơ Phát, chừng như muốn nói Bây giờ thì ta an tâm rồi!. Khương Dao nói, ít nhất anh đối với cô có loại chiếm hữu dục kia, không hi vọng cô cùng những nam nhân khác chơi loại trò chơi như vậy."
+  },
+  "Calm_Gentleman": {
+    "ref": "voices/dolly_refs/Calm_Gentleman.wav",
+    "text": "Lý Trác Nhĩ đãi với cô rất nhiệt tình, nhưng mà trong lòng cô có cảm thấy là lạ, giống như không có cách nào hoàn toàn thản nhiên tiếp nhận sự nhiệt tình của cô ấy vậy. Sáu! Chỉ còn lại sáu thầy Phù thủy cầm cự được trên tổng số ba mươi người trong đoàn quân hôm lên đường ở Xứ Ys! Ông siết chặt nắm đấm."
+  },
+  "Friendly_Man": {
+    "ref": "voices/dolly_refs/Friendly_Man.wav",
+    "text": "Mà Mahoney cũng từ đầu đến cuối đối với Cố Mục Niên ôm một loại tò mò, thường vụng trộm đánh giá anh, liền phát hiện mỗi khi anh nói chuyện với Khương Dao về cái gì đó lúc Khương Dao cười thì anh cũng mang theo tia cười, nhưng lúc anh khong cười thì vẻ mặt lạnh như băng."
+  },
+  "Amiable_Man": {
+    "ref": "voices/dolly_refs/Amiable_Man.wav",
+    "text": "Ông thấy phụ vương sắc mặt hồng hào, có vẻ rất phấn chấn, hoàn toàn khác hẳn khi nãy, biết phụ vương đang ở trong tình trạng hồi dương, vội vàng quỳ xuống trước giường bệnh, chờ nghe nhà vua chỉ dạy. Cô lấy điện thoại di động ra, chụp mấy tấm ảnh, gửi qua cho anh, Em đang ở nhất trung này Cô cùng bác bảo vệ nói một tiếng, bác ấy liền để cô đi vào."
+  },
+  "Dramatist": {
+    "ref": "voices/dolly_refs/Dramatist.wav",
+    "text": "Mã Châu là một cô gái thích ăn, biếng làm, suốt ngày thích đi sang nhà hàng xóm để tán gẫu, không chú ý gì tới chuyện nhà. Vậy các ngươi phải tạm đình chỉ để ta dâng biểu về triều, đợi lệnh nhà vua lần nữa, rồi sẽ thi hành cũng chưa muộn."
+  },
+  "Charming_Lady": {
+    "ref": "voices/dolly_refs/Charming_Lady.wav",
+    "text": "Vu Thần an ủi anh: Không có việc gì, nếu cậu tính theo đuổi lại một lần nữa thì cứ xem như chuyện theo đuổi lần trước không tồn tại nha. Cố Mục Niên nghĩ tới tối qua anh đã nghe được cô nói với Mahoney, cô vẫn không thích anh."
+  },
+  "Brave_Adventurer": {
+    "ref": "voices/dolly_refs/Brave_Adventurer.wav",
+    "text": "Người miền Nam có truyện Sự tích cây tràm cũng là dị bản, nhưng lại có nhiều tình tiết đặc biệt. Nhưng khi gặp mặt Quân tử, thấy anh ăn nói không được lễ phép thì vua không được hài lòng. Mọ người ở tổ công tác đều làm liên tục, Cố Mục Niên liền làm việc cả đêm."
+  },
+  "Sophisticated_Lady": {
+    "ref": "voices/dolly_refs/Sophisticated_Lady.wav",
+    "text": "Ông lại được nghe ở Tây Kỳ có Châu Văn Vương, là một nhà vua đang lo việc cải cách nền cai trị của mình, giảm nhẹ tất cả mọi hình phạt, giảm nhẹ mọi thứ thuế khóa, quan viên ai ai cũng liêm khiết và biết thương yêu dân."
+  },
+  "Elegant_Girl": {
+    "ref": "voices/dolly_refs/Elegant_Girl.wav",
+    "text": "Khương Dao ở trong cuộc họp, đầu tiên là nghe được một tin tức nghiêm trọng qua kiểm tra đo lường, tháng trước trang sức trân châu mà Chí Sinh đưa ra thị trường quả thật tồn tại chất lượng không hợp cách."
+  },
+  "Caring_Woman": {
+    "ref": "voices/dolly_refs/Caring_Woman.wav",
+    "text": "Đoán trong người chàng trai có cái gì lạ, buổi chiều người ta cho anh uống một thứ thuốc mê ; khi mê, thầy thuốc cởi áo khám, biết sức khỏe của anh là do cái họng của con chim lạ mà có. Cũng giống như trời và đất, không hề tuyên cáo quy luật của chính mình, nhưng vạn vật đều sinh trưởng đúng theo quy luật đó."
+  },
+  "Mature_Woman": {
+    "ref": "voices/dolly_refs/Mature_Woman.wav",
+    "text": "Riêng nhóm Thúc Tiên, Thúc Độ, Thúc Xứ. thì có thể phong cho họ làm chư hầu ở một vùng đất xa, khiến họ phân tán, không cho họ tham gia việc triều chính. Vua cho làm một cung chín gian, gian nào gian ấy cửa đóng then cài, ra lệnh chỉ cho vào từng người một, ai mở đúng gian có công chúa thì được gả."
+  },
+  "Anchorwoman": {
+    "ref": "voices/dolly_refs/Anchorwoman.wav",
+    "text": "Sáng dậy, người em thấy các vị thần đã biến đi đằng nào, bèn lấy cái trống thần rồi tìm đến làng có cây bưởi bày cho dân làng ấy bắt giết hai con chuột bạch, rồi lại đi đến làng có bà già, bày cho bà ta cách cứu chữa cây dưa quý."
+  },
+  "Sage_Woman": {
+    "ref": "voices/dolly_refs/Sage_Woman.wav",
+    "text": "Đến lượt lược bị ném vào lửa, người nhặt một mảnh sót về vót làm lưỡi câu, hễ câu là được cá, bán nhiều tiền. Khương Thái Công từ chối liên tiếp, nhưng thấy Văn Vương vẫn kiên quyết yêu cầu, nên đành phải bằng lòng."
+  },
+  "Mature_Partner": {
+    "ref": "voices/dolly_refs/Mature_Partner.wav",
+    "text": "Và đúng như thầy Qadehar dự tính, những đòn chết người của lũ quái vật đang được thả sức tung hoành đã vô hiệu hóa các Thần chú đang bị yếu đi vì những Linh Phù cầu viện không chính xác."
+  },
+  "Bad_tempered_Boy": {
+    "ref": "voices/dolly_refs/Bad_tempered_Boy.wav",
+    "text": "Ở đàng sau quầy thiếc, chỗ tôi vừa ngồi ăn điểm tâm, có ba người, một ông già, một bà khỏe mạnh mặc đồ đen, ngồi chỗ thu tiền, ghi chép những thứ dọn ăn uống cho khách và một chú mang áo choàng."
+  },
+  "Deep_voiced_Gentleman": {
+    "ref": "voices/dolly_refs/Deep_voiced_Gentleman.wav",
+    "text": "Nhưng quả thực là có gì đó bất ổn. Cậu có nghĩ là Bóng tối nghe thấy chúng ta đến và hắn đã trốn không? Giải pháp này cũng có thể lắm, Qadehar thú thực và chăm chú quan sát tòa tháp."
+  },
+  "Grim_Reaper": {
+    "ref": "voices/dolly_refs/Grim_Reaper.wav",
+    "text": "Trên cơ sở đó, Khương Thái Công đích thân dẫn quân đội viễn chinh đi đánh Lê Quốc ở vùng núi Lữ Lương Sơn, và Hàn Quốc ở vùng Hà Nam, lần lượt xâm chiếm lãnh thổ của triều đình nhà Thương, liên tục mở rộng chu vi cương thổ của mình."
+  },
+  "Reserved_Young_Man": {
+    "ref": "voices/dolly_refs/Reserved_Young_Man.wav",
+    "text": "Nhờ quỷ xuống báo trước và bày cách chổng đít lên trời, làm cho Thiên Lôi lấy làm lạ, về tâu là vợ Chạ bị ai chém mất đầu và bổ đôi ngực."
+  },
+  "Strict_Boss": {
+    "ref": "voices/dolly_refs/Strict_Boss.wav",
+    "text": "Ngài đến đó sẽ báo cho họ biết, là muốn kết làm đồng minh với họ, rồi chờ tình hình cụ thể mà hành sự. Sau khi Võ Vương tiếp nhận sự chào đón của các nước chư hầu, bèn cùng tám trăm lãnh tụ của các nước nối gót nhau đi vào Mạnh Tân."
+  },
+  "Distinguished_Gentleman": {
+    "ref": "voices/dolly_refs/Distinguished_Gentleman.wav",
+    "text": "Mùa Thu năm nay, khi đến thời điểm lúa mạch chín, có tin ngoài biên ải báo về cho biết, hai Vương tử của Mật Tu Quốc là Tây Cát và Hải Nguyên, dẫn một toán binh mã vượt qua quan ải, tiến sâu vào lãnh thổ nhà Châu, rồi tiếp tục tiến về hướng Tây Kỳ."
+  },
+  "Tender_Woman": {
+    "ref": "voices/dolly_refs/Tender_Woman.wav",
+    "text": "Trước đây, lò mổ bò cứ mỗi hôm giết mười lăm con bò, và phải dùng hai thanh niên lực lưỡng làm trong một ngày mới xong việc. Từ đấy truyện phát triển theo hướng gần gũi với truyện của ta, nhưng lại không có tình tiết cứu giúp ruồi và chuột."
+  },
+  "Tranquil_Woman": {
+    "ref": "voices/dolly_refs/Tranquil_Woman.wav",
+    "text": "Chàng nghiện thuốc phiện cũng bắt chước ngủ ở quán, hy vọng được của, nhưng không may, lũ quỷ vì mất của nên lần này để tâm rình. Sau khi nghe qua những lời nói này, Thúc Tiên, Thúc Độ, Thúc Xứ, v. v. đều buồn thiu, cúi mặt nhìn xuống đất."
+  },
+  "Humorous_Elder": {
+    "ref": "voices/dolly_refs/Humorous_Elder.wav",
+    "text": "Người ở bên ngoài nhìn vào thì thấy cảm tình của bọn họ đều là do Cố Mục Niên chủ động, nhưng thật ra anh biết người giữ quyền chủ động chính là Khương Dao."
+  },
+  "Determined_Manager": {
+    "ref": "voices/dolly_refs/Determined_Manager.wav",
+    "text": "Khương Dao nghe thấy vậy, ngón tay thu thu làn váy, ngại ngùng cúi đầu cười, Cảm ơn anh Nhưng mà em mặc như vậy, thì không tiện chơi bóng cho lắm. Anh nói. Chơi bóng? Ân, phía dưới có sân tennis, không nghĩ sẽ đánh tennis sao?"
+  },
+  "Compelling_Girl": {
+    "ref": "voices/dolly_refs/Compelling_Girl.wav",
+    "text": "nét Cố Mục Niên vốn là sáng sớm thứ sáu mới bay trở về, nhưng mà việc ký kết hợp đồng so với trong kế hoạch thuận lợi hơn rất nhiều nên sáng ngày thứ năm đã xong việc. Năm giờ chiều máy bay của cậu ấy hạ cánh, cho nên Khương Dao tính toán đi sân bay đón cậu ấy, thuận tiện dẫn cậu ấy đi ăn một bữa cơm."
+  },
+  "Grinch": {
+    "ref": "voices/dolly_refs/Grinch.wav",
+    "text": "Đi vào, liền nhìn thấy trên bàn anh chồng một đống văn kiện, Cố Mục Niên đi đến sô pha rồi ngồi xuống, Khương Dao cũng cùng đi qua."
+  },
+  "Friendly_Big_Sister": {
+    "ref": "voices/dolly_refs/Friendly_Big_Sister.wav",
+    "text": "Nên cô liền nhắn tin cho anh, Lát nữa anh cũng chơi trò chơi? Không chơi. Khương Dao bĩu môi, cô đã sớm đoán được, anh chắc chắn sẽ không tham dự loại hoạt động này dù sao ở trong mắt anh mấy loại trò chơi này đều rất ngây thơ."
+  },
+  "Charming_Queen": {
+    "ref": "voices/dolly_refs/Charming_Queen.wav",
+    "text": "Khương Tử Nha tiến vào Sùng Thành, lập tức xuống lệnh cho tam quân dập tắt ngay ngọn lửa rồi dán bản yết thị để trấn an dân chúng, và xuống lệnh cho quân Châu không được khuấy phá bá tánh trong thành, không được lạm sát những người vô tội."
+  },
+  "Airheaded_Girl": {
+    "ref": "voices/dolly_refs/Airheaded_Girl.wav",
+    "text": "Đoạn cuối này tương tự với thần thoại Ông bà Trống của đồng bào Ba na Bahnar. bảy Theo Truyện cổ dân gian các dân tộc Việt nam, ba. tám Theo Hoàng Quyết, Hoàng Thao, Mai Sơn. Khi đạo người chưa xuất hiện sự loạn lạc thì chưa thể sách hoạch việc hưng binh, cần chờ khi có thiên tai và nhân họa xuất hiện, thì mới có thể sách hoạch việc chinh phạt."
+  },
+  "Wise_lady": {
+    "ref": "voices/dolly_refs/Wise_lady.wav",
+    "text": "Mã Thị thấy thế, biết lòng dạ của Tử Nha đã quyết, chắc chắn không làm sao chung sống trở lại được, nên rơi lệ như mưa. Chờ cho Văn Vương và Thái tử ngồi yên xong, Thái công mới vội vàng hỏi: Văn Vương ngài nửa đêm tới đây, không biết có điều gì chỉ dạy?"
+  },
+  "Assertive_Queen": {
+    "ref": "voices/dolly_refs/Assertive_Queen.wav",
+    "text": "Đồng bào Mường có truyện Rớt và Quỷ là một dị bản của truyện Cường Bạo đại vương nhưng chỉ giống ở cuối: Rớt vừa sinh ra thì mẹ đã chết, được một người đánh cá đưa về nuôi. Anh mang theo kính đen, cùng người bên cạnh nói vài câu, vài người an vị trên khán đài, ý tứ muốn xem bọn họ so tài."
+  },
+  "Cheerful_Man": {
+    "ref": "voices/dolly_refs/Cheerful_Man.wav",
+    "text": "Để thỏa mãn cuộc sống xa hoa và hoang dâm trụy lạc, Trụ Vương đã sử dụng hằng vạn công thợ xây cất Lộc Đài dài ba dặm, cao hằng nghìn xích, tại Bồi đô Triều Ca nay là Kỳ Huyện, thuộc tỉnh Hà Nam để làm nơi vui chơi riêng cho mình."
+  },
+  "Sincere_Teen": {
+    "ref": "voices/dolly_refs/Sincere_Teen.wav",
+    "text": "Văn Vương nói: Không phải tôi không nể tình Đại vương, nhưng vì quí quốc trong nhiều năm qua thường kéo quân tới quấy nhiễu, khiến nhân dân tề quốc vô cùng phẫn nộ."
+  },
+  "Rational_Man": {
+    "ref": "voices/dolly_refs/Rational_Man.wav",
+    "text": "Khương Thái Công đích thân chỉ huy toán quân này, nhưng ông không ra mặt, chỉ để cho Đại tướng quân Nam Cung Thích lên tiếng khiêu chiến, và đòi Sùng Hầu Hổ phải giao trả Quốc vương Mật Tu, vì nước Mật Tu đã cướp đi một số lương thảo của Tây Kỳ."
+  },
+  "Intellectual_Man": {
+    "ref": "voices/dolly_refs/Intellectual_Man.wav",
+    "text": "Để khích lệ thế hệ mai sau, tăng cường lòng tự hào dân tộc, đồng thời cũng dễ đề cao cái thiện, phê phán cái ác, dùng đó là tấm gương lịch sử cho mọi người, chúng tôi tổ chức một số tác giả, có những sở trường nhất định, cùng nhau biên cuốn sách này."
+  },
+  "Gentle_Teacher": {
+    "ref": "voices/dolly_refs/Gentle_Teacher.wav",
+    "text": "Cậu có muốn đổi mục tiêu hay không? Cố Mục Niên lại đem ly rượu uống một hơi cạn sạch, anh lắc đầu, thanh âm lành lạnh. Không có khả năng, đời này không phải em ấy thì không thể. Chỉ sợ cô thật sự không thích anh."
+  },
+  "Arnold": {
+    "ref": "voices/dolly_refs/Arnold.wav",
+    "text": "Ba người mới vừa đi ra tiệm, một cổ gió lạnh liền đổ lại đây, Khương Dao nhìn Cố Mục Niên chỉ mặc áo sơmi, cho nên cô muốn đem áo khoác trả cho anh."
+  },
+  "Attractive_Girl": {
+    "ref": "voices/dolly_refs/Attractive_Girl.wav",
+    "text": "Bị bất ngờ trước đòn phản công ồ ạt và lúng túng bởi không quen dùng các Linh Phù của Thế giới Vô hình, họ không kịp tạo Thần chú giúp tránh được lũ quái vật đang tấn công. Sau ba tuần rượu, Thái tử Cơ Phát, Châu Công Đản, Triệu Công Thích và phu nhân của họ lần lượt bước ra dâng rượu chúc mừng hai cụ già."
+  },
+  "Captivating_Storyteller": {
+    "ref": "voices/dolly_refs/Captivating_Storyteller.wav",
+    "text": "Để làm chủ được bảng thứ tự các vì sao ma thuật trong Thế giới Vô hình, tất nhiên phải chỉnh sửa nhiều và thay đổi dáng vẻ của các Linh Phù tùy theo hình dạng mới của các chòm sao. Khương Tử Nha không từ chối, vẫn ngồi yên trên xe, nói: Như vậy thì nhọc cho ngài quá! Văn Vương bèn lấy dây cương ngựa buộc vào thân mình, rồi kéo cỗ xe xuống núi."
+  },
+  "Bright_Queen": {
+    "ref": "voices/dolly_refs/Bright_Queen.wav",
+    "text": "Bản chính cho bản thiết kế xong, cô đứng lên, đi đến trước mặt Cố Mục Niên, nói: Cố Tổng, tôi đây đi về trước. Đêm nay anh cùng Lý tổng giám muốn cùng nhau ăn cơm, em cũng cùng đi? Cố Mục Niên đứng dậy hỏi."
+  },
+  "Thoughtful_Lady": {
+    "ref": "voices/dolly_refs/Thoughtful_Lady.wav",
+    "text": "Nghe đâu ở Tây Kỳ đã phái người trưởng nam của Văn Vương là Bá Ấp Khảo và đại phu Tán Nghi Sinh đến Triều Ca, dùng nhiều tiền bạc và báu vật, hối lộ các đại thần triều nhà Thương."
+  },
+  "Powerful_Veteran": {
+    "ref": "voices/dolly_refs/Powerful_Veteran.wav",
+    "text": "Không có nữ sinh nào thất bại nhiều lần như vậy mà vẫn như cũ nói ra mời. Lý tiểu thư, tôi lặp đi lặp lại nhiều lần cự tuyệt thì cô nên minh bạch tâm ý của tôi, xin lỗi. Đây coi như là biến thành cự tuyệt."
+  },
+  "Angry_Man": {
+    "ref": "voices/dolly_refs/Angry_Man.wav",
+    "text": "Khách sạn sao? Đi tiệm bánh ngọt gần nhất đi, đặt cái bánh sinh nhật. Vâng. Đặt bánh ngọt xong, tiểu lý hỏi tiếp theo cô muốn đi nơi nào. Bỗng có một con cá to và một con cá nhỏ màu vàng ánh, từ dưới nước quẫy đuôi nhảy vọt lên ngậm lấy lưỡi câu, rồi tiếp tục quẫy mạnh giữa không trung."
+  },
+  "Considerate_Senior": {
+    "ref": "voices/dolly_refs/Considerate_Senior.wav",
+    "text": "Giờ đây, trời già bắt tôi phải rời đi, không thể tiếp tục cộng sự để hoàn thành sự nghiệp lớn là tiêu diệt triều nhà Thương với Thái Công nữa. Thiên Lôi xuống, đi đến đâu cũng bị gà của anh nhảy lên đá, nên hoảng sợ bỏ chạy."
+  },
+  "Stressed_Lady": {
+    "ref": "voices/dolly_refs/Stressed_Lady.wav",
+    "text": "Khi nghĩ tới đây, tâm trạng của nhà vua bỗng thấy rối bời như cuộn tơ vò không biết đâu là đầu mối Nhà vua bèn ngửa mặt nhìn trời thở dài, buồn bã. Trong văn học phương Tây thời Trung đại cũng có một quyển truyện kể một hoàng tử nhận của cha mình ba vật quý."
+  },
+  "Tough_Boss": {
+    "ref": "voices/dolly_refs/Tough_Boss.wav",
+    "text": "Vậy chốc nữa đây lão thân sẽ đi trước dẫn cương ngựa cho Đại dương, và mời Châu Công đi sau cầm roi ngựa để cho chư hầu các nước thấy được, văn võ đại thần của nước ta đều hết sức cung kính Đại vương."
+  },
+  "Santa_Claus": {
+    "ref": "voices/dolly_refs/Santa_Claus.wav",
+    "text": "Một lát sau vị bác sĩ nói: Ông Henry, xin ông vui lòng ra ngoài một lát để tôi thăm thai cho bà. Bác sĩ muốn khám xem em như thế nào, rồi một lát nữa anh có thể trở lại, anh yêu."
+  },
+  "Friendly_Neighbor": {
+    "ref": "voices/dolly_refs/Friendly_Neighbor.wav",
+    "text": "Một MC nữ ngồi xuống ở đối diện bọn họ, trước mỉm cười đến đoạn lời dạo đầu, sau đó liền bắt đầu vào thẳng chủ đề, hỏi đôi chút về việc hai công ty hợp tác, cùng với việc thiết kế hệ liệt đồng hồ."
+  },
+  "Handsome_Childhood_Friend": {
+    "ref": "voices/dolly_refs/Handsome_Childhood_Friend.wav",
+    "text": "Một số người liền ôm tò mò cùng bát quái ánh mắt chuyển qua xem cô, làm cho hai má cô nóng lên, Cám ơn. Cô mở bao ngoài ra, Dương Nhược liền trêu ghẹo: Cố Tổng rất thân thiết a."
+  },
+  "Gentle_Lady": {
+    "ref": "voices/dolly_refs/Gentle_Lady.wav",
+    "text": "Do Văn Vương là người biết bói quẻ bát quái, người phạm tội đứng trong vòng tròn nếu trốn đi đâu, ông cũng có thể tìm ra được. Một người có vợ gần đến ngày sinh, thấy xung quanh ngôi đền thành hoàng lắm tre ; bèn biện một cái lễ đến đền để xin tre."
+  },
+  "Reliable_Man": {
+    "ref": "voices/dolly_refs/Reliable_Man.wav",
+    "text": "Người Nghệ an có chuyện Người học trò không sợ Trời cũng là dị bản của các truyện trên: Một người học trò thông thái từng vào Đường trong ra Đường ngoài, nổi tiếng khắp nơi, nhưng tính thì khinh người báng thần, chẳng sợ một ai cả."
+  },
+  "Elegant_Lady": {
+    "ref": "voices/dolly_refs/Elegant_Lady.wav",
+    "text": "Thái Công nói: Thái tử Cơ Phát là người trung hậu, nhân đức, vũ dũng kiên cường, thao lược hơn người nếu được lập làm Thái tử, thì đó là cái phúc của Đại vương, điểm lành của nhà Châu vậy."
+  },
+  "Ghost": {
+    "ref": "voices/dolly_refs/Ghost.wav",
+    "text": "Trụ Vương ra lệnh cho ông ta theo dõi mọi hành động của quý quốc, đồng thời, cho phép ông ta được quyền cử binh thảo phạt quý quốc bất cứ lúc nào. Các nước chư hầu thấy Võ Vương có diện mạo đường đường, oai phong lẫm liệt, ra vẻ là một bậc đế vương, nên vô cùng ngưỡng mộ."
+  },
+  "Trustworthy_Advisor": {
+    "ref": "voices/dolly_refs/Trustworthy_Advisor.wav",
+    "text": "Cô đi ra ngoài, vốn tưởng rằng vào giờ này hành lang sẽ không có một bóng người, lại không nghĩ rằng, Cố Mục Niên lại đứng ở cửa phòng của cô! Anh cao lớn vững chãi, ánh đèn chiếu rọi xuống gò má, như đao gọt hình dáng rõ ràng."
+  },
+  "Gentle_Woman": {
+    "ref": "voices/dolly_refs/Gentle_Woman.wav",
+    "text": "Người dẫn trình thúc giục, Sẽ cho cô thời gian là năm giây a. Cô chống lại ánh mắt của Cố Mục Niên, cô chỉ thấy anh ở trong đám người, im lặng nhìn cô, khóe miệng của anh mang theo cười. Tổ chức tất cả nông dân lại rồi cho họ trung ở vào một làng, để họ cùng nhau hợp tác, thì lương thực tự nhiên sẽ đầy đủ."
+  },
+  "Whimsical_Girl": {
+    "ref": "voices/dolly_refs/Whimsical_Girl.wav",
+    "text": "nét Cố Mục Niên liễm thần sắc, hướng về phía cô cười nhẹ, Không uống say, chỉ uống một chút. Khương Dao thấy bộ dáng của anh cũng coi như thanh tỉnh, liền yên tâm, thả tay đang nắm ống tay áo của anh ra."
+  },
+  "Gentle_Boss": {
+    "ref": "voices/dolly_refs/Gentle_Boss.wav",
+    "text": "Khương Dao, nói đến cùng, cô chính là không thích tôi đúng không?! Lý Trác Nhĩ thực sinh khí, cô ấy tiếp cận Khương Dao là có mục đích, vì có thể dựa vào gần Cố Mục Niên."
+  },
+  "Charming_Elder_Sister": {
+    "ref": "voices/dolly_refs/Charming_Elder_Sister.wav",
+    "text": "Ông Táo cũng bảo anh kiếm một chiếc thuyền đặt cốt người đắp bánh tráng, xung quanh có các gà chọi, đằng mũi thuyền đặt một trống lớn, một thanh la, hễ thấy nước dâng lên đến đâu thì nổi trống và thanh la tới đấy."
+  },
+  "Rudolph": {
+    "ref": "voices/dolly_refs/Rudolph.wav",
+    "text": "Anh lại đóng bộ thầy thuốc vào chữa, và cũng như các truyện trên, cho bệnh nhân biết chỉ có bày dàn cúng oan hồn chàng rể với những vật của nó thì mời hy vọng lành."
+  },
+  "Serene_Man": {
+    "ref": "voices/dolly_refs/Serene_Man.wav",
+    "text": "Cuối Đời Tốt Đẹp Lời nói đầu Trong dòng sông dài dầy sóng gió của lịch sử Trung Quốc, trên mảnh đất bao la và trù phú của Thần Châu, suốt mấy nghìn năm qua, từng xuất hiện nhiều bậc anh hùng, hào kiệt, tiếng tăm lẫy lừng, xoay chuyển cả càn khôn."
+  },
+  "Optimistic_girl": {
+    "ref": "voices/dolly_refs/Optimistic_girl.wav",
+    "text": "Thì ra, thời còn trẻ tuổi, Khương Tử Nha rất thích đi săn bắn, và thường giết chết được cả cọp, beo, gấu, bằng hai tay không với ngón đòn như vừa rồi. Thứ hai là xem phản ứng của Trụ Vương đối với hành động của chúng ta ra sao, từ đó tìm hiểu thêm hư thực của triều đình nhà Thương."
+  },
+  "Sensible_Manager": {
+    "ref": "voices/dolly_refs/Sensible_Manager.wav",
+    "text": "Nhưng, Sùng Hầu Hổ chỉ cho phép một nghìn trong số ba nghìn binh mã của Quốc vương Mật Tu, được vào thành, còn hai nghìn kia thì đóng ở bên ngoài."
+  },
+  "Comedian": {
+    "ref": "voices/dolly_refs/Comedian.wav",
+    "text": "Trợ lý đi đến, báo cáo: Đỗ tổng, đây là bản kiểm tra chất lượng đo lường của trân châu lần này. Đỗ Yển mí mắt đều không nhúc nhích, Để đó đi. Anh ta không rảnh bận tâm sự kiện gièm pha lần này."
+  },
+  "Playful_Spirit": {
+    "ref": "voices/dolly_refs/Playful_Spirit.wav",
+    "text": "Lý Trác Nhĩ nhìn bọn họ, trong lòng có chút ẩn ẩn không thích hợp, cô có cảm giác quan hệ giữa bọn họ không đơn giản như vậy, ít nhất thái độ mà Cố Mục Niên đối đãi Khương Dao, là thái độ mà cô chưa từng gặp qua. Buổi sáng cô thừa dịp thời gian nghỉ ngơi, đi tìm một trợ lý khác của tổng tài hỏi chuyện. Trợ lý, cô số điện thoại của tiểu lý không? Khương Dao hỏi."
+  },
+  "Trustworthy_man": {
+    "ref": "voices/dolly_refs/Trustworthy_man.wav",
+    "text": "Cho nên tôi muốn nhân dịp tiến hành cuộc săn bắn mùa Thu sắp tới sẽ có một hành động gì đó để hâm nóng tinh thần của tướng sĩ và các nước chư hầu. Đến trưa ngày hôm đó, đại đội nhân mã của Châu Văn Vương đã vượt qua sông Vị Hà, còn cách Bàn Khê năm dặm đường nữa."
+  },
+  "Cold_Young_Man": {
+    "ref": "voices/dolly_refs/Cold_Young_Man.wav",
+    "text": "Thái Công đã phụ tá cho tôi Đông chinh Tây phạt, trước sau đánh bại được các nước như Sùng Quốc, Lê Quốc, Hình Quốc. và hàng phục được Mật Tu Quốc. Ăn chán, chạy về tâu với Ngọc Hoàng: Tâu bệ hạ, nó có phép, thần lột hết tầng da này đến tầng da khác, nó vẫn trơ trơ không việc gì."
+  },
+  "Charming_Santa": {
+    "ref": "voices/dolly_refs/Charming_Santa.wav",
+    "text": "Sau một năm, Mã Châu sinh cho Khương Tử Nha một đứa con gái, đặt tên là Ấp Khương. Anh đem cô đặt ở trong tim vừa chớp mắt một cái đã qua tám năm."
+  },
+  "Attractive_Guy": {
+    "ref": "voices/dolly_refs/Attractive_Guy.wav",
+    "text": "Phải thành thực hối lỗi mới xong. À, tôi có lấy của người ta một cái túi quái ác. Đưa đây cho tôi, cần phải trả lại cái gì không phải của mình. Cô có cảm giác giống như lãnh địa của mình bị người khác xâm phạm vào vậy, nhưng mà rõ ràng là cô không ghét Lý Trác Nhĩ."
+  },
+  "Romantic_Husband": {
+    "ref": "voices/dolly_refs/Romantic_Husband.wav",
+    "text": "Ăn xong, họ dạo vườn được một con mèo cho ba vật quý: người thứ nhất được một túi luôn luôn có đầy tiền, người thứ hai được một chiếc đũa có thể gọi ra quân lính, người thứ ba được một tấm phiếu có phép mang người đi bất cứ đâu."
+  },
+  "Haughty_Lady": {
+    "ref": "voices/dolly_refs/Haughty_Lady.wav",
+    "text": "Võ Cát chưa kịp nói giá, thì lại thấy một người khác ăn mặc sang trọng, bước tới nói với anh: Gánh củi này đừng để xuống, xin gánh thẳng về nhà tôi, tôi sẽ trả một số tiền gấp đôi cho anh."
+  },
+  "Theatrical_Actor": {
+    "ref": "voices/dolly_refs/Theatrical_Actor.wav",
+    "text": "Ông ta nghe Sùng Hầu Hổ cho phép một nghìn binh sĩ được vào trong thành thì hết sức vui mừng, vội vàng trao hai nghìn binh sĩ còn lại cho tướng lĩnh khác chỉ huy, còn mình chọn một nghìn binh sĩ tinh nhuệ đi vào trong thành, chờ thời cơ mà hành sự."
+  },
+  "Lovely_Lady": {
+    "ref": "voices/dolly_refs/Lovely_Lady.wav",
+    "text": "Cô gái rất đẹp làm cho anh vui miệng khoe khoang số phận của mình và còn nói toạc cái bí mật của món của cải thu hoạch đều đặn hàng ngày. Cô đang vui vẻ, liền nghe được phía sau có người đang gọi tên của cô, là cái giọng nam trầm thấp. Đang làm gì đấy? Cô không cần quay đầu cũng biết là Cố Mục Niên."
+  },
+  "Bossy_Leader": {
+    "ref": "voices/dolly_refs/Bossy_Leader.wav",
+    "text": "Sau khi vào Phàm Cốc, Châu Văn Vương nhìn thấy khắp nơi tùng bách xanh um, khói mây mờ ảo, suối chảy róc rách, chim kêu vui tai, rõ ràng là một tiên cảnh, nên buột miệng than rằng: Núi sâu có cọp dữ, tiên cảnh có hiền tài."
+  },
+  "Upbeat_Man": {
+    "ref": "voices/dolly_refs/Upbeat_Man.wav",
+    "text": "Tự nhiên sáng hôm sau ngủ dậy, anh không thấy mái nhà tranh lụp xụp của bố mẹ nữa, thay vào đó là một ngôi lầu cao ngất, mái ngói tường hoa, cột kèo trạm trổ tinh vi. Cô thân là một thành viên tronh tổ công tác tiếp tục xử lý những vấn đề còn lại của sự kiện chất lượng trân châu, thời gian còn lại thì cô cứ tiếp tục hoàn thiện thiết kế trang sức cho lễ tình nhân năm sau."
+  },
+  "Steadfast_Narrator": {
+    "ref": "voices/dolly_refs/Steadfast_Narrator.wav",
+    "text": "Cô khó chịu gãi gãi đầu, ngả mình vào trên sô pha. Hai ngày sau, Cố Mục Niên tiếp nhận một nhà tạp chí xã hội sưu tầm, chủ đề sưu tầm lần này là có liên quan tới Chí Sinh cùng WNF hợp tác cộng đồng thiết kế Ảo mộng giới thiệu hệ liệt đồng hồ."
+  },
+  "Cheerful_Cool_Junior": {
+    "ref": "voices/dolly_refs/Cheerful_Cool_Junior.wav",
+    "text": "Ông Táo bày cho anh làm một cốt người bằng nan giống anh như hệt, đoạn tráng bánh tráng tức bánh cuốn dán ra ngoài nhiều lớp, rồi chui vào cối lật úp lại mà nấp. Cô mở cửa văn phòng của Cố Mục Niên ra, đem bữa sáng đặt ở trên mặt bàn, sau đó đi đến phòng nghỉ trong phòng làm việc của anh."
+  },
+  "Debator": {
+    "ref": "voices/dolly_refs/Debator.wav",
+    "text": "Vậy xin ngài hãy niệm tình, từ nay nước Mật Tu chứng tôi bằng lòng trở thành một nước phụ thuộc của Kỳ Châu, nhất nhất đều tuân theo mệnh lệnh của Đại vương sai khiến. Vào hôm tiến hành nghi lễ liên minh, Văn Vương bước lên tế đàn để cúng tế trời đất."
+  },
+  "Sweet_Girl": {
+    "ref": "voices/dolly_refs/Sweet_Girl.wav",
+    "text": "Phải giúp cho bá tánh thoát khỏi nguy nan, giải thoát cho bá tánh khỏi mọi sự khốn khổ, tiêu trừ cho bá tánh tất cả những tai họa xảy đến, cứu mọi người ra khỏi chỗ hiểm nguy, thì đó là ân đức."
+  },
+  "Fragile_Boy": {
+    "ref": "voices/dolly_refs/Fragile_Boy.wav",
+    "text": "Tử Nha nghe đến đây bèn thở thào nhẹ nhõm, lên tiếng hỏi: Bá Ấp Khảo và Tán Nghi Sinh có thể cứu được Văn Vương chăng? Đã là cát nhật tất nhiên sẽ có thiên tướng."
+  },
+  "Cheerful_Little_Sister": {
+    "ref": "voices/dolly_refs/Cheerful_Little_Sister.wav",
+    "text": "Dương Nhược nói đêm nay sẽ có hoạt động đoàn thể, đến lúc sẽ có mời đến một người dẫn trình chuyên nghiệp đến phát triển không khí. Khương Tử Nha tươi cười đáp: Việc bói toán để đoán số mạng, chẳng qua là một trò chơi của con trẻ. Gánh nặng này tôi đành phải để lại cho Thái Công và Thái tử chung sức hoàn thành."
+  },
+  "Outgoing_Girl": {
+    "ref": "voices/dolly_refs/Outgoing_Girl.wav",
+    "text": "Anh chàng tới, bắt đầu cho ăn một quả chà là đỏ, một sừng rụng xuống, tiếp tục mỗi ngày một quả cho đến ngày thứ tám thì được lấy công chúa làm vợ, và nhờ đó chiếm lại mọi vật quý sáu. Tuy rằng sau đó mấy cái công ty này cũng đã giải thích và cho ra phương thức xử lý, nhưng mà mọi người lại càng vừa lòng lời giải thích đầu tiên của Chí Sinh."
+  },
+  "Sad_Teen": {
+    "ref": "voices/dolly_refs/Sad_Teen.wav",
+    "text": "Nếu anh ấy không ăn thì anh liền nói cho tôi biết. Tiểu lý nghe xong liền trừng lớn mắt, bận rộn đáp ứng: Được được. Khương tiểu thư thật là lợi hại a, mệnh lệnh đều nói có thể nói ra."
+  },
+  "Anime_Character": {
+    "ref": "voices/dolly_refs/Anime_Character.wav",
+    "text": "Khương Dao lên xe, hỏi tiểu lý: Sáng nay Cố Tổng đang làm gì? Cố Tổng ở phòng hội nghị của cơ quan hai mươi ký kết một cái hợp đồng. Vậy anh đi ra ngoài như vậy không có sao chứ? Tiểu lý Tiếu nói: Sẽ không, bên kia còn có nhân viên công tác khác."
+  },
+  "Powerful_Soldier": {
+    "ref": "voices/dolly_refs/Powerful_Soldier.wav",
+    "text": "Bèn hạ lệnh cho vua Thủy phải hợp sức với Thiên Lôi và các thần Mưa, thần Bão mau mau dâng nước cho thật cao làm cho vợ chồng Cường Bạo chìm xuống tận đáy biển, lôi cổ đến để trị tội. Đánh tới một lúc sau, có một cái bóng bay qua góc độ muốn xảo quyệt, Khương Dao vì đi đón nó mà trượt ngã Mà trên khán đài Cố Mục Niên thấy một màn như vậy, sắc mặt lại trở nên không tốt lắm."
+  },
+  "Caring_Girlfriend": {
+    "ref": "voices/dolly_refs/Caring_Girlfriend.wav",
+    "text": "Kỳ thật không mua được bánh ngọt không phải là chuyện to tác gì, chỉ là cảm giác chuyện này tựa như một cái chốt mở kích động, thu hút hết toàn bộ suy nghĩ của cô."
+  },
+  "Narrator": {
+    "ref": "voices/dolly_refs/Narrator.wav",
+    "text": "Ngày nay, làng Hạ lát có một khu bãi ở tả ngạn sông Cầu rộng độ hai trăm mẫu, tương truyền đó là chỗ cư trú đồng thời là nơi hàng ngày luyện của ông Bạo Ngược."
+  },
+  "Naughty_Schoolgirl": {
+    "ref": "voices/dolly_refs/Naughty_Schoolgirl.wav",
+    "text": "Cô cầm ra liền thấy, là Mahoney! Cô nhìn Cố Mục Niên ý nói là cô muốn nghe một chút, liền nhận điện thoại. hi Cố Mục Niên ở bên cạnh ẩn ẩn nghe được đầu dây bên kia là cái giọng nam, nói một ngụm tiếng Anh lưu loát."
+  },
+  "Reliable_Youth": {
+    "ref": "voices/dolly_refs/Reliable_Youth.wav",
+    "text": "Hơn nữa nghe thấy giọng điệu này của Lý Trác Nhĩ liền có chút giống hương vị đạo đức bắt cóc. Tôi theo đuổi anh ấy, anh ấy sẽ không vui sao? Khương Tử Nha đưa mắt nhìn sắc diện của người tiều phu, đáp: Sắc mặt của anh rất hồng hào, như vậy là vận khí của anh rất đỏ."
+  },
+  "Casual_Woman": {
+    "ref": "voices/dolly_refs/Casual_Woman.wav",
+    "text": "Quốc vương Mật Tu được binh sĩ bại trận chạy trở về báo cho biết hai vương tử đã bị nhà Châu bắt sống, thì trong lòng hết sức lo sợ, định đưa toàn lực binh mã còn lại ở trong nước, tiến đánh Tây Kỳ để cứu hai Vương tử. Ở sự kiện gièm pha chất lượng trân châu đó, Chí Sinh chẳng những không có con đường phía trước bị nghẹt mà còn có rất nhiều hi vọng phát triển nữa."
+  },
+  "Friendly_Woman": {
+    "ref": "voices/dolly_refs/Friendly_Woman.wav",
+    "text": "Có lẽ ông đoán biết ngày xuất đầu lộ diện của mình sắp tới, nên dạy Võ Cát hãy gánh củi vào thành Tây Kỳ để bán. Lại tiếp tục đi và cứu được một con ruồi bị vướng mạng nhện, rồi một con chuột bị ngã. Loài người sau đó định xây một cái tháp thật cao để trèo lên thiên đình."
+  },
+  "Conscientious_Instructor": {
+    "ref": "voices/dolly_refs/Conscientious_Instructor.wav",
+    "text": "Ngay như chúng tôi là những người buôn bán, cũng mong sẽ có ngày Văn Vương lên làm Thiên từ, nên ai ai cũng bí mật quyên góp vàng bạc, báu vật để cho Bá Ấp Khảo và Tán Nghi Sinh lo việc cứu Văn Vương ra khỏi ngục."
+  },
+  "Friendly_Boy": {
+    "ref": "voices/dolly_refs/Friendly_Boy.wav",
+    "text": "Vào thang máy, cô hít sâu mấy hơi, thầm mắng mình không có tiền đề, nói không chừng anh chỉ là không cẩn thận mà động trúng thôi. Đinh, cửa thang máy mở. Thẳng đến buổi tối thứ năm, đúng giờ tam tầm cô liền trở về chung cư, bấy giờ mới hiểu được loại thương cảm này là do đâu mà đến."
+  },
+  "Inspiring_Lady": {
+    "ref": "voices/dolly_refs/Inspiring_Lady.wav",
+    "text": "Cho dù không chính mắt trông thấy được triều nhà Thương bị diệt vong, ít nhất ta cũng phải đặt một cơ sở tốt cho con cháu sau này phát triển được thuận tiện. Lúc xế chiều, Cố Mục Niên mở một tổ công tác chuyên xử lý gièm pha lần này, thật bất ngờ Khương Dao cũng tham gia."
+  },
+  "Assertive_Woman": {
+    "ref": "voices/dolly_refs/Assertive_Woman.wav",
+    "text": "Đặc biệt là trong nhà mọi thứ bày biện rất sang, kẻ hầu người hạ nhộn nhịp, ngoài vườn cây cối um tùm, trước sân hoa thơm cỏ lạ không thiếu thứ gì. Bà mẹ nói: Này con, lão ông kia có thể đoán đúng mọi việc như vậy, thì chắc chắn cũng sẽ có biện pháp để giải cứu cho con."
+  },
+  "Energetic_Youth": {
+    "ref": "voices/dolly_refs/Energetic_Youth.wav",
+    "text": "Kể từ triều nhà Đường trở về sau, Khương Thượng được truy phong Võ Vương, đứng ngang hàng với Khổng Tử, người được phong Văn Tuyên Vương, và trở thành hai thần tượng một văn một võ trong lịch sử cổ đại của Trung Quốc. Vậy kế hay nhất hiện nay là Đại vương nên chọn một nghìn con ngựa tốt, một nghìn bò dê, lại mang theo vàng bạc, châu báu, đến Tây Kỳ để nài nỉ, không chừng người Châu sẽ nể tình Đại vương mà thả hai vị Vương tử ra."
+  },
+  "Passionate_Lady": {
+    "ref": "voices/dolly_refs/Passionate_Lady.wav",
+    "text": "Bây giờ chỉ có một mình cô đi tới, ở trong lòng nghĩ đợi một lát sẽ đi đến tiệm bánh ngọt gần nhất trung kia mua bánh ngọt sô cô la mang về nhà, tâm tình không tốt, ăn đồ ngọt sẽ tốt hơn rất nhiều đây. Kịp khi ông cố gắng bò dậy, thì cỗ xe đã chạy đi mất hút từ lâu, chỉ còn lại gánh bột mì của ông đang nằm lăn lóc trên mặt đất, chung quanh đó bột mì đổ tung tóe."
+  },
+  "Mysterious_Girl": {
+    "ref": "voices/dolly_refs/Mysterious_Girl.wav",
+    "text": "Lời nói này, cảm giác giống như cô đã làm chuyện rất có lỗi với anh Khương Dao nhận thấy được trong giọng nói của cô mang theo ẩn ẩn chiếm hữu dục, vì thế lặng lẽ câu môi, Đương nhiên không chỉ có một mình anh. Cố Mục Niên thần sắc bị kiềm hãm, không có nói tiếp."
+  },
+  "Serene_Woman": {
+    "ref": "voices/dolly_refs/Serene_Woman.wav",
+    "text": "Anh ta nhìn thấy Khương Dao, có chút ngoài ý muốn, anh ta liền vui đùa: Cách vách là phòng của cô sao xem ra chúng ta rất có duyên phận. Khương Dao một trận xấu hổ, vẫn chưa trả lời, cửa phòng Cố Mục Niên liền mở ra. Sau giờ ngọ nhiệt độ không khí hơi cao, nhưng mà gió lạnh đập vào mặt coi như mát mẻ. Cái khu nghỉ phép sơn trang này thật lớn. Thanh sơn xoay quanh, phóng nhãn qua đi đều là cảnh đẹp."
+  },
+  "Male_Anchor": {
+    "ref": "voices/dolly_refs/Male_Anchor.wav",
+    "text": "Bởi vì Khương Dao là người phụ trách chính cho thiết kế trang sức lễ tình nhân, cho nên hoạt động Giáng Sinh tháng mười hai này cô chỉ phụ trách công việc bình thường thôi. Viên đại thần chịu trách nhiệm xây dựng, thường gọi Khương Tử Nha tới nhà riêng của ông ta để mổ bò, nên biết tài mổ bò của Khương Tử Nha rất giỏi."
+  },
+  "Thoughtful_Mentor": {
+    "ref": "voices/dolly_refs/Thoughtful_Mentor.wav",
+    "text": "Văn Vương ngồi tựa lưng trên một tấm chăn dầy, còn Khương Thái Công thì đứng bên cạnh, phía dưới có Thái tử Cơ Phát và đại phu Tán Nghi Sinh. Lâm Hổ thấy Khương Tử Nha đã quyết tâm, bèn nói: Được, bột mì sẽ do chú mua cho, còn cháu mua thêm một bộ gióng gánh, rồi gánh ra phố bán thử."
+  },
+  "Confident_Man": {
+    "ref": "voices/dolly_refs/Confident_Man.wav",
+    "text": "Khương Tử Nha biết Lâm Hổ là người rất hào phóng, bèn nói: Thưa thúc phụ, tôi được gặp chú ở tại Triều Ca này, thật hết sức vui mừng. Võ Cát sợ binh sĩ của Văn Vương nhận ra mình, Tử Nha liền nói: Dù có nhận ra nhà ngươi cũng không có chi đáng sợ."
+  },
+  "Crazy_Girl": {
+    "ref": "voices/dolly_refs/Crazy_Girl.wav",
+    "text": "Võ Vương lại nói tiếp: Vua Trụ triều nhà Thương, là một tên hôn quân hoang dâm vô độ, bạo ngược tàn nhẫn, lúc nào cũng xua quân đi chinh phạt khắp mọi nơi, làm cho bá tánh lâm vào cảnh nước sôi lửa bỏng."
+  },
+  "Smart_Young_Girl": {
+    "ref": "voices/dolly_refs/Smart_Young_Girl.wav",
+    "text": "Đến một nơi nọ có một cái giếng nước đen sôi sục, một con chồn đến uống nước bị một vài giọt bắn lên đầu nó, tự nhiên nó hóa thành khỉ. Anh đứng lên, cùng nam nhân đối diện bắt tay. Hợp tác vui vẻ, Cố Tổng. Hợp tác vui vẻ. Cố Mục Niên mỉm cười."
+  },
+  "Fussy_hostess": {
+    "ref": "voices/dolly_refs/Fussy_hostess.wav",
+    "text": "Nhà vua còn giáo hóa cho bá tánh ở Tây Kỳ phải biết hiếu kính cha mẹ, lo nuôi dưỡng dạy dỗ con em, và luôn luôn đề xướng một tinh thần công chính và tiết tháo, sẵn sàng giúp đỡ cho người neo đơn, cô quả, khiến Tây Kỳ dần dần trở thành một nước biết trọng lễ nghĩa."
+  },
+  "News_Anchor": {
+    "ref": "voices/dolly_refs/News_Anchor.wav",
+    "text": "Vừa vặn sáng sớm nay cô không việc, liền đi qua đi. Khương Dao gật đầu, Tôi lập tức đi. Cô lấy túi xách, cầm lấy tài liệu rồi đi. Văn Vương tiếp tục nói: Con cháu trong tông thất của triều nhà Châu, đều được phong đất để kiến tạo quốc gia, để làm phên giậu cho Vương thất."
+  },
+  "Deep_toned_Man": {
+    "ref": "voices/dolly_refs/Deep_toned_Man.wav",
+    "text": "Trong bữa cơm này, Khương Dao giới thiệu cho Mahoney rất nhiều đồ ăn và những chổ rất tuyệt để đi chơi, còn Cố Mục Niên thì ngồi yên lặng gắp đồ ăn bỏ vào trong bát của cô."
+  },
+  "Calm_Leader": {
+    "ref": "voices/dolly_refs/Calm_Leader.wav",
+    "text": "Cho mãi về sau này, cứ đến ngày Tết, dòng dõi của họ vẫn không quên cử người đến nhà thờ ông ở làng Tự nhiên Hà đông để thắp hương kỷ niệm. Có một đêm nọ, sau khi dùng cơm tối xong, Châu Văn Vương bèn bước ra sân sau tản bộ."
+  },
+  "Playful_Girl": {
+    "ref": "voices/dolly_refs/Playful_Girl.wav",
+    "text": "Khi Văn Vương tiếp nhận ly rượu chúc thọ của Thúc Tiên, thì bỗng nhớ lại một chuyện cũ trước đây, nên tự nhiên đầu óc choáng váng, xây xẩm mặt mày, không còn ngồi vững, và đã ngả quỵ sang một bên."
+  },
+  "Male_Narrator": {
+    "ref": "voices/dolly_refs/Male_Narrator.wav",
+    "text": "Cả mẹ lẫn con vội trốn vào buồng tránh mặt kẻ hầu người hạ. Chỉ có trưởng giả lấy khăn che mặt, hối hả bảo người nhà đi mời thầy thuốc. Tớ có thể hiểu được a, chung quy Cố Mục Niên ưu tú như vậy, đối với cậu lại rất tốt, cậu thích anh ấy cũng là chuyện rất bình thường."
+  },
+  "Energetic_Boy": {
+    "ref": "voices/dolly_refs/Energetic_Boy.wav",
+    "text": "Họ nghĩ bụng: ngay đến một vị Thái sư mà cũng đi bộ cầm cương dẫn ngựa cho Võ Vương, như vậy đủ thấy tuy Võ Vương tuổi trẻ, nhưng uy tín rất cao, tất nhiên phải là người có có đầy đủ thao lược, có uy danh của một bậc thiên tử nên mới được như thế."
+  },
+  "Assured_Presenter": {
+    "ref": "voices/dolly_refs/Assured_Presenter.wav",
+    "text": "Văn Vương đưa mắt ngó quanh các con cháu một lượt, rồi từ từ nhìn về Thái Công, nói: Ta phó thác chuyện quốc gia đại sự cho Thượng Phụ Khương Thái Sư, vậy nếu có ai trong số các ngươi trái lệnh, thì sẽ do Thượng Phụ bàn bạc để xử phạt."
+  },
+  "Male_Host": {
+    "ref": "voices/dolly_refs/Male_Host.wav",
+    "text": "Lâm Hổ trong trận đánh với quân nhà Thương bị bắt sống, nhưng giữa đường ông trốn thoát, tìm tới Triều Ca mai danh ẩn tích, sống nhờ vào người bà con. Quả nhiên khi Quân tử mở cửa buồng vào thì đã thấy công chúa tươi cười bước ra đón. Thấy cả ba lần anh đều thắng cuộc, vua đành vui lòng nhận anh là phò mã."
+  },
+  "Dominant_Man": {
+    "ref": "voices/dolly_refs/Dominant_Man.wav",
+    "text": "Vậy anh hãy nói cho tôi biết anh muốn bói chuyện gì, để tôi xem một quẻ giúp cho anh? Buổi tối một ngày nọ, lúc cô tắm rửa xong, đang ở phòng làm nước mật ong, liền nhận được điện thoại của Lý Trác Nhĩ. Anh cảm ơn cáo, rồi chuyển ba cái hũ về, và ngày hôm sau anh đã cho người đội mâm vàng vào cung dâng vua."
+  },
+  "Wise_Scholar": {
+    "ref": "voices/dolly_refs/Wise_Scholar.wav",
+    "text": "Đến đây, đường núi bỗng chuyển thành lên dốc, Văn Vương phải ra sức kéo mạnh cỗ xe, nhưng bỗng sợi dây buộc vào mình nhà vua bị đứt, suýt nữa nhà vua bị té xuống mặt đường. Võ Vương đáp: Được! Thế là Võ Vương và Khương Thái Công mỗi người dùng một cây bút son viết năm chữ vào lòng bàn tay, rồi mới xòe ra để cùng nhau xem."
+  },
+  "Quirky_Girl": {
+    "ref": "voices/dolly_refs/Quirky_Girl.wav",
+    "text": "Hiện tại mới có hơn sáu giờ, em tới công ty sớm như vậy làm gì? Sáng nay hơn năm giờ, cô tự nhiên tỉnh lại, lo lắng việc công ty, cũng ngủ không được, nên liền đến sớm một chút."
+  },
+  "Upbeat_Girl": {
+    "ref": "voices/dolly_refs/Upbeat_Girl.wav",
+    "text": "Ở đây, Khương Thượng gặp được một người là Lâm Hổ, vị tộc trưởng họ Lâm trong nhóm chín họ đã từng liên chính chống triều đình nhà Thương trước kia. Nhưng, nếu Đại vương nhất định vấn kế nơi lão thần, thì lão thần xin mạo muội nói lên ý kiến của mình, mong Đại vương bảo mật đừng bao giờ nói cho ai biết."
+  },
+  "Wise_Lady": {
+    "ref": "voices/dolly_refs/Wise_Lady.wav",
+    "text": "Thái tứ Cơ Phát bất ngờ nhìn thấy một cô gái xinh đẹp phi thường, không khỏi đứng sững sờ một lúc lâu mà không nói được tiếng nào. Nay Đại vương đã bằng lòng ký kết làm đồng minh với Kỳ Châu, thì đôi bên trở thành người một nhà, vậy chúng tôi đâu lại làm hại quý công tử nữa?"
+  },
+  "Optimistic_Youth": {
+    "ref": "voices/dolly_refs/Optimistic_Youth.wav",
+    "text": "Một hôm người em một mình canh lúa nương, đuổi theo con chim ri ăn lúa, tình cờ leo núi đến một nhà nọ có bảy cô tiên, lại có một quả lúc lắc, khi ước thì có cơm dọn ra. Chí Sinh thành công rồi! Khương Dao cười vui vẻ, cô biết nhất định sẽ có màn dư luận sôi động, nhưng mà Chí Sinh đã cố gắng như vậy cho nên sẽ thu lại kết quả tốt."
+  },
+  "Gorgeous_Lady": {
+    "ref": "voices/dolly_refs/Gorgeous_Lady.wav",
+    "text": "Em đi hỗ trợ, sáng sớm ngày mai liền mở buổi trình diễn. Được. Cô đi ra văn phòng, nói với tiểu lý: Phiền anh đi mua cho Cố Tổng một chút cơm được không? Nay người tiều phu này chẳng những tự động đến làm quen với ta, mà còn nói lên những điều bí mật của ta nữa."
+  },
+  "Passionate_Warrior": {
+    "ref": "voices/dolly_refs/Passionate_Warrior.wav",
+    "text": "Cố Mục Niên bận rộn xong chuẩn bị rời đi, liền nghe Lý Trác Nhĩ gọi lại, Cố tiên sinh, xin anh chờ một chút. Tiểu lý vừa thấy, liền nói với Cố Mục Niên là mình đi ra tiền sảnh của khách sạn chờ."
+  },
+  "Intonate_Girl": {
+    "ref": "voices/dolly_refs/Intonate_Girl.wav",
+    "text": "Sáng sớm thứ bảy, đầu tiên là mọi người muốn tới cửa công ty hợp, ngồi xe Bus đến khu nghỉ phép Sơn Trang Sáng hôm nay Khương Dao đi đến công ty có chút sớm, do đó có thể ăn mặc thoáng một chút."
+  },
+  "Pompous_lady": {
+    "ref": "voices/dolly_refs/Pompous_lady.wav",
+    "text": "Nếu có thể cùng hưởng chung lợi ích của thiên hạ với mọi người trong thiên hạ, thì có thể lấy được thiên hạ. Nhưng Cường Bạo đâu ngờ rằng cái càng cua có mảnh nhọn xóc vào chân mình, lâu dần da thịt thối loang ra."
+  },
+  "Jovial_Man": {
+    "ref": "voices/dolly_refs/Jovial_Man.wav",
+    "text": "Nửa Đêm Đến Viếng Sau khi Văn Vương mời được Khương Tử Nha, cảm thấy chẳng khác nào như lúc gặp hạn lại được mưa xuân, cá mắc cạn lại gặp được nước sông lai láng, hết sức vui mừng, nhưng cũng hết sức nôn nóng."
+  },
+  "XuyenThanh": {
+    "ref": "voices/clone_refs/XuyenThanh.wav",
+    "text": "Đúng vậy, làm như thế, mới có thể thực sự nhìn ra ai mới là người có tay học thực sự. Hồng rồi thế từ, nếu như gia đề tại chỗ, thì ba bài thương ngày học thuộc..."
+  },
+  "N2": {
+    "ref": "voices\\f5_refs\\N2.wav",
+    "text": "Làn đà mụn đợt xa ngư, hàn bồ vỡ mộn thí đị phộng Nên ra là nít thiên dưng của mình Nói là dạ đầm thích, tâm giả đín trong đế cơm mụn tái đành đô đềm Lời xây"
+  },
+  "GiongBe": {
+    "ref": "voices\\f5_refs\\GiongBe.wav",
+    "text": "Lâu lắm rồi mới đặt tay lên bàn phím viết một cái gì đó dành cho những cảm xúc của bản thân, thay vì những chiếc dịt sân bơ dập bơ sân trồng tréo nhau đến mức đôi lúc mình"
+  },
+  "DeNghe": {
+    "ref": "voices\\f5_refs\\DeNghe.wav",
+    "text": "Có những khi mình nghĩ bản thân chỉ cần sống thoải mái như thế này, không lo nghĩ về tương lai, không suy xét về những mối quan hệ xung quanh"
+  },
+  "VieNeu_MinhDuc": {
+    "ref": "voices/vieneu_bac/MinhDuc.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Minh Đức",
+    "region": "Bắc",
+    "description": "Nam · Bắc · Phong cách tin tức"
+  },
+  "VieNeu_PhamTuyen": {
+    "ref": "voices/vieneu_bac/PhamTuyen.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Phạm Tuyên",
+    "region": "Bắc",
+    "description": "Nam · Bắc · Phong cách tự nhiên"
+  },
+  "VieNeu_ThanhBinh": {
+    "ref": "voices/vieneu_bac/ThanhBinh.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Thanh Bình",
+    "region": "Bắc",
+    "description": "Nam · Bắc · Phong cách kể chuyện"
+  },
+  "VieNeu_TrucLy": {
+    "ref": "voices/vieneu_bac/TrucLy.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Trúc Ly",
+    "region": "Bắc",
+    "description": "Nữ · Bắc · Phong cách tự nhiên"
+  },
+  "VieNeu_NgocLinh": {
+    "ref": "voices/vieneu_bac/NgocLinh.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Ngọc Linh",
+    "region": "Bắc",
+    "description": "Nữ · Bắc · Phong cách kể chuyện"
+  },
+  "VieNeu_DoanTrang": {
+    "ref": "voices/vieneu_bac/DoanTrang.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Đoan Trang",
+    "region": "Bắc",
+    "description": "Nữ · Bắc · Phong cách tự nhiên"
+  },
+  "VieNeu_MaiAnh": {
+    "ref": "voices/vieneu_bac/MaiAnh.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Mai Anh",
+    "region": "Bắc",
+    "description": "Nữ · Bắc · Phong cách tin tức"
+  },
+  "VieNeu_QuynhAnh": {
+    "ref": "voices/vieneu_bac/QuynhAnh.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Quỳnh Anh",
+    "region": "Bắc",
+    "description": "Nữ · Bắc · Phong cách đọc truyện"
+  },
+  "VieNeu_NgocHuyen_VieNeu": {
+    "ref": "voices/vieneu_bac/NgocHuyen_VieNeu.wav",
+    "text": "Chúng ta đang sống trong thời đại của trí tuệ nhân tạo. Mọi lĩnh vực từ giáo dục, y tế đến sáng tạo nghệ thuật đều đang thay đổi nhanh chóng.",
+    "source": "vieneu_v3_turbo_preset",
+    "preset": "Ngọc Huyền",
+    "region": "Bắc",
+    "description": "Nữ · Bắc · Giọng đọc tự nhiên"
+  },
+  "Res": {
+    "ref": "voices/clone_refs/Res.wav",
+    "text": "Độc của ta đã hoàn toàn giải trừ rồi.",
+    "source": "clone_ref",
+    "description": "Giọng Res (clip sạch từ dataset UVR/ASR, ~6.8s)"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "_note": "PROFILE máy RTX 3060 + i5-12600K (máy chính). Giữ tốc độ: batch 8, CPU threads mặc định worker, không low-priority.",
+  "_machine": "RTX 3060 / i5-12600K",
+  "VIENEU_PY": "D:/vieneu_env/Scripts/python.exe",
+  "OMNI_PY": "D:/OmniVoiceStudio-v2/.venv/Scripts/python.exe",
+  "OMNI_CWD": "D:/OmniVoiceStudio-v2",
+  "HF_HOME": "D:/AI_CACHE",
+  "OMNI_MODEL": "splendor1811/omnivoice-vietnamese",
+  "VIENEU_DEVICE": "cuda",
+  "OMNI_DEVICE": "cuda",
+
+  "VIENEU_BATCH": "8",
+  "VIENEU_STALL_SEC": "600",
+  "ASR_STALL_SEC": "900",
+  "TRANSLATE_BATCH": "100"
+}

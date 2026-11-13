@@ -1,0 +1,52 @@
+{
+ "job": "2d3316593ea9",
+ "status": "silver",
+ "characters": [
+  {
+   "id": "lp",
+   "zh": "陆放",
+   "vi": "Lục Phóng",
+   "gender": "nam",
+   "role": "Nam chính, «Thiên Long bảng nhất», chủ mèo Lai Tài",
+   "relations": {
+    "lc": "bạn thân/đồng đội («lão Chu»)"
+   }
+  },
+  {
+   "id": "lc",
+   "zh": "周成宇",
+   "vi": "Chu Thành Vũ (lão Chu)",
+   "gender": "nam",
+   "role": "Đồng đội, nghề tiên tri (cát hung)",
+   "relations": {
+    "lp": "bạn thân/đồng đội («lão Lục»)"
+   }
+  },
+  {
+   "id": "laitai",
+   "zh": "来财",
+   "vi": "Lai Tài",
+   "gender": "?",
+   "role": "Mèo của Lục Phóng",
+   "relations": {}
+  },
+  {
+   "id": "nghipham",
+   "zh": "",
+   "vi": "người bị tạm giữ (gian tế Ma Nhân)",
+   "gender": "?",
+   "role": "Nghi phạm, lộ mặt ở 41–42",
+   "relations": {
+    "lp": "gọi 长官"
+   }
+  },
+  {
+   "id": "nghipham2",
+   "zh": "",
+   "vi": "người bị tạm giữ khác",
+   "gender": "?",
+   "role": "Kêu oan",
+   "relations": {}
+  }
+ ]
+}

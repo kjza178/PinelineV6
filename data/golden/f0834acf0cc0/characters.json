@@ -1,0 +1,68 @@
+{
+ "job": "f0834acf0cc0",
+ "status": "silver",
+ "characters": [
+  {
+   "id": "tranphong",
+   "zh": "陈峰",
+   "vi": "Trần Phong",
+   "gender": "nam",
+   "role": "Nam chính, «lão đại» của nhóm",
+   "relations": {
+    "dangxa": "chủ nhân thần thú",
+    "tudu": "đồng minh"
+   }
+  },
+  {
+   "id": "dangxa",
+   "zh": "腾蛇",
+   "vi": "Đằng Xà (lão Đằng)",
+   "gender": "nam",
+   "role": "Thần thú của Trần Phong, tự xưng 老子/你藤爷爷",
+   "relations": {
+    "tranphong": "thú cưng, đấu khẩu",
+    "batky": "kẻ thù"
+   }
+  },
+  {
+   "id": "tudu",
+   "zh": "子悠",
+   "vi": "Tử Du",
+   "gender": "nữ",
+   "role": "Cường giả Ma tộc, đồng minh",
+   "relations": {
+    "tranphong": "đồng minh"
+   }
+  },
+  {
+   "id": "batky",
+   "zh": "八岐大蛇",
+   "vi": "Bát Kỳ Đại Xà",
+   "gender": "nam",
+   "role": "Thần thú tám đầu, tự xưng 本尊",
+   "relations": {
+    "dangxa": "coi là hậu bối"
+   }
+  },
+  {
+   "id": "dongdoi",
+   "zh": "(队友)",
+   "vi": "Đồng đội (chưa rõ ai)",
+   "gender": "?",
+   "role": "Thành viên nhóm gọi 老大 — danh tính không suy ra được",
+   "relations": {
+    "tranphong": "gọi 老大"
+   }
+  },
+  {
+   "id": "dongdoi2",
+   "zh": "(队友2)",
+   "vi": "Đồng đội thứ hai (chưa rõ ai)",
+   "gender": "?",
+   "role": "Người thứ hai trong nhóm (nói 脚盆…)",
+   "relations": {
+    "tranphong": "gọi 老大"
+   }
+  }
+ ]
+}

@@ -1,0 +1,44 @@
+{
+ "title": "游戏入侵：普攻加血一箭亿万伤屠戮神明三 - Phần 1/4",
+ "title_vi": "Trò Chơi Xâm Lấn: Đánh Thường Hồi Máu, Một Tên Vạn Ức Sát Thương, Đồ Sát Thần Minh (mùa 3, phần 1/4)",
+ "genre": "co_phong",
+ "genre_note": "Job mixed (game/đô thị 2037 + huyền huyễn); CỬA SỔ chọn là cổ phong/huyền huyễn thuần: đế–cung chủ đàm phán, tuyên chiến (không có tuyến đô thị). V2 work không có job cổ trang thuần có asr.json — đây là cửa sổ thuần nhất. vi_system của job CHƯA qua REVIEW (rv=0).",
+ "range": [
+  1815,
+  1955
+ ],
+ "heldout": true,
+ "job": "2493d3c7cb29_p01",
+ "status": "silver",
+ "reviewer": "agent (Claude) — chờ chủ dự án xác nhận",
+ "built": "2026-11-11",
+ "n_lines": 141,
+ "scenes": [
+  {
+   "id": "s1",
+   "from": 1815,
+   "to": 1817,
+   "desc": "Tuyết Đế dặn đồng đội trước khi đi Nguyệt Luân Ma Cung"
+  },
+  {
+   "id": "s2",
+   "from": 1818,
+   "to": 1834,
+   "desc": "Nguyệt Luân Ma Cung lo Phàm Điện khởi binh; nghênh đón Tuyết Đế"
+  },
+  {
+   "id": "s3",
+   "from": 1835,
+   "to": 1952,
+   "desc": "Tuyết Đế ↔ Nguyệt Luân Khách đàm phán, đe doạ, tuyên chiến (cường giả đối đầu: ta–ngươi)"
+  },
+  {
+   "id": "s4",
+   "from": 1953,
+   "to": 1955,
+   "desc": "Thuộc hạ Phàm Điện hỏi kết quả đàm phán"
+  }
+ ],
+ "script_lines_total": 3249,
+ "script_has_mt": true
+}

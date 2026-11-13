@@ -1,0 +1,1005 @@
+{
+ "version": 1,
+ "note": "Bảng quy tắc xưng hô ZH→VI theo QUAN HỆ (translate_simple, cờ SIMPLE_PAIR_RULES=1). Nguồn: quy ước lồng tiếng/phụ đề Việt phổ biến (expert, viết tay 2026-11-12) — KHÔNG lấy từ golden. Chỉ dùng để ĐIỀN cặp còn trống trong plan (không bao giờ đè cặp plan đã có); cặp sinh ra mang src=rule. Cấu trúc: relations[].{pair_kw = từ khoá quan hệ hai chiều, hi_kw/lo_kw = vai trên/dưới, hi_gender = vai trên theo giới khi chỉ có pair_kw, sym = quan hệ ngang hàng, needs_gender = cần biết giới cả hai}. forms: hi_lo (vai trên nói với vai dưới) / lo_hi / any (ngang hàng); khoá thể loại modern|ancient|xianxia|* ; self/call là chuỗi (nhiều dạng cách bằng /) hoặc {\"nam\":…, \"nữ\":…} theo giới NGƯỜI NÓI (self) / NGƯỜI NGHE (call). Phim mixed = hợp dạng modern + (xianxia hoặc ancient theo thể loại). Sửa tay thoải mái.",
+ "genre_kw": {
+  "xianxia": [
+   "tu tiên",
+   "tiên hiệp",
+   "huyền huyễn",
+   "tu chân",
+   "tu luyện",
+   "võ hiệp",
+   "kiếm hiệp",
+   "tông môn",
+   "thần ma",
+   "xianxia",
+   "修仙",
+   "仙侠",
+   "玄幻",
+   "武侠",
+   "修真"
+  ],
+  "ancient": [
+   "cổ trang",
+   "cung đấu",
+   "cung đình",
+   "hoàng cung",
+   "triều đình",
+   "dã sử",
+   "cổ đại",
+   "ancient",
+   "古装",
+   "宫斗"
+  ],
+  "modern": [
+   "hiện đại",
+   "đô thị",
+   "học đường",
+   "công sở",
+   "tổng tài",
+   "modern",
+   "都市",
+   "现代",
+   "校园"
+  ]
+ },
+ "relations": [
+  {
+   "id": "spouse",
+   "label": "vợ chồng",
+   "pair_kw": [
+    "vợ chồng",
+    "phu thê",
+    "kết hôn",
+    "夫妻",
+    "夫妇"
+   ],
+   "hi_kw": [
+    "chồng",
+    "phu quân",
+    "tướng công",
+    "丈夫",
+    "老公",
+    "相公",
+    "夫君"
+   ],
+   "lo_kw": [
+    "vợ",
+    "nương tử",
+    "thê tử",
+    "妻子",
+    "老婆",
+    "娘子",
+    "夫人"
+   ],
+   "hi_gender": "nam",
+   "forms": {
+    "hi_lo": {
+     "modern": {
+      "self": "anh",
+      "call": "em"
+     },
+     "ancient": {
+      "self": "ta / vi phu",
+      "call": "nàng / nương tử"
+     },
+     "xianxia": {
+      "self": "ta",
+      "call": "nàng / nương tử"
+     }
+    },
+    "lo_hi": {
+     "modern": {
+      "self": "em",
+      "call": "anh"
+     },
+     "ancient": {
+      "self": "thiếp / ta",
+      "call": "chàng / phu quân / tướng công"
+     },
+     "xianxia": {
+      "self": "ta / thiếp",
+      "call": "chàng / phu quân"
+     }
+    }
+   }
+  },
+  {
+   "id": "lovers",
+   "label": "người yêu",
+   "pair_kw": [
+    "người yêu",
+    "yêu nhau",
+    "tình nhân",
+    "người thương",
+    "tình cảm lãng mạn",
+    "thanh mai trúc mã",
+    "hôn phu",
+    "hôn thê",
+    "vị hôn",
+    "恋人",
+    "情侣",
+    "青梅竹马",
+    "未婚夫",
+    "未婚妻"
+   ],
+   "hi_kw": [
+    "bạn trai",
+    "男朋友",
+    "男友"
+   ],
+   "lo_kw": [
+    "bạn gái",
+    "女朋友",
+    "女友"
+   ],
+   "hi_gender": "nam",
+   "needs_gender": true,
+   "forms": {
+    "hi_lo": {
+     "modern": {
+      "self": "anh",
+      "call": "em"
+     },
+     "ancient": {
+      "self": "ta",
+      "call": "nàng"
+     },
+     "xianxia": {
+      "self": "ta",
+      "call": "nàng"
+     }
+    },
+    "lo_hi": {
+     "modern": {
+      "self": "em",
+      "call": "anh"
+     },
+     "ancient": {
+      "self": "ta",
+      "call": "chàng"
+     },
+     "xianxia": {
+      "self": "ta",
+      "call": "chàng"
+     }
+    }
+   }
+  },
+  {
+   "id": "parent_child",
+   "label": "cha/mẹ – con",
+   "hi_kw": [
+    "cha",
+    "bố",
+    "mẹ",
+    "ba ruột",
+    "phụ thân",
+    "mẫu thân",
+    "cha ruột",
+    "mẹ ruột",
+    "mẹ kế",
+    "cha nuôi",
+    "mẹ nuôi",
+    "父亲",
+    "母亲",
+    "爸爸",
+    "妈妈",
+    "爹爹",
+    "娘亲",
+    "养父",
+    "养母"
+   ],
+   "lo_kw": [
+    "con trai",
+    "con gái",
+    "con ruột",
+    "con nuôi",
+    "nhi tử",
+    "nữ nhi",
+    "儿子",
+    "女儿",
+    "养子",
+    "养女"
+   ],
+   "forms": {
+    "hi_lo": {
+     "modern": {
+      "self": {
+       "nam": "bố / ba",
+       "nữ": "mẹ"
+      },
+      "call": "con"
+     },
+     "ancient": {
+      "self": {
+       "nam": "cha / vi phụ",
+       "nữ": "mẹ / nương"
+      },
+      "call": "con"
+     },
+     "xianxia": {
+      "self": {
+       "nam": "cha / vi phụ",
+       "nữ": "mẹ / nương"
+      },
+      "call": "con"
+     }
+    },
+    "lo_hi": {
+     "modern": {
+      "self": "con",
+      "call": {
+       "nam": "bố / ba",
+       "nữ": "mẹ"
+      }
+     },
+     "ancient": {
+      "self": "con / hài nhi",
+      "call": {
+       "nam": "cha / phụ thân",
+       "nữ": "mẹ / mẫu thân / nương"
+      }
+     },
+     "xianxia": {
+      "self": "con / hài nhi",
+      "call": {
+       "nam": "cha / phụ thân",
+       "nữ": "mẹ / mẫu thân / nương"
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "grand",
+   "label": "ông bà – cháu",
+   "hi_kw": [
+    "ông nội",
+    "bà nội",
+    "ông ngoại",
+    "bà ngoại",
+    "爷爷",
+    "奶奶",
+    "外公",
+    "外婆",
+    "祖父",
+    "祖母",
+    "姥姥",
+    "姥爷"
+   ],
+   "lo_kw": [
+    "cháu trai",
+    "cháu gái",
+    "cháu nội",
+    "cháu ngoại",
+    "孙子",
+    "孙女",
+    "外孙",
+    "外孙女"
+   ],
+   "forms": {
+    "hi_lo": {
+     "*": {
+      "self": {
+       "nam": "ông",
+       "nữ": "bà"
+      },
+      "call": "cháu"
+     }
+    },
+    "lo_hi": {
+     "*": {
+      "self": "cháu",
+      "call": {
+       "nam": "ông / ông nội",
+       "nữ": "bà / bà nội"
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "siblings",
+   "label": "anh/chị – em ruột",
+   "pair_kw": [
+    "anh em ruột",
+    "chị em ruột",
+    "anh chị em ruột",
+    "song sinh",
+    "anh em trai ruột",
+    "huynh đệ ruột",
+    "兄妹",
+    "姐弟",
+    "兄弟姐妹",
+    "亲兄弟",
+    "亲姐妹",
+    "兄弟俩"
+   ],
+   "hi_kw": [
+    "anh trai",
+    "chị gái",
+    "anh ruột",
+    "chị ruột",
+    "anh cả",
+    "chị cả",
+    "đại ca ruột",
+    "ca ca",
+    "tỷ tỷ",
+    "哥哥",
+    "姐姐",
+    "大哥",
+    "大姐",
+    "兄长"
+   ],
+   "lo_kw": [
+    "em gái",
+    "em trai",
+    "em ruột",
+    "em út",
+    "muội muội",
+    "đệ đệ",
+    "妹妹",
+    "弟弟",
+    "小妹",
+    "小弟"
+   ],
+   "forms": {
+    "hi_lo": {
+     "modern": {
+      "self": {
+       "nam": "anh",
+       "nữ": "chị"
+      },
+      "call": "em"
+     },
+     "ancient": {
+      "self": {
+       "nam": "huynh / ca",
+       "nữ": "tỷ"
+      },
+      "call": {
+       "nam": "đệ",
+       "nữ": "muội"
+      }
+     },
+     "xianxia": {
+      "self": {
+       "nam": "huynh / ca",
+       "nữ": "tỷ"
+      },
+      "call": {
+       "nam": "đệ",
+       "nữ": "muội"
+      }
+     }
+    },
+    "lo_hi": {
+     "modern": {
+      "self": "em",
+      "call": {
+       "nam": "anh",
+       "nữ": "chị"
+      }
+     },
+     "ancient": {
+      "self": {
+       "nam": "đệ",
+       "nữ": "muội"
+      },
+      "call": {
+       "nam": "huynh / ca ca / đại ca",
+       "nữ": "tỷ / tỷ tỷ"
+      }
+     },
+     "xianxia": {
+      "self": {
+       "nam": "đệ",
+       "nữ": "muội"
+      },
+      "call": {
+       "nam": "huynh / ca ca / đại ca",
+       "nữ": "tỷ / tỷ tỷ"
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "master_disciple",
+   "label": "sư phụ – đồ đệ",
+   "hi_kw": [
+    "sư phụ",
+    "sư tôn",
+    "ân sư",
+    "师父",
+    "师尊",
+    "恩师"
+   ],
+   "lo_kw": [
+    "đồ đệ",
+    "đệ tử",
+    "đồ nhi",
+    "truyền nhân",
+    "徒弟",
+    "徒儿",
+    "弟子",
+    "传人"
+   ],
+   "forms": {
+    "hi_lo": {
+     "modern": {
+      "self": "thầy / ta / vi sư",
+      "call": "con / đồ nhi"
+     },
+     "ancient": {
+      "self": "vi sư / ta",
+      "call": "đồ nhi / con"
+     },
+     "xianxia": {
+      "self": "vi sư / ta / bản tọa",
+      "call": "đồ nhi / con"
+     }
+    },
+    "lo_hi": {
+     "modern": {
+      "self": "con / đệ tử / đồ nhi",
+      "call": "sư phụ / thầy"
+     },
+     "ancient": {
+      "self": "đệ tử / đồ nhi",
+      "call": "sư phụ"
+     },
+     "xianxia": {
+      "self": "đệ tử / đồ nhi",
+      "call": "sư phụ / sư tôn"
+     }
+    }
+   }
+  },
+  {
+   "id": "sect_siblings",
+   "label": "sư huynh/tỷ – sư đệ/muội",
+   "pair_kw": [
+    "đồng môn",
+    "同门"
+   ],
+   "hi_kw": [
+    "sư huynh",
+    "sư tỷ",
+    "đại sư huynh",
+    "đại sư tỷ",
+    "师兄",
+    "师姐",
+    "大师兄",
+    "大师姐"
+   ],
+   "lo_kw": [
+    "sư đệ",
+    "sư muội",
+    "tiểu sư đệ",
+    "tiểu sư muội",
+    "师弟",
+    "师妹",
+    "小师弟",
+    "小师妹"
+   ],
+   "forms": {
+    "hi_lo": {
+     "*": {
+      "self": {
+       "nam": "sư huynh / ta",
+       "nữ": "sư tỷ / ta"
+      },
+      "call": {
+       "nam": "sư đệ",
+       "nữ": "sư muội"
+      }
+     }
+    },
+    "lo_hi": {
+     "*": {
+      "self": {
+       "nam": "sư đệ / đệ",
+       "nữ": "sư muội / muội"
+      },
+      "call": {
+       "nam": "sư huynh",
+       "nữ": "sư tỷ"
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "ruler_subject",
+   "label": "vua – thần",
+   "pair_kw": [
+    "quân thần",
+    "君臣"
+   ],
+   "hi_kw": [
+    "hoàng đế",
+    "bệ hạ",
+    "hoàng thượng",
+    "quân vương",
+    "thiên tử",
+    "nữ đế",
+    "皇帝",
+    "陛下",
+    "皇上",
+    "女帝",
+    "君王"
+   ],
+   "lo_kw": [
+    "thần tử",
+    "đại thần",
+    "quan thần",
+    "thừa tướng",
+    "tướng quân",
+    "trung thần",
+    "臣子",
+    "大臣",
+    "丞相",
+    "将军"
+   ],
+   "forms": {
+    "hi_lo": {
+     "*": {
+      "self": "trẫm",
+      "call": "khanh / ngươi"
+     }
+    },
+    "lo_hi": {
+     "*": {
+      "self": "thần / vi thần",
+      "call": "bệ hạ / hoàng thượng"
+     }
+    }
+   }
+  },
+  {
+   "id": "master_servant",
+   "label": "chủ – tớ",
+   "hi_kw": [
+    "chủ nhân",
+    "thiếu gia",
+    "lão gia",
+    "cậu chủ",
+    "cô chủ",
+    "tiểu thư nhà",
+    "chủ tử",
+    "主人",
+    "少爷",
+    "老爷",
+    "主子"
+   ],
+   "lo_kw": [
+    "người hầu",
+    "nô tỳ",
+    "nha hoàn",
+    "hạ nhân",
+    "thuộc hạ",
+    "quản gia",
+    "tùy tùng",
+    "hộ vệ",
+    "tử sĩ",
+    "vệ sĩ",
+    "仆人",
+    "丫鬟",
+    "奴婢",
+    "属下",
+    "管家",
+    "随从",
+    "护卫",
+    "保镖"
+   ],
+   "forms": {
+    "hi_lo": {
+     "modern": {
+      "self": "tôi / ta",
+      "call": {
+       "nam": "anh / cậu / chú",
+       "nữ": "chị / cô"
+      }
+     },
+     "ancient": {
+      "self": "ta",
+      "call": "ngươi"
+     },
+     "xianxia": {
+      "self": "ta / bản tọa",
+      "call": "ngươi"
+     }
+    },
+    "lo_hi": {
+     "modern": {
+      "self": "tôi",
+      "call": {
+       "nam": "cậu chủ / ông chủ / thiếu gia",
+       "nữ": "cô chủ / bà chủ / tiểu thư"
+      }
+     },
+     "ancient": {
+      "self": {
+       "nam": "thuộc hạ / tiểu nhân / nô tài",
+       "nữ": "nô tỳ / thuộc hạ"
+      },
+      "call": {
+       "nam": "chủ nhân / thiếu gia / lão gia / chủ tử",
+       "nữ": "chủ nhân / tiểu thư / chủ tử"
+      }
+     },
+     "xianxia": {
+      "self": {
+       "nam": "thuộc hạ",
+       "nữ": "thuộc hạ / nô tỳ"
+      },
+      "call": {
+       "nam": "chủ nhân / thiếu chủ",
+       "nữ": "chủ nhân / tiểu thư"
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "teacher_student",
+   "label": "thầy/cô – trò",
+   "hi_kw": [
+    "thầy giáo",
+    "cô giáo",
+    "giáo viên",
+    "giảng viên",
+    "giáo sư",
+    "chủ nhiệm",
+    "phu tử",
+    "老师",
+    "教授",
+    "班主任"
+   ],
+   "lo_kw": [
+    "học sinh",
+    "sinh viên",
+    "học trò",
+    "学生"
+   ],
+   "forms": {
+    "hi_lo": {
+     "modern": {
+      "self": {
+       "nam": "thầy",
+       "nữ": "cô"
+      },
+      "call": "em"
+     },
+     "ancient": {
+      "self": "ta / lão phu",
+      "call": "trò / ngươi"
+     },
+     "xianxia": {
+      "self": "ta / lão phu",
+      "call": "trò / ngươi"
+     }
+    },
+    "lo_hi": {
+     "modern": {
+      "self": "em",
+      "call": {
+       "nam": "thầy",
+       "nữ": "cô"
+      }
+     },
+     "ancient": {
+      "self": "học trò / đệ tử",
+      "call": "tiên sinh / phu tử"
+     },
+     "xianxia": {
+      "self": "học trò / đệ tử",
+      "call": "tiên sinh / thầy"
+     }
+    }
+   }
+  },
+  {
+   "id": "boss_staff",
+   "label": "sếp – nhân viên",
+   "hi_kw": [
+    "sếp",
+    "giám đốc",
+    "tổng giám đốc",
+    "tổng tài",
+    "chủ tịch",
+    "ông chủ",
+    "bà chủ",
+    "cấp trên",
+    "trưởng phòng",
+    "老板",
+    "总裁",
+    "总经理",
+    "董事长",
+    "上司",
+    "经理"
+   ],
+   "lo_kw": [
+    "nhân viên",
+    "thư ký",
+    "trợ lý",
+    "cấp dưới",
+    "秘书",
+    "助理",
+    "员工",
+    "下属"
+   ],
+   "forms": {
+    "hi_lo": {
+     "modern": {
+      "self": "tôi",
+      "call": {
+       "nam": "cậu / anh",
+       "nữ": "cô / em"
+      }
+     },
+     "ancient": {
+      "self": "ta",
+      "call": "ngươi"
+     },
+     "xianxia": {
+      "self": "ta",
+      "call": "ngươi"
+     }
+    },
+    "lo_hi": {
+     "modern": {
+      "self": "tôi / em",
+      "call": {
+       "nam": "sếp / giám đốc / tổng giám đốc / chủ tịch / anh",
+       "nữ": "sếp / giám đốc / tổng giám đốc / chủ tịch / chị"
+      }
+     },
+     "ancient": {
+      "self": "thuộc hạ / tôi",
+      "call": "chủ nhân / đại nhân"
+     },
+     "xianxia": {
+      "self": "thuộc hạ",
+      "call": "chủ nhân / đại nhân"
+     }
+    }
+   }
+  },
+  {
+   "id": "school_senior",
+   "label": "đàn anh/chị – đàn em (trường lớp)",
+   "hi_kw": [
+    "đàn anh",
+    "đàn chị",
+    "học trưởng",
+    "học tỷ",
+    "anh khóa trên",
+    "chị khóa trên",
+    "学长",
+    "学姐"
+   ],
+   "lo_kw": [
+    "đàn em",
+    "học muội",
+    "học đệ",
+    "em khóa dưới",
+    "学妹",
+    "学弟"
+   ],
+   "forms": {
+    "hi_lo": {
+     "modern": {
+      "self": {
+       "nam": "anh",
+       "nữ": "chị"
+      },
+      "call": "em"
+     },
+     "ancient": {
+      "self": {
+       "nam": "sư huynh / ta",
+       "nữ": "sư tỷ / ta"
+      },
+      "call": {
+       "nam": "sư đệ",
+       "nữ": "sư muội"
+      }
+     },
+     "xianxia": {
+      "self": {
+       "nam": "học trưởng / ta",
+       "nữ": "học tỷ / ta"
+      },
+      "call": {
+       "nam": "học đệ",
+       "nữ": "học muội"
+      }
+     }
+    },
+    "lo_hi": {
+     "modern": {
+      "self": "em",
+      "call": {
+       "nam": "anh / học trưởng",
+       "nữ": "chị / học tỷ"
+      }
+     },
+     "ancient": {
+      "self": {
+       "nam": "sư đệ",
+       "nữ": "sư muội"
+      },
+      "call": {
+       "nam": "sư huynh",
+       "nữ": "sư tỷ"
+      }
+     },
+     "xianxia": {
+      "self": {
+       "nam": "học đệ / ta",
+       "nữ": "học muội / ta"
+      },
+      "call": {
+       "nam": "học trưởng",
+       "nữ": "học tỷ"
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "elder_junior",
+   "label": "tiền bối – vãn bối (tuổi/địa vị)",
+   "hi_kw": [
+    "tiền bối",
+    "trưởng lão",
+    "lão tổ",
+    "前辈",
+    "长老",
+    "老祖"
+   ],
+   "lo_kw": [
+    "vãn bối",
+    "hậu bối",
+    "tiểu bối",
+    "晚辈",
+    "后辈",
+    "小辈"
+   ],
+   "forms": {
+    "hi_lo": {
+     "modern": {
+      "self": "tôi / ta",
+      "call": "cậu / cháu"
+     },
+     "ancient": {
+      "self": "ta / lão phu",
+      "call": {
+       "nam": "ngươi / tiểu tử",
+       "nữ": "ngươi / tiểu nha đầu"
+      }
+     },
+     "xianxia": {
+      "self": "ta / lão phu / bản tọa",
+      "call": {
+       "nam": "ngươi / tiểu tử",
+       "nữ": "ngươi / tiểu nha đầu"
+      }
+     }
+    },
+    "lo_hi": {
+     "modern": {
+      "self": "tôi / cháu",
+      "call": "tiền bối / ông / bà"
+     },
+     "ancient": {
+      "self": "vãn bối",
+      "call": "tiền bối"
+     },
+     "xianxia": {
+      "self": "vãn bối",
+      "call": "tiền bối"
+     }
+    }
+   }
+  },
+  {
+   "id": "friends",
+   "label": "bạn bè ngang hàng",
+   "pair_kw": [
+    "bạn thân",
+    "bạn bè",
+    "bạn tốt",
+    "bạn học",
+    "bạn cùng lớp",
+    "bạn cùng phòng",
+    "đồng đội",
+    "huynh đệ tốt",
+    "hảo huynh đệ",
+    "chiến hữu",
+    "bằng hữu",
+    "tri kỷ",
+    "anh em tốt",
+    "kết nghĩa",
+    "đồng minh",
+    "cộng sự",
+    "朋友",
+    "好兄弟",
+    "结拜",
+    "闺蜜",
+    "同学",
+    "队友",
+    "好友",
+    "知己",
+    "室友",
+    "搭档"
+   ],
+   "sym": true,
+   "forms": {
+    "any": {
+     "modern": {
+      "self": "tôi / tớ / tao / mình",
+      "call": "cậu / mày"
+     },
+     "ancient": {
+      "self": "ta",
+      "call": {
+       "nam": "huynh / ngươi",
+       "nữ": "cô nương / ngươi"
+      }
+     },
+     "xianxia": {
+      "self": "ta",
+      "call": {
+       "nam": "huynh / ngươi / đạo hữu",
+       "nữ": "cô nương / ngươi / đạo hữu"
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "enemy",
+   "label": "kẻ thù / đối địch",
+   "pair_kw": [
+    "kẻ thù",
+    "đối địch",
+    "thù địch",
+    "tử thù",
+    "đối thủ",
+    "kình địch",
+    "truy sát",
+    "huyết thù",
+    "oan gia",
+    "仇人",
+    "敌人",
+    "对手",
+    "死敌",
+    "仇敌"
+   ],
+   "sym": true,
+   "forms": {
+    "any": {
+     "modern": {
+      "self": "tôi / tao",
+      "call": {
+       "nam": "anh / mày",
+       "nữ": "cô / mày"
+      }
+     },
+     "ancient": {
+      "self": "ta / bản tọa",
+      "call": "ngươi"
+     },
+     "xianxia": {
+      "self": "ta / bản tọa / lão phu",
+      "call": "ngươi"
+     }
+    }
+   }
+  }
+ ]
+}

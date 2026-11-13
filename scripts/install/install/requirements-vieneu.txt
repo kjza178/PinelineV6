@@ -1,0 +1,15 @@
+# Pineline — ENV VIENEU (TTS lồng tiếng, chạy trong venv riêng).
+# torch==2.5.1 + torchaudio==2.5.1 do install.py cài riêng (cu121 hoặc cpu).
+# Chỉ GHIM 'vieneu' (bản đã test); còn lại NỚI LỎNG để hợp mọi Python 3.10–3.13.
+vieneu==3.2.4
+transformers>=4.44
+torchcodec           # torchaudio bản mới cần torchcodec để đọc audio (cần ffmpeg trong máy)
+librosa>=0.10
+# Resemblyzer: TÙY CHỌN — chỉ cho công cụ "tìm giọng giống" (không cần để chạy app).
+#   Nó kéo webrtcvad phải BIÊN DỊCH C++. Muốn dùng, cài riêng KHÔNG cần compiler:
+#     pip install webrtcvad-wheels Resemblyzer
+sea-g2p>=0.8
+soundfile>=0.12
+soxr>=0.3
+numpy>=1.26
+onnxruntime>=1.17

@@ -1,0 +1,341 @@
+{
+ "job": "9dedde16e35b",
+ "status": "silver",
+ "pairs": [
+  {
+   "spk": "lkt",
+   "to": "lnt",
+   "self": [
+    "đệ",
+    "ta"
+   ],
+   "call": [
+    "đại ca",
+    "huynh"
+   ],
+   "evidence": [
+    {
+     "i": 561,
+     "zh": "大哥。"
+    },
+    {
+     "i": 636,
+     "zh": "哥哥你。"
+    }
+   ],
+   "confidence": "high",
+   "note": "Plan: đệ–đại ca",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "lkt",
+   "to": "adht",
+   "self": [
+    "đệ"
+   ],
+   "call": [
+    "sư huynh"
+   ],
+   "evidence": [
+    {
+     "i": 601,
+     "zh": "阴阳师兄。"
+    },
+    {
+     "i": 602,
+     "zh": "他是我大哥。"
+    },
+    {
+     "i": 603,
+     "zh": "求你不要杀他。"
+    }
+   ],
+   "confidence": "high",
+   "note": "阴阳师兄 — plan: đệ–sư huynh",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "dth",
+   "to": "adht",
+   "self": [
+    "huynh",
+    "ta"
+   ],
+   "call": [
+    "sư đệ",
+    "đệ"
+   ],
+   "evidence": [
+    {
+     "i": 572,
+     "zh": "玄澈师弟。"
+    },
+    {
+     "i": 573,
+     "zh": "交给你了。"
+    }
+   ],
+   "confidence": "high",
+   "note": "玄澈师弟",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "adht",
+   "to": "lnt",
+   "self": [
+    "ta"
+   ],
+   "call": [
+    "ngươi",
+    "tiểu tử"
+   ],
+   "evidence": [
+    {
+     "i": 577,
+     "zh": "不过你确定要跟我打？"
+    },
+    {
+     "i": 581,
+     "zh": "现在的你还不是我的对手。"
+    },
+    {
+     "i": 596,
+     "zh": "小子你方才打的很爽。"
+    }
+   ],
+   "confidence": "medium",
+   "note": "Người lạ đối đầu trong cổ phong; plan chưa có cặp",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "lnt",
+   "to": "adht",
+   "self": [
+    "ta"
+   ],
+   "call": [
+    "ngươi"
+   ],
+   "evidence": [
+    {
+     "i": 593,
+     "zh": "被我五爪金龙本体全力一击命中。"
+    },
+    {
+     "i": 594,
+     "zh": "就算你是合体中期也得灰飞烟灭。"
+    }
+   ],
+   "confidence": "medium",
+   "note": "Đối đầu",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "lnt",
+   "to": "group",
+   "self": [
+    "ta"
+   ],
+   "call": [
+    "các ngươi"
+   ],
+   "evidence": [
+    {
+     "i": 569,
+     "zh": "你们是什么人？"
+    },
+    {
+     "i": 571,
+     "zh": "不妨就先过我这一关。"
+    }
+   ],
+   "confidence": "medium",
+   "note": "Nói với nhóm người lạ xâm phạm",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "lnt",
+   "to": "ngaohoang",
+   "self": [
+    "vãn bối",
+    "đệ tử"
+   ],
+   "call": [
+    "tiền bối"
+   ],
+   "evidence": [
+    {
+     "i": 618,
+     "zh": "可是前辈。"
+    },
+    {
+     "i": 619,
+     "zh": "我连三招都没撑住，"
+    },
+    {
+     "i": 628,
+     "zh": "弟子明白了，也罢，"
+    }
+   ],
+   "confidence": "high",
+   "note": "Plan: vãn bối–tiền bối; ZH 弟子明白了",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "ngaohoang",
+   "to": "lnt",
+   "self": [
+    "lão phu"
+   ],
+   "call": [
+    "tiểu tử",
+    "ngươi"
+   ],
+   "evidence": [
+    {
+     "i": 615,
+     "zh": "你刚刚突破传承，"
+    },
+    {
+     "i": 621,
+     "zh": "当年老夫与异域魔族一战，"
+    }
+   ],
+   "confidence": "high",
+   "note": "Plan: lão phu–tiểu tử",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "ngaohoang",
+   "to": "group",
+   "self": [
+    "lão phu"
+   ],
+   "call": [
+    "các ngươi",
+    "chư vị"
+   ],
+   "evidence": [
+    {
+     "i": 631,
+     "zh": "让你们这些小辈见识一下，"
+    },
+    {
+     "i": 633,
+     "zh": "老夫不会下死手，"
+    },
+    {
+     "i": 634,
+     "zh": "但你们方才冒犯仙殿之罪，"
+    },
+    {
+     "i": 696,
+     "zh": "老夫这把老骨头就随诸位去一趟。"
+    }
+   ],
+   "confidence": "high",
+   "note": "小辈 / 诸位",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "ngaohoang",
+   "to": "mkl",
+   "self": [
+    "lão phu",
+    "ta"
+   ],
+   "call": [
+    "ngươi"
+   ],
+   "evidence": [
+    {
+     "i": 641,
+     "zh": "莫启林，是你，"
+    },
+    {
+     "i": 642,
+     "zh": "你竟然还活着。"
+    },
+    {
+     "i": 651,
+     "zh": "我记得你当年可是最讨厌被人骑在头上，"
+    },
+    {
+     "i": 684,
+     "zh": "就算强行出手也不是你的对手。"
+    }
+   ],
+   "confidence": "high",
+   "note": "Cố nhân ngang vai",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "mkl",
+   "to": "ngaohoang",
+   "self": [
+    "bản tọa",
+    "ta",
+    "lão phu"
+   ],
+   "call": [
+    "ngươi"
+   ],
+   "evidence": [
+    {
+     "i": 646,
+     "zh": "我还以为身陷重围的你已经陨落了，哼。"
+    },
+    {
+     "i": 653,
+     "zh": "我如今归附于天虚圣殿，"
+    },
+    {
+     "i": 665,
+     "zh": "本座不妨告诉你，"
+    }
+   ],
+   "confidence": "high",
+   "note": "ZH tự xưng 本座",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "?",
+   "to": "ngaohoang",
+   "self": [
+    "vãn bối"
+   ],
+   "call": [
+    "tiền bối"
+   ],
+   "evidence": [
+    {
+     "i": 685,
+     "zh": "前辈。"
+    },
+    {
+     "i": 686,
+     "zh": "晚辈方才多有冒犯，"
+    },
+    {
+     "i": 688,
+     "zh": "晚辈诚心邀请前辈与这位龙傲天兄弟一同加入天虚圣殿，"
+    }
+   ],
+   "confidence": "high",
+   "note": "Người nói (đệ tử Thánh Điện) không rõ nhưng ZH 晚辈/前辈 rõ",
+   "range": null,
+   "source": "silver"
+  }
+ ]
+}

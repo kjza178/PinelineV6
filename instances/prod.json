@@ -1,0 +1,23 @@
+{
+  "name": "prod",
+  "port": 8801,
+  "work_root": "Z:/PinelineV2/work",
+  "temp": "D:/PinelineV2_tmp",
+  "routers": [
+    "films",
+    "uploader"
+  ],
+  "desktop": false,
+  "agent_brain": true,
+  "agent_watch": true,
+  "telegram": true,
+  "auto_publish": true,
+  "hg_merge_resume": true,
+  "title_translate": true,
+  "queue_autostart": true,
+  "render_subprocess": false,
+  "feeder": true,
+  "preset_switch": true,
+  "translate_pipeline": "simple",
+  "asr_use_demucs": true
+}

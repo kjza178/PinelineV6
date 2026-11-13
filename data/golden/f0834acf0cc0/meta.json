@@ -1,0 +1,49 @@
+{
+ "title": "毒帝无双3D版第六季",
+ "title_vi": "Độc Đế Vô Song 3D (mùa 6)",
+ "genre": "mixed",
+ "genre_note": "Game thực tế hóa + đô thị + huyền huyễn (plan: mixed). Cảnh mẫu: đời thực (đồng đội, lóng mạng) + thần thú đấu khẩu (lão tử/bản tôn).",
+ "range": [
+  438,
+  579
+ ],
+ "job": "f0834acf0cc0",
+ "status": "silver",
+ "reviewer": "agent (Claude) — chờ chủ dự án xác nhận",
+ "built": "2026-11-11",
+ "n_lines": 142,
+ "scenes": [
+  {
+   "id": "s1",
+   "from": 438,
+   "to": 474,
+   "desc": "Bát Kỳ Đại Xà xuất hiện ngoài đời thực; đồng đội báo Trần Phong"
+  },
+  {
+   "id": "s2",
+   "from": 475,
+   "to": 495,
+   "desc": "Trần Phong hỏi Tử Du (nữ, Ma tộc) cách triệu hồi Đằng Xà"
+  },
+  {
+   "id": "s3",
+   "from": 496,
+   "to": 529,
+   "desc": "Đằng Xà được triệu hồi, phá nhà; được giao đi đánh Bát Kỳ Đại Xà"
+  },
+  {
+   "id": "s4",
+   "from": 530,
+   "to": 540,
+   "desc": "Đồng đội lo lắng; Trần Phong quyết định đi"
+  },
+  {
+   "id": "s5",
+   "from": 541,
+   "to": 579,
+   "desc": "Ngoài hiện trường: Đằng Xà đấu Bát Kỳ Đại Xà"
+  }
+ ],
+ "script_lines_total": 4697,
+ "script_has_mt": true
+}

@@ -1,0 +1,27 @@
+{
+  "_note": "PROFILE máy RTX 5060 Ti + i9-14900KF — chống treo UI/CPU. Trên máy đó: copy thành pineline.config.json (hoặc chạy dung-may-5060ti.bat). KHÔNG dùng trên máy 3060.",
+  "_machine": "RTX 5060 Ti / i9-14900KF",
+  "VIENEU_PY": "D:/vieneu_env/Scripts/python.exe",
+  "OMNI_PY": "D:/OmniVoiceStudio-v2/.venv/Scripts/python.exe",
+  "OMNI_CWD": "D:/OmniVoiceStudio-v2",
+  "HF_HOME": "D:/AI_CACHE",
+  "OMNI_MODEL": "splendor1811/omnivoice-vietnamese",
+  "VIENEU_DEVICE": "cuda",
+  "OMNI_DEVICE": "cuda",
+
+  "VIENEU_BATCH": "8",
+  "VIENEU_CPU_THREADS": "2",
+  "VIENEU_LOW_PRIORITY": "1",
+  "VIENEU_STALL_SEC": "600",
+  "VIENEU_BOOT_SEC": "180",
+
+  "ASR_STALL_SEC": "900",
+  "TRANSLATE_BATCH": "50",
+  "LLM_NUM_CTX": "8192",
+  "RENDER_ENCODER": "nvenc",
+  "SUB_SPLIT_CHARS_ZH": "22",
+  "SUB_SPLIT_CHARS_VI": "37",
+  "SUB_WRAP_CHARS": "37",
+  "SUB_WRAP_LINES": "1",
+  "SUB_MAX_DUR": "3.5"
+}

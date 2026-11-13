@@ -1,0 +1,13 @@
+{
+  "current_job_id": "test_job_1",
+  "current_title": null,
+  "file_size_mb": 0,
+  "current_stage": "metadata",
+  "progress_percent": 15,
+  "last_published": null,
+  "last_error": null,
+  "queue_count": 1,
+  "queued_jobs": [
+    "job2"
+  ]
+}

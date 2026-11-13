@@ -1,0 +1,1 @@
+{"out_dir": "Z:\\PinelineV2\\voice_samples\\_one_vieneu", "ref": "Z:\\PinelineV2\\voices\\clone_refs\\v2.wav", "text": "", "device": "cuda", "speed": 1.0, "lines": [[0, "Xin chào, đây là giọng đọc thử của Pineline. Một câu tiếng Việt để bạn nghe thử chất giọng."]], "batch_size": 8}

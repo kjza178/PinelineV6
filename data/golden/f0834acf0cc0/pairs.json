@@ -1,0 +1,270 @@
+{
+ "job": "f0834acf0cc0",
+ "status": "silver",
+ "pairs": [
+  {
+   "spk": "dongdoi",
+   "to": "tranphong",
+   "self": [
+    "em"
+   ],
+   "call": [
+    "lão đại",
+    "anh"
+   ],
+   "evidence": [
+    {
+     "i": 441,
+     "zh": "老大你快看。"
+    },
+    {
+     "i": 465,
+     "zh": "老大啥意思啊？"
+    },
+    {
+     "i": 496,
+     "zh": "老大。"
+    },
+    {
+     "i": 533,
+     "zh": "那老大你还让他去。"
+    }
+   ],
+   "confidence": "high",
+   "note": "Plan: Đồng đội → Trần Phong em–lão đại",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "dongdoi2",
+   "to": "tranphong",
+   "self": [
+    "em"
+   ],
+   "call": [
+    "lão đại",
+    "anh"
+   ],
+   "evidence": [
+    {
+     "i": 466,
+     "zh": "你是说这玩意儿是有人故意弄出来的。"
+    }
+   ],
+   "confidence": "high",
+   "note": "như trên",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "tranphong",
+   "to": "dongdoi",
+   "self": [
+    "tôi",
+    "anh"
+   ],
+   "call": [
+    "cậu",
+    "các cậu",
+    "mọi người"
+   ],
+   "evidence": [
+    {
+     "i": 444,
+     "zh": "在白象出现我不奇怪。"
+    },
+    {
+     "i": 463,
+     "zh": "别让我知道是谁，"
+    },
+    {
+     "i": 535,
+     "zh": "难道你去？"
+    },
+    {
+     "i": 539,
+     "zh": "你们在家？"
+    }
+   ],
+   "confidence": "high",
+   "note": "Plan: Trần Phong → đồng đội tôi/anh – mọi người/các cậu",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "tranphong",
+   "to": "tudu",
+   "self": [
+    "tôi"
+   ],
+   "call": [
+    "Tử Du",
+    "cô"
+   ],
+   "evidence": [
+    {
+     "i": 476,
+     "zh": "能看出这家伙什么实力吗？"
+    },
+    {
+     "i": 485,
+     "zh": "其他办法我还真不知道。"
+    },
+    {
+     "i": 491,
+     "zh": "但是现实中我怎么放生啊。"
+    }
+   ],
+   "confidence": "high",
+   "note": "Plan: tôi–Tử Du",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "tudu",
+   "to": "tranphong",
+   "self": [
+    "ta"
+   ],
+   "call": [
+    "cậu"
+   ],
+   "evidence": [
+    {
+     "i": 486,
+     "zh": "你直接召唤就行。"
+    },
+    {
+     "i": 494,
+     "zh": "他的实力不会受你影响。"
+    }
+   ],
+   "confidence": "high",
+   "note": "Plan: ta–cậu",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "tranphong",
+   "to": "dangxa",
+   "self": [
+    "anh",
+    "tôi"
+   ],
+   "call": [
+    "lão Đằng",
+    "ông"
+   ],
+   "evidence": [
+    {
+     "i": 502,
+     "zh": "赔我房子。"
+    },
+    {
+     "i": 506,
+     "zh": "有个任务交给你。"
+    },
+    {
+     "i": 512,
+     "zh": "你认识？"
+    },
+    {
+     "i": 518,
+     "zh": "你怂个屁呀。"
+    }
+   ],
+   "confidence": "medium",
+   "note": "Plan: anh–lão Đằng; «ông» tự nhiên khi đấu khẩu (chờ chốt)",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "dangxa",
+   "to": "tranphong",
+   "self": [
+    "lão tử",
+    "ta"
+   ],
+   "call": [
+    "Trần tiểu tử",
+    "tiểu tử",
+    "nhóc"
+   ],
+   "evidence": [
+    {
+     "i": 504,
+     "zh": "你不知道找个空空点的地方召唤我吗？"
+    },
+    {
+     "i": 514,
+     "zh": "陈小子，"
+    },
+    {
+     "i": 515,
+     "zh": "不是我不帮你啊，"
+    }
+   ],
+   "confidence": "high",
+   "note": "ZH 陈小子; plan lão tử–Trần tiểu tử",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "batky",
+   "to": "dangxa",
+   "self": [
+    "bản tôn"
+   ],
+   "call": [
+    "ngươi"
+   ],
+   "evidence": [
+    {
+     "i": 555,
+     "zh": "你是当初那条藤蛇。"
+    },
+    {
+     "i": 563,
+     "zh": "就能跟本尊叫板了。"
+    },
+    {
+     "i": 571,
+     "zh": "那本尊就成全你。"
+    }
+   ],
+   "confidence": "high",
+   "note": "ZH 本尊",
+   "range": null,
+   "source": "silver"
+  },
+  {
+   "spk": "dangxa",
+   "to": "batky",
+   "self": [
+    "lão tử",
+    "ông nội Đằng"
+   ],
+   "call": [
+    "mày"
+   ],
+   "evidence": [
+    {
+     "i": 558,
+     "zh": "就是你藤爷爷，哼。"
+    },
+    {
+     "i": 565,
+     "zh": "不就是比老子早出生几万年吗？"
+    },
+    {
+     "i": 567,
+     "zh": "老子要是到你这个年纪，"
+    }
+   ],
+   "confidence": "high",
+   "note": "ZH 老子 / 你藤爷爷",
+   "range": null,
+   "source": "silver"
+  }
+ ]
+}

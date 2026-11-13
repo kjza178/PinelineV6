@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pineline Code Workflow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Bản đồ kỹ thuật kiểu "bàn điều khiển phòng thu lồng tiếng": nền giấy xám-lục, mực xanh đen,
+   tín hiệu xanh ngọc (đường chạy chính) + hổ phách (HOLD/park). Layout: header cố định + tab, mỗi tab một bảng làm việc. */
+:root{
+  --bg:#eef1ee; --panel:#ffffff; --ink:#18222d; --muted:#5d6b78; --line:#d5dcd8;
+  --accent:#0b7a83; --accent-ink:#ffffff; --amber:#b86e00; --danger:#b4232c; --ok:#1d7a3a;
+  --chip:#e3ebe8; --code:#f3f6f4; --shadow:0 1px 2px rgba(20,40,40,.08),0 4px 16px rgba(20,40,40,.06);
+  --f-body:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1519; --panel:#162027; --ink:#e3ebee; --muted:#93a4ae; --line:#26343d;
+  --accent:#3cc2cc; --accent-ink:#06191b; --amber:#f0a63a; --danger:#ff6b72; --ok:#5ad08a;
+  --chip:#1f2c34; --code:#111a20; --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.3); color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0f1519; --panel:#162027; --ink:#e3ebee; --muted:#93a4ae; --line:#26343d;
+  --accent:#3cc2cc; --accent-ink:#06191b; --amber:#f0a63a; --danger:#ff6b72; --ok:#5ad08a;
+  --chip:#1f2c34; --code:#111a20; --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.3); color-scheme:dark;}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--f-body)}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.25}
+h2{font-size:20px;font-weight:700} h3{font-size:15px;font-weight:700}
+code,.mono{font-family:var(--f-mono);font-size:12.5px}
+a{color:var(--accent)}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+header.top{position:sticky;top:0;z-index:20;background:var(--panel);border-bottom:1px solid var(--line);box-shadow:var(--shadow)}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:12px 20px}
+.brand{display:flex;flex-direction:column}
+.brand b{font-size:17px;font-weight:800;letter-spacing:-.01em}
+.brand span{font-size:12px;color:var(--muted)}
+.trees{display:flex;gap:4px;background:var(--chip);border-radius:8px;padding:3px}
+.trees button{border:0;background:transparent;color:var(--ink);padding:5px 12px;border-radius:6px;font-weight:600;font-size:13px}
+.trees button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.kpis{display:flex;flex-wrap:wrap;gap:6px 18px;margin-left:auto;font-size:12.5px;color:var(--muted)}
+.kpis b{color:var(--ink);font-size:15px;margin-right:3px}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;padding:0 12px;border-top:1px solid var(--line)}
+nav.tabs a{padding:10px 12px;font-size:13.5px;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap}
+nav.tabs a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent)}
+main{padding:20px;max-width:1440px;margin:0 auto}
+section.view{display:none} section.view.on{display:block}
+.lead{color:var(--muted);max-width:75ch;margin:6px 0 16px}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card h3{margin-bottom:6px}
+.muted{color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--chip);color:var(--ink);white-space:nowrap}
+.pill.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.pill.warn{background:color-mix(in srgb,var(--amber) 20%,transparent);color:var(--amber)}
+.pill.bad{background:color-mix(in srgb,var(--danger) 16%,transparent);color:var(--danger)}
+.pill.acc{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:6px;padding:2px 7px;font:12px var(--f-mono)}
+button.chip:hover{border-color:var(--accent);color:var(--accent)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;position:sticky;top:0;background:var(--panel)}
+.scroll{overflow:auto}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:7px;padding:6px 12px;font-size:13px;font-weight:600}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:hover{border-color:var(--accent)}
+select,input[type=search]{font:inherit;font-size:13px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+/* pipeline */
+.track{display:flex;gap:0;overflow-x:auto;padding:8px 2px 4px}
+.stage{flex:1 0 118px;position:relative;text-align:center;padding:10px 6px 8px;cursor:pointer;border:0;background:transparent;color:var(--ink)}
+.stage .dot{width:38px;height:38px;border-radius:50%;margin:0 auto 6px;display:grid;place-items:center;font-weight:800;font-size:13px;background:var(--panel);border:2px solid var(--line);transition:all .25s}
+.stage::before{content:"";position:absolute;top:29px;left:-50%;width:100%;height:3px;background:var(--line);z-index:0}
+.stage:first-child::before{display:none}
+.stage .dot{position:relative;z-index:1}
+.stage .lbl{font-size:12.5px;font-weight:700}
+.stage .sub{font-size:11px;color:var(--muted)}
+.stage.sel .dot{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 22%,transparent)}
+.stage.done .dot{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.stage.done::before,.stage.active::before{background:var(--accent)}
+.stage.active .dot{background:var(--panel);border-color:var(--accent);animation:pulse 1s infinite}
+.stage.hold .dot{background:var(--amber);border-color:var(--amber);color:#fff}
+.stage.fail .dot{background:var(--danger);border-color:var(--danger);color:#fff}
+@keyframes pulse{50%{box-shadow:0 0 0 7px color-mix(in srgb,var(--accent) 25%,transparent)}}
+@media (prefers-reduced-motion:reduce){.stage.active .dot{animation:none}*{transition:none!important}}
+.console{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:12px/1.6 var(--f-mono);height:260px;overflow:auto;white-space:pre-wrap}
+.console .t{color:var(--muted)} .console .h{color:var(--amber)} .console .e{color:var(--danger)} .console .o{color:var(--ok)}
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:4px 12px;font-size:13px}
+.kv dt{color:var(--muted)} .kv dd{margin:0}
+/* state machine */
+svg text{fill:var(--ink);font-family:var(--f-body)}
+.sm-node rect{fill:var(--panel);stroke:var(--line);stroke-width:2}
+.sm-node.cur rect{stroke:var(--accent);stroke-width:3;fill:color-mix(in srgb,var(--accent) 12%,var(--panel))}
+.sm-node.park rect{stroke-dasharray:5 3}
+.sm-edge{stroke:var(--muted);stroke-width:1.6;fill:none}
+.sm-edge.hot{stroke:var(--accent);stroke-width:3}
+.sm-lbl{font-size:11px;fill:var(--muted)}
+/* modules */
+.mods{display:grid;grid-template-columns:minmax(260px,330px) 1fr;gap:14px;align-items:start}
+@media (max-width:820px){.mods{grid-template-columns:1fr}}
+.mlist{max-height:72vh;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.mlist button{display:flex;width:100%;gap:8px;align-items:center;justify-content:space-between;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:7px 10px;text-align:left}
+.mlist button:hover,.mlist button[aria-selected="true"]{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.mlist .nm{font:12.5px var(--f-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sw{width:9px;height:9px;border-radius:2px;flex:none}
+.heat{height:5px;border-radius:3px;background:var(--line);overflow:hidden;width:54px;flex:none}
+.heat i{display:block;height:100%;background:linear-gradient(90deg,var(--amber),var(--danger))}
+canvas{display:block;width:100%;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px}
+.flow .st{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;min-width:120px;flex:1}
+.flow .st b{display:block;font-size:12px;color:var(--accent)}
+.flow .ar{align-self:center;color:var(--muted);font-weight:700}
+.stack{display:flex;flex-direction:column;gap:8px}
+details{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+details summary{cursor:pointer;font-weight:600}
+.sev{display:inline-block;width:4px;align-self:stretch;border-radius:2px}
+.foot{margin:28px 0 8px;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <div class="brand"><b>Pineline — bản đồ workflow toàn bộ code</b><span id="gen">dữ liệu: scripts/brain_export.py</span></div>
+    <div class="trees" role="group" aria-label="Chọn cây code">
+      <button data-tree="PinelineV2" aria-pressed="true">V2 :8801</button>
+      <button data-tree="PinelineV4" aria-pressed="false">V4 :8804</button>
+      <button data-tree="PinelineV5" aria-pressed="false">V5 :8805</button>
+    </div>
+    <div class="kpis num" id="kpis"></div>
+  </div>
+  <nav class="tabs" id="tabs">
+    <a href="#overview">Tổng quan</a><a href="#pipeline">Pipeline 1 job</a><a href="#queue">Queue &amp; park</a>
+    <a href="#review">Dịch → REVIEW</a><a href="#agents">AI agent runtime</a><a href="#modules">Module</a>
+    <a href="#graph">Đồ thị phụ thuộc</a><a href="#devflow">Workflow dev</a><a href="#trees">3 cây &amp; sync</a><a href="#bugs">Bug &amp; fix</a>
+  </nav>
+</header>
+<main>
+
+<section class="view" id="v-overview">
+  <h2>Hệ thống chạy thế nào</h2>
+  <p class="lead">Pipeline lồng tiếng phim Trung → Việt chạy local trên Windows GPU. Bấm vào một khối để xem vai trò, file chính và lưu ý khi sửa.</p>
+  <div class="grid g2">
+    <div class="card scroll"><svg id="arch" viewBox="0 0 760 430" width="100%" role="img" aria-label="Sơ đồ tiến trình và cổng"></svg></div>
+    <div class="card" id="arch-detail"></div>
+  </div>
+  <h3 style="margin:20px 0 8px">Lớp code (cây đang chọn)</h3>
+  <div class="grid g3" id="layer-cards"></div>
+</section>
+
+<section class="view" id="v-pipeline">
+  <h2>Pipeline 1 job — Studio SOP: 1 job / ghế tới Done</h2>
+  <p class="lead">Chọn kịch bản rồi bấm "Chạy mô phỏng". Log trong khung đen là các dòng log thật mà code in ra (rút gọn). Bấm vào một bước để xem module, hàm, file sinh ra, config key và fix log liên quan.</p>
+  <div class="row" style="margin-bottom:8px">
+    <label for="scen" class="muted">Kịch bản</label>
+    <select id="scen">
+      <option value="ok">Bình thường → Done</option>
+      <option value="revfail">Aurora + local lỗi giữa REVIEW (fix B1 + B2)</option>
+      <option value="qahigh">QA high (câu treo) → HOLD Brain</option>
+      <option value="stop">Bấm Dừng lúc REVIEW song song (fix B5)</option>
+      <option value="split">Job dài → auto-split _p01/_p02 → merge</option>
+    </select>
+    <button class="btn primary" id="run">Chạy mô phỏng</button>
+    <button class="btn" id="reset">Đặt lại</button>
+  </div>
+  <div class="card"><div class="track" id="track"></div></div>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="console" id="log" aria-live="polite"></div>
+    <div class="card" id="stage-detail"></div>
+  </div>
+</section>
+
+<section class="view" id="v-queue">
+  <h2>Hàng đợi &amp; park — máy trạng thái</h2>
+  <p class="lead">Một worker, một ghế. Bấm các sự kiện để thấy trạng thái chuyển thế nào. Đây là logic của <code>job_queue._worker_loop</code> + <code>server._queue_park_ready</code> sau fix B2 (park soát dở tự chạy lại sau <code>QUEUE_REVIEW_RETRY_SEC</code>, tối đa <code>QUEUE_REVIEW_RETRY_MAX</code> lượt).</p>
+  <div class="grid g2">
+    <div class="card scroll"><svg id="sm" viewBox="0 0 720 380" width="100%" role="img" aria-label="Máy trạng thái hàng đợi"></svg></div>
+    <div class="card">
+      <div class="row" id="sm-btns"></div>
+      <dl class="kv" style="margin-top:12px" id="sm-state"></dl>
+      <div class="console" id="sm-log" style="height:170px;margin-top:10px"></div>
+    </div>
+  </div>
+</section>
+
+<section class="view" id="v-review">
+  <h2>Dịch → REVIEW → QA</h2>
+  <p class="lead">Thứ tự thật trong <code>translate.run_translate</code> → <code>translate.run_review</code> → các gate trong <code>server._auto_gpu</code>. Mở từng bước để xem hàm, key và quyết định của user.</p>
+  <div class="stack" id="review-steps"></div>
+</section>
+
+<section class="view" id="v-agents">
+  <h2>AI agent runtime</h2>
+  <p class="lead">Năm lớp tự động cùng tác động lên job và hàng đợi. Bảng dưới cho thấy ai được làm gì, để khi debug "ai đã đụng job này" biết đọc log nào.</p>
+  <div class="grid g3" id="agent-cards"></div>
+  <h3 style="margin:20px 0 8px">Ma trận quyền</h3>
+  <div class="card scroll"><table id="agent-matrix"></table></div>
+</section>
+
+<section class="view" id="v-modules">
+  <h2>Module explorer</h2>
+  <p class="lead">Mọi module của cây đang chọn, sinh từ AST. Thanh màu = điểm hotspot (LOC, fix log, hàm dài, nuốt lỗi, thread, thiếu test). Bấm tên module trong chip để nhảy tới.</p>
+  <div class="row" style="margin-bottom:10px">
+    <input type="search" id="q" placeholder="Tìm module / hàm / route / config key…" style="min-width:260px" aria-label="Tìm">
+    <select id="layer-f" aria-label="Lọc lớp"></select>
+    <select id="sort-f" aria-label="Sắp xếp"><option value="h">Hotspot</option><option value="loc">Số dòng</option><option value="n">Tên</option><option value="b">Được import nhiều</option></select>
+    <span class="muted" id="mcount"></span>
+  </div>
+  <div class="mods"><div class="mlist" id="mlist"></div><div id="mdetail"></div></div>
+</section>
+
+<section class="view" id="v-graph">
+  <h2>Đồ thị phụ thuộc</h2>
+  <p class="lead">Mỗi nút là một module (to = nhiều dòng), cạnh là import. Kéo để di chuyển, cuộn để zoom, rê chuột để làm nổi hàng xóm, bấm để mở module.</p>
+  <div class="row" style="margin-bottom:8px"><div class="legend" id="glegend"></div>
+    <label class="muted" style="margin-left:auto"><input type="checkbox" id="hide-ops" checked> ẩn script ops</label></div>
+  <canvas id="gcv" height="640" aria-label="Đồ thị phụ thuộc module"></canvas>
+  <p class="muted" id="ghover" style="min-height:22px;margin-top:6px"></p>
+</section>
+
+<section class="view" id="v-devflow">
+  <h2>Workflow phát triển — subagent &amp; Second Brain</h2>
+  <p class="lead">Đội 8 subagent trong Claude Code (cài bằng <code>claude_setup\INSTALL.bat</code>) và các lệnh nối chúng thành quy trình. Agent phân tích không sửa code; chỉ phiên chính sửa sau khi bạn duyệt.</p>
+  <div class="stack" id="flows"></div>
+  <h3 style="margin:20px 0 8px">Đội subagent</h3>
+  <div class="grid g3" id="team"></div>
+  <h3 style="margin:20px 0 8px">Second Brain tự cập nhật</h3>
+  <div class="flow" id="brainflow"></div>
+</section>
+
+<section class="view" id="v-trees">
+  <h2>3 cây &amp; sync an toàn</h2>
+  <p class="lead">V2 là nơi phát triển. V4 phẳng như V2, V5 theo package. Từ 11/11 sync bằng <code>scripts/sync_from_v2.py</code> thay vì chép tay, và mỗi lần đều kiểm bằng <code>scripts/tree_audit.py</code>.</p>
+  <div class="card scroll"><table id="tree-table"></table></div>
+  <h3 style="margin:20px 0 8px">Một lượt sync</h3>
+  <div class="flow" id="syncflow"></div>
+  <h3 style="margin:20px 0 8px">Vị trí module V2 → V5</h3>
+  <div class="card scroll" style="max-height:420px"><table id="map-table"></table></div>
+</section>
+
+<section class="view" id="v-bugs">
+  <h2>Bug &amp; trạng thái fix</h2>
+  <p class="lead">Từ các báo cáo <code>docs/reviews/2026-11-11-*</code>. Lọc theo cây hoặc trạng thái.</p>
+  <div class="row" style="margin-bottom:10px">
+    <select id="bug-f"><option value="">Mọi trạng thái</option><option value="fixed">Đã sửa</option><option value="open">Còn mở</option></select>
+  </div>
+  <div class="card scroll"><table id="bug-table"></table></div>
+</section>
+
+<p class="foot" id="foot"></p>
+</main>
+
+<script>
+const BRAIN = /*__DATA__*/null;
+const TREES = {PinelineV2:{port:8801,label:"V2",layout:"phẳng",role:"Phát triển chính · production",audit:0},
+               PinelineV4:{port:8804,label:"V4",layout:"phẳng + router riêng (films, uploader), app_desktop",role:"Port desktop",audit:0},
+               PinelineV5:{port:8805,label:"V5",layout:"package: core/ engines/ engines/asr/ agents/ http_routes/ tools/",role:"Port tái cấu trúc",audit:0}};
+const LAYER_COL = {control:"#0b7a83",agent:"#7a4cc2",sidecar:"#b04a8b",source:"#3b6fd1",asr:"#2a9d8f",translate:"#d1803b",
+  tts:"#c2a12a",render:"#5b8c2a",publish:"#9c5b3a",context:"#6a7f8f",core:"#127f9a",ops:"#8a949c",misc:"#a0a7ad"};
+let tree = "PinelineV2";
+const $ = (s,el=document)=>el.querySelector(s), $$=(s,el=document)=>[...el.querySelectorAll(s)];
+const esc = s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const D = ()=>BRAIN[tree]; const M = ()=>Object.fromEntries(D().modules.map(m=>[m.n,m]));
+function findMod(stem){const ms=D().modules; return ms.find(m=>m.n===stem)||ms.find(m=>m.n.endsWith("."+stem));}
+function modChip(stem){const m=findMod(stem); return m?`<button class="chip" data-mod="${esc(m.n)}">${esc(m.n)}</button>`:`<span class="chip">${esc(stem)}</span>`;}
+
+/* ───────── header ───────── */
+function renderKpis(){
+  const d=D(), t=TREES[tree];
+  $("#kpis").innerHTML=`<span><b>${d.n_modules}</b>module</span><span><b>${d.n_loc.toLocaleString("vi")}</b>dòng</span><span><b>${d.n_routes}</b>route</span><span><b>:${t.port}</b>${esc(t.layout.split(":")[0])}</span><span class="pill ok">tree_audit ERROR 0</span>`;
+  $("#gen").textContent=`dữ liệu ${tree} lúc ${d.generated_at} · scripts/brain_export.py`;
+}
+
+/* ───────── overview ───────── */
+const ARCH=[
+ {id:"ui",x:20,y:20,w:170,h:56,t:"UI web / Desktop",s:"/ui3 · films_ui · app_desktop",d:"Trang index3.html, films_ui.html, hongguo.html (static/ui ở V5). Desktop: app_desktop.py bọc WebView2 (V4/V5). Gọi API của server cùng cổng.",m:["routes_ui","app_desktop"]},
+ {id:"tg",x:20,y:110,w:170,h:56,t:"Telegram",s:"lệnh /on /off /status /agent",d:"Người dùng ra lệnh qua bot; sidecar nhận long-poll và chuyển câu thường sang /api/agent/chat.",m:["agent_tele_cmd"]},
+ {id:"srv",x:260,y:20,w:240,h:230,t:"server.py",s:"FastAPI · queue · pipeline · agent",d:"Trung tâm: job API (~68 route), job_queue worker (1 ghế), pool _dl/_gpu, _auto_gpu chạy pipeline, agent_core chat, agent_brain daemon, Hongguo bridge. Middleware chỉ cho localhost. Sửa → restart cổng của cây (render/assemble/subs được hot-reload).",m:["server","job_queue","agent_core","agent_brain","hongguo_bridge"]},
+ {id:"side",x:20,y:200,w:170,h:80,t:"Sidecar :8802",s:"autopilot · feeder · film_db · publish",d:"agent_tele_cmd.py: Telegram, Auto-pilot tick ~90 s, feeder thêm job khi hàng trống, đồng bộ films.db, auto_publisher. Chỉ gọi HTTP về server. Sửa → restart :8802.",m:["agent_tele_cmd","agent_autopilot","agent_feeder","film_db","auto_publisher"]},
+ {id:"eng",x:260,y:290,w:240,h:60,t:"Engine subprocess",s:"ASR · TTS worker · ffmpeg",d:"_run_engine chạy script ASR trong tiến trình riêng (giữ UI mượt, VRAM nhả sạch khi thoát). Từ 11/11 server tự tìm script ở root hoặc engines/asr và đặt PYTHONPATH (V5 chạy được).",m:["fun_asr_nano","nano_fa_asr","firered_asr","clone_tts"]},
+ {id:"hg",x:560,y:20,w:180,h:56,t:"Hongguo :8000",s:"app tải phim — KHÔNG kill",d:"Downloader ngoài; server gọi /dl/* qua hongguo_bridge / hongguo_rpc; hàng đợi gộp tập lưu file, tự chạy tiếp sau restart.",m:["hongguo_bridge","hongguo_rpc","routes_hg"]},
+ {id:"llama",x:560,y:100,w:180,h:56,t:"llama-server :8083",s:"preset local — KHÔNG kill",d:"Model local (qwen36-turbo, gemma4…). preset_switcher đổi preset bằng PowerShell; từ 11/11 có khoá: chỉ 1 lượt đổi một lúc (fix B3).",m:["preset_switcher","llm"]},
+ {id:"aur",x:560,y:180,w:180,h:56,t:"Aurora / ChatGPT :3377",s:"gpt-6 · gpt-5-6-mini",d:"REVIEW (Aurora∥ tới 24 worker), Pass1 đọc full file, plan, tên, xưng hô, hang-fix. Lỗi → fallback local.",m:["translate","llm","agent_hang_fix"]},
+ {id:"r9",x:560,y:260,w:180,h:56,t:"9router (LAN)",s:"192.168.31.247:20128",d:"Router LLM trên máy khác; model gemma4 cloud. llm.py nói chuẩn OpenAI API.",m:["llm"]},
+ {id:"disk",x:560,y:340,w:180,h:70,t:"Đĩa",s:"work/<job> · films.db · config",d:"work/ là junction sang D:. Mỗi job: manifest.json (trạng thái), script.json (bản dịch, cờ rv), tts/seg_*.wav, output.mp4. pineline.config.json chứa secret — không ghi vào docs.",m:["manifest","fileio","config"]}];
+const ARCH_E=[["ui","srv","HTTP"],["tg","side","long-poll"],["side","srv","HTTP /api"],["srv","side","POST /cmd"],["srv","eng","subprocess"],["srv","hg","/dl/*"],["srv","llama","OpenAI API"],["srv","aur","OpenAI API"],["srv","r9","LAN"],["srv","disk","đọc/ghi"],["eng","disk","ghi manifest"]];
+function renderArch(){
+  const by=Object.fromEntries(ARCH.map(n=>[n.id,n]));
+  const c=(n)=>[n.x+n.w/2,n.y+n.h/2];
+  let s=`<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="currentColor"/></marker></defs>`;
+  for(const [a,b,l] of ARCH_E){const A=by[a],B=by[b];let [x1,y1]=c(A),[x2,y2]=c(B);
+    if(A.x+A.w<B.x){x1=A.x+A.w;x2=B.x}else if(B.x+B.w<A.x){x1=A.x;x2=B.x+B.w}else if(A.y+A.h<B.y){y1=A.y+A.h;y2=B.y}else{y1=A.y;y2=B.y+B.h}
+    s+=`<g style="color:var(--muted)"><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah)"/><text x="${(x1+x2)/2}" y="${(y1+y2)/2-4}" font-size="10" text-anchor="middle" style="fill:var(--muted)">${esc(l)}</text></g>`;}
+  for(const n of ARCH){s+=`<g class="arch-n" data-id="${n.id}" tabindex="0" role="button" style="cursor:pointer"><rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="9" style="fill:var(--panel);stroke:${n.id==="srv"?"var(--accent)":"var(--line)"};stroke-width:2"/><text x="${n.x+12}" y="${n.y+22}" font-size="14" font-weight="700">${esc(n.t)}</text><text x="${n.x+12}" y="${n.y+40}" font-size="11" style="fill:var(--muted)">${esc(n.s)}</text></g>`;}
+  $("#arch").innerHTML=s;
+  $$(".arch-n").forEach(g=>{const f=()=>showArch(g.dataset.id);g.addEventListener("click",f);g.addEventListener("keydown",e=>{if(e.key==="Enter")f()})});
+  showArch("srv");
+}
+function showArch(id){const n=ARCH.find(x=>x.id===id);
+  $("#arch-detail").innerHTML=`<h3>${esc(n.t)}</h3><p class="muted" style="margin:2px 0 8px">${esc(n.s)}</p><p>${esc(n.d)}</p><div class="chips" style="margin-top:8px">${n.m.map(modChip).join("")}</div>`;}
+function renderLayers(){
+  const d=D(); const by={};
+  d.modules.forEach(m=>{(by[m.l]=by[m.l]||[]).push(m)});
+  $("#layer-cards").innerHTML=Object.entries(by).sort((a,b)=>b[1].reduce((s,m)=>s+m.loc,0)-a[1].reduce((s,m)=>s+m.loc,0)).map(([l,ms])=>{
+    const loc=ms.reduce((s,m)=>s+m.loc,0); const top=[...ms].sort((a,b)=>b.loc-a.loc).slice(0,6);
+    return `<div class="card"><div class="row" style="justify-content:space-between"><h3><span class="sw" style="display:inline-block;background:${LAYER_COL[l]||"#999"}"></span> ${esc(l)}</h3><span class="muted num">${ms.length} module · ${loc.toLocaleString("vi")} dòng</span></div><div class="chips" style="margin-top:8px">${top.map(m=>`<button class="chip" data-mod="${esc(m.n)}">${esc(m.n)}</button>`).join("")}</div></div>`}).join("");
+}
+
+/* ───────── pipeline ───────── */
+const STAGES=[
+ {id:"dl",lbl:"download",sub:"nguồn",mods:["download","hongguo_bridge","playlist"],fn:"server._queue_run_one → download.download_video",art:["source.mp4","manifest.json"],keys:["DL_WORKERS"],rs:"server",note:"Job local đọc thẳng file nguồn (download.video_path). Thiếu file → failed ngay, không chạy GPU."},
+ {id:"asr",lbl:"asr",sub:"subprocess",mods:["asr","nano_fa_asr","fun_asr_nano","firered_asr","paraformer_zh","sensevoice_asr","hardsub_asr"],fn:"_auto_gpu → _run_engine(_asr_script(engine))",art:["audio.wav","asr.json","sub.zh.srt"],keys:["ASR engine trong queue_opts","AUDIO_TS_FIX"],rs:"không (tiến trình mới)",note:"Engine mặc định nano_fa (Fun-ASR-Nano + Qwen3 ForcedAligner). Video dài có thể auto-split ra _p01, _p02…"},
+ {id:"tr",lbl:"translate",sub:"plan + NMT",mods:["translate","mt_zh_vi","series_glossary","hv_auditor","llm"],fn:"translate.run_translate → build_plan → mt_zh_vi.draft_rows → hậu xử lý",art:["glossary.json","script.json"],keys:["PLAN_MODE","PLAN_MODEL","MT_ZH_VI","TRANSLATE_PRESET"],rs:"server",note:"NMT là bản chính; LLM chỉ sửa lỗi thật (DECISIONS 11-09). Còn câu trống → vá lô 25."},
+ {id:"rv",lbl:"REVIEW",sub:"trong ghế",mods:["translate","agent_hang_fix","pronoun_consistency","preset_switcher"],fn:"_auto_gpu → translate.run_review (Pass1 full file → lô ∥ → hậu kỳ → hang-fix)",art:["script.json (rv=1)","style_lock.json","qa_hang_trace.json"],keys:["REVIEW_MODEL","REVIEW_PARALLEL","REVIEW_BACKUP","REVIEW_PRESET","REVIEW_RETRY_BACKOFF_SEC"],rs:"không với key file-first",note:"Lô lỗi KHÔNG đánh rv (fix B1), thử lại tuần tự; còn lỗi → park waiting_review và tự chạy lại sau 300 s (fix B2)."},
+ {id:"qa",lbl:"gates",sub:"QA · HOLD",mods:["agent_quality","agent_qa_gate","agent_name_pass","agent_pronoun_pass"],fn:"translate_ready_for_tts → agent_quality.scan_and_heal_job → HOLD → _run_requested_review → agent_qa_gate.run_qa_gate",art:["qa_brain.json","script.pre_review.json"],keys:["AGENT_QA_GATE","AUTO_REVIEW"],rs:"server",note:"High QA → HOLD qa_brain (chờ Brain/người). QA gate gọi run_review lần 2: từ 11/11 không chạy lại hậu kỳ LLM khi đã soát đủ (fix B7)."},
+ {id:"tts",lbl:"tts",sub:"giọng clone",mods:["clone_tts"],fn:"_do_tts(voice, speed, engine) → đọc bù nếu n_missing",art:["tts.json","seg_*.wav"],keys:["voice / speed / tts_engine (queue_opts)"],rs:"server",note:"Thiếu giọng → dừng, không render tiếng gốc."},
+ {id:"mux",lbl:"mux",sub:"render",mods:["render","assemble","sfx_lib","subs","render_fx","media_ts"],fn:"_do_render → assemble_fit → render.run_render (NVENC, chia khúc 300 s)",art:["dub_fit.wav","tts_fit.json","output.mp4"],keys:["HARDSUB_MODE","RENDER_ENCODER","audio_mode (queue_opts → batch, fix B6)"],rs:"hot-reload",note:"Audio run-all/mux giờ theo opts đã pin của job → config batch, không còn mặc định cứng voice_bgm 0.6 (fix B6)."},
+ {id:"done",lbl:"Done",sub:"→ job kế",mods:["auto_publisher","split_parts","film_db"],fn:"queue 'done' → auto_publisher.enqueue_publish · split → merge về job cha",art:["output.mp4","films.db"],keys:[],rs:"",note:"Worker chỉ lấy job kế khi job hiện tại Done (hoặc failed/stopped)."}];
+const SCEN={
+ ok:[["dl","[queue] pop job 60892cc63cb7 → _queue_run_one"],["asr","[proc] nano_fa_asr.py 60892cc63cb7"],["tr","[plan] +16 hard/style terms · NMT draft 2 698 câu"],["rv","[review-pass1] upload file: sub.review_pair.srt (412KB)"],["rv","[review] Aurora∥ fan-out workers=24 batch=40"],["rv","[review] ✅ Đã soát đủ 100% (2 698 câu, missing=0)","o"],["qa","[auto] QA gate — snapshot + review…"],["qa","[review] Đã soát đủ 2 698 câu — bỏ qua hậu kỳ LLM lặp lại"],["qa","[auto] QA pass — tiếp TTS","o"],["tts","[proc] TTS vieneu v2 speed 1.1"],["mux","[render] sfx_lib · NVENC · 3 khúc song song"],["done","[auto] HOÀN TẤT toàn bộ pipeline ✓","o"]],
+ revfail:[["dl","[queue] pop job 365baf19df54"],["asr","[proc] nano_fa_asr.py (SKIP — đã xong)"],["tr","[translate] SKIP — script.json đủ"],["rv","[review] Aurora∥ fan-out workers=24"],["rv","[review] ⚠️ Cloud REVIEW lỗi/quota: 429 → Fallback local qwen36-turbo","h"],["rv","[preset_switcher] khoá: 1 lượt đổi preset (23 luồng chờ)","h"],["rv","  [review] ⚠️ lô 1240… lỗi — giữ chưa rv (40 câu)","e"],["rv","[review] Thử lại 3 lô lỗi (tuần tự, nghỉ 20s)…"],["rv","RuntimeError: REVIEW lỗi 1 lô (40 câu chưa soát) — không đánh rv","e"],["rv","[auto] sau REVIEW vẫn còn 40 chưa rv — PARK ghế (retry 1/3 sau 300 s)","h","hold"],["rv","[queue] park ready (review_retry_at tới hạn) → chạy lại CÙNG job"],["rv","[review] soát 40/40 · sửa 6 câu"],["qa","[auto] QA pass — tiếp TTS","o"],["tts","[proc] TTS"],["mux","[render] output.mp4"],["done","[auto] HOÀN TẤT ✓","o"]],
+ qahigh:[["dl","[queue] pop job 05670cbf7c1c"],["asr","[proc] ASR SKIP"],["tr","[translate] xong"],["rv","[review] ✅ soát đủ"],["qa","[brain] scan VI: high hang=3 (đuôi treo «trước đó»)","h"],["qa","[auto] Second Brain HOLD (high=3) — bỏ qua TTS/mux","h","hold"],["qa","[queue] held → PARK ghế (chờ Brain/người, không nhảy job kế)","h","hold"],["qa","[hang-fix] trace 3 case → rewrite 2, keep_intentional 1 → hang_ack"],["qa","[brain] high_open=0 → gỡ qa_blocked → park ready"],["tts","[proc] TTS"],["mux","[render] output.mp4"],["done","HOÀN TẤT ✓","o"]],
+ stop:[["dl","[queue] pop job"],["asr","ASR SKIP"],["tr","translate xong"],["rv","[review] Aurora∥ fan-out workers=24 (mỗi request tới 900 s)"],["rv","[user] bấm Dừng → work/<job>/.stop","h"],["rv","[review] kiểm .stop mỗi 2 s → dừng ngay, bỏ request đang bay (fix B5)","h"],["rv","[auto] DỪNG lúc soát — không TTS","e","fail"]],
+ split:[["dl","[queue] pop job cha (14,5 h)"],["asr","[auto-split] ASR theo khúc → tạo _p01, _p02"],["tr","[_p01] dịch → REVIEW → TTS → mux"],["rv","[_p02] dịch → REVIEW → TTS → mux"],["mux","[split] mọi part xong → merge output.mp4 về cha (_queue_split_parent_merge_if_ready)"],["done","[auto-split] heal stage cha → done ✓","o"]]};
+let simTimer=null;
+function renderTrack(){ $("#track").innerHTML=STAGES.map((s,i)=>`<button class="stage" data-st="${s.id}"><div class="dot">${i+1}</div><div class="lbl">${esc(s.lbl)}</div><div class="sub">${esc(s.sub)}</div></button>`).join("");
+  $$(".stage").forEach(b=>b.addEventListener("click",()=>showStage(b.dataset.st))); showStage("rv"); }
+function showStage(id){ const s=STAGES.find(x=>x.id===id); $$(".stage").forEach(b=>b.classList.toggle("sel",b.dataset.st===id));
+  const mods=s.mods.map(findMod).filter(Boolean); const fx=[...new Map(mods.flatMap(m=>m.fx).map(f=>[f[0],f])).values()].slice(0,8);
+  $("#stage-detail").innerHTML=`<h3>${esc(s.lbl)} <span class="muted" style="font-weight:500">· ${esc(s.sub)}</span></h3><p style="margin:6px 0 10px">${esc(s.note)}</p>
+   <dl class="kv"><dt>Đường gọi</dt><dd><code>${esc(s.fn)}</code></dd><dt>Module</dt><dd class="chips">${s.mods.map(modChip).join("")}</dd>
+   <dt>File sinh ra</dt><dd class="chips">${s.art.map(a=>`<span class="chip">${esc(a)}</span>`).join("")}</dd>
+   <dt>Config</dt><dd class="chips">${s.keys.map(k=>`<span class="chip">${esc(k)}</span>`).join("")||"—"}</dd>
+   <dt>Sửa thì restart</dt><dd>${esc(s.rs||"—")}</dd></dl>
+   ${fx.length?`<h3 style="margin:12px 0 4px">Fix log liên quan</h3><ul style="margin:0;padding-left:18px;font-size:13px">${fx.map(f=>`<li><code>${esc(f[0])}</code> — ${esc(f[1])}</li>`).join("")}</ul>`:""}`;}
+function resetSim(){ clearTimeout(simTimer); $$(".stage").forEach(b=>b.classList.remove("done","active","hold","fail")); $("#log").innerHTML='<span class="t">Chọn kịch bản rồi bấm "Chạy mô phỏng".</span>'; }
+function runSim(){ resetSim(); $("#log").innerHTML=""; const steps=SCEN[$("#scen").value]; let i=0; const order=STAGES.map(s=>s.id);
+  const tick=()=>{ if(i>=steps.length) return; const [st,msg,cls,mark]=steps[i++]; const idx=order.indexOf(st);
+    $$(".stage").forEach((b,k)=>{b.classList.remove("active"); if(k<idx) {b.classList.add("done");b.classList.remove("hold")} });
+    const cur=$$(".stage")[idx]; cur.classList.remove("hold","fail"); cur.classList.add(mark==="hold"?"hold":mark==="fail"?"fail":"active");
+    if(st==="done"&&cls==="o") cur.classList.add("done");
+    const t=new Date().toLocaleTimeString("vi",{hour12:false}); $("#log").insertAdjacentHTML("beforeend",`<div><span class="t">${t}</span> <span class="${cls||""}">${esc(msg)}</span></div>`); $("#log").scrollTop=1e9;
+    showStage(st); simTimer=setTimeout(tick, matchMedia("(prefers-reduced-motion: reduce)").matches?150:850); };
+  tick(); }
+
+/* ───────── queue state machine ───────── */
+const SMN={idle:[40,170,"rảnh"],waiting:[180,60,"waiting"],current:[360,170,"current (chạy)"],parked:[360,310,"parked"],done:[580,60,"done"],failed:[580,170,"failed"],stopped:[580,290,"stopped"]};
+const SME=[["idle","waiting","queue_add"],["waiting","current","worker pop"],["current","parked","held / waiting_review"],["parked","current","park_ready"],["current","done","output.mp4"],["current","failed","lỗi stage"],["current","stopped",".stop / queue stop"],["done","waiting","job kế"],["failed","waiting","job kế"]];
+const SMS={state:"idle",n_q:0,retries:0,held:"",log:[]};
+function smDraw(hot){ let s=`<defs><marker id="sa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10z" style="fill:var(--muted)"/></marker></defs>`;
+  for(const [a,b,l] of SME){const [x1,y1]=SMN[a],[x2,y2]=SMN[b]; const dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy)||1; const ux=dx/L,uy=dy/L;
+    const sx=x1+60*ux, sy=y1+20*uy, ex=x2-62*ux, ey=y2-22*uy; const bend=(a==="parked"&&b==="current")?-40:(a==="current"&&b==="parked")?40:0;
+    const mx=(sx+ex)/2+bend*(-uy), my=(sy+ey)/2+bend*ux;
+    s+=`<path class="sm-edge ${hot===a+">"+b?"hot":""}" d="M${sx},${sy} Q${mx},${my} ${ex},${ey}" marker-end="url(#sa)"/><text class="sm-lbl" x="${mx}" y="${my-5}" text-anchor="middle">${esc(l)}</text>`;}
+  for(const [k,[x,y,t]] of Object.entries(SMN)) s+=`<g class="sm-node ${SMS.state===k?"cur":""} ${k==="parked"?"park":""}"><rect x="${x-58}" y="${y-20}" width="116" height="40" rx="9"/><text x="${x}" y="${y+5}" text-anchor="middle" font-size="13" font-weight="700">${esc(t)}</text></g>`;
+  $("#sm").innerHTML=s;
+  $("#sm-state").innerHTML=`<dt>Trạng thái</dt><dd><span class="pill ${SMS.state==="parked"?"warn":SMS.state==="failed"||SMS.state==="stopped"?"bad":"acc"}">${esc(SMS.state)}</span></dd><dt>Job chờ</dt><dd class="num">${SMS.n_q}</dd><dt>held_at</dt><dd><code>${esc(SMS.held||"—")}</code></dd><dt>review_retries</dt><dd class="num">${SMS.retries} / 3</dd>`;
+  $("#sm-log").innerHTML=SMS.log.slice(-40).map(l=>`<div>${l}</div>`).join(""); $("#sm-log").scrollTop=1e9; }
+const SMEV=[
+ ["Thêm 3 job",()=>{SMS.n_q+=3; if(SMS.state==="idle"||SMS.state==="done"||SMS.state==="failed"){go("waiting","idle>waiting","queue_add ×3 → persist work/_job_queue.json")}else log("queue_add: thêm vào cuối hàng (không đụng current)")}],
+ ["Worker lấy job",()=>{ if(SMS.state!=="waiting"||!SMS.n_q) return log('<span class="e">Không có job chờ.</span>'); SMS.n_q--; go("current","waiting>current","pop → _clear_stop_hook → runner(_queue_run_one)")}],
+ ["REVIEW còn câu chưa rv",()=>{ if(SMS.state!=="current") return log('<span class="e">Cần job đang chạy.</span>'); SMS.retries++; if(SMS.retries>3){SMS.held="review_failed"; go("parked","current>parked",'<span class="e">quá 3 lượt → HOLD review_failed, cần người xem</span>')} else {SMS.held="waiting_review"; go("parked","current>parked",`<span class="h">park waiting_review · review_retry_at = now+300 s (lượt ${SMS.retries}/3)</span>`)} }],
+ ["QA high → HOLD",()=>{ if(SMS.state!=="current") return log('<span class="e">Cần job đang chạy.</span>'); SMS.held="qa_brain"; go("parked","current>parked",'<span class="h">held qa_brain — giữ ghế, KHÔNG lấy job kế</span>')}],
+ ["Tới hạn / gỡ HOLD",()=>{ if(SMS.state!=="parked") return log('<span class="e">Không có job park.</span>'); if(SMS.held==="review_failed") return log('<span class="e">review_failed: _queue_park_ready = False tới khi người gỡ hold</span>'); SMS.held=""; go("current","parked>current","park_ready → chạy lại CÙNG job (ASR/dịch tự SKIP)")}],
+ ["Xong output.mp4",()=>{ if(SMS.state!=="current") return log('<span class="e">Cần job đang chạy.</span>'); SMS.retries=0; go("done","current>done",'<span class="o">done → auto_publisher.enqueue_publish</span>'); if(SMS.n_q) setTimeout(()=>go("waiting","done>waiting","job kế"),500)}],
+ ["Lỗi stage",()=>{ if(SMS.state!=="current") return; go("failed","current>failed",'<span class="e">failed: bước asr lỗi (mã 1)</span>'); if(SMS.n_q) setTimeout(()=>go("waiting","failed>waiting","job kế"),500)}],
+ ["Bấm Dừng",()=>{ if(SMS.state!=="current"&&SMS.state!=="parked") return; SMS.n_q=0; go("stopped",SMS.state+">stopped",'queue_stop: xoá hàng chờ + stop_hook(current)')}],
+ ["Đặt lại",()=>{Object.assign(SMS,{state:"idle",n_q:0,retries:0,held:"",log:[]}); smDraw()}]];
+function log(m){SMS.log.push(m); smDraw()}
+function go(st,edge,msg){SMS.state=st; SMS.log.push(msg); smDraw(edge)}
+function renderSM(){ $("#sm-btns").innerHTML=SMEV.map((e,i)=>`<button class="btn" data-ev="${i}">${esc(e[0])}</button>`).join(""); $$("#sm-btns .btn").forEach(b=>b.addEventListener("click",()=>SMEV[+b.dataset.ev][1]())); smDraw(); }
+
+/* ───────── review ───────── */
+const RSTEPS=[
+ ["Plan","translate.build_plan → _build_plan_from_file","PLAN_MODE=file: GPT đọc cả SRT → nhân vật, xưng hô, cảnh, hard terms; ensure_hard_terms → hv_auditor.audit_and_fix_plan (chặn sai âm Hán-Việt). Ghi glossary.json (atomic từ 11/11).",["PLAN_MODE","PLAN_MODEL"]],
+ ["NMT nháp","translate.run_translate → mt_zh_vi.draft_rows","Máy dịch zh→vi chạy GPU (MT_ZH_VI_DEVICE=cuda, batch 256) làm bản chính; LLM không dịch lại toàn bộ.",["MT_ZH_VI","MT_ZH_VI_DEVICE"]],
+ ["Hậu xử lý","apply_hard_term_locks · apply_pronoun_postpass · apply_style_polish","Khoá thuật ngữ, xưng hô theo cặp nhân vật, đánh bóng có kiểm soát.",["PRONOUN_TITLE_POLICY"]],
+ ["Pass1 full file","run_review_pass1_full_vi","GPT đọc FULL SRT song ngữ (chunk 1 000 cue nếu lớn) → style brief + flag câu vô nghĩa/nửa câu. Không fallback chat mẫu (DECISIONS 11-11).",["REVIEW_PASS1_MAX_UPLOAD_BYTES","REVIEW_PASS1_CHUNK_CUES","REVIEW_PASS1_ALLOW_CHAT_FALLBACK"]],
+ ["Lô song song","review_batch × REVIEW_PARALLEL (mặc định 24, trần 32)","Mỗi lô 40 câu ±1 cue ngữ cảnh. Cloud lỗi → khoá preset → local. Lô lỗi KHÔNG đánh rv; fix chỉ nhận trong lô; thử lại tuần tự; kiểm .stop mỗi 2 s.",["REVIEW_MODEL","REVIEW_PARALLEL","REVIEW_BACKUP","REVIEW_PRESET","REVIEW_RETRY_BACKOFF_SEC"]],
+ ["Giữ NMT","_filter_cosmetic_nmt_fixes","Bỏ sửa chỉ để 'đánh bóng'; giữ fix có bằng chứng (CJK sót, tên khoá, câu TTS quá dài).",[]],
+ ["Hậu kỳ + hang","run_post_translate_consistency · series_glossary.save_from · agent_hang_fix.fix_hang_job","Xưng hô GPT, lưu glossary bộ phim, LLM trace câu treo → rewrite/keep. Bỏ qua khi đã soát đủ (QA gate gọi lần 2).",["BRAIN_HANG_FIX","HANG_FIX_MODEL"]],
+ ["Gates","translate_ready_for_tts → agent_quality → HOLD → agent_qa_gate","Chưa đủ → dừng; high QA → HOLD qa_brain; QA gate diff → HOLD qa_gate. HOLD giữ ghế hàng đợi.",["AGENT_QA_GATE","AUTO_REVIEW"]]];
+function renderReview(){ $("#review-steps").innerHTML=RSTEPS.map((s,i)=>`<details ${i===4?"open":""}><summary><span class="pill acc">${i+1}</span> ${esc(s[0])} <span class="muted mono" style="font-weight:400">· ${esc(s[1])}</span></summary><p style="margin:8px 0">${esc(s[2])}</p><div class="chips">${s[3].map(k=>`<span class="chip">${esc(k)}</span>`).join("")}</div></details>`).join(""); }
+
+/* ───────── agents ───────── */
+const AGENTS=[
+ ["agent_core","Chat agent","UI / Telegram /agent","tool job, queue, config, Hongguo, heal, av_sync; confirm trừ lệnh rõ","manifest.agent, chat history"],
+ ["agent_brain","Second Brain daemon","AGENT_BRAIN=1, tick 60 s, MODE=hybrid","L0 đổi preset · L1 heal · L2 quality/HOLD · LLM tick (silent)","work/logs/agent_brain.log, qa_brain.json"],
+ ["agent_watch","Watcher","AGENT_WATCH=1, 300 s","heal safe khi GPU rảnh, cooldown fingerprint","agent_watch.log"],
+ ["agent_qa_gate","QA gate","sau translate, AGENT_QA_GATE=1","review → diff → pass mới TTS","manifest.agent"],
+ ["agent_hang_fix","Hang fix","cuối run_review + Brain","LLM trace câu treo → sửa → hang_ack","qa_hang_trace.json"],
+ ["agent_heal","Heal","Brain / watch / autopilot / tool","safe: stale running, dịch trống, TTS thiếu, mux lại; aggressive: ASR/TTS force","manifest"],
+ ["agent_autopilot","Auto-pilot","sidecar /on, tick ~90 s","queue need_queue + heal safe qua HTTP","log sidecar"],
+ ["agent_feeder","Feeder","autopilot khi hàng trống","thêm job: lib_merged, auto_merge, hongguo","log sidecar"]];
+const MATRIX=[["Thêm job vào queue","✓","✓ (LLM tick)","","","","","","✓"],["Dừng queue","✓","✓ (LLM tick)","","","","","",""],["Heal job","✓","✓ L1","✓","","","✓","✓",""],["Sửa script.json","✓ (edit)","✓ L2","","✓ review","✓","✓ vá dịch","",""],["HOLD / gỡ HOLD","✓","✓","","✓ HOLD","✓ gỡ","","",""],["Đổi preset llama","","✓ L0","","","","","",""]];
+function renderAgents(){ $("#agent-cards").innerHTML=AGENTS.map(a=>`<div class="card"><div class="row" style="justify-content:space-between"><h3>${esc(a[1])}</h3>${modChip(a[0])}</div><dl class="kv" style="margin-top:8px"><dt>Kích hoạt</dt><dd>${esc(a[2])}</dd><dt>Được làm</dt><dd>${esc(a[3])}</dd><dt>Dấu vết</dt><dd><code>${esc(a[4])}</code></dd></dl></div>`).join("");
+  $("#agent-matrix").innerHTML=`<thead><tr><th>Hành động</th><th>Chat</th><th>Brain</th><th>Watch</th><th>QA gate</th><th>Hang fix</th><th>Heal</th><th>Autopilot</th><th>Feeder</th></tr></thead><tbody>${MATRIX.map(r=>`<tr>${r.map((c,i)=>`<td>${i?(c?`<span class="pill ${(r.filter(Boolean).length>3&&c)?"warn":"acc"}">${esc(c)}</span>`:""):`<b>${esc(c)}</b>`}</td>`).join("")}</tr>`).join("")}</tbody>`; }
+
+/* ───────── modules ───────── */
+let selMod=null;
+function renderModFilters(){ const ls=[...new Set(D().modules.map(m=>m.l))].sort(); $("#layer-f").innerHTML=`<option value="">Mọi lớp</option>`+ls.map(l=>`<option>${esc(l)}</option>`).join(""); }
+function modMatches(m,q){ if(!q) return true; q=q.toLowerCase(); return m.n.toLowerCase().includes(q)||m.d.toLowerCase().includes(q)||m.f.some(f=>f[0].toLowerCase().includes(q))||m.rt.some(r=>r[1].toLowerCase().includes(q))||m.k.some(k=>k.toLowerCase().includes(q)); }
+function renderModList(){ const q=$("#q").value.trim(), lf=$("#layer-f").value, so=$("#sort-f").value; const maxH=Math.max(...D().modules.map(m=>m.h))||1;
+  let ms=D().modules.filter(m=>(!lf||m.l===lf)&&modMatches(m,q));
+  ms.sort((a,b)=>so==="n"?a.n.localeCompare(b.n):so==="loc"?b.loc-a.loc:so==="b"?b.b.length-a.b.length:b.h-a.h);
+  $("#mcount").textContent=`${ms.length} module`;
+  $("#mlist").innerHTML=ms.map(m=>`<button data-mod="${esc(m.n)}" aria-selected="${m.n===selMod}"><span class="sw" style="background:${LAYER_COL[m.l]||"#999"}"></span><span class="nm" title="${esc(m.r)}">${esc(m.n)}</span><span class="muted num" style="font-size:11px;margin-left:auto">${m.loc}</span><span class="heat" title="hotspot ${m.h}"><i style="width:${Math.round(100*m.h/maxH)}%"></i></span></button>`).join("");
+  if(!selMod||!D().modules.some(m=>m.n===selMod)) openMod(ms[0]?.n,false); }
+function openMod(name,jump=true){ const m=M()[name]; if(!m) return; selMod=name; if(jump&&location.hash!=="#modules"){location.hash="modules"}
+  $$("#mlist button").forEach(b=>b.setAttribute("aria-selected",b.dataset.mod===name));
+  const q=$("#q").value.trim().toLowerCase(); const fns=m.f.filter(f=>!q||f[0].toLowerCase().includes(q)||!m.f.some(x=>x[0].toLowerCase().includes(q)));
+  const sm=Object.entries(m.s).map(([k,v])=>`<span class="pill ${["bare_except","swallow_except","shell_true","eval_exec"].includes(k)?"warn":""}">${esc(k)} ${v}</span>`).join(" ");
+  $("#mdetail").innerHTML=`<div class="card"><div class="row" style="justify-content:space-between"><h2 class="mono" style="font-size:18px">${esc(m.n)}</h2><span class="pill" style="background:${LAYER_COL[m.l]};color:#fff">${esc(m.l)}</span></div>
+   <p class="muted" style="margin:4px 0"><code>${esc(m.r)}</code> · <span class="num">${m.loc}</span> dòng · ${m.f.length} hàm · ${m.rt.length} route · ${m.k.length} key · hotspot <b class="num">${m.h}</b> · ${m.t.length?`<span class="pill ok">${m.t.length} test</span>`:`<span class="pill bad">chưa test</span>`}</p>
+   ${m.d?`<p style="margin:8px 0">${esc(m.d)}</p>`:""}
+   <div class="grid g2" style="margin-top:10px"><div><h3>Gọi tới (${m.i.length})</h3><div class="chips" style="margin-top:6px">${m.i.map(x=>`<button class="chip" data-mod="${esc(x)}">${esc(x)}</button>`).join("")||"—"}</div></div>
+   <div><h3>Được dùng bởi (${m.b.length + m.sp.length})</h3><div class="chips" style="margin-top:6px">${m.b.map(x=>`<button class="chip" data-mod="${esc(x)}">${esc(x)}</button>`).join("")}${m.sp.map(x=>`<button class="chip" data-mod="${esc(x)}" title="gọi qua subprocess/tên file">⤷ ${esc(x)}</button>`).join("")||(m.b.length?"":"—")}</div></div></div>
+   <canvas id="mini" height="220" style="margin-top:12px" aria-label="Hàng xóm phụ thuộc"></canvas>
+   ${sm?`<p style="margin:10px 0 0">${sm}</p>`:""}</div>
+   <div class="grid g2" style="margin-top:12px">
+   <div class="card scroll" style="max-height:420px"><h3>Hàm top-level (${m.f.length})</h3><table><thead><tr><th>Hàm</th><th class="num">Dòng</th><th class="num">Dài</th><th>Mô tả</th></tr></thead><tbody>${fns.map(f=>`<tr><td class="mono">${esc(f[0])}</td><td class="num">${f[1]}</td><td class="num">${f[2]>=120?`<span class="pill warn">${f[2]}</span>`:f[2]}</td><td class="muted">${esc(f[3])}</td></tr>`).join("")}</tbody></table></div>
+   <div class="stack">
+    ${m.rt.length?`<div class="card scroll" style="max-height:260px"><h3>Route (${m.rt.length})</h3><table><tbody>${m.rt.map(r=>`<tr><td><span class="pill">${esc(r[0])}</span></td><td class="mono">${esc(r[1])}</td><td class="mono muted">${esc(r[2])}</td></tr>`).join("")}</tbody></table></div>`:""}
+    ${m.k.length?`<div class="card"><h3>Config / env key</h3><div class="chips" style="margin-top:6px">${m.k.map(k=>`<span class="chip">${esc(k)}</span>`).join("")}</div></div>`:""}
+    ${m.a.length?`<div class="card"><h3>File / artifact</h3><div class="chips" style="margin-top:6px">${m.a.map(k=>`<span class="chip">${esc(k)}</span>`).join("")}</div></div>`:""}
+    ${m.lf.length?`<div class="card"><h3>Hàm dài nhất</h3><div class="chips" style="margin-top:6px">${m.lf.map(f=>`<span class="chip">${esc(f[0])} · ${f[2]} dòng</span>`).join("")}</div></div>`:""}
+    ${m.fx.length?`<div class="card scroll" style="max-height:240px"><h3>Fix log (${m.fx.length})</h3><ul style="margin:6px 0 0;padding-left:18px;font-size:13px">${m.fx.map(f=>`<li><code>${esc(f[0])}</code><br><span class="muted">${esc(f[1])}</span></li>`).join("")}</ul></div>`:""}
+   </div></div>`;
+  drawMini(m); }
+function drawMini(m){ const cv=$("#mini"); if(!cv) return; const dpr=devicePixelRatio||1; const W=cv.clientWidth,H=220; cv.width=W*dpr; cv.height=H*dpr; const g=cv.getContext("2d"); g.scale(dpr,dpr);
+  const css=getComputedStyle(document.documentElement); const ink=css.getPropertyValue("--ink"), line=css.getPropertyValue("--line"), muted=css.getPropertyValue("--muted");
+  const L=m.b.slice(0,14), R=m.i.slice(0,14); const cx=W/2, cy=H/2;
+  const place=(arr,x)=>arr.map((n,i)=>[n,x,arr.length===1?cy:20+i*(H-40)/(arr.length-1)]);
+  const nodes=[...place(L,Math.max(90,W*0.18)),...place(R,Math.min(W-90,W*0.82))];
+  g.lineWidth=1.2; g.font="11px "+css.getPropertyValue("--f-mono");
+  for(const [n,x,y] of nodes){ g.strokeStyle=line; g.beginPath(); g.moveTo(x,y); g.bezierCurveTo((x+cx)/2,y,(x+cx)/2,cy,cx,cy); g.stroke(); }
+  for(const [n,x,y] of nodes){ const mm=M()[n]; g.fillStyle=LAYER_COL[mm?.l]||muted; g.beginPath(); g.arc(x,y,5,0,7); g.fill(); g.fillStyle=ink; g.textAlign=x<cx?"right":"left"; g.textBaseline="middle"; g.fillText(n.length>26?n.slice(0,25)+"…":n,x+(x<cx?-9:9),y); }
+  g.fillStyle=LAYER_COL[m.l]; g.beginPath(); g.arc(cx,cy,10,0,7); g.fill(); g.fillStyle=ink; g.textAlign="center"; g.font="600 12px "+css.getPropertyValue("--f-mono"); g.fillText(m.n,cx,cy-20);
+  g.fillStyle=muted; g.font="11px "+css.getPropertyValue("--f-body"); g.textAlign="left"; g.fillText("được dùng bởi",8,12); g.textAlign="right"; g.fillText("gọi tới",W-8,12); }
+
+/* ───────── graph ───────── */
+const G={nodes:[],edges:[],scale:1,ox:0,oy:0,hover:null,drag:null,raf:0,iter:0};
+function buildGraph(){ const hide=$("#hide-ops").checked; const ms=D().modules.filter(m=>!(hide&&(m.l==="ops"||m.l==="misc"))); const idx=new Map(ms.map((m,i)=>[m.n,i]));
+  const cv=$("#gcv"); const W=cv.clientWidth||900,H=640; const ls=[...new Set(ms.map(m=>m.l))];
+  G.nodes=ms.map((m,i)=>{const a=ls.indexOf(m.l)/ls.length*Math.PI*2; return {m,x:W/2+Math.cos(a)*220+(Math.random()-.5)*80,y:H/2+Math.sin(a)*200+(Math.random()-.5)*80,vx:0,vy:0,r:3+Math.sqrt(m.loc)/7}});
+  G.edges=[]; ms.forEach((m,i)=>m.i.forEach(t=>{if(idx.has(t)) G.edges.push([i,idx.get(t)])}));
+  G.scale=1;G.ox=0;G.oy=0;G.iter=0; cancelAnimationFrame(G.raf); simGraph();
+  $("#glegend").innerHTML=ls.map(l=>`<span><i class="sw" style="background:${LAYER_COL[l]||"#999"}"></i>${esc(l)}</span>`).join(""); }
+function simGraph(){ const N=G.nodes, cv=$("#gcv"), W=cv.clientWidth||900, H=640;
+  for(let k=0;k<2;k++){ for(let i=0;i<N.length;i++){const a=N[i]; for(let j=i+1;j<N.length;j++){const b=N[j]; let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy+.01; if(d2>90000) continue; const f=900/d2; a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}}
+    for(const [i,j] of G.edges){const a=N[i],b=N[j]; const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,f=(d-90)*0.004; a.vx+=dx/d*f*d;a.vy+=dy/d*f*d;b.vx-=dx/d*f*d;b.vy-=dy/d*f*d;}
+    for(const n of N){ if(n===G.drag) continue; n.vx+=(W/2-n.x)*0.002; n.vy+=(H/2-n.y)*0.002; n.vx*=0.6;n.vy*=0.6; n.x+=Math.max(-8,Math.min(8,n.vx)); n.y+=Math.max(-8,Math.min(8,n.vy)); } }
+  drawGraph(); if(++G.iter<260||G.drag) G.raf=requestAnimationFrame(simGraph); }
+function drawGraph(){ const cv=$("#gcv"); const dpr=devicePixelRatio||1, W=cv.clientWidth, H=640; cv.width=W*dpr; cv.height=H*dpr; const g=cv.getContext("2d"); g.setTransform(dpr*G.scale,0,0,dpr*G.scale,dpr*G.ox,dpr*G.oy);
+  const css=getComputedStyle(document.documentElement), line=css.getPropertyValue("--line"), ink=css.getPropertyValue("--ink"), acc=css.getPropertyValue("--accent");
+  const h=G.hover, nb=new Set(); if(h!=null){nb.add(h); G.edges.forEach(([a,b])=>{if(a===h)nb.add(b); if(b===h)nb.add(a)})}
+  g.lineWidth=1/G.scale; for(const [a,b] of G.edges){const A=G.nodes[a],B=G.nodes[b]; const hot=h!=null&&(a===h||b===h); g.strokeStyle=hot?acc:line; g.globalAlpha=h==null||hot?.9:.25; g.beginPath(); g.moveTo(A.x,A.y); g.lineTo(B.x,B.y); g.stroke();}
+  g.globalAlpha=1; G.nodes.forEach((n,i)=>{ g.globalAlpha=h==null||nb.has(i)?1:.25; g.fillStyle=LAYER_COL[n.m.l]||"#999"; g.beginPath(); g.arc(n.x,n.y,n.r,0,7); g.fill(); if(n.r>9||nb.has(i)){g.fillStyle=ink; g.font=`${11/G.scale}px ${css.getPropertyValue("--f-mono")}`; g.textAlign="center"; g.fillText(n.m.n,n.x,n.y-n.r-4/G.scale);} }); g.globalAlpha=1; }
+function gPick(e){ const cv=$("#gcv"), r=cv.getBoundingClientRect(); const x=(e.clientX-r.left-G.ox)/G.scale, y=(e.clientY-r.top-G.oy)/G.scale; let best=null,bd=1e9; G.nodes.forEach((n,i)=>{const d=Math.hypot(n.x-x,n.y-y); if(d<n.r+6&&d<bd){bd=d;best=i}}); return {i:best,x,y}; }
+function wireGraph(){ const cv=$("#gcv"); let pan=null, moved=false;
+  cv.addEventListener("mousemove",e=>{ if(G.drag){const p=gPick(e); G.drag.x=p.x;G.drag.y=p.y;moved=true;drawGraph();return} if(pan){G.ox=pan.ox+e.clientX-pan.x;G.oy=pan.oy+e.clientY-pan.y;moved=true;drawGraph();return}
+    const p=gPick(e); if(p.i!==G.hover){G.hover=p.i; drawGraph(); const m=p.i!=null?G.nodes[p.i].m:null; $("#ghover").innerHTML=m?`<code>${esc(m.n)}</code> · ${esc(m.l)} · ${m.loc} dòng · gọi ${m.i.length} · được dùng ${m.b.length}${m.d?" — "+esc(m.d.slice(0,140)):""}`:""; cv.style.cursor=m?"pointer":"grab";} });
+  cv.addEventListener("mousedown",e=>{moved=false; const p=gPick(e); if(p.i!=null){G.drag=G.nodes[p.i]; G.iter=200; simGraph()} else pan={x:e.clientX,y:e.clientY,ox:G.ox,oy:G.oy}});
+  addEventListener("mouseup",e=>{ if(G.drag&&!moved){openMod(G.drag.m.n)} G.drag=null; pan=null; });
+  cv.addEventListener("wheel",e=>{e.preventDefault(); const r=cv.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top; const k=e.deltaY<0?1.12:1/1.12; G.ox=mx-(mx-G.ox)*k; G.oy=my-(my-G.oy)*k; G.scale*=k; drawGraph();},{passive:false});
+  $("#hide-ops").addEventListener("change",buildGraph); }
+
+/* ───────── dev flow ───────── */
+const FLOWS=[
+ ["/fix <bug>",["brain-librarian","tra fix cũ + quyết định"],["fix-advisor","root cause + 1–3 phương án + test"],["bạn duyệt","dừng chờ"],["backup","snapshot + codebak"],["sửa + pytest",""],["code-reviewer","diff với bản gốc"],["docs","fix log · CHANGELOG · worklog · STATE"],["brain-keeper","cập nhật thẻ module"]],
+ ["/bughunt [phạm vi]",["brain_build","thẻ module mới nhất"],["bug-hunter ×N","song song theo nhóm module"],["fix-advisor","cho P0/P1"],["bạn duyệt",""]],
+ ["/review [recent]",["--check + CHANGELOG","xác định diff"],["code-reviewer","10 mục kiểm"],["bug-hunter","nếu đụng queue/manifest/thread"],["kết luận","✅ ⚠️ ❌ + blocking"]],
+ ["/sync-check V2 → V5",["tree_audit","ERROR phải = 0"],["port-sync-guardian","bảng ánh xạ + file riêng từng cây"],["sync_from_v2 --apply","backup + viết lại import"],["tree_audit + pytest",""]],
+ ["/improve · /agent-audit",["improvement-advisor","code + workflow"],["agent-architect","agent runtime + LLM"],["bảng ưu tiên","giá trị / công / rủi ro"]]];
+const TEAM=[["bug-hunter","opus","Tìm bug có bằng chứng: race, mất dữ liệu, queue/stage, encoding, process/VRAM.","Chỉ ghi báo cáo"],["code-reviewer","opus","Review diff hoặc module theo 10 mục quy ước dự án.","Chỉ ghi báo cáo"],["fix-advisor","opus","Root cause, phương án kèm diff, test, fix log nháp.","Không ghi"],["improvement-advisor","opus","Lộ trình cải tiến code, hiệu năng, độ tin cậy, workflow.","Chỉ ghi báo cáo"],["agent-architect","opus","Agent runtime, LLM I/O, eval, đội subagent.","Chỉ ghi báo cáo"],["port-sync-guardian","opus","Canh sync V2↔V4↔V5, import vỡ, cổng cứng, file bị đè.","Chỉ ghi báo cáo"],["brain-keeper","sonnet","Giữ second brain khớp code, viết phần MANUAL.","Chỉ docs/brain"],["brain-librarian","haiku","Tra cứu nhanh, trả lời kèm file:dòng.","Không ghi"]];
+function renderDev(){ $("#flows").innerHTML=FLOWS.map(f=>`<div class="card"><h3 class="mono" style="margin-bottom:8px">${esc(f[0])}</h3><div class="flow">${f.slice(1).map((s,i)=>`${i?'<span class="ar">→</span>':""}<div class="st"><b>${esc(s[0])}</b>${esc(s[1])}</div>`).join("")}</div></div>`).join("");
+  $("#team").innerHTML=TEAM.map(t=>`<div class="card"><div class="row" style="justify-content:space-between"><h3 class="mono">${esc(t[0])}</h3><span class="pill">${esc(t[1])}</span></div><p style="margin:6px 0">${esc(t[2])}</p><span class="pill ${t[3]==="Không ghi"?"ok":"acc"}">${esc(t[3])}</span></div>`).join("");
+  $("#brainflow").innerHTML=[["sửa code","+ docs-on-change"],["brain_build.py","AST → 7 trang generated + thẻ AUTO"],["brain-keeper","viết khối MANUAL"],["brain_export.py","→ brain.json"],["trang này","đọc brain.json"]].map((s,i)=>`${i?'<span class="ar">→</span>':""}<div class="st"><b>${esc(s[0])}</b>${esc(s[1])}</div>`).join(""); }
+
+/* ───────── trees ───────── */
+function renderTrees(){ const rows=Object.entries(TREES).map(([k,t])=>{const d=BRAIN[k]; return `<tr><td><b>${esc(t.label)}</b><br><code>Z:\\${esc(k)}</code></td><td class="num">:${t.port}</td><td>${esc(t.layout)}</td><td>${esc(t.role)}</td><td class="num">${d?d.n_modules:"—"}</td><td class="num">${d?d.n_loc.toLocaleString("vi"):"—"}</td><td class="num">${d?d.n_routes:"—"}</td><td><span class="pill ok">ERROR 0</span></td></tr>`}).join("");
+  $("#tree-table").innerHTML=`<thead><tr><th>Cây</th><th>Cổng</th><th>Bố cục</th><th>Vai trò</th><th>Module</th><th>Dòng</th><th>Route</th><th>tree_audit</th></tr></thead><tbody>${rows}</tbody>`;
+  $("#syncflow").innerHTML=[["Sửa ở V2","backup → sửa → pytest → docs"],["tree_audit V2","ERROR = 0"],["V4 (phẳng)","sync_from_v2 chép allowlist, giữ restart_server / app_desktop / router riêng"],["V5 (package)","sync_from_v2 đặt vào core/ engines/ agents/…, viết lại import, đổi __file__, bootstrap sys.path"],["tree_audit + smoke","import toàn bộ server + package"],["restart từng cổng","khi queue rảnh hoặc bạn đồng ý"]].map((s,i)=>`${i?'<span class="ar">→</span>':""}<div class="st"><b>${esc(s[0])}</b>${esc(s[1])}</div>`).join("");
+  const v5=BRAIN.PinelineV5, v2=BRAIN.PinelineV2; if(!v5||!v2){$("#map-table").innerHTML="";return}
+  const v5by=new Map(); v5.modules.forEach(m=>{const s=m.n.split(".").pop(); if(!v5by.has(s)) v5by.set(s,m)});
+  $("#map-table").innerHTML=`<thead><tr><th>Module V2</th><th>Vị trí V5</th><th class="num">Dòng V2</th><th class="num">Dòng V5</th></tr></thead><tbody>${v2.modules.filter(m=>m.l!=="ops").map(m=>{const t=v5by.get(m.n); return `<tr><td class="mono">${esc(m.r)}</td><td class="mono">${t?esc(t.r):'<span class="muted">không đồng bộ (ops / riêng V2)</span>'}</td><td class="num">${m.loc}</td><td class="num">${t?t.loc:""}</td></tr>`}).join("")}</tbody>`; }
+
+/* ───────── bugs ───────── */
+const BUGS=[
+ ["B1","P0","Lô REVIEW lỗi vẫn bị đánh rv → câu chưa soát vào TTS","translate._review_chunk_with_fallback / _apply_result",{V2:1,V4:1,V5:1}],
+ ["B2","P0","Park waiting_review không ai soát → hàng đợi treo vĩnh viễn","server._queue_park_ready, _auto_gpu",{V2:1,V4:1,V5:1}],
+ ["P1","P0","V5 không khởi động: server.py import phẳng trong cây package","V5 server.py + 35 bản trùng root",{V5:1}],
+ ["P2","P0","Brain V4/V5 gọi cứng :8801 → điều khiển nhầm V2","agent_brain, agent_brain_context",{V4:1,V5:1}],
+ ["B3","P1","switch_preset không khoá: 24 luồng + Brain restart llama dồn dập","preset_switcher",{V2:1,V4:1,V5:1}],
+ ["B4","P1","Fix REVIEW áp vượt biên lô","translate._apply_result",{V2:1,V4:1,V5:1}],
+ ["P3","P1","V4 mất API /films + uploader settings","server include_router tuỳ cây",{V4:1}],
+ ["P4","P1","V4 crash Manifest.set_stage khi ASR auto-split","manifest.py V4",{V4:1}],
+ ["B5","P2","Dừng job khi REVIEW song song chờ tới 15 phút","translate.run_review",{V2:1,V4:1,V5:1}],
+ ["B6","P2","Run-all/mux ra audio voice_bgm 0.6 khác queue","server.run_all, mux_job",{V2:1,V4:1,V5:1}],
+ ["B7","P2","QA gate chạy lại pronoun GPT + hang LLM","translate.run_review",{V2:1,V4:1,V5:1}],
+ ["B8","P2","restart --after-current chờ vô hạn khi job park","restart_server",{V2:1,V4:1,V5:1}],
+ ["B9","P2","48 save() thay vì Manifest.update; khoá liên tiến trình có thể bỏ qua","server, manifest",{}],
+ ["B10","P3","glossary/style_lock/display ghi không atomic","translate",{V2:1,V4:1,V5:1}],
+ ["B11","P3","Docs lỗi font; mux.py chết; module rủi ro chưa test","docs, tests",{}],
+ ["A–E","—","5 bước cấu trúc (opts một nguồn, Manifest.update, sidecar chỉ client, tách pipeline, bỏ hot-reload)","server.py…",{}]];
+function renderBugs(){ const f=$("#bug-f").value; const rows=BUGS.filter(b=>{const fixed=Object.keys(b[4]).length>0; return !f||(f==="fixed"?fixed:!fixed)});
+  $("#bug-table").innerHTML=`<thead><tr><th>#</th><th>Mức</th><th>Bug</th><th>Vị trí</th><th>V2</th><th>V4</th><th>V5</th></tr></thead><tbody>${rows.map(b=>{const c=b[1]==="P0"?"bad":b[1]==="P1"?"warn":""; const cell=t=>b[4][t]?'<span class="pill ok">đã sửa</span>':(["P1","P2","P3","P4"].includes(b[0])&&!b[4][t]&&Object.keys(b[4]).length?'<span class="muted">không áp dụng</span>':'<span class="pill">còn mở</span>'); return `<tr><td class="mono"><b>${esc(b[0])}</b></td><td><span class="pill ${c}">${esc(b[1])}</span></td><td>${esc(b[2])}</td><td class="mono muted">${esc(b[3])}</td><td>${cell("V2")}</td><td>${cell("V4")}</td><td>${cell("V5")}</td></tr>`}).join("")}</tbody>`; }
+
+/* ───────── routing + init ───────── */
+const VIEWS=["overview","pipeline","queue","review","agents","modules","graph","devflow","trees","bugs"];
+let graphBuilt=null;
+function route(){ const v=VIEWS.includes(location.hash.slice(1))?location.hash.slice(1):"overview";
+  $$("section.view").forEach(s=>s.classList.toggle("on",s.id==="v-"+v)); $$("#tabs a").forEach(a=>a.toggleAttribute("aria-current",a.getAttribute("href")==="#"+v)); $$("#tabs a").forEach(a=>{if(a.hasAttribute("aria-current"))a.setAttribute("aria-current","page")});
+  if(v==="graph"&&graphBuilt!==tree){graphBuilt=tree; requestAnimationFrame(buildGraph)}
+  if(v==="modules"&&selMod) requestAnimationFrame(()=>drawMini(M()[selMod])); }
+function renderTree(){ renderKpis(); renderLayers(); renderModFilters(); selMod=null; renderModList(); renderTrees(); graphBuilt=null; route(); }
+document.addEventListener("click",e=>{const b=e.target.closest("[data-mod]"); if(b&&!b.closest(".mlist")){openMod(b.dataset.mod)} else if(b){openMod(b.dataset.mod,false)}});
+$$(".trees button").forEach(b=>b.addEventListener("click",()=>{tree=b.dataset.tree; $$(".trees button").forEach(x=>x.setAttribute("aria-pressed",x===b)); try{localStorage.setItem("pl-tree",tree)}catch(e){} renderTree();}));
+$("#q").addEventListener("input",()=>{renderModList(); if(selMod) openMod(selMod,false)}); $("#layer-f").addEventListener("change",renderModList); $("#sort-f").addEventListener("change",renderModList);
+$("#bug-f").addEventListener("change",renderBugs); $("#run").addEventListener("click",runSim); $("#reset").addEventListener("click",resetSim);
+addEventListener("hashchange",route); addEventListener("resize",()=>{if(location.hash==="#graph")drawGraph()});
+try{const t=localStorage.getItem("pl-tree"); if(t&&BRAIN[t]){tree=t; $$(".trees button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.tree===t))}}catch(e){}
+renderArch(); renderTrack(); resetSim(); renderSM(); renderReview(); renderAgents(); renderDev(); renderBugs(); wireGraph(); renderTree();
+$("#foot").textContent="Sinh từ mã nguồn bằng scripts/brain_build.py + brain_export.py (AST, không chạy code). Làm mới: chạy lại hai script rồi dựng lại trang bằng scripts/build_workflow_html.py.";
+</script>
+</body>
+</html>

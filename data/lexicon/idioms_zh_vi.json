@@ -1,0 +1,364 @@
+{
+ "version": 1,
+ "note": "Gợi ý thành ngữ/lóng ZH→VI cho translate_simple (seed 2026-11-12 từ translate._meaning_rules/_style_rules/_DEFAULT_*_TERMS + lỗi golden V6). vi = dạng nên dùng (nhiều dạng cách bằng /), forbid = dạng CẤM. Sửa tay thoải mái. re (tuỳ chọn) = regex áp từng câu ZH: chỉ gợi ý khi khớp (mục đa nghĩa như 我去). src (2026-11-12 next) = nguồn mục: translate_rules (đã có trong luật translate.py từ trước golden) | golden_derived (thêm khi xem lỗi golden V6 — mặc định coi mọi mục KHÔNG có trong translate.py là golden_derived, kể cả biến thể ASR/biến thể 也 thêm cùng đợt) | expert (thêm từ kiến thức chuyên môn, KHÔNG nhìn golden). SIMPLE_LEXICON_EXCLUDE_GOLDEN=1 bỏ mục golden_derived. Mục mới: ghi src đúng sự thật.",
+ "entries": [
+  {
+   "zh": "我去",
+   "vi": "vãi / trời đất / trời ạ (thán từ ngạc nhiên)",
+   "forbid": [
+    "tôi đi"
+   ],
+   "note": "CHỈ là thán từ khi đứng riêng/đầu câu + dấu câu (「我去。」「我去，…」); 「我去一趟/我去找…」 = «tôi đi…» dịch bình thường",
+   "re": "^\\W*我去(?:\\W|$)",
+   "src": "golden_derived"
+  },
+  {
+   "zh": "手下留人",
+   "vi": "hạ thủ lưu tình / nương tay",
+   "forbid": [
+    "thuộc hạ"
+   ],
+   "note": "ASR của 手下留情",
+   "src": "golden_derived"
+  },
+  {
+   "zh": "手下留情",
+   "vi": "hạ thủ lưu tình / nương tay",
+   "forbid": [
+    "thuộc hạ"
+   ],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "苟延残喘",
+   "vi": "thoi thóp / sống lay lắt / kéo dài hơi tàn",
+   "forbid": [
+    "cẩu kéo dài"
+   ],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "没大没小",
+   "vi": "không biết trên dưới / không biết lớn nhỏ / vô lễ",
+   "forbid": [
+    "chưa lớn không nhỏ",
+    "lớn không nhỏ"
+   ],
+   "src": "translate_rules"
+  },
+  {
+   "zh": "脑子进水",
+   "vi": "não có vấn đề / điên à (có setup 水 thì «não úng nước»)",
+   "forbid": [
+    "não vào nước",
+    "ngập nước"
+   ],
+   "src": "translate_rules"
+  },
+  {
+   "zh": "吃醋",
+   "vi": "ghen (uống giấm chỉ khi cố ý chơi chữ)",
+   "forbid": [],
+   "src": "translate_rules"
+  },
+  {
+   "zh": "打天下",
+   "vi": "đánh thiên hạ / dựng nghiệp",
+   "forbid": [
+    "đánh hạ thiên hạ"
+   ],
+   "src": "translate_rules"
+  },
+  {
+   "zh": "先下手为强",
+   "vi": "Tiên hạ thủ vi cường / ra tay trước chiếm ưu thế",
+   "forbid": [],
+   "src": "translate_rules"
+  },
+  {
+   "zh": "穷酸",
+   "vi": "thảm hại / xơ xác",
+   "forbid": [
+    "nghèo nàn"
+   ],
+   "note": "khinh ngoại hình/khí thế",
+   "src": "translate_rules"
+  },
+  {
+   "zh": "眼馋",
+   "vi": "thèm muốn / thèm chảy nước miếng",
+   "forbid": [],
+   "src": "translate_rules"
+  },
+  {
+   "zh": "好大力气",
+   "vi": "khó khăn lắm / tốn công lắm",
+   "forbid": [],
+   "note": "费了好大力气 = tốn bao công sức; 「好大力气！」 đứng riêng (khen) = «khỏe thật / sức lớn thật»",
+   "src": "translate_rules"
+  },
+  {
+   "zh": "废什么话",
+   "vi": "phí lời làm gì / nói nhiều làm gì",
+   "forbid": [],
+   "src": "translate_rules"
+  },
+  {
+   "zh": "嘲讽",
+   "vi": "khiêu khích / mỉa mai / khích tướng (theo cảnh)",
+   "forbid": [],
+   "note": "game/chiến đấu = khiêu khích/khích tướng; KHÔNG mặc định «nhạo báng» (vẫn đúng khi thật sự chế giễu); 「嘲讽看」 thường ASR thiếu dấu",
+   "src": "translate_rules"
+  },
+  {
+   "zh": "分手补偿",
+   "vi": "tiền bồi thường chia tay",
+   "forbid": [
+    "chia thường"
+   ],
+   "src": "translate_rules"
+  },
+  {
+   "zh": "脆皮",
+   "vi": "yếu / dễ vỡ / máu giấy",
+   "forbid": [
+    "da mỏng"
+   ],
+   "src": "translate_rules"
+  },
+  {
+   "zh": "贪得无厌",
+   "vi": "tham lam vô độ / tham lam không đáy",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "将计就计",
+   "vi": "tương kế tựu kế",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "沉迷美色",
+   "vi": "sa vào mỹ sắc / mê đắm sắc đẹp",
+   "forbid": [
+    "thầm mê"
+   ],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "卖关子",
+   "vi": "úp mở / vòng vo",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "胡说八道",
+   "vi": "nói hươu nói vượn / nói nhảm",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "灰飞烟灭",
+   "vi": "tan thành tro bụi / tan thành mây khói",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "胆大妄为",
+   "vi": "to gan lớn mật / cả gan",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "此一时彼一时",
+   "vi": "lúc này khác lúc xưa / thời thế đã khác",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "一抔黄土",
+   "vi": "một nắm đất vàng",
+   "forbid": [
+    "chậu"
+   ],
+   "note": "ASR hay ra 一盆黄土",
+   "src": "golden_derived"
+  },
+  {
+   "zh": "一盆黄土",
+   "vi": "một nắm đất vàng (ASR của 一抔黄土)",
+   "forbid": [
+    "chậu"
+   ],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "君无戏言",
+   "vi": "quân vô hí ngôn / vua không nói đùa / quân tử nhất ngôn / nói là làm",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "高深莫测",
+   "vi": "cao thâm khó lường",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "多管闲事",
+   "vi": "lo chuyện bao đồng / xen vào chuyện người khác",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "做鬼都不会放过",
+   "vi": "làm ma cũng không tha",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "见义勇为",
+   "vi": "việc nghĩa / nghĩa hiệp / thấy chuyện bất bình ra tay",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "活该",
+   "vi": "đáng đời / tự chuốc lấy",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "我操",
+   "vi": "mẹ kiếp / đệt",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "脚盆",
+   "vi": "bọn Nhật (lóng 脚盆鸡)",
+   "forbid": [
+    "chậu chân"
+   ],
+   "note": "lóng chỉ người Nhật (脚盆鸡); chỉ dịch «chậu (ngâm chân)» khi cảnh thật có cái chậu",
+   "src": "golden_derived"
+  },
+  {
+   "zh": "笑个屁",
+   "vi": "cười cái con khỉ / cười cái quái gì",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "怂个屁",
+   "vi": "nhát cái con khỉ",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "怕个毛线",
+   "vi": "sợ cái gì / sợ cái quái",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "怕个屁",
+   "vi": "sợ cái quái gì",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "拽个毛线",
+   "vi": "vênh váo cái quái gì / làm màu cái gì",
+   "forbid": [
+    "kéo"
+   ],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "走一步看一步",
+   "vi": "bước nào hay bước đó / tính từng bước",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "简直笑话",
+   "vi": "đúng là trò cười / thật nực cười",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "分分钟",
+   "vi": "phút mốt / trong một nốt nhạc / chớp mắt",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "吊打",
+   "vi": "đánh tơi tả / hành cho ra bã",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "大爷的",
+   "vi": "mẹ nó / khỉ thật (chửi thề)",
+   "forbid": [
+    "lão gia"
+   ],
+   "note": "chửi thề (你大爷的 / 去你大爷的 / 大爷的，…); nghĩa đen «của ông cụ» khi nói về ông lão thì dịch bình thường",
+   "re": "(?:^\\W*|你|去你)大爷的",
+   "src": "golden_derived"
+  },
+  {
+   "zh": "有点东西",
+   "vi": "có tí bản lĩnh / có nghề đấy",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "勇气可嘉",
+   "vi": "dũng khí đáng khen",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "小嘴真甜",
+   "vi": "miệng ngọt thật / dẻo miệng",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "最危险的地方最安全",
+   "vi": "nơi nguy hiểm nhất là nơi an toàn nhất",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "宇宙无敌",
+   "vi": "vô địch vũ trụ",
+   "forbid": [],
+   "src": "golden_derived"
+  },
+  {
+   "zh": "运动员",
+   "vi": "vận động viên",
+   "forbid": [
+    "vận hành viên"
+   ],
+   "src": "translate_rules"
+  },
+  {
+   "zh": "逆天而行",
+   "vi": "Nghịch Thiên Nhi Hành",
+   "forbid": [],
+   "src": "translate_rules"
+  },
+  {
+   "zh": "做鬼也不会放过",
+   "vi": "có chết thành ma cũng không tha",
+   "forbid": [],
+   "src": "golden_derived"
+  }
+ ]
+}

@@ -1,0 +1,37 @@
+{
+ "title": "标签造神第三季",
+ "title_vi": "Tiêu Thiêm Tạo Thần (mùa 3)",
+ "genre": "do_thi",
+ "genre_note": "Đô thị dị năng / đại học (plan: mixed; Lib tags: 现代, 异能, 奇幻). Cảnh mẫu thuần đô thị hiện đại.",
+ "range": [
+  2972,
+  3112
+ ],
+ "job": "32da3d8f225b",
+ "status": "silver",
+ "reviewer": "agent (Claude) — chờ chủ dự án xác nhận",
+ "built": "2026-11-11",
+ "n_lines": 141,
+ "scenes": [
+  {
+   "id": "s1",
+   "from": 2972,
+   "to": 2990,
+   "desc": "Hà Hải Khôn gọi điện cho Mị Nương (Hồ tộc) bàn chuyện chiêu mộ Cố Thanh"
+  },
+  {
+   "id": "s2",
+   "from": 2991,
+   "to": 2999,
+   "desc": "Cố Thanh nói với Ma Kính (pháp bảo, nữ)"
+  },
+  {
+   "id": "s3",
+   "from": 3000,
+   "to": 3112,
+   "desc": "Cố Thanh (học trưởng) và Hạ Thư Nhiên (học muội) — plan chốt anh/em"
+  }
+ ],
+ "script_lines_total": 3437,
+ "script_has_mt": true
+}

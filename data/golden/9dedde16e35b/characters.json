@@ -1,0 +1,70 @@
+{
+ "job": "9dedde16e35b",
+ "status": "silver",
+ "characters": [
+  {
+   "id": "lnt",
+   "zh": "龙傲天",
+   "vi": "Long Ngạo Thiên",
+   "gender": "nam",
+   "role": "Đại hoàng tử Giao Long tộc, vừa nhận truyền thừa Ngũ Trảo Kim Long",
+   "relations": {
+    "lkt": "anh ruột",
+    "ngaohoang": "người nhận truyền thừa (vãn bối–tiền bối)"
+   }
+  },
+  {
+   "id": "lkt",
+   "zh": "龙啸天",
+   "vi": "Long Khiếu Thiên",
+   "gender": "nam",
+   "role": "Em trai Long Ngạo Thiên, đã gia nhập Thiên Hư Thánh Điện (sư đệ của Âm Dương Huyền Triệt)",
+   "relations": {
+    "lnt": "em ruột (gọi 大哥)",
+    "adht": "sư đệ"
+   }
+  },
+  {
+   "id": "adht",
+   "zh": "阴阳玄澈",
+   "vi": "Âm Dương Huyền Triệt",
+   "gender": "nam",
+   "role": "Đệ tử Thiên Hư Thánh Điện, chiến lực vượt cấp",
+   "relations": {
+    "dth": "sư đệ",
+    "lnt": "đối thủ"
+   }
+  },
+  {
+   "id": "dth",
+   "zh": "叶天玄",
+   "vi": "Diệp Thiên Huyền",
+   "gender": "nam",
+   "role": "Sư huynh dẫn đội Thiên Hư Thánh Điện",
+   "relations": {
+    "adht": "sư huynh"
+   }
+  },
+  {
+   "id": "ngaohoang",
+   "zh": "敖皇",
+   "vi": "Ngao Hoàng",
+   "gender": "nam",
+   "role": "Cường giả Ngũ Trảo Kim Long, chủ tiên điện, tự xưng 老夫",
+   "relations": {
+    "lnt": "tiền bối truyền thừa",
+    "mkl": "cố nhân/đối thủ cũ"
+   }
+  },
+  {
+   "id": "mkl",
+   "zh": "墨麒麟",
+   "vi": "Mặc Kỳ Lân",
+   "gender": "nam",
+   "role": "Thượng cổ thần thú, thuộc hạ Thiên Hư Thánh Điện, tự xưng 本座/老夫",
+   "relations": {
+    "ngaohoang": "cố nhân"
+   }
+  }
+ ]
+}

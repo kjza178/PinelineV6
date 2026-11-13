@@ -1,0 +1,2368 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>Pineline · Hongguo Bridge</title>
+<style>
+  :root{
+    --bg:#0f0e0c; --side:#0b0a08; --panel:#16140f; --raise:#1b1813;
+    --line:rgba(255,255,255,.06); --line2:rgba(255,255,255,.11);
+    --text:#ECE7DE; --text2:#A79E8E; --muted:#6f6759;
+    --accent:#E9A93C; --accent-dim:rgba(233,169,60,.13);
+    --ok:#78c47a; --err:#ef7a5c;
+    --ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+    --mono:"Cascadia Code","Consolas",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--text);font:13.5px/1.5 var(--ui)}
+  body{overflow:hidden}
+  a{color:var(--accent);text-decoration:none}
+  button,input,select{font:inherit;color:var(--text)}
+  button{cursor:pointer}
+  .btn{background:var(--raise);border:1px solid var(--line2);border-radius:8px;padding:5px 9px;color:var(--text2);font-size:12px;line-height:1.25}
+  .btn:hover{border-color:var(--accent);color:var(--text)}
+  .btn.pri{background:var(--accent);border-color:transparent;color:#231a08;font-weight:650}
+  .btn.pri:disabled,.btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.danger{border-color:rgba(239,122,92,.4);color:var(--err)}
+  .top{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--side);flex:none}
+  .brand{font-weight:700;letter-spacing:.02em}
+  .brand span{color:var(--accent)}
+  .pill{font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line2);color:var(--muted)}
+  .pill.ok{color:var(--ok);border-color:rgba(120,196,122,.35)}
+  .pill.bad{color:var(--err);border-color:rgba(239,122,92,.35)}
+  .spacer{flex:1}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr);height:calc(100vh - 46px);min-height:0}
+  .col{display:flex;flex-direction:column;min-height:0}
+  .merge-wrap{flex:1;min-height:0;display:grid;grid-template-columns:minmax(320px,400px) minmax(0,1fr)}
+  .merge-wrap[hidden]{display:none}
+  .merge-lib{display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--line);background:var(--side)}
+  .badge.queue{color:var(--accent);border-color:var(--accent)}
+  .col-lib-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .col-lib-head h2{margin:0;font-size:15px;font-weight:700}
+  .col-lib-hint{font-size:12px;color:var(--accent);font-weight:650}
+  .sec{padding:14px 16px;border-bottom:1px solid var(--line);flex:none}
+  .sec h2{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  #q,#paste-id{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+  .scroll{flex:1;min-height:0;overflow:auto;padding:8px 12px 24px}
+  .group{border:1px solid var(--line);border-radius:10px;margin:8px 0;overflow:hidden;background:var(--panel)}
+  .ghead{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--raise);cursor:pointer}
+  .ghead b{flex:1}
+  .gbody{padding:4px 8px 10px}
+  .item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px}
+  .item:hover{background:rgba(255,255,255,.03)}
+  .item .t{flex:1;min-width:0}
+  .item .meta{font-size:11.5px;color:var(--muted)}
+  .cover{width:40px;height:54px;object-fit:cover;border-radius:5px;background:var(--raise);flex:none;border:1px solid var(--line)}
+  .cover.lg{width:62px;height:86px;border-radius:8px}
+  .mq-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .mq-row .btn.pri{flex:1;min-width:140px}
+  .mq-status{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+  .mq-status .bar{flex:1;min-width:120px;margin-top:0}
+  .mq-list{display:flex;flex-direction:column;gap:6px}
+  .mq-list h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:12px 0 2px;font-weight:650}
+  .mq-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--panel);font-size:12.5px}
+  .mq-item .n{font-family:var(--mono);color:var(--muted);min-width:22px;text-align:right}
+  .mq-item .t{flex:1;min-width:0}
+  .mq-item .t b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mq-item .d{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mq-item.cur{border-color:var(--accent);background:var(--accent-dim)}
+  .mq-item .bar{margin-top:5px}
+  .tab .cnt{margin-left:5px;font-size:10.5px;padding:0 6px;border-radius:999px;background:var(--accent);color:#231a08}
+  .tab .cnt:empty{display:none}
+  .lib-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--side);position:sticky;top:0;z-index:2}
+  .lib-toolbar label.selall{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:650;cursor:pointer;padding:6px 12px;border:1px solid var(--line2);border-radius:8px;background:var(--raise)}
+  .lib-toolbar label.selall:hover{border-color:var(--accent)}
+  .lib-toolbar .btn{padding:6px 12px;font-size:12.5px}
+  .lib-toolbar .grow{flex:1;min-width:8px}
+  .lib-toolbar #lib-sel-n{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .chk{accent-color:var(--accent);width:16px;height:16px}
+  .statbox{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px}
+  .stat .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .stat .v{font-size:15px;font-weight:650;margin-top:2px}
+  .log{font-family:var(--mono);font-size:11.5px;color:var(--text2);white-space:pre-wrap;background:var(--side);border:1px solid var(--line);border-radius:9px;padding:10px;max-height:220px;overflow:auto}
+  .librow{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:10px;border:1px solid transparent;margin-bottom:2px}
+  .librow:hover{background:var(--raise);border-color:var(--line)}
+  .librow .chk{width:18px;height:18px;flex:none;cursor:pointer}
+  .librow .t{flex:1;min-width:0}
+  .librow .t b{font-size:14.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .librow .meta{font-size:12px;line-height:1.35;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .librow .btns{display:flex;gap:6px;flex:none;align-items:center}
+  .librow .btns .btn{padding:7px 12px;font-size:12.5px;font-weight:600;border-radius:8px}
+  .bar{height:6px;background:var(--raise);border-radius:99px;overflow:hidden;margin-top:8px}
+  .bar>i{display:block;height:100%;background:var(--accent);width:0%}
+  .muted{color:var(--muted)}
+  .ok{color:var(--ok)} .err{color:var(--err)}
+  .badge{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px;border:1px solid var(--line2);color:var(--muted)}
+  .badge.done{color:var(--ok);border-color:rgba(120,196,122,.4);background:rgba(120,196,122,.1)}
+  .badge.merged{color:var(--accent);border-color:var(--accent-dim);background:var(--accent-dim)}
+  .librow.done{opacity:.85}
+  .pill.warn{border-color:#c9a227;color:#e6c35c}
+  .pill.accent{border-color:var(--accent);color:var(--accent)}
+  .title-diff{color:var(--accent);font-weight:700;background:rgba(212,160,74,.18);padding:0 3px;border-radius:3px}
+  .intro{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .meta .sid{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;opacity:.85}
+  .tabs{display:flex;gap:6px;margin-bottom:12px}
+  .tab{background:transparent;border:1px solid var(--line2);border-radius:999px;padding:4px 11px;color:var(--muted);font-weight:650;font-size:12px}
+  .tab:hover{color:var(--text);border-color:var(--accent)}
+  .tab.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+  .cats{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .cat{background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:4px 8px;color:var(--text2);font-size:11px}
+  .cat.on{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+  .board-tabs{display:flex;gap:6px;margin:8px 0 4px}
+  .board-tabs .tab{padding:5px 12px;font-size:12px}
+  .exctl{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+  .exctl .exrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .exctl input,.exctl select{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text)}
+  .exctl input{flex:1;min-width:160px}
+  .exgenres{display:flex;gap:6px;flex-wrap:wrap;max-height:64px;overflow:auto;padding:2px 0;scrollbar-width:thin}
+  .exgenres.expanded{max-height:none}
+  .exchip{padding:4px 8px;border:1px solid var(--line);border-radius:999px;background:var(--raise);color:var(--text2);font-size:11px;cursor:pointer}
+  .exchip:hover{border-color:var(--accent);color:var(--text)}
+  .exchip.on{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+  .exmore{font-size:11.5px;color:var(--accent);background:transparent;border:0;padding:4px 6px;cursor:pointer}
+  .expager{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:14px 4px 8px;justify-content:center}
+  .expager input{width:54px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px;color:var(--text);font-family:var(--mono)}
+  .rank-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:12px;padding:6px 4px 28px}
+  .rank-card{display:flex;flex-direction:column;gap:0;padding:0;border-radius:12px;border:1px solid var(--line);background:var(--panel);cursor:pointer;position:relative;overflow:hidden;transition:border-color .15s,transform .15s}
+  .rank-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .rank-card .poster{position:relative;width:100%;aspect-ratio:3/4;background:var(--raise);overflow:hidden}
+  .rank-card .cover{width:100%;height:100%;object-fit:cover;border:0;border-radius:0;display:block}
+  .rank-card .poster-fade{position:absolute;inset:auto 0 0 0;padding:28px 10px 10px;background:linear-gradient(transparent,rgba(0,0,0,.88) 55%);display:flex;flex-direction:column;gap:3px;pointer-events:none}
+  .rank-card .rt{font-size:13px;font-weight:650;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6);min-height:0}
+  .rank-card .tvi,.item .tvi{font-size:12px;color:var(--accent);line-height:1.3;margin-top:1px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .rank-card .poster-fade .tvi{color:#f0c56a;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+  .rank-card .rm{font-size:11px;color:rgba(255,255,255,.78)}
+  .rank-card .rm b{color:#fff;font-weight:650}
+  .rank-card .chk{position:absolute;top:10px;left:10px;z-index:2;width:20px;height:20px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+  .rank-card .info-btn{position:absolute;top:8px;right:8px;z-index:2;background:rgba(0,0,0,.55);border:1px solid var(--line2);color:var(--text);border-radius:8px;padding:5px 8px;font-size:12px;line-height:1;backdrop-filter:blur(4px)}
+  .rank-card .info-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .rank-card .play-btn{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:2;width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,255,255,.85);background:rgba(0,0,0,.45);color:#fff;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0 0 0 3px;backdrop-filter:blur(4px);opacity:.72;transition:opacity .15s,background .15s,transform .15s;cursor:pointer}
+  .rank-card:hover .play-btn,.rank-card .play-btn:focus{opacity:1}
+  .rank-card .play-btn:hover{background:rgba(0,0,0,.7);transform:translate(-50%,-50%) scale(1.06);border-color:#fff}
+  .panel-pane{display:none}
+  .panel-pane.on{display:block}
+  .queue-wrap{flex:1;min-height:0;overflow:auto;padding:12px 14px;background:var(--bg)}
+  .queue-wrap[hidden]{display:none}
+
+  .seasons-wrap{flex:1;min-height:0;overflow:auto;padding:12px 14px;background:var(--bg)}
+  .seasons-wrap[hidden]{display:none}
+  .libseasons{margin-top:4px;padding:12px 12px 14px 16px;border:1px solid var(--line);border-radius:12px;
+    background:var(--panel);display:flex;flex-direction:column;gap:10px}
+  .libseasons[hidden]{display:none}
+  .lsn-head{display:flex;align-items:center;gap:10px;min-width:0}
+  .lsn-title{flex:none;font-weight:800;font-size:14px;line-height:1.2;color:var(--text)}
+  .lsn-sub{min-width:0;font:600 12px/1.3 var(--mono);color:var(--muted);font-variant-numeric:tabular-nums;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lsn-head .x{margin-left:auto;background:transparent;border:0;color:var(--muted);cursor:pointer;font-size:14px;padding:4px 8px;border-radius:6px}
+  .lsn-head .x:hover{color:var(--text);background:var(--raise)}
+  .lsn-row{display:flex;align-items:flex-start;gap:6px 12px}
+  .lsn-k{flex:none;width:104px;padding-top:9px;font:700 10.5px/1 var(--mono);letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted)}
+  .lsn-items{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px}
+  .lsn-grp{display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px;min-width:0;max-width:100%}
+  .lsn-gt{font-weight:700;font-size:12.5px;line-height:1.3;color:var(--text);max-width:18em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lsn-pill{display:inline-flex;align-items:center;gap:7px;max-width:100%;min-width:0;padding:4px 4px 4px 12px;
+    border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);
+    font-weight:700;font-size:12px;line-height:1.2;color:var(--text2);white-space:nowrap}
+  .lsn-pill.plain{padding:6px 12px}
+  .lsn-pill .lsn-t{min-width:0;max-width:17em;overflow:hidden;text-overflow:ellipsis}
+  .lsn-pill .lsn-m{flex:none;font:600 11px/1 var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+  .lsn-pill.dl .lsn-m{color:var(--accent)}
+  .lsn-pill.ok .lsn-m{color:var(--ok)}
+  .lsn-pill.soon{background:transparent;box-shadow:none;border:1px dashed var(--line2);padding:5px 11px;color:var(--muted)}
+  .lsn-add{flex:none;border:0;outline:none;cursor:pointer;font-weight:800;font-size:11.5px;line-height:1;padding:6px 11px;
+    border-radius:999px;color:#231a08;background:var(--accent)}
+  .lsn-add:hover{filter:brightness(1.05)}
+  .lsn-add:disabled{background:var(--raise);color:var(--muted);cursor:not-allowed;filter:none;border:1px solid var(--line2)}
+  .lsn-done{flex:none;font-weight:800;font-size:11.5px;line-height:1;color:var(--ok);padding:6px 8px 6px 2px;white-space:nowrap}
+  .lsn-more{border:0;background:transparent;cursor:pointer;font-weight:700;font-size:12px;color:var(--accent);
+    padding:7px 10px;border-radius:999px}
+  .lsn-more:hover{background:var(--raise)}
+  .lsn-big{display:flex;flex-direction:column;gap:10px;padding:12px 12px 12px 16px;
+    border-radius:10px;background:var(--accent-dim);box-shadow:inset 0 0 0 1px rgba(233,169,60,.32)}
+  .lsn-bhead{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px}
+  .lsn-big .lsn-bt{flex:1 1 300px;min-width:0;font-weight:600;font-size:13px;line-height:1.45;color:var(--text2);overflow-wrap:anywhere}
+  .lsn-big .lsn-bt b{color:var(--text);font-weight:800}
+  .lsn-bact{flex:none;display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-left:auto}
+  .lsn-big .lsn-pill{background:var(--panel)}
+  .lsn-pill.rel{padding-left:5px}
+  .lsn-tag{flex:none;font-weight:800;font-size:10px;line-height:1;letter-spacing:.03em;padding:4px 8px;border-radius:999px;
+    color:var(--accent);background:var(--accent-dim)}
+  @media (max-width:760px){.lsn-row{flex-direction:column}.lsn-k{width:auto;padding-top:2px}}
+  .q-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+  .q-card{display:flex;gap:10px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);align-items:center;position:relative;transition:border-color .15s}
+  .q-card:hover{border-color:var(--accent)}
+  .q-card .cover{width:46px;height:64px;border-radius:6px;flex:none;object-fit:cover}
+  .q-card .info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .q-card .info b{font-size:13px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--text)}
+  .q-card .info .tvi{font-size:11.5px;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .q-card .info .meta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .q-card .rm-btn{background:transparent;border:0;color:var(--muted);cursor:pointer;font-size:14px;padding:4px 6px;border-radius:4px;flex:none}
+  .q-card .rm-btn:hover{color:#f87171;background:rgba(239,68,68,.1)}
+  .floating-q-bar{display:none;position:sticky;bottom:10px;margin:0 12px 10px;z-index:25;background:rgba(20,28,40,.92);backdrop-filter:blur(8px);border:1px solid var(--accent);border-radius:10px;padding:8px 14px;box-shadow:0 8px 24px rgba(0,0,0,.55);align-items:center;justify-content:space-between;gap:12px}
+  .floating-q-bar.on{display:flex}
+  .detail-mask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;align-items:stretch;justify-content:flex-end}
+  .detail-mask.on{display:flex}
+  .prev-mask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:50;align-items:center;justify-content:center;padding:24px}
+  .prev-mask.on{display:flex}
+  .prev-box{width:min(300px,88vw);max-height:88vh;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+  .prev-box.land{width:min(520px,92vw)}
+  .prev-box .ph{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--side)}
+  .prev-box .ph b{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .prev-box .psub{font-size:11px;color:var(--muted);margin-right:8px;white-space:nowrap}
+  .prev-box .ptabs{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--raise)}
+  .prev-box .epchip{font-size:12px;padding:4px 10px;border-radius:8px;border:1px solid var(--line2);background:transparent;color:var(--text);cursor:pointer}
+  .prev-box .epchip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:rgba(255,180,60,.08)}
+  /* khung preview gọn */
+  .prev-box .pstage{position:relative;flex:none;align-self:center;margin:8px 10px 10px;border-radius:10px;overflow:hidden;background:#000;
+    aspect-ratio:var(--pv-ar,9/16);max-width:calc(100% - 20px);
+    width:calc(min(40vh,100vh - 300px) * var(--pv-arn,.5625))}
+  .prev-box.lib .pstage{width:calc(min(36vh,100vh - 320px) * var(--pv-arn,.5625))}
+  .prev-box .pstage > video,.prev-box .pstage > iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#000;object-fit:contain}
+  .prev-box .pstage > video[hidden],.prev-box .pstage > iframe[hidden]{display:none!important}
+  .prev-box .pmsg{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;color:#fff;background:rgba(0,0,0,.55);font-size:13px;gap:8px;flex-direction:column}
+  .prev-box .pmsg[hidden]{display:none!important}
+  .detail-panel{width:min(440px,100%);background:var(--side);border-left:1px solid var(--line2);padding:16px;overflow:auto;box-shadow:-12px 0 40px rgba(0,0,0,.35)}
+  .detail-panel .dh{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+  .detail-panel .dh .cover{width:96px;height:128px}
+  .detail-panel h3{font-size:16px;line-height:1.35;margin:0 0 6px}
+  .detail-panel .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+  .detail-panel .mk{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .detail-panel .mv{font-size:13px;font-weight:650}
+  .detail-panel .tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+  .detail-panel .tag{font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid var(--line2);color:var(--text2)}
+  .detail-panel .intro{font-size:12.5px;color:var(--text2);line-height:1.5;margin:8px 0;max-height:none;-webkit-line-clamp:unset;display:block}
+  .detail-panel .rel{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
+  .detail-panel .rel-item{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+  .topbar{flex:none;display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line)}
+  .topbar .tabs{margin:0;flex:none}
+  .topbar .panel-pane.on{display:flex;flex:1;min-width:0;flex-wrap:wrap;align-items:center;gap:6px}
+  .topbar #q,.topbar #paste-id{padding:6px 10px;min-width:150px;border-radius:8px}
+  .topbar #q{flex:1;max-width:360px}
+  .topbar #paste-id{flex:.7;max-width:260px}
+  .seg{display:flex;gap:4px}
+  .seg .tab{padding:4px 10px}
+  .topbar .cats{margin:0}
+  .cats[hidden]{display:none}
+  .topbar .exctl{display:contents}
+  .topbar .exctl[hidden]{display:none}
+  .topbar .exctl input{padding:6px 10px;min-width:150px;max-width:300px}
+  .topbar .exctl select{padding:6px 8px}
+  .topbar .exgenres{order:99;flex-basis:100%;max-height:28px}
+  .topbar .exgenres.expanded{max-height:none}
+  .grow{flex:1}
+  .hint-inline{font-size:11.5px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hint-line{order:98;flex-basis:100%;font-size:11.5px}
+  #merge-cur{flex:1;min-width:0}
+  .dock{flex:none;border-top:1px solid var(--line);background:var(--side);padding:6px 12px}
+  .dock-head{display:flex;align-items:center;gap:8px}
+  .dock-head #dl-sum{white-space:nowrap;font-size:12px}
+  .dock-last{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:11px}
+  .dock.closed .dock-body{display:none}
+  .dock:not(.closed) .dock-last{visibility:hidden}
+  .dock-body .statbox{max-height:84px;overflow:auto;margin-top:6px}
+  .dock-body .stat{padding:5px 8px}
+  .dock-body .log{margin-top:6px;max-height:150px}
+  @media (max-width:980px){.layout{grid-template-columns:1fr;overflow:auto;height:auto} .merge-wrap{grid-template-columns:1fr} .merge-lib{border-left:0;border-top:1px solid var(--line)} body{overflow:auto}.rank-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}}
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="brand">Pineline · <span>Hongguo</span></div>
+    <span class="pill" id="conn">…</span>
+    <span class="pill" id="outdir">output: —</span>
+    <div class="spacer"></div>
+    <a class="btn" href="/hongguo2" style="border-color:var(--accent);color:var(--accent)">Thử Hongguo2</a>
+    <a class="btn" href="http://127.0.0.1:8802/films/ui?tab=seasons" style="border-color:var(--accent);color:var(--accent)" title="Films UI · Mùa mới">🎬 Phim / Mùa mới</a>
+    <a class="btn" href="http://127.0.0.1:8802/films/ui" title="Films UI">Films UI</a>
+    <a class="btn" href="/">Studio</a>
+    <a class="btn" href="/ui3">UI3</a>
+    <button class="btn" onclick="refreshAll()">↻ Refresh</button>
+  </div>
+  <div class="layout">
+    <div class="col">
+      <div class="topbar">
+        <div class="tabs">
+          <button type="button" class="tab" id="tab-search" onclick="switchLeftTab('search')">🔍 Tìm</button>
+          <button type="button" class="tab on" id="tab-rank" onclick="switchLeftTab('rank')">🏆 Bảng hot</button>
+          <button type="button" class="tab" id="tab-queue" onclick="switchLeftTab('queue')">📥 Hàng đợi tải<span class="cnt" id="tab-queue-n"></span></button>
+          <button type="button" class="tab" id="tab-seasons" onclick="switchLeftTab('seasons')">🆕 Mùa mới<span class="cnt" id="tab-seasons-n"></span></button>
+          <button type="button" class="tab" id="tab-merge" onclick="switchLeftTab('merge')">🎞 Hàng đợi gộp<span class="cnt" id="tab-merge-n"></span></button>
+        </div>
+        <div class="panel-pane" id="pane-search">
+          <input id="q" placeholder="Tên phim / series…" onkeydown="if(event.key==='Enter')doSearch()">
+          <button class="btn pri" onclick="doSearch()">Tìm</button>
+          <input id="paste-id" placeholder="hoặc dán series_id / link…" title="Dán series_id hoặc link detail/player (khi search không ra)" onkeydown="if(event.key==='Enter')addByPaste()">
+          <button class="btn" onclick="addByPaste()">+ Thêm</button>
+          <span class="grow"></span>
+          <button class="btn" onclick="selectAllVisible(true)">Chọn hết</button>
+          <button class="btn" onclick="selectAllVisible(false)">Bỏ chọn</button>
+          <button class="btn pri" id="btn-dl" onclick="doDownload()" disabled>⬇ Tải đã chọn</button>
+          <button class="btn" id="btn-view-queue-search" onclick="switchLeftTab('queue')" title="Xem danh sách các series đã gom trong hàng đợi tải">📥 Hàng đợi (<b class="queue-btn-cnt">0</b>)</button>
+          <div class="muted hint-line" id="search-hint">Mặc định: <b>duanjubaike</b> nhận diện version → match Hongguo từng tên (lọc nhiễu). Có thể dán series_id/link.</div>
+        </div>
+        <div class="panel-pane on" id="pane-rank">
+          <div class="seg" id="board-tabs">
+            <button type="button" class="tab on" data-board="trend" onclick="setRankBoard('trend')">🏆 Leaderboard</button>
+            <button type="button" class="tab" data-board="catalog" onclick="setRankBoard('catalog')">🎬 Catalog</button>
+          </div>
+          <div class="cats" id="rank-cats">
+            <button type="button" class="cat on" data-cat="all" onclick="setRankCat('all')">Tất cả</button>
+            <button type="button" class="cat" data-cat="ai" onclick="setRankCat('ai')">AI</button>
+            <button type="button" class="cat" data-cat="human" onclick="setRankCat('human')">Người thật</button>
+            <button type="button" class="cat" data-cat="comic" onclick="setRankCat('comic')">Hoạt hình</button>
+          </div>
+          <div class="exctl" id="explorer-controls" hidden>
+            <input id="ex-q" placeholder="Tìm trong catalog…" onkeydown="if(event.key==='Enter'){exQ=this.value.trim();loadCatalog(1)}">
+            <select id="ex-sort" onchange="exSort=this.value;loadCatalog(1)" title="Sắp xếp">
+              <option value="newest" selected>Mới nhất</option>
+              <option value="popular">Hot nhất</option>
+              <option value="eps">Nhiều tập</option>
+            </select>
+            <select id="ex-status" onchange="exStatus=this.value;loadCatalog(1)" title="Trạng thái">
+              <option value="">Mọi trạng thái</option>
+              <option value="completed">Hoàn tất</option>
+              <option value="ongoing">Đang ra</option>
+            </select>
+            <button class="btn" type="button" onclick="exQ=(document.getElementById('ex-q').value||'').trim();loadCatalog(1)">Tìm</button>
+            <div class="exgenres" id="ex-genres"></div>
+          </div>
+          <span class="grow"></span>
+          <span class="muted hint-inline" id="rank-hint" title="">Leaderboard từ Hongguo Downloader · Catalog từ explorer (~44k series).</span>
+          <button class="btn" onclick="selectAllVisible(true)">Chọn hết</button>
+          <button class="btn" onclick="selectAllVisible(false)">Bỏ chọn</button>
+          <button class="btn pri" id="btn-dl-rank" onclick="doDownload()" disabled>⬇ Tải đã chọn</button>
+          <button class="btn" id="btn-view-queue-rank" onclick="switchLeftTab('queue')" title="Xem danh sách các series đã gom trong hàng đợi tải">📥 Hàng đợi (<b class="queue-btn-cnt">0</b>)</button>
+          <button class="btn" onclick="reloadHotPane()" title="Tải lại">↻</button>
+        </div>
+        <div class="panel-pane" id="pane-queue">
+          <button class="btn pri" id="btn-start-queue-top" onclick="startDlQueue()">🚀 Bắt đầu tải tất cả</button>
+          <button class="btn danger" onclick="clearDlQueue()">🧹 Xoá hàng đợi</button>
+          <button class="btn" onclick="refreshStatus();renderQueueList()">↻ Cập nhật tiến độ</button>
+          <span class="grow"></span>
+          <span class="muted hint-inline" id="queue-pane-hint">0 series trong hàng đợi</span>
+        </div>
+        <div class="panel-pane" id="pane-seasons">
+          <button class="btn pri" type="button" onclick="lsnUpdateAll()">↻ Update all</button>
+          <button class="btn" type="button" onclick="lsnRefresh()">Làm mới board</button>
+          <span class="grow"></span>
+          <span class="muted hint-inline" id="seasons-hint">Đọc seasons từ Hongguo /dl/status (sau Update all)</span>
+        </div>
+        <div class="panel-pane" id="pane-merge">
+          <button class="btn pri" onclick="mergeSelected()" title="Gộp các series đang tick trong thư viện (bên phải)">🎞 Gộp đã chọn</button>
+          <button class="btn" onclick="mergeAllLibrary()" title="Xếp hàng mọi series trong thư viện chưa gộp xong">Tất cả chưa gộp</button>
+          <button class="btn danger" onclick="clearMergeQ()" title="Xoá các series đang chờ (series đang làm vẫn chạy nốt)">Xoá hàng chờ</button>
+          <div id="merge-cur" class="muted hint-inline" style="max-width:none">○ Idle</div>
+        </div>
+      </div>
+      <div class="scroll" id="results"><div class="muted" style="padding:20px">Đang tải bảng hot…</div></div>
+      <div class="queue-wrap" id="queue-wrap" hidden>
+        <div class="q-toolbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:10px 14px;background:var(--panel);border-radius:10px;border:1px solid var(--line);flex-wrap:wrap;gap:8px">
+          <div style="font-size:13.5px;font-weight:600">
+            <span>📥 Danh sách Hàng đợi tải: <b id="queue-count-head" style="color:var(--accent)">0 series</b></span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn pri" id="btn-start-queue-body" onclick="startDlQueue()">🚀 Bắt đầu tải tất cả</button>
+            <button class="btn danger" onclick="clearDlQueue()">🧹 Xoá hết</button>
+          </div>
+        </div>
+        <div id="queue-empty-msg" class="muted" style="padding:40px 20px;text-align:center;font-size:13px;line-height:1.6">
+          Hàng đợi tải đang trống.<br>
+          <span style="font-size:12px;color:var(--muted)">Hãy tick chọn các ô vuông series ở tab <b>🔍 Tìm</b> hoặc <b>🏆 Bảng hot (Leaderboard / Catalog)</b> để gom hàng loạt vào đây rồi tải tất cả cùng lúc.</span>
+        </div>
+        <div class="q-grid" id="queue-grid"></div>
+      </div>
+      <div class="seasons-wrap scroll" id="seasons-wrap" hidden>
+        <div class="libseasons" id="libSeasons" role="region" aria-label="New seasons"></div>
+        <div class="muted" id="seasons-empty" style="padding:24px">Chưa có dữ liệu mùa mới. Bấm <b>Update all</b> để Hongguo quét thư viện (cần Downloader đang chạy).</div>
+      </div>
+      <!-- Floating Queue Quick Bar -->
+      <div id="floating-q-bar" class="floating-q-bar">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:16px">📥</span>
+          <span style="font-size:13px;font-weight:600;color:#fff">Hàng đợi tải: <b id="float-q-cnt" style="color:var(--accent);font-size:14px">0</b> series đã chọn</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn" style="background:var(--raise);border-color:var(--line2)" onclick="switchLeftTab('queue')">📋 Xem hàng đợi</button>
+          <button class="btn pri" onclick="startDlQueue()">🚀 Tải ngay tất cả</button>
+          <button class="btn sm" onclick="clearDlQueue()" title="Xoá hàng đợi">✕</button>
+        </div>
+      </div>
+      <div class="merge-wrap" id="merge-wrap" hidden>
+        <div class="scroll" id="merge-list"><div class="muted" style="padding:20px">Đang tải hàng đợi…</div></div>
+        <div class="merge-lib">
+          <div class="sec" style="border-bottom:0;padding-bottom:6px">
+            <div class="col-lib-head">
+              <h2>Thư viện Hongguo <span class="muted" id="lib-sum"></span></h2>
+              <span class="col-lib-hint">▶ Preview = xem video đã tải</span>
+            </div>
+          </div>
+          <div class="lib-toolbar">
+            <label class="selall" title="Chọn / bỏ chọn tất cả"><input class="chk" type="checkbox" id="lib-select-all" onchange="selectLib(this.checked)"> Tất cả</label>
+            <button class="btn" type="button" onclick="selectLibPending();syncLibSelectAll()">Chưa gộp</button>
+            <button class="btn" type="button" onclick="selectLib(false);syncLibSelectAll()">Bỏ chọn</button>
+            <button class="btn danger" type="button" onclick="deleteLibSelected()" title="Xoá vĩnh viễn các series đang tick khỏi ổ đĩa thư viện (D:\Lib) để giải phóng dung lượng" style="margin-left:4px">🗑️ Xoá đã chọn</button>
+            <span class="grow"></span>
+            <span class="muted" id="lib-sel-n">0 chọn</span>
+          </div>
+          <div class="lib-toolbar" style="top:auto;position:static">
+            <button class="btn pri" type="button" onclick="addJobsSelected()" title="Tạo job trên UI3 từ file đã gộp của các series đang tick">＋ Job đã chọn</button>
+            <label class="selall" title="Tạo xong thì xếp hàng chạy luôn với CONFIG BATCH hiện tại"><input class="chk" type="checkbox" id="job-autorun"> chạy luôn</label>
+            <span class="grow"></span>
+            <a class="btn" href="/ui3" target="_blank">UI3 ↗</a>
+          </div>
+          <div class="scroll" id="library"><div class="muted" style="padding:12px">Đang tải…</div></div>
+        </div>
+      </div>
+      <div class="dock" id="dock">
+        <div class="dock-head">
+          <button class="btn" type="button" id="dock-toggle" onclick="toggleDock()" title="Ẩn / hiện log">▴ Log</button>
+          <span class="muted" id="dl-sum">—</span>
+          <span class="muted dock-last" id="dock-last"></span>
+          <button class="btn danger" onclick="doCancel()">⏹ Huỷ tải</button>
+          <button class="btn" onclick="clearDlStatus()" title="Xoá danh sách DONE khỏi khung (không xoá file)">Clear</button>
+        </div>
+        <div class="dock-body">
+          <div class="statbox" id="dl-stats"></div>
+          <div class="log" id="dl-log"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="detail-mask" id="detail-mask" onclick="if(event.target===this)closeDetail()">
+    <div class="detail-panel" id="detail-panel" onclick="event.stopPropagation()">
+      <div class="muted">Chọn series để xem chi tiết baike…</div>
+    </div>
+  </div>
+  <div class="prev-mask" id="prev-mask" onclick="if(event.target===this)closePreview()">
+    <div class="prev-box" onclick="event.stopPropagation()">
+      <div class="ph">
+        <b id="prev-title">Preview</b>
+        <span class="psub" id="prev-sub"></span>
+        <button class="btn" type="button" onclick="closePreview()">Đóng</button>
+      </div>
+      <div class="ptabs" id="prev-tabs" hidden></div>
+      <div class="pstage" id="prev-stage">
+        <video id="prev-video" controls playsinline preload="metadata" hidden></video>
+        <iframe id="prev-frame" title="Preview player" sandbox="allow-same-origin" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen hidden></iframe>
+        <div class="pmsg" id="prev-msg" hidden></div>
+      </div>
+    </div>
+  </div>
+<script>
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+const fmtSize=b=>{ if(b==null||b==='') return ''; b=+b; if(b>1e9) return (b/1e9).toFixed(1)+' GB'; if(b>1e6) return (b/1e6).toFixed(0)+' MB'; return b+' B'; };
+const coverSrc=url=>{
+  if(!url) return '';
+  if(/^https?:\/\/(?:explorer\.hongguodownloader\.com|gimg\d*\.baidu\.com|img\.duanjubaike\.net|[\w.-]*bdstatic\.com)\//i.test(url)) return url;
+  return '/api/hg/img?url='+encodeURIComponent(url);
+};
+const posterSrc=name=>name?('/api/hg/poster?name='+encodeURIComponent(name)):'';
+let lastGroups=[];
+let libItems=[];
+let leftTab='rank';
+let rankCat='all';
+let rankLoaded=false;
+let rankBoard='trend';   // trend | catalog
+const EXPLORER_API='https://explorer.hongguodownloader.com';
+let exPage=1, exPages=1, exGenre='', exSort='newest', exStatus='', exQ='';
+let exGenresLoaded=false, exSeq=0, catalogLoaded=false;
+
+async function jget(url){ const r=await fetch(url); const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||('HTTP '+r.status)); return d; }
+async function jpost(url,body){ const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const d=await r.json().catch(()=>({})); if(!r.ok||d.error) throw new Error(d.error||('HTTP '+r.status)); return d; }
+
+// ─── Hàng Đợi Tải (Download Queue) Persistent ──────────────────────────
+let DL_QUEUE = {}; // { [sid]: { series_id, title, title_vi, cover, episode_cnt, score, status, added_at } }
+const DL_QUEUE_KEY = 'pineline_hg_dl_queue_v1';
+
+function loadDlQueueFromStorage(){
+  try {
+    const raw = localStorage.getItem(DL_QUEUE_KEY);
+    DL_QUEUE = raw ? JSON.parse(raw) : {};
+  } catch(e){ DL_QUEUE = {}; }
+  updateQueueBadges();
+}
+
+function saveDlQueueToStorage(){
+  try {
+    localStorage.setItem(DL_QUEUE_KEY, JSON.stringify(DL_QUEUE));
+  } catch(e){}
+  updateQueueBadges();
+}
+
+function updateQueueBadges(){
+  const list = Object.values(DL_QUEUE);
+  const n = list.length;
+  const tabBadge = document.getElementById('tab-queue-n');
+  if(tabBadge) tabBadge.textContent = n ? n : '';
+  
+  document.querySelectorAll('.queue-btn-cnt').forEach(el => { el.textContent = n; });
+  const hintEl = document.getElementById('queue-pane-hint');
+  if(hintEl) hintEl.textContent = `${n} series trong hàng đợi`;
+  const headEl = document.getElementById('queue-count-head');
+  if(headEl) headEl.textContent = `${n} series`;
+  
+  const floatBar = document.getElementById('floating-q-bar');
+  if(floatBar){
+    const showFloat = n > 0 && (leftTab === 'search' || leftTab === 'rank');
+    floatBar.classList.toggle('on', showFloat);
+    const floatCnt = document.getElementById('float-q-cnt');
+    if(floatCnt) floatCnt.textContent = n;
+  }
+}
+
+function onResCheckboxChange(el){
+  const sid = String(el.dataset.sid || '').trim();
+  if(!sid) return;
+  if(el.checked){
+    const card = el.closest('.rank-card') || el.closest('.item');
+    const title = card ? (card.dataset.titleZh || card.querySelector('.t-title, .rt')?.textContent?.trim() || sid) : sid;
+    const cover = card ? (card.querySelector('img.cover')?.getAttribute('src') || '') : '';
+    const eps = card ? (card.dataset.eps || card.querySelector('.rm b')?.textContent?.trim() || '') : '';
+    const score = card ? (card.querySelector('.rm')?.getAttribute('data-score') || '') : '';
+    const tvi = card ? (card.querySelector('.tvi')?.textContent?.trim() || '') : '';
+    
+    DL_QUEUE[sid] = {
+      series_id: sid,
+      title: title,
+      title_vi: tvi,
+      cover: cover,
+      episode_cnt: eps,
+      score: score,
+      status: 'pending',
+      added_at: Date.now()
+    };
+  } else {
+    delete DL_QUEUE[sid];
+  }
+  saveDlQueueToStorage();
+  updateDlBtn();
+}
+
+function bindResCheckboxes(box){
+  if(!box) return;
+  box.querySelectorAll('input.res').forEach(el => {
+    el.removeEventListener('change', el._qHandler);
+    el._qHandler = () => onResCheckboxChange(el);
+    el.addEventListener('change', el._qHandler);
+  });
+}
+
+function switchLeftTab(name){
+  leftTab=(name==='rank'||name==='merge'||name==='queue'||name==='seasons')?name:'search';
+  for(const t of ['search','rank','queue','seasons','merge']){
+    const tb = document.getElementById('tab-'+t);
+    if(tb) tb.classList.toggle('on', leftTab===t);
+    const pn = document.getElementById('pane-'+t);
+    if(pn) pn.classList.toggle('on', leftTab===t);
+  }
+  document.getElementById('results').hidden=(leftTab==='merge'||leftTab==='queue'||leftTab==='seasons');
+  document.getElementById('merge-wrap').hidden=(leftTab!=='merge');
+  document.getElementById('queue-wrap').hidden=(leftTab!=='queue');
+  const sw=document.getElementById('seasons-wrap');
+  if(sw) sw.hidden=(leftTab!=='seasons');
+  if(leftTab==='merge') refreshMerge();
+  if(leftTab==='queue') renderQueueList();
+  if(leftTab==='seasons') lsnRefresh();
+  if(leftTab==='rank'){
+    if(rankBoard==='catalog'){ if(!catalogLoaded) loadCatalog(exPage||1); }
+    else if(!rankLoaded) loadRank();
+  }
+  updateDlBtn();
+  updateQueueBadges();
+}
+function setRankBoard(board){
+  rankBoard=(board==='catalog')?'catalog':'trend';
+  document.querySelectorAll('#board-tabs .tab').forEach(el=>{
+    el.classList.toggle('on', el.dataset.board===rankBoard);
+  });
+  const cats=document.getElementById('rank-cats');
+  const ex=document.getElementById('explorer-controls');
+  if(cats) cats.hidden=(rankBoard==='catalog');
+  if(ex) ex.hidden=(rankBoard!=='catalog');
+  if(rankBoard==='catalog') loadCatalog(1);
+  else loadRank();
+}
+function reloadHotPane(){
+  if(rankBoard==='catalog') loadCatalog(exPage||1);
+  else loadRank();
+}
+function setRankCat(cat){
+  rankCat=cat||'all';
+  document.querySelectorAll('#rank-cats .cat').forEach(el=>{
+    el.classList.toggle('on', el.dataset.cat===rankCat);
+  });
+  loadRank();
+}
+function renderHotCards(items, gi){
+  return `<div class="rank-grid">${items.map((it)=>{
+    const sid=String(it.series_id||'');
+    const isChecked=!!(DL_QUEUE[sid]);
+    return `
+    <label class="rank-card" data-sid="${esc(sid)}" data-title-zh="${esc(it.title||'')}" data-eps="${esc(it.episode_cnt||'')}">
+      <input class="chk res" type="checkbox" data-sid="${esc(sid)}" data-gi="${esc(gi||'rank')}" ${isChecked?'checked':''}>
+      <button type="button" class="info-btn" title="Chi tiết" onclick="event.preventDefault();event.stopPropagation();openBaikeDetailFromCard(this)">ℹ</button>
+      <button type="button" class="play-btn" title="Xem thử tập miễn phí" aria-label="Preview"
+        data-sid="${esc(sid)}" data-title="${esc(it.title||sid)}" data-eps="${esc(it.episode_cnt||'')}"
+        onclick="event.preventDefault();event.stopPropagation();previewCatalog(this)">▶</button>
+      <div class="poster">
+        ${it.cover?`<img class="cover" src="${coverSrc(it.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<div class="cover"></div>`}
+        <div class="poster-fade">
+          <div class="rt">${esc(it.title||sid)}</div>
+          <div class="rm" data-rank-eps="${esc(sid)}" data-score="${esc(it.score||'')}" data-heat="${esc(it.heat||'')}">${it.episode_cnt!=null?(`<b>${it.episode_cnt} tập</b>`):'… tập'}${it.score?(' · ★ '+esc(it.score)):''}${it.heat?(' · '+esc(it.heat)):''}${it.status?(' · '+esc(it.status)):''}</div>
+        </div>
+      </div>
+    </label>`;
+  }).join('')}</div>`;
+}
+async function loadRank(){
+  const box=document.getElementById('results');
+  const hint=document.getElementById('rank-hint');
+  box.innerHTML='<div class="muted" style="padding:16px">Đang tải bảng hot…</div>';
+  try{
+    const d=await jget('/api/hg/rank?category='+encodeURIComponent(rankCat)+'&board=recommend&size=100');
+    const items=d.results||[];
+    rankLoaded=true;
+    hint.textContent=`Leaderboard · ${d.category||rankCat} · ${items.length} series`+(d.board?` · board ${d.board}`:'');
+    if(!items.length){
+      box.innerHTML='<div class="muted" style="padding:16px">Bảng trống — kiểm tra Hongguo Downloader đang chạy.</div>';
+      updateDlBtn(); return;
+    }
+    box.innerHTML=renderHotCards(items,'rank');
+    bindResCheckboxes(box);
+    updateDlBtn();
+    fillRankEpisodes(items.map(x=>String(x.series_id||'')).filter(Boolean));
+    applyTitleVi(box);
+  }catch(e){
+    box.innerHTML=`<div class="err" style="padding:16px">${esc(e.message)}</div>`;
+    hint.textContent='Lỗi rank — kiểm tra Hongguo Downloader (:8000).';
+  }
+}
+async function ensureExGenres(){
+  if(exGenresLoaded) return;
+  const box=document.getElementById('ex-genres');
+  if(!box) return;
+  try{
+    const j=await (await fetch(EXPLORER_API+'/genres?limit=22',{cache:'no-store'})).json();
+    const chips=(j.genres||[]).map(g=>{
+      const val=g.value||g.genre||'';
+      const lab=g.genre||g.value||'?';
+      return `<button type="button" class="exchip" data-g="${esc(val)}">${esc(lab)}</button>`;
+    }).join('');
+    box.innerHTML=`<button type="button" class="exchip on" data-g="">All</button>`+chips+
+      `<button type="button" class="exmore" id="ex-genres-more" onclick="document.getElementById('ex-genres').classList.toggle('expanded');this.textContent=document.getElementById('ex-genres').classList.contains('expanded')?'Thu gọn ›':'Thêm genre ›'">Thêm genre ›</button>`;
+    box.querySelectorAll('.exchip').forEach(c=>c.onclick=()=>{
+      exGenre=c.dataset.g||'';
+      box.querySelectorAll('.exchip').forEach(x=>x.classList.toggle('on', x===c));
+      loadCatalog(1);
+    });
+    exGenresLoaded=true;
+  }catch(e){ /* optional */ }
+}
+async function loadCatalog(page){
+  const box=document.getElementById('results');
+  const hint=document.getElementById('rank-hint');
+  const seq=++exSeq;
+  await ensureExGenres();
+  const qEl=document.getElementById('ex-q');
+  if(qEl) exQ=(qEl.value||'').trim();
+  box.innerHTML='<div class="muted" style="padding:16px">Đang tải catalog…</div>';
+  try{
+    let items=[], count=0, src='explorer', usedGenre=exGenre;
+    // Có từ khóa: bỏ genre — Animated ≠ 玄幻 → 0 kết quả (vd 不死帝师第二季)
+    if(exQ) usedGenre='';
+    const fetchExplorer=async (genre)=>{
+      const p=new URLSearchParams({page:String(page||1), size:'100', sort:exSort||'newest'});
+      if(genre) p.set('genre', genre);
+      if(exStatus) p.set('status', exStatus);
+      if(exQ) p.set('q', exQ);
+      return await (await fetch(EXPLORER_API+'/explorer?'+p.toString(),{cache:'no-store'})).json();
+    };
+    let j=null;
+    try{ j=await fetchExplorer(usedGenre); }catch(e){ j=null; }
+    if(seq!==exSeq) return;
+    items=j?(j.items||[]):[];
+    count=j?(j.count||items.length):0;
+    exPage=j?(j.page||1):1;
+    exPages=j?(j.pages||1):1;
+    if(exQ && !items.length){
+      try{
+        const w=await jget('/api/hg/web-search?q='+encodeURIComponent(exQ));
+        if(seq!==exSeq) return;
+        items=(w.results||[]).map(r=>({
+          series_id:r.series_id, title:r.title, cover:r.cover,
+          episode_cnt:r.episode_cnt, score:r.score, heat:r.heat, status:r.status,
+        })).filter(x=>x.series_id);
+        count=items.length; exPage=1; exPages=1; src='hongguoduanju';
+      }catch(e){}
+    }
+    catalogLoaded=true;
+    const genreNote=exQ
+      ?(exGenre?` · tìm tên (bỏ “${exGenre}”)`:'')
+      :(usedGenre?` · ${usedGenre}`:'');
+    hint.textContent=`Catalog · ${count} series · trang ${exPage}/${exPages}`+genreNote+(exQ?` · “${exQ}”`:'')+(src==='hongguoduanju'?' · web':'');
+    if(!items.length){
+      box.innerHTML='<div class="muted" style="padding:16px">Không có kết quả — thử All genre, hoặc dán series_id/link.</div>';
+      updateDlBtn(); return;
+    }
+    if(exQ && usedGenre===''){
+      const gb=document.getElementById('ex-genres');
+      if(gb){
+        gb.querySelectorAll('.exchip').forEach(x=>x.classList.toggle('on', (x.dataset.g||'')===''));
+        exGenre='';
+      }
+    }
+    const pager=src==='hongguoduanju'?'':(`<div class="expager">
+      <button class="btn" type="button" ${exPage<=1?'disabled':''} onclick="loadCatalog(${exPage-1})">‹ Prev</button>
+      <span class="muted">Page</span>
+      <input id="exp-page" value="${exPage}" inputmode="numeric">
+      <span class="muted">/ ${exPages}</span>
+      <button class="btn" type="button" onclick="(function(){const v=parseInt((document.getElementById('exp-page')||{}).value,10)||1;loadCatalog(Math.max(1,Math.min(${exPages},v)));})()">Go</button>
+      <button class="btn" type="button" ${exPage>=exPages?'disabled':''} onclick="loadCatalog(${exPage+1})">Next ›</button>
+    </div>`);
+    box.innerHTML=renderHotCards(items,'catalog')+pager;
+    bindResCheckboxes(box);
+    updateDlBtn();
+    fillRankEpisodes(items.map(x=>String(x.series_id||'')).filter(Boolean));
+    applyTitleVi(box);
+  }catch(e){
+    box.innerHTML=`<div class="err" style="padding:16px">Không tới được catalog: ${esc(e.message)}</div>`;
+    hint.textContent='Catalog cần mạng (explorer / hongguoduanju).';
+  }
+}
+async function fillRankEpisodes(ids){
+  if(!ids||!ids.length) return;
+  const chunk=40;
+  for(let i=0;i<ids.length;i+=chunk){
+    const part=ids.slice(i,i+chunk);
+    try{
+      const d=await jpost('/api/hg/rank-episodes',{series_ids:part});
+      const eps=d.eps||d.episodes||{};
+      for(const [sid,n] of Object.entries(eps)){
+        const el=document.querySelector(`[data-rank-eps="${CSS.escape(String(sid))}"]`);
+        if(!el||n==null) continue;
+        const score=el.dataset.score||'';
+        const heat=el.dataset.heat||'';
+        el.innerHTML=`<b>${n} tập</b>${score?(' · ★ '+esc(score)):''}${heat?(' · '+esc(heat)):''}`;
+      }
+    }catch(e){ /* optional */ }
+  }
+}
+async function applyTitleVi(root){
+  const box=root||document.getElementById('results');
+  if(!box) return;
+  const nodes=[...box.querySelectorAll('[data-title-zh]')];
+  const items=nodes.map(el=>({
+    series_id: el.dataset.sid||'',
+    title: el.dataset.titleZh||'',
+  })).filter(x=>x.title);
+  if(!items.length) return;
+  try{
+    const d=await jpost('/api/hg/translate-titles',{items});
+    const map={};
+    for(const it of (d.items||[])){
+      const k=String(it.series_id||'')||('zh:'+it.title);
+      if(it.title_vi) map[k]=it.title_vi;
+    }
+    for(const el of nodes){
+      const sid=el.dataset.sid||'';
+      const zh=el.dataset.titleZh||'';
+      const vi=map[sid]||map['zh:'+zh];
+      if(!vi) continue;
+      let slot=el.querySelector('.tvi');
+      if(!slot){
+        slot=document.createElement('div');
+        slot.className='tvi';
+        const rt=el.querySelector('.rt');
+        const tt=el.querySelector('.t-title');
+        if(rt) rt.after(slot);
+        else if(tt) tt.after(slot);
+        else {
+          const t=el.querySelector('.t');
+          if(t) t.insertBefore(slot, t.querySelector('.meta'));
+          else el.appendChild(slot);
+        }
+      }
+      slot.textContent=vi;
+      slot.title=vi;
+    }
+    const hint=document.getElementById(leftTab==='rank'?'rank-hint':'search-hint');
+    if(hint&&(d.translated||d.cached)){
+      const extra=` · VI thô +${d.translated||0}/cache ${d.cached||0}`;
+      if(!hint.textContent.includes('VI thô')) hint.textContent+=extra;
+    }
+  }catch(e){
+    console.warn('translate-titles', e);
+  }
+}
+
+function closeDetail(){
+  document.getElementById('detail-mask').classList.remove('on');
+}
+function openBaikeDetailFromCard(btn){
+  const card=btn.closest('[data-sid][data-title-zh]')||btn.closest('[data-title-zh]');
+  if(!card) return;
+  openBaikeDetail(card.dataset.sid||'', card.dataset.titleZh||'');
+}
+async function openBaikeDetail(seriesId, title){
+  const mask=document.getElementById('detail-mask');
+  const panel=document.getElementById('detail-panel');
+  mask.classList.add('on');
+  panel.innerHTML=`<div class="muted">Đang lấy chi tiết từ duanjubaike…</div>`;
+  try{
+    let d;
+    try{
+      const q=new URLSearchParams();
+      if(seriesId) q.set('series_id', seriesId);
+      if(title) q.set('title', title);
+      q.set('translate','true');
+      d=await jget('/api/hg/baike-info?'+q.toString());
+    }catch(e1){
+      // Server cũ chưa có /baike-info → hot-reload qua baike-search
+      const magic='@@deep@@'+(seriesId||'')+'@@'+(title||'');
+      d=await jget('/api/hg/baike-search?q='+encodeURIComponent(magic));
+      if(d.mode!=='baike_info' && !d.intro && !d.title) throw e1;
+      // dịch thô title/intro nếu chưa có
+      try{
+        const pack=[];
+        if(d.title) pack.push({series_id:d.series_id||'', title:d.title});
+        if(d.intro) pack.push({series_id:(d.series_id||'')+':intro', title:String(d.intro).slice(0,180)});
+        for(const r of (d.related||[]).slice(0,12)){
+          if(r.title) pack.push({series_id:r.series_id||'', title:r.title});
+        }
+        if(pack.length){
+          const tr=await jpost('/api/hg/translate-titles',{items:pack});
+          const by={};
+          for(const it of (tr.items||[])) if(it.title_vi) by[String(it.series_id||'')]=it.title_vi;
+          if(by[String(d.series_id||'')]) d.title_vi=by[String(d.series_id||'')];
+          if(by[String(d.series_id||'')+':intro']) d.intro_vi=by[String(d.series_id||'')+':intro'];
+          for(const r of (d.related||[])){
+            const vi=by[String(r.series_id||'')];
+            if(vi) r.title_vi=vi;
+          }
+        }
+      }catch(_e){}
+    }
+    const tags=(d.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
+    const rel=(d.related||[]).map(r=>`
+      <div class="rel-item" data-sid="${esc(r.series_id)}" data-title="${esc(r.title||r.series_id)}" data-eps="${esc(r.episode_cnt||'')}">
+        <input class="chk res" type="checkbox" data-sid="${esc(r.series_id)}" data-gi="detail" checked>
+        <div style="flex:1;min-width:0">
+          <div><b>${esc(r.title||r.series_id)}</b></div>
+          ${r.title_vi?`<div class="tvi">${esc(r.title_vi)}</div>`:''}
+          <div class="muted">${r.episode_cnt!=null?(r.episode_cnt+' tập'):'? tập'}${r.date?(' · '+esc(r.date)):''}</div>
+        </div>
+        <button type="button" class="btn sm" title="Xem thử tập miễn phí" onclick="openCatalogPreview('${esc(r.series_id)}', '${esc(r.title||r.series_id)}', ${r.episode_cnt||0})">▶</button>
+      </div>`).join('');
+    panel.innerHTML=`
+      <div class="row" style="justify-content:space-between;margin-bottom:8px">
+        <span class="pill ok">duanjubaike</span>
+        <button class="btn" type="button" onclick="closeDetail()">Đóng</button>
+      </div>
+      <div class="dh">
+        ${d.cover?`<img class="cover" src="${coverSrc(d.cover)}" alt="">`:`<div class="cover"></div>`}
+        <div style="flex:1;min-width:0">
+          <h3>${esc(d.title||title||seriesId)}</h3>
+          ${d.title_vi?`<div class="tvi">${esc(d.title_vi)}</div>`:''}
+          <div class="muted">${esc(d.kind||'漫剧')}${d.status?(' · '+esc(d.status)):''}${d.date?(' · '+esc(d.date)):''}</div>
+          <div class="tags">${tags||'<span class="muted">—</span>'}</div>
+        </div>
+      </div>
+      <div class="meta-grid">
+        <div><div class="mk">Tập</div><div class="mv">${d.episode_cnt!=null?d.episode_cnt:'—'}</div></div>
+        <div><div class="mk">Điểm</div><div class="mv">${d.score!=null?d.score:'—'}</div></div>
+        <div><div class="mk">Hot</div><div class="mv">${esc(d.heat||'—')}</div></div>
+        <div><div class="mk">Play</div><div class="mv">${esc(d.plays||'—')}</div></div>
+        <div><div class="mk">Lưu</div><div class="mv">${esc(d.favorites||'—')}</div></div>
+        <div><div class="mk">Dài</div><div class="mv">${esc(d.duration||'—')}</div></div>
+      </div>
+      <div class="mk">Tóm tắt</div>
+      <div class="intro">${esc(d.intro_vi||d.intro||'—')}</div>
+      ${d.intro&&d.intro_vi?`<div class="muted" style="font-size:11px;margin-top:4px">${esc(d.intro)}</div>`:''}
+      <div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap">
+        <button class="btn pri" type="button" onclick="enqueueDetailMain('${esc(d.hongguo_series_id||seriesId||d.series_id)}', '${esc(d.title||title||seriesId)}', '${esc(d.cover||'')}', '${esc(d.episode_cnt||'')}')">＋ Hàng đợi</button>
+        <button class="btn" type="button" onclick="dlDetailMain('${esc(d.hongguo_series_id||seriesId||d.series_id)}')">⬇ Tải ngay</button>
+        <button class="btn" type="button" onclick="openCatalogPreview('${esc(d.hongguo_series_id||seriesId||d.series_id)}', '${esc(d.title||title||seriesId)}', ${d.episode_cnt||0})">▶ Xem thử</button>
+        ${d.baike_url?`<a class="btn" href="${esc(d.baike_url)}" target="_blank" rel="noopener">Mở baike</a>`:''}
+      </div>
+      <div class="rel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div class="mk" style="margin:0">Cùng series (${d.n_related||0})</div>
+          ${(d.related||[]).length?`<div style="font-size:12px">
+            <a href="#" onclick="event.preventDefault();setDetailRelChecked(true)" style="color:var(--accent);text-decoration:none">Chọn hết</a>
+            <span class="muted"> · </span>
+            <a href="#" onclick="event.preventDefault();setDetailRelChecked(false)" style="color:var(--muted);text-decoration:none">Bỏ chọn</a>
+          </div>`:''}
+        </div>
+        ${rel||'<div class="muted">Không có version khác</div>'}
+        ${(d.related||[]).length?`
+          <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap">
+            <button class="btn pri" type="button" onclick="enqueueDetailRelated()">＋ Thêm các mùa vào hàng đợi</button>
+            <button class="btn" type="button" onclick="dlDetailRelated()">⬇ Tải ngay các mùa đã chọn</button>
+          </div>`:''}
+      </div>
+      <div class="muted" style="margin-top:10px;font-size:11px">lookup=${esc(d.lookup||'?')} · baike id ${esc(d.series_id||'')}${d.hongguo_series_id&&d.hongguo_series_id!==d.series_id?(' · hg '+esc(d.hongguo_series_id)):''}</div>`;
+    panel.querySelectorAll('input.res').forEach(el=>el.addEventListener('change',updateDlBtn));
+    updateDlBtn();
+  }catch(e){
+    panel.innerHTML=`<div class="row" style="justify-content:space-between"><span class="err">Lỗi</span><button class="btn" onclick="closeDetail()">Đóng</button></div>
+      <div class="err" style="margin-top:12px">${esc(e.message)}</div>
+      <div class="muted" style="margin-top:8px">Thử search tên trên tab Tìm (baike → hongguo).</div>`;
+  }
+}
+function setDetailRelChecked(on){
+  document.querySelectorAll('#detail-panel .rel-item input.res').forEach(el=>{
+    el.checked=!!on;
+  });
+  updateDlBtn();
+}
+function enqueueDetailMain(sid, title, cover, eps){
+  sid=String(sid||'').trim();
+  if(!sid){ alert('Không có series_id'); return; }
+  DL_QUEUE[sid]={
+    series_id: sid,
+    title: title||sid,
+    title_vi: '',
+    cover: cover||'',
+    episode_cnt: eps||'',
+    score: '',
+    status: 'pending',
+    added_at: Date.now()
+  };
+  saveDlQueueToStorage();
+  updateDlBtn();
+  updateQueueBadges();
+  alert(`Đã thêm «${title||sid}» vào Hàng đợi tải!`);
+}
+function enqueueDetailRelated(){
+  const chks=[...document.querySelectorAll('#detail-panel .rel-item input.res:checked')];
+  if(!chks.length){ alert('Chưa chọn mùa nào!'); return; }
+  let count=0;
+  chks.forEach(el=>{
+    const sid=String(el.dataset.sid||'').trim();
+    if(!sid) return;
+    const row=el.closest('.rel-item');
+    const title=row?.dataset?.title || row?.querySelector('b')?.textContent?.trim() || sid;
+    const tvi=row?.querySelector('.tvi')?.textContent?.trim() || '';
+    const epsTxt=row?.dataset?.eps || row?.querySelector('.muted')?.textContent?.trim() || '';
+    const mEps=String(epsTxt).match(/(\d+)/);
+    DL_QUEUE[sid]={
+      series_id: sid,
+      title: title,
+      title_vi: tvi,
+      cover: '',
+      episode_cnt: mEps?mEps[1]:'',
+      score: '',
+      status: 'pending',
+      added_at: Date.now()
+    };
+    count++;
+  });
+  saveDlQueueToStorage();
+  updateDlBtn();
+  updateQueueBadges();
+  alert(`Đã thêm ${count} mùa/version vào Hàng đợi tải!\nBạn có thể mở tab "📥 Hàng đợi tải" để xem và quản lý.`);
+}
+async function dlDetailMain(sid){
+  if(!sid) return;
+  try{
+    await jpost('/api/hg/submit',{series_ids:[sid]});
+    dlStatusClearedSig='';
+    closeDetail();
+    await refreshStatus();
+  }catch(e){ alert(e.message); }
+}
+async function dlDetailRelated(){
+  const ids=[...document.querySelectorAll('#detail-panel input.res:checked')].map(el=>el.dataset.sid).filter(Boolean);
+  if(!ids.length){ alert('Chưa chọn version'); return; }
+  try{
+    await jpost('/api/hg/submit',{series_ids:ids});
+    dlStatusClearedSig='';
+    closeDetail();
+    await refreshStatus();
+  }catch(e){ alert(e.message); }
+}
+
+async function ping(){
+  const el=document.getElementById('conn');
+  const od=document.getElementById('outdir');
+  try{
+    const d=await jget('/api/hg/ping');
+    if(!d.ok){
+      const need=d.need_ui||/open the app|unauthorized/i.test(String(d.error||''));
+      el.textContent=need?'Hongguo cần mở cửa sổ app':'Hongguo lỗi auth';
+      el.className='pill bad';
+      el.title=String(d.error||'');
+      od.textContent=need
+        ?'Downloader đang chạy nền — mở cửa sổ app (không chỉ tray), rồi F5'
+        :('output: — · '+String(d.error||'').slice(0,80));
+      return;
+    }
+    el.textContent='Hongguo online'+(d.running?' · đang tải':'')+(d.has_token?'':'');
+    el.className='pill ok';
+    el.title='';
+    od.textContent='output: '+(d.output_dir||'—');
+  }catch(e){
+    el.textContent='Hongguo offline';
+    el.className='pill bad';
+    el.title=e.message||'';
+    od.textContent='output: —';
+  }
+}
+
+function seasonStem(title){
+  let t=(title||'').trim();
+  t=t.replace(/[（(][^）)]*[)）]\s*$/,'');
+  t=t.replace(/(?:\s*[-—·]?\s*)?(?:第)?[0-9一二三四五六七八九十百零〇两兩]+季\s*$/,'');
+  t=t.replace(/\s*S(?:eason)?\s*\d+\s*$/i,'');
+  return t.replace(/^[ ，,·\-—:：]+|[ ，,·\-—:：]+$/g,'');
+}
+function franchiseCore(title){
+  let t=seasonStem(title||'');
+  for(const s of ['灵界篇','仙界篇','凡界篇','神界篇','魔界篇','续集','番外']){
+    if(t.includes(s)) t=t.split(s)[0];
+  }
+  if(t.includes('之')) t=t.split('之')[0];
+  t=t.replace(/^[ ，,·\-—]+|[ ，,·\-—]+$/g,'');
+  return t||(title||'').trim();
+}
+const CN_NUM={零:0,〇:0,一:1,二:2,两:2,兩:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10};
+function parseCnInt(s){
+  s=(s||'').trim(); if(!s) return null;
+  if(/^\d+$/.test(s)) return parseInt(s,10);
+  if(s==='十') return 10;
+  if(s.startsWith('十')) return 10+(CN_NUM[s.slice(1)]||0);
+  if(s.endsWith('十')&&s.length===2) return (CN_NUM[s[0]]||0)*10;
+  if(s.includes('十')){ const [a,b]=s.split('十'); return (CN_NUM[a]||0)*10+(CN_NUM[b]||0); }
+  return CN_NUM[s]??null;
+}
+/** Thứ tự thời gian: cung gốc → 灵界 → 仙界; trong cung theo 第N季. (API không có ngày chiếu) */
+function seasonTimelineKey(title, seriesId){
+  let sid=0n;
+  try{ sid=BigInt(seriesId||'0'); }catch(e){ sid=0n; }
+  const t=title||'';
+  let arc=0;
+  ['灵界篇','仙界篇','凡界篇','神界篇','魔界篇'].forEach((name,i)=>{ if(t.includes(name)) arc=i+1; });
+  const m=t.match(/第([0-9一二三四五六七八九十百零〇两兩]+)季/);
+  let num=m?parseCnInt(m[1]):(arc===0?1:0);
+  if(num==null) num=0;
+  return [sid, arc, num];
+}
+function cmpTimeline(a,b){
+  const ka=seasonTimelineKey(a.title,a.series_id), kb=seasonTimelineKey(b.title,b.series_id);
+  if(ka[0]<kb[0]) return -1; if(ka[0]>kb[0]) return 1;
+  if(ka[1]!==kb[1]) return ka[1]-kb[1];
+  return ka[2]-kb[2];
+}
+function orderFranchiseItems(items){
+  const seen=new Set();
+  const uniq=[];
+  for(const r of items){
+    const sid=String(r.series_id||'');
+    if(!sid||seen.has(sid)) continue;
+    seen.add(sid); uniq.push(r);
+  }
+  const ordered=uniq.sort(cmpTimeline);
+  return ordered.map((r,i)=>{
+    const t=r.title||'';
+    const track=t.includes('仙界篇')?'仙界篇':t.includes('灵界篇')?'灵界篇':'gốc';
+    return {...r, ss_index:i+1, ss_label:'SS'+(i+1), track, mark:titleMark(t)};
+  });
+}
+/** Nhãn ngắn để phân biệt series tên gần giống (đặc biệt trên Hongguo). */
+function titleMark(title){
+  const t=(title||'').trim();
+  const m=t.match(/第([0-9一二三四五六七八九十百零〇两兩]+)季\s*$/);
+  if(m) return '第'+m[1]+'季';
+  if(/啊+.*第三季|啊.*第三季/.test(t)) return '啊·第三季';
+  if(/[！!]\s*$/.test(t)) return 'đuôi 「！」';
+  if(/[？?]\s*$/.test(t)) return 'đuôi 「？」';
+  if(/[2２]\s*$/.test(t)) return 'đuôi 「2」';
+  if(t.includes(':') && !t.includes('：')) return 'dấu : nửa';
+  return 'gốc';
+}
+function formatTitleHtml(title){
+  let body=esc(title||'');
+  body=body.replace(/(第[0-9一二三四五六七八九十百零〇两兩]+季)$/,'<span class="title-diff">$1</span>');
+  body=body.replace(/([！!？?2２])$/,'<span class="title-diff">$1</span>');
+  return body;
+}
+function previewFromItem(btn){
+  const card=btn.closest('.item');
+  if(!card) return;
+  const sid=card.dataset.sid||'';
+  const title=card.dataset.titleZh||card.querySelector('.t-title')?.textContent?.trim()||sid;
+  const eps=parseInt(card.querySelector('.meta b')?.textContent||'0',10)||0;
+  openCatalogPreview(sid, title, eps);
+}
+function enqueueGroup(gi){
+  pickGroup(gi, true);
+  updateQueueBadges();
+  const n = document.querySelectorAll(`input.res[data-gi="${gi}"]:checked`).length;
+  alert(`Đã thêm ${n} series của nhóm vào Hàng đợi tải!\nBạn có thể mở tab "📥 Hàng đợi tải" để xem và tải.`);
+}
+function renderSeriesItem(it, gi, checked){
+  const mark=it.mark||titleMark(it.title||'');
+  const eps=it.episode_cnt!=null?it.episode_cnt:'?';
+  const sid=String(it.series_id||'');
+  const isChecked=!!(DL_QUEUE[sid] || checked);
+  const sidShort=sid.length>8?('…'+sid.slice(-8)):sid;
+  const intro=it.intro?`<div class="intro" title="${esc(it.intro)}">${esc(it.intro)}</div>`:'';
+  return `<label class="item" data-sid="${esc(sid)}" data-title-zh="${esc(it.title||'')}">
+    <input class="chk res" type="checkbox" data-sid="${esc(sid)}" data-gi="${gi}" ${isChecked?'checked':''}>
+    ${it.cover?`<img class="cover" src="${coverSrc(it.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<div class="cover"></div>`}
+    <div class="t">
+      <span class="pill accent" style="margin-right:6px" title="Nhãn phân biệt">${esc(mark)}</span>
+      <span class="pill" style="margin-right:6px">${esc(it.ss_label||('SS'+(it.ss_index||'?')))}</span>
+      <button type="button" class="btn" style="padding:2px 8px;font-size:11px;margin-right:6px" title="Chi tiết baike" onclick="event.preventDefault();event.stopPropagation();openBaikeDetailFromCard(this)">ℹ</button>
+      <button type="button" class="btn" style="padding:2px 8px;font-size:11px;margin-right:6px" title="Xem thử preview tập 1" onclick="event.preventDefault();event.stopPropagation();previewFromItem(this)">▶</button>
+      <span class="t-title">${formatTitleHtml(it.title)}</span>
+      <div class="meta"><b>${eps} tập</b> · ${esc(it.track||'')} · <span class="sid" title="${esc(sid)}">id ${esc(sidShort)}</span></div>
+      ${intro}
+    </div>
+  </label>`;
+}
+/** Mùa tên gốc mà /dl/search hay bỏ — seed từ hongguoduanju.com/search */
+const HG_SEED={
+  '聚宝仙盆之杂灵根才是真BOSS第五季':{series_id:'7653639205888724030', title:'聚宝仙盆之杂灵根才是真BOSS第五季', episode_cnt:128},
+  '聚宝仙盆之杂灵根才是真BOSS第六季':{series_id:'7654979763613731864', title:'聚宝仙盆之杂灵根才是真BOSS第六季', episode_cnt:78},
+  '聚宝仙盆之杂灵根才是真BOSS第七季':{series_id:'7665257305725750297', title:'聚宝仙盆之杂灵根才是真BOSS第七季', episode_cnt:129},
+  '聚宝仙盆之杂灵根才是真BOSS第八季':{series_id:'7671115782083841048', title:'聚宝仙盆之杂灵根才是真BOSS第八季', episode_cnt:138},
+  '聚宝仙盆之杂灵根才是真BOSS第九季':{series_id:'7673807696302197784', title:'聚宝仙盆之杂灵根才是真BOSS第九季', episode_cnt:100},
+  '聚宝仙盆之杂灵根才是真BOSS第十季':{series_id:'7677914379060251673', title:'聚宝仙盆之杂灵根才是真BOSS第十季', episode_cnt:200},
+  '聚宝仙盆之杂灵根才是真BOSS第十一季':{series_id:'7681903520873729048', title:'聚宝仙盆之杂灵根才是真BOSS第十一季', episode_cnt:200},
+};
+function mergeSeeds(byId, q){
+  if(!(q.includes('杂灵根')||/boss/i.test(q)||q.includes('聚宝仙盆'))) return;
+  for(const [title, meta] of Object.entries(HG_SEED)){
+    const sid=meta.series_id;
+    if(byId[sid]) continue;
+    const hit=Object.values(byId).some(r=>(r.title||'')===title);
+    if(hit) continue;
+    byId[sid]={...meta, stem:seasonStem(title), core:franchiseCore(title), _from_q:'seed'};
+  }
+}
+function expandQueries(q){
+  const out=[], seen=new Set();
+  const add=x=>{ x=(x||'').trim(); if(x&&!seen.has(x)){ seen.add(x); out.push(x);} };
+  add(q); add(seasonStem(q));
+  const core=franchiseCore(q); add(core);
+  add(q.replace(/(?:第)?[0-9一二三四五六七八九十百零〇两兩]+季\s*$/,'').trim());
+  const st=seasonStem(q);
+  if(st.includes('之')) add(st.split('之')[1]);
+  if(core&&core.length>=2){
+    for(const suf of ['灵界篇','仙界篇']){ add(core+suf); add(core+suf+'第一季'); }
+  }
+  return out;
+}
+async function clientExpandSearch(q){
+  const nums=['一','二','三','四','五','六','七','八','九','十','十一'];
+  let queries=expandQueries(q);
+  const byId={};
+  const used=[];
+  const ingest=async(qq)=>{
+    try{
+      const d=await jget('/api/hg/search?q='+encodeURIComponent(qq)+'&expand=0');
+      used.push(qq);
+      for(const r of (d.results||[])){
+        const sid=String(r.series_id||'');
+        if(!sid||byId[sid]) continue;
+        byId[sid]={...r, stem:seasonStem(r.title||''), core:franchiseCore(r.title||'')};
+      }
+    }catch(e){}
+  };
+  await Promise.all(queries.map(ingest));
+  mergeSeeds(byId, q);
+  const core=franchiseCore(q);
+  const brands=new Set();
+  if(core){ brands.add(core+'灵界篇'); brands.add(core+'仙界篇'); }
+  const st=seasonStem(q); if(st) brands.add(st);
+  for(const r of Object.values(byId)){
+    const t=r.title||'';
+    for(const s of ['灵界篇','仙界篇']){ if(t.includes(s)) brands.add((r.core||core||'')+s); }
+    if(core&&t.includes(core)&&t.includes('杂灵根')) brands.add(seasonStem(t));
+  }
+  const extra=[];
+  for(const b of brands){ if(!b) continue; for(const n of nums){ const qq=b+'第'+n+'季'; if(!used.includes(qq)) extra.push(qq);} }
+  // song song theo lô
+  for(let i=0;i<extra.length;i+=8){
+    await Promise.all(extra.slice(i,i+8).map(ingest));
+  }
+  mergeSeeds(byId, q);
+  const results=Object.values(byId);
+  const mainline=r=>{
+    const t=r.title||'';
+    if(!core||!t.includes(core)) return false;
+    if(q.includes('杂灵根')||/boss/i.test(q)) return t.includes('杂灵根')||t.includes('灵界篇')||t.includes('仙界篇');
+    return true;
+  };
+  const related=orderFranchiseItems(results.filter(mainline));
+  const groups=[];
+  if(related.length&&core) groups.push({stem:core+' · cùng thương hiệu (SS1→SS'+related.length+')', items:related, n:related.length, franchise:true});
+  const byStem={};
+  for(const r of results){ const k=r.stem||r.title||'?'; (byStem[k]=byStem[k]||[]).push(r); }
+  for(const [k,v] of Object.entries(byStem)) groups.push({stem:k, items:orderFranchiseItems(v), n:v.length});
+  return {results, groups, queries:used, expand:true, core};
+}
+async function addByPaste(){
+  const raw=(document.getElementById('paste-id').value||'').trim();
+  if(!raw) return;
+  const hint=document.getElementById('search-hint');
+  try{
+    let item=null;
+    try{
+      const d=await jpost('/api/hg/resolve',{text:raw});
+      item=(d.resolved&&d.resolved[0])||null;
+    }catch(e){}
+    if(!item){
+      const m=raw.match(/(\d{15,})/);
+      if(!m) throw new Error('Không parse được series_id');
+      try{
+        item=await jget('/api/hg/series/'+m[1]);
+      }catch(e){
+        item={series_id:m[1], title:'(id '+m[1]+')', episode_cnt:'?', stem:'', core:''};
+      }
+    }
+    if(!lastGroups.length){
+      lastGroups=[{stem:'Thêm tay', items:[], n:0, franchise:true}];
+    }
+    const g=lastGroups.find(x=>x.franchise)||lastGroups[0];
+    if((g.items||[]).some(x=>String(x.series_id)===String(item.series_id))){
+      hint.textContent='Đã có trong list: '+item.title;
+      return;
+    }
+    g.items=orderFranchiseItems([...(g.items||[]), item]);
+    g.n=g.items.length;
+    g.franchise=true;
+    g.stem=(g.stem||'Thêm tay').replace(/\s*\(SS1→SS\d+\)\s*$/,'')+' (SS1→SS'+g.n+')';
+    // re-render via fake search path
+    const box=document.getElementById('results');
+    const qn=1;
+    document.getElementById('search-hint').textContent=`Đã thêm: ${item.title||item.series_id}`;
+    box.innerHTML=lastGroups.map((gg,gi)=>{
+      const cover=coverSrc((gg.items&&gg.items[0]&&gg.items[0].cover)||'');
+      const badge=gg.franchise?'<span class="pill ok" style="margin-left:6px">cùng thương hiệu · thời gian</span>':'';
+      const items=(gg.items||[]).map((it)=>renderSeriesItem(it, gi, true)).join('');
+      return `<div class="group">
+        <div class="ghead" onclick="toggleGroup(${gi})">
+          ${cover?`<img class="cover" src="${cover}" alt="" loading="lazy">`:''}
+          <label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
+            <input class="chk" type="checkbox" checked onchange="pickGroup(${gi},this.checked)">
+            <b style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(gg.stem||'?')}</b>${badge}
+          </label>
+          <span class="muted">${gg.n} mùa</span>
+          <button class="btn" onclick="event.stopPropagation();pickGroup(${gi},true)">Select all</button>
+          <button class="btn" type="button" onclick="event.stopPropagation();enqueueGroup(${gi})">＋ Thêm hàng đợi</button>
+          <button class="btn pri" onclick="event.stopPropagation();dlGroup(${gi})">⬇ Tải nhóm</button>
+        </div>
+        <div class="gbody" id="gbody-${gi}">${items}</div>
+      </div>`;
+    }).join('');
+    bindResCheckboxes(box);
+    box.querySelectorAll('input.res:checked').forEach(el=>onResCheckboxChange(el));
+    updateDlBtn();
+    document.getElementById('paste-id').value='';
+  }catch(e){
+    alert('Không thêm được: '+e.message);
+  }
+}
+async function doSearch(){
+  const q=document.getElementById('q').value.trim();
+  if(!q) return;
+
+  // Nếu dán nhầm link hoặc series_id vào ô tìm kiếm thì tự chuyển sang addByPaste
+  if(/\/(?:player|detail)\/\d{15,}/.test(q) || /series_id=\d{15,}/.test(q) || /^\d{15,}$/.test(q)){
+    document.getElementById('paste-id').value = q;
+    return addByPaste();
+  }
+
+  const box=document.getElementById('results');
+  const hint=document.getElementById('search-hint');
+  box.innerHTML='<div class="muted" style="padding:16px">Đang nhận diện trên duanjubaike → khớp Hongguo…</div>';
+  try{
+    let d = null;
+    try{
+      d=await jget('/api/hg/baike-search?q='+encodeURIComponent(q));
+    }catch(e){
+      d=null;
+    }
+
+    if(d && d.mode==='baike'){
+      const pk=d.baike&&d.baike.picked;
+      lastGroups=d.groups||[];
+      if(!lastGroups.length && (d.matched||[]).length){
+        lastGroups=[{stem:(pk&&pk.title)||q, items:d.matched, n:d.n_matched, franchise:true, source:'baike'}];
+      }
+      if(lastGroups.length){
+        const rej=d.n_rejected||0;
+        hint.textContent=`Baike ${(d.baike&&d.baike.n_versions)||0} version → Hongguo khớp ${d.n_matched||0}`+(rej?` · loại ${rej}`:'')+(pk&&pk.episode_cnt!=null?` · gốc ${pk.episode_cnt} tập`:'');
+        const intro=pk&&pk.intro?`<div class="afile amuted" style="margin:8px 12px">${esc(pk.intro)}</div>`:'';
+        box.innerHTML=intro+lastGroups.map((g,gi)=>{
+          const cover=coverSrc((pk&&pk.cover)||(g.items&&g.items[0]&&g.items[0].cover)||'');
+          const badge='<span class="pill ok" style="margin-left:6px">baike → hongguo</span>';
+          const items=(g.items||[]).map(it=>renderSeriesItem({
+            ...it,
+            mark:it.mark||titleMark(it.baike_title||it.title),
+            intro:undefined,
+          }, gi, true)).join('');
+          const rejected=(d.rejected||[]).length?`<div class="muted" style="padding:8px 12px">Đã loại ${d.rejected.length}: ${(d.rejected||[]).slice(0,5).map(r=>esc((r.title||'')+' ('+(r.reject_reason||'').slice(0,40)+')')).join(' · ')}</div>`:'';
+          return `<div class="group">
+            <div class="ghead" onclick="toggleGroup(${gi})">
+              ${cover?`<img class="cover" src="${cover}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}
+              <label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
+                <input class="chk" type="checkbox" checked onchange="pickGroup(${gi},this.checked)">
+                <b style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.stem||'?')}</b>${badge}
+              </label>
+              <span class="muted">${g.n} version</span>
+              <button class="btn" onclick="event.stopPropagation();pickGroup(${gi},true)">Select all</button>
+              <button class="btn" type="button" onclick="event.stopPropagation();enqueueGroup(${gi})">＋ Thêm hàng đợi</button>
+              <button class="btn pri" onclick="event.stopPropagation();dlGroup(${gi})">⬇ Tải nhóm</button>
+            </div>
+            <div class="gbody" id="gbody-${gi}">${items}</div>
+            ${rejected}
+          </div>`;
+        }).join('');
+        bindResCheckboxes(box);
+        box.querySelectorAll('input.res:checked').forEach(el=>onResCheckboxChange(el));
+        updateDlBtn();
+        applyTitleVi(box);
+        return;
+      }
+    }
+
+    // Nếu Baike không ra hoặc không khớp: tự động fallback sang Hongguo API & Web
+    hint.textContent='Baike không có → Đang tìm trực tiếp trên Hongguo API & Web…';
+    box.innerHTML='<div class="muted" style="padding:16px">Baike không có → Đang quét trực tiếp trên Hongguo API & Web…</div>';
+    d=await jget('/api/hg/search?q='+encodeURIComponent(q)+'&expand=1');
+    if(!(d.groups||[]).some(g=>g.franchise)) d=await clientExpandSearch(q);
+
+    // fallback path cũ (API Hongguo)
+    d.groups=(d.groups||[]).map(g=>{
+      if(!g.franchise) return g;
+      const items=orderFranchiseItems(g.items||[]);
+      return {...g, items, n:items.length, stem:(g.stem||'').replace(/\s*\(SS1→SS\d+\)\s*$/,'')+' (SS1→SS'+items.length+')'};
+    });
+    lastGroups=d.groups||[];
+    hint.textContent=`Hongguo API ${(d.results||[]).length} · ${lastGroups[0]&&lastGroups[0].franchise?lastGroups[0].n:0} cùng brand`;
+    if(!lastGroups.length){ box.innerHTML='<div class="muted" style="padding:16px">Không thấy.</div>'; updateDlBtn(); return; }
+    box.innerHTML=lastGroups.map((g,gi)=>{
+      const cover=coverSrc((g.items&&g.items[0]&&g.items[0].cover)||'');
+      const badge=g.franchise?'<span class="pill ok" style="margin-left:6px">cùng thương hiệu</span>':'';
+      const items=(g.items||[]).map((it)=>renderSeriesItem(it, gi, !!(g.franchise||gi===0))).join('');
+      return `<div class="group">
+        <div class="ghead" onclick="toggleGroup(${gi})">
+          ${cover?`<img class="cover" src="${cover}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}
+          <label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
+            <input class="chk" type="checkbox" ${g.franchise||gi===0?'checked':''} onchange="pickGroup(${gi},this.checked)">
+            <b style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.stem||'?')}</b>${badge}
+          </label>
+          <span class="muted">${g.n} mùa</span>
+          <button class="btn" onclick="event.stopPropagation();pickGroup(${gi},true)">Select all</button>
+          <button class="btn" type="button" onclick="event.stopPropagation();enqueueGroup(${gi})">＋ Thêm hàng đợi</button>
+          <button class="btn pri" onclick="event.stopPropagation();dlGroup(${gi})">⬇ Tải nhóm</button>
+        </div>
+        <div class="gbody" id="gbody-${gi}">${items}</div>
+      </div>`;
+    }).join('');
+    bindResCheckboxes(box);
+    box.querySelectorAll('input.res:checked').forEach(el=>onResCheckboxChange(el));
+    updateDlBtn();
+    applyTitleVi(box);
+  }catch(e){
+    box.innerHTML=`<div class="err" style="padding:16px">${esc(e.message)}</div>`;
+  }
+}
+
+function toggleGroup(gi){
+  const el=document.getElementById('gbody-'+gi);
+  if(el) el.style.display=el.style.display==='none'?'':'block';
+}
+function pickGroup(gi,on){
+  document.querySelectorAll(`input.res[data-gi="${gi}"]`).forEach(el=>{
+    el.checked=!!on;
+    onResCheckboxChange(el);
+  });
+  updateDlBtn();
+}
+function selectAllVisible(on){
+  document.querySelectorAll('input.res').forEach(el=>{
+    el.checked=!!on;
+    onResCheckboxChange(el);
+  });
+  updateDlBtn();
+}
+function selectedIds(){
+  return [...document.querySelectorAll('input.res:checked')].map(el=>el.dataset.sid).filter(Boolean);
+}
+function updateDlBtn(){
+  const n=selectedIds().length;
+  const label=n?`⬇ Tải ${n} series`:'⬇ Tải đã chọn';
+  for(const id of ['btn-dl','btn-dl-rank']){
+    const b=document.getElementById(id);
+    if(!b) continue;
+    b.disabled=!n;
+    b.textContent=label;
+  }
+}
+async function dlGroup(gi){
+  pickGroup(gi,true);
+  await doDownload();
+}
+async function doDownload(){
+  const ids=selectedIds();
+  if(!ids.length) return;
+  try{
+    const d=await jpost('/api/hg/submit',{series_ids:ids});
+    dlStatusClearedSig='';
+    document.getElementById('search-hint').textContent='Đã submit '+ids.length+' series'+(d.ok===false?(' · '+ (d.error||'')):'');
+    await refreshStatus();
+  }catch(e){ alert('Lỗi tải: '+e.message); }
+}
+async function doCancel(){
+  try{ await jpost('/api/hg/cancel',{}); dlStatusClearedSig=''; await refreshStatus(); }
+  catch(e){ alert(e.message); }
+}
+
+// ─── Render & Thao Tác Hàng Đợi Tải (DL_QUEUE) ─────────────────────────
+function renderQueueList(){
+  const grid=document.getElementById('queue-grid');
+  const emptyMsg=document.getElementById('queue-empty-msg');
+  if(!grid) return;
+  
+  const items=Object.values(DL_QUEUE);
+  updateQueueBadges();
+  
+  if(!items.length){
+    if(emptyMsg) emptyMsg.style.display='block';
+    grid.innerHTML='';
+    return;
+  }
+  if(emptyMsg) emptyMsg.style.display='none';
+
+  // Map trạng thái download nếu có từ window.__lastDlSeries
+  const dlMap={};
+  for(const s of (window.__lastDlSeries||[])){
+    const sid=String(s.series_id||s.id||'');
+    if(sid) dlMap[sid]=s;
+  }
+
+  grid.innerHTML=items.map((it)=>{
+    const sid=String(it.series_id||'');
+    const dlInfo=dlMap[sid];
+    let stBadge='<span class="badge" style="color:var(--muted)">⏳ Chờ tải</span>';
+    if(dlInfo){
+      const st=String(dlInfo.status||'').toUpperCase();
+      if(st==='DONE'){
+        stBadge='<span class="badge done">✓ Đã xong</span>';
+      }else if(st==='DOWNLOADING'||st==='RUNNING'){
+        const pct=dlInfo.percent!=null?`${dlInfo.percent}%`:'';
+        stBadge=`<span class="badge" style="color:var(--accent);border-color:var(--accent);background:var(--accent-dim)">⚡ Đang tải ${pct}</span>`;
+      }else if(st==='ERROR'){
+        stBadge='<span class="badge" style="color:var(--err);border-color:var(--err)">✗ Lỗi</span>';
+      }else{
+        stBadge=`<span class="badge">${esc(dlInfo.status||'Chờ')}</span>`;
+      }
+    }
+
+    return `
+    <div class="q-card" data-sid="${esc(sid)}">
+      ${it.cover?`<img class="cover" src="${esc(it.cover)}" alt="" loading="lazy">`:`<div class="cover" style="background:var(--raise);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:10px">No cover</div>`}
+      <div class="info">
+        <b title="${esc(it.title)}">${esc(it.title)}</b>
+        ${it.title_vi?`<div class="tvi" title="${esc(it.title_vi)}">${esc(it.title_vi)}</div>`:''}
+        <div class="meta">
+          <span>${it.episode_cnt?(esc(it.episode_cnt)+(String(it.episode_cnt).includes('tập')?'':' tập')):'? tập'}</span>
+          ${it.score?`<span>★ ${esc(it.score)}</span>`:''}
+          ${stBadge}
+        </div>
+        <div style="font-size:10.5px;color:var(--muted);font-family:var(--mono);margin-top:2px">id ${esc(sid)}</div>
+      </div>
+      <button class="rm-btn" type="button" onclick="removeFromDlQueue('${esc(sid)}')" title="Bỏ khỏi hàng đợi">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function removeFromDlQueue(sid){
+  sid=String(sid||'').trim();
+  if(!sid) return;
+  delete DL_QUEUE[sid];
+  saveDlQueueToStorage();
+  document.querySelectorAll(`input.res[data-sid="${CSS.escape(sid)}"]`).forEach(el=>{
+    el.checked=false;
+  });
+  renderQueueList();
+  updateDlBtn();
+}
+
+function clearDlQueue(){
+  const n=Object.keys(DL_QUEUE).length;
+  if(!n) return;
+  if(!confirm(`Xác nhận xoá toàn bộ ${n} series khỏi hàng đợi tải?`)) return;
+  DL_QUEUE={};
+  saveDlQueueToStorage();
+  document.querySelectorAll('input.res').forEach(el=>{ el.checked=false; });
+  renderQueueList();
+  updateDlBtn();
+}
+
+async function startDlQueue(){
+  const ids=Object.keys(DL_QUEUE);
+  if(!ids.length){
+    alert('Hàng đợi tải đang trống! Hãy chọn series từ Bảng hot hoặc Tìm kiếm.');
+    return;
+  }
+  const btnTop=document.getElementById('btn-start-queue-top');
+  const btnBody=document.getElementById('btn-start-queue-body');
+  if(btnTop){ btnTop.disabled=true; btnTop.textContent='⏳ Đang gửi…'; }
+  if(btnBody){ btnBody.disabled=true; btnBody.textContent='⏳ Đang gửi…'; }
+  
+  try{
+    const d=await jpost('/api/hg/submit',{series_ids:ids});
+    dlStatusClearedSig='';
+    alert(`Đã gửi ${ids.length} series vào bộ tải Hongguo Downloader thành công!\nCác series sẽ được tải lần lượt ở nền.`);
+    await refreshStatus();
+    renderQueueList();
+  }catch(e){
+    alert('Lỗi submit hàng đợi: '+e.message);
+  }finally{
+    if(btnTop){ btnTop.disabled=false; btnTop.textContent='🚀 Bắt đầu tải tất cả'; }
+    if(btnBody){ btnBody.disabled=false; btnBody.textContent='🚀 Bắt đầu tải tất cả'; }
+  }
+}
+
+let dlStatusClearedSig='';
+function _dlStatusSig(d){
+  const series=d.series||[];
+  return (d.running?'1':'0')+'|'+series.map(s=>String(s.series_id||s.title||'')+':'+(s.status||'')+':'+(s.done||0)).join(',');
+}
+function clearDlStatus(){
+  const series=window.__lastDlSeries||[];
+  dlStatusClearedSig=_dlStatusSig({running:false, series});
+  document.getElementById('dl-stats').innerHTML='<div class="muted">Đã clear.</div>';
+  logClearedAt=Date.now()/1000;
+  renderLog();
+  document.getElementById('dl-sum').textContent='○ Idle · đã clear';
+}
+
+// Log chung: dòng log tải (HH:MM:SS …) + lịch sử hàng đợi gộp, xếp theo thời gian.
+let dlLogLines=[], mergeHist=[], extraLog=[], logClearedAt=0;
+let mqState={cur:'', q:[], sig:null};
+const DOCK_KEY='pineline_hg_dock_open';
+function applyDock(open){
+  document.getElementById('dock').classList.toggle('closed', !open);
+  document.getElementById('dock-toggle').textContent=open?'▾ Log':'▴ Log';
+}
+function toggleDock(){
+  const open=document.getElementById('dock').classList.contains('closed');
+  try{ localStorage.setItem(DOCK_KEY, open?'1':'0'); }catch(e){}
+  applyDock(open);
+  if(open){ const b=document.getElementById('dl-log'); b.scrollTop=b.scrollHeight; }
+}
+applyDock((()=>{ try{ return localStorage.getItem(DOCK_KEY)==='1'; }catch(e){ return false; } })());
+function _dlLineTs(hms, now){
+  const d=new Date(now*1000);
+  d.setHours(+hms[1], +hms[2], +hms[3], 0);
+  let t=d.getTime()/1000;
+  if(t>now+60) t-=86400;
+  return t;
+}
+const _fmtHms=t=>new Date(t*1000).toTimeString().slice(0,8);
+const MERGE_ST={done:'✓ xong', error:'✗ lỗi', normalize:'chuẩn hoá', remerge:'gộp lại'};
+function renderLog(){
+  const box=document.getElementById('dl-log');
+  if(!box) return;
+  const now=Date.now()/1000;
+  const rows=[];
+  let last=0;
+  dlLogLines.forEach((ln,i)=>{
+    const m=/^(\d{1,2}):(\d{2}):(\d{2})\s?(.*)$/.exec(ln);
+    const t=m?_dlLineTs(m, now):last;
+    last=t;
+    rows.push({t, i, s:m?`${_fmtHms(t)} [tải] ${m[4]}`:`         ${ln}`});
+  });
+  const hist=mergeHist.filter((h,i)=>!(h.status==='normalize' && mergeHist[i+1]
+    && mergeHist[i+1].status==='normalize' && mergeHist[i+1].name===h.name));
+  hist.forEach((h,i)=>rows.push({t:h.at||0, i:10000+i,
+    s:`${_fmtHms(h.at||0)} [gộp] ${h.name}${h.status?' — '+(MERGE_ST[h.status]||h.status):''}${h.detail?' · '+h.detail:''}`}));
+  extraLog.slice(-30).forEach((x,i)=>rows.push({t:x.at, i:20000+i, s:`${_fmtHms(x.at)} ${x.s}`}));
+  const out=rows.filter(r=>r.t>=logClearedAt).sort((a,b)=>a.t-b.t||a.i-b.i).slice(-60);
+  const atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<24;
+  box.textContent=out.map(r=>r.s).join('\n')||'—';
+  const lastEl=document.getElementById('dock-last');
+  if(lastEl) lastEl.textContent=out.length?out[out.length-1].s:'';
+  if(atBottom) box.scrollTop=box.scrollHeight;
+}
+
+
+/* ---------- New seasons board (Hongguo /dl/status.seasons) ---------- */
+let _lsn=null, _lsnRun=null, _lsnHide=false, _lsnMore=false, _lsnAdded={}, _lsnDeclined={}, _lsnRows={}, _lsnBusy=false;
+const LSN_SUG_SHOW=12;
+const LSN_ID=/^[0-9]{15,20}$/;
+const num=v=>{ const n=Number(v); return Number.isFinite(n)?n:0; };
+function lsnHint(msg){
+  const el=document.getElementById('seasons-hint');
+  if(el) el.textContent=msg||'';
+}
+function lsnTake(st){
+  if(!st) return;
+  // Pineline luôn poll /api/hg/status — nhận seasons kể cả khi mode !== library
+  if(st.seasons && typeof st.seasons==="object"){
+    if(st.started!==_lsnRun){ _lsnRun=st.started; _lsnHide=false; _lsnMore=false; _lsnAdded={}; _lsnDeclined={}; _lsnRows={}; }
+    _lsn=st.seasons;
+  } else if(st.mode==="library" && st.started!==_lsnRun){
+    _lsnRun=st.started; _lsn=null; _lsnHide=false; _lsnMore=false; _lsnAdded={}; _lsnDeclined={}; _lsnRows={};
+  }
+  (st.series||[]).forEach(r=>{
+    const sid=String((r&& (r.sid||r.series_id))||'');
+    if(r && LSN_ID.test(sid)) _lsnRows[sid]=Object.assign({}, r, {sid});
+  });
+}
+function lsnItems(v){ return Array.isArray(v) ? v.filter(x=>x && typeof x==="object" && LSN_ID.test(String(x.sid))) : []; }
+function lsnList(k){ return lsnItems(_lsn && _lsn[k]); }
+function lsnN(n, word){ n=num(n); return n.toLocaleString("en-US")+" "+word+(n===1 ? "" : "s"); }
+function lsnEps(n){ n=num(n); return n.toLocaleString("en-US")+(n===1 ? " ep" : " eps"); }
+function lsnName(x){ const s=num(x.season); return (x.short===true && s>0) ? "S"+s : String(x.title||x.sid); }
+function lsnMeta(x, note){ return lsnEps(x.eps)+(x.score ? " · ★"+x.score : "")+(note ? " · "+note : ""); }
+function lsnBigAll(){
+  const b=_lsn && _lsn.big;
+  return (b && Array.isArray(b.albums)) ? [].concat(...b.albums.map(g=>lsnItems(g && g.items))) : lsnItems(b && b.items);
+}
+function lsnBigAlbums(){
+  const b=_lsn && _lsn.big, out=[];
+  ((b && Array.isArray(b.albums)) ? b.albums : []).forEach(g=>{
+    if(!g || typeof g!=="object") return;
+    const items=lsnItems(g.items).filter(x=>!_lsnDeclined[x.sid]);
+    if(items.length) out.push({album:String(g.album||""), base:String(g.base||""), items, kept:g.why==="offered",
+                               why:String(g.why||""), gb:num(g.gb)});
+  });
+  return out;
+}
+function lsnGroups(items, pill){
+  const gs=[], at=new Map();
+  items.forEach(x=>{ const b=String(x.base||""); if(!at.has(b)){ at.set(b, gs.length); gs.push({b, h:[]}); } gs[at.get(b)].h.push(pill(x)); });
+  return gs.map(g=>'<span class="lsn-grp">'+(g.b ? '<span class="lsn-gt" title="'+esc(g.b)+'">'+esc(g.b)+'</span>' : '')+g.h.join("")+'</span>').join("");
+}
+function lsnBusy(){
+  const st=window.__hgLastStatus||{};
+  return (st.running || _lsnBusy) ? ' disabled title="Chờ job hiện tại xong"' : '';
+}
+function lsnSugPill(x, meta, tag){
+  const add=_lsnAdded[x.sid] ? '<span class="lsn-done">✓ Đã thêm</span>'
+    : '<button class="lsn-add" data-lsn="add" data-sid="'+esc(x.sid)+'"'+lsnBusy()+' aria-label="+ Thêm '+esc(x.title)+'">+ Thêm</button>';
+  return '<span class="lsn-pill'+(tag ? ' rel' : '')+'">'+(tag ? '<span class="lsn-tag">'+esc(tag)+'</span>' : '')
+       + '<span class="lsn-t" title="'+esc(x.title)+'">'+esc(tag ? String(x.title||x.sid) : lsnName(x))+'</span>'
+       + '<span class="lsn-m">'+esc(meta)+'</span>'+add+'</span>';
+}
+function lsnPlain(x, meta, cls){
+  return '<span class="lsn-pill plain'+(cls?' '+cls:'')+'"><span class="lsn-t" title="'+esc(x.title)+'">'+esc(lsnName(x))+'</span>'
+       + (meta ? '<span class="lsn-m">'+esc(meta)+'</span>' : '')+'</span>';
+}
+function lsnAutoPill(x, rows){
+  const r=rows[String(x.sid)];
+  if(!r) return lsnPlain(x, lsnEps(x.eps), "");
+  const t=num(r.total), d=num(r.done), st=r.state||r.status||"";
+  if(st==="done" || (t>0 && d>=t)) return lsnPlain(x, "✓ "+lsnEps(t||d), "ok");
+  if(st==="cancelled") return lsnPlain(x, "dừng · "+d+"/"+t, "");
+  return lsnPlain(x, st==="queued" ? "chờ · "+lsnEps(t) : d+"/"+lsnEps(t), "dl");
+}
+function lsnBadgeCount(){
+  if(!_lsn || _lsnHide) return 0;
+  return lsnList("auto").length + lsnList("soon").length
+    + lsnList("older").length + lsnList("removed").length + lsnList("held").length
+    + lsnList("declined").length + lsnList("failed").length + lsnList("related").length
+    + lsnList("stopped").length + lsnBigAlbums().reduce((a,g)=>a+g.items.length,0);
+}
+function lsnUpdateBadge(){
+  const el=document.getElementById('tab-seasons-n');
+  if(!el) return;
+  const n=lsnBadgeCount();
+  el.textContent=n?String(n):'';
+}
+function lsnRender(){
+  const el=document.getElementById('libSeasons');
+  const empty=document.getElementById('seasons-empty');
+  if(!el) return;
+  const auto=lsnList("auto"), locked=lsnList("locked"), soon=lsnList("soon"), bigs=lsnBigAlbums();
+  const stoppedAll=lsnList("stopped");
+  const stopped=stoppedAll.filter(x=>!_lsnAdded[x.sid]), addedNow=stoppedAll.filter(x=>_lsnAdded[x.sid]);
+  const related=lsnList("related"), seen=new Set(), sug=[];
+  [[lsnList("older"),"mùa cũ"], [lsnList("removed"),"đã gỡ trước"], [lsnList("held"),"mùa mới"],
+   [lsnList("declined"),"đã bỏ qua"], [lsnBigAll().filter(x=>_lsnDeclined[x.sid]),"đã bỏ qua"], [lsnList("failed"),"không chạy được"],
+   [related,""]].forEach(([xs,note])=>xs.forEach(x=>{ const k=String(x.sid); if(!seen.has(k)){ seen.add(k); sug.push([x,note]); } }));
+  const has=_lsn && !_lsnHide && (auto.length||stoppedAll.length||locked.length||soon.length||bigs.length||sug.length);
+  if(empty) empty.hidden=!!has;
+  if(!has){ el.hidden=true; el.innerHTML=''; lsnUpdateBadge(); return; }
+  const rows=_lsnRows;
+  const st=window.__hgLastStatus||{};
+  const live=!!(st.running && (st.mode==="library" || lsnList("auto").length));
+  const rel=new Set(related);
+  const nBig=bigs.reduce((a,g)=>a+g.items.length,0), waiting=bigs.reduce((a,g)=>a+g.items.filter(x=>!_lsnAdded[x.sid]).length,0);
+  const nAuto=auto.length+addedNow.length;
+  const say=[nAuto ? nAuto+(live ? " đang tải" : " đã thêm") : "",
+             stopped.length ? stopped.length+" chưa bắt đầu" : "",
+             waiting ? waiting+" chờ OK" : (nBig ? nBig+" đã bắt đầu" : ""),
+             locked.length ? locked.length+" cần license" : "",
+             sug.length ? sug.length+" gợi ý" : "", soon.length ? soon.length+" sắp ra" : ""].filter(Boolean).join(" · ");
+  let h='<div class="lsn-head"><span class="lsn-title">🆕 Mùa mới</span><span class="lsn-sub">'+esc(say)+'</span>'
+       +'<button class="x" data-lsn="close" title="Ẩn" aria-label="Ẩn mùa mới">✕</button></div>';
+  bigs.forEach(g=>{
+    const rest=g.items.filter(x=>!_lsnAdded[x.sid]), eps=rest.reduce((a,x)=>a+num(x.eps),0), all=g.items.reduce((a,x)=>a+num(x.eps),0);
+    const alb=LSN_ID.test(g.album) ? g.album : "";
+    const why=g.kept ? ': vẫn chờ OK của bạn.'
+      : g.why==="partial" ? ': một số mùa không kiểm tra được, nên không tự tải.'
+      : g.why==="size" ? ': khoảng '+g.gb.toLocaleString("en-US",{maximumFractionDigits:1})+' GB — quá lớn để tự tải.'
+      : ': quá nhiều để tự tải.';
+    h+='<div class="lsn-big"><div class="lsn-bhead"><div class="lsn-bt"><b>'+esc(g.base||String(g.items[0].title||""))+'</b> · '
+      +lsnN(g.items.length,"mùa mới")+' · '+lsnN(all,"tập")+esc(why)+'</div>'
+      +(!rest.length ? '<span class="lsn-done">✓ Đã bắt đầu</span>' : !alb ? '' :
+        '<div class="lsn-bact"><button class="btn" data-lsn="decline" data-alb="'+alb+'">Không tải</button>'
+        +'<button class="btn pri" data-lsn="big" data-alb="'+alb+'"'+lsnBusy()+'>'
+        +(rest.length<g.items.length ? 'Tải phần còn lại' : 'Tải tất cả')+' ('+lsnN(eps,"tập")+')</button></div>')
+      +'</div><div class="lsn-items">'+g.items.map(x=>lsnSugPill(x, lsnMeta(x,""))).join("")+'</div></div>';
+  });
+  if(nAuto) h+='<div class="lsn-row"><span class="lsn-k">'+(live ? "Đang tải" : "Đã thêm")+'</span><div class="lsn-items">'
+      +lsnGroups(auto.concat(addedNow), x=>addedNow.includes(x) ? lsnPlain(x, "✓ Đã thêm · "+lsnEps(x.eps), "") : lsnAutoPill(x, rows))+'</div></div>';
+  if(stopped.length) h+='<div class="lsn-row"><span class="lsn-k">Chưa chạy</span><div class="lsn-items">'
+      +lsnGroups(stopped, x=>lsnSugPill(x, lsnEps(x.eps)+" · chạy khi Update all tiếp"))+'</div></div>';
+  if(locked.length) h+='<div class="lsn-row"><span class="lsn-k">Cần license</span><div class="lsn-items">'
+      +lsnGroups(locked, x=>lsnPlain(x, lsnEps(x.eps), ""))+'</div></div>';
+  if(sug.length){
+    const show=_lsnMore ? sug : sug.slice(0, LSN_SUG_SHOW), note=new Map(sug);
+    h+='<div class="lsn-row"><span class="lsn-k">Gợi ý</span><div class="lsn-items">'
+      +lsnGroups(show.map(p=>p[0]), x=>rel.has(x) ? lsnSugPill(x, lsnMeta(x,""), "Cùng chuyện") : lsnSugPill(x, lsnMeta(x, note.get(x))))
+      +(sug.length>LSN_SUG_SHOW ? '<button class="lsn-more" data-lsn="more">'+(_lsnMore ? "Thu gọn" : "+"+(sug.length-LSN_SUG_SHOW)+" more")+'</button>' : '')
+      +'</div></div>';
+  }
+  if(soon.length) h+='<div class="lsn-row"><span class="lsn-k">Sắp ra</span><div class="lsn-items">'+lsnGroups(soon, x=>lsnPlain(x, "", "soon"))+'</div></div>';
+  el.hidden=false;
+  el.innerHTML=h;
+  lsnUpdateBadge();
+}
+function lsnScores(ids){
+  const m={}, want=new Set(ids.map(String));
+  ["auto","stopped","locked","older","removed","held","declined","failed","related","soon"].map(lsnList).concat([lsnBigAll()])
+    .forEach(xs=>xs.forEach(x=>{ const s=String(x.score||""); if(want.has(String(x.sid)) && /^[0-9]{1,2}(\.[0-9]{1,2})?$/.test(s)) m[String(x.sid)]=s; }));
+  return m;
+}
+async function lsnSubmit(ids, btn){
+  const st=window.__hgLastStatus||{};
+  if(st.running || _lsnBusy){ lsnHint('Chờ job hiện tại xong rồi mới Thêm'); return; }
+  if(btn) btn.disabled=true;
+  try{
+    const d=await jpost('/api/hg/submit',{series_ids:ids, scores:lsnScores(ids)});
+    const held=new Set((Array.isArray(d.blocked)?d.blocked:[]).map(String));
+    ids.forEach(id=>{ if(!held.has(String(id))) _lsnAdded[String(id)]=1; });
+    lsnHint(ids.length>1 ? ('Đang tải '+ids.length+' mùa mới') : 'Đã thêm — đang tải');
+    await refreshStatus();
+  }catch(e){
+    lsnHint(e.message||String(e));
+    if(btn) btn.disabled=false;
+  }
+  lsnRender();
+}
+async function lsnDecline(alb, btn){
+  const g=lsnBigAlbums().find(x=>x.album===alb);
+  const ids=g ? g.items.filter(x=>!_lsnAdded[x.sid]).map(x=>String(x.sid)) : [];
+  if(!ids.length) return;
+  if(btn) btn.disabled=true;
+  try{
+    await jpost('/api/hg/library/seasons/decline',{series_ids:ids});
+    ids.forEach(id=>{ _lsnDeclined[id]=1; });
+    lsnHint(ids.length===1 ? 'Không tải: giữ trong Gợi ý' : 'Không tải: giữ trong Gợi ý ('+ids.length+')');
+  }catch(e){
+    lsnHint(e.message||String(e));
+    if(btn) btn.disabled=false;
+  }
+  lsnRender();
+}
+async function lsnRefresh(){
+  try{
+    const d=await jget('/api/hg/status');
+    window.__hgLastStatus=d;
+    lsnTake(d); lsnRender();
+    const ss=d.seasons||{};
+    lsnHint(ss.state ? ('seasons.state='+ss.state+(d.mode?(' · mode '+d.mode):'')) : 'Chưa có seasons — bấm Update all');
+  }catch(e){ lsnHint(e.message||String(e)); }
+}
+async function lsnUpdateAll(){
+  if(_lsnBusy) return;
+  const st=window.__hgLastStatus||{};
+  if(st.running){ lsnHint('Hongguo đang chạy job khác — chờ xong rồi Update all'); return; }
+  _lsnBusy=true; lsnRender();
+  lsnHint('Đang gửi Update all tới Hongguo…');
+  try{
+    await jpost('/api/hg/library/update',{});
+  }catch(e){
+    _lsnBusy=false; lsnRender();
+    lsnHint(e.message||String(e));
+    return;
+  }
+  const t0=Date.now(), maxMs=12*60*1000;
+  while(Date.now()-t0<maxMs){
+    await new Promise(r=>setTimeout(r,2000));
+    let d;
+    try{ d=await jget('/api/hg/status'); }catch(e){ continue; }
+    window.__hgLastStatus=d;
+    lsnTake(d); lsnRender();
+    const ss=d.seasons||{};
+    const state=String(ss.state||'');
+    if(d.running){
+      lsnHint('Update all đang chạy… '+(d.checked!=null? (d.checked+'/'+(d.to_check||'?')) : '')+(state?(' · '+state):''));
+      continue;
+    }
+    if(state==='done' || state==='idle' || (!d.running && _lsn)){
+      lsnHint(state==='done' ? 'Update all xong — board đã cập nhật' : ('Update all kết thúc · seasons.state='+(state||'—')));
+      break;
+    }
+    if(!d.running && Date.now()-t0>8000){
+      lsnHint('Update all đã gửi — chưa thấy seasons.state=done (Downloader đang chạy?)');
+      break;
+    }
+  }
+  _lsnBusy=false; lsnRender();
+}
+function lsnClick(e){
+  const b=e.target.closest('[data-lsn]'); if(!b || b.disabled) return;
+  const act=b.dataset.lsn;
+  if(act==='close'){ _lsnHide=true; lsnRender(); }
+  else if(act==='more'){ _lsnMore=!_lsnMore; lsnRender(); }
+  else if(act==='add'){ const sid=String(b.dataset.sid||''); if(LSN_ID.test(sid)) lsnSubmit([sid], b); }
+  else if(act==='big'){ const g=lsnBigAlbums().find(x=>x.album===String(b.dataset.alb||''));
+    const ids=g ? g.items.filter(x=>!_lsnAdded[x.sid]).map(x=>String(x.sid)) : []; if(ids.length) lsnSubmit(ids, b); }
+  else if(act==='decline'){ const alb=String(b.dataset.alb||''); if(LSN_ID.test(alb)) lsnDecline(alb, b); }
+}
+
+async function refreshStatus(){
+  try{
+    const d=await jget('/api/hg/status');
+    const series=d.series||[];
+    window.__lastDlSeries=series;
+    const sig=_dlStatusSig(d);
+    // Đã Clear + vẫn idle cùng danh sách DONE → giữ UI trống
+    if(dlStatusClearedSig && !d.running && sig===dlStatusClearedSig){
+      document.getElementById('dl-sum').textContent='○ Idle · đã clear';
+      return;
+    }
+    if(d.running || (dlStatusClearedSig && sig!==dlStatusClearedSig)){
+      dlStatusClearedSig='';
+    }
+    const done=series.filter(s=>s.status==='done').length;
+    document.getElementById('dl-sum').textContent=
+      (d.running?'● Đang tải':'○ Idle')+` · ${done}/${series.length} series xong · mode ${d.mode||'—'}`;
+    document.getElementById('dl-stats').innerHTML=series.map(s=>`
+      <div class="stat"><div class="k">${esc(s.status)}</div>
+      <div class="v" style="font-size:12.5px">${esc((s.title||'').slice(0,36))}</div>
+      <div class="muted">${s.done||0}/${s.total||'?'} · ${esc(s.range||'')}</div></div>`).join('')
+      || '<div class="muted">Chưa có job tải.</div>';
+    dlLogLines=(d.log||[]).slice(-40);
+    renderLog();
+    if(leftTab==='queue') renderQueueList();
+  }catch(e){
+    let msg=e.message||String(e);
+    try{
+      const d=JSON.parse(msg);
+      if(d&&(d.hint||d.detail)) msg=d.hint||d.detail;
+    }catch(_e){}
+    document.getElementById('dl-sum').textContent=msg;
+  }
+}
+
+let libSelectedNames=null; // null = chưa init; Set = lựa chọn user (persist sessionStorage)
+const LIB_SEL_KEY='pineline_hg_lib_sel';
+function _loadLibSel(){
+  try{
+    const raw=sessionStorage.getItem(LIB_SEL_KEY);
+    if(raw!=null) return new Set(JSON.parse(raw));
+  }catch(e){}
+  return new Set(); // mặc định: KHÔNG auto chọn
+}
+function _saveLibSel(){
+  try{ sessionStorage.setItem(LIB_SEL_KEY, JSON.stringify([...libSelectedNames])); }catch(e){}
+}
+function _rememberLibSel(){
+  libSelectedNames=new Set(
+    [...document.querySelectorAll('input.lib:checked')].map(el=>el.dataset.name).filter(Boolean)
+  );
+  _saveLibSel();
+}
+
+async function refreshLibrary(){
+  const box=document.getElementById('library');
+  const scrollTop=box.scrollTop;
+  try{
+    // Giữ tick hiện tại trước re-render (tránh mất khi user vừa bỏ chọn)
+    if(document.querySelector('input.lib')) _rememberLibSel();
+    else if(libSelectedNames===null) libSelectedNames=_loadLibSel();
+    const [d]=await Promise.all([jget('/api/hg/library'), loadJobIndex()]);
+    libItems=d.items||[];
+    libRoot=d.root||'';
+    const doneN=d.done_n||libItems.filter(x=>x.done||(x.merged&&!x.fragments)).length;
+    const elSum=document.getElementById('lib-sum');
+    if(elSum) elSum.textContent=`· ${libItems.length} series · ${doneN} done`;
+    if(!libItems.length){ box.innerHTML='<div class="muted" style="padding:12px">Thư viện trống.</div>'; return; }
+    if(libSelectedNames===null) libSelectedNames=_loadLibSel();
+    // tên mới xuất hiện: không auto tick (chỉ giữ những gì user đã chọn)
+    box.innerHTML=libItems.map((it)=>{
+      const isDone=!!(it.done||(it.merged&&!it.fragments));
+      const qi=mqState.q.indexOf(it.name);
+      const badge=(mqState.cur===it.name)
+        ? `<span class="badge queue">● đang gộp</span>`
+        : qi>=0 ? `<span class="badge queue">chờ #${qi+1}</span>`
+        : isDone
+        ? `<span class="badge done">DONE</span>`
+        : (it.merged?`<span class="badge merged">merged · còn ${it.fragments||0} mảnh</span>`:'');
+      const meta=[
+        `${it.local||0}/${it.total||'?'}`,
+        fmtSize(it.size),
+        it.merged_file?esc(it.merged_file):'',
+        (it.fragments!=null&&!isDone)?(`${it.fragments} mảnh`):'',
+      ].filter(Boolean).join(' · ');
+      const img=it.poster!==false
+        ? `<img class="cover lg" src="${posterSrc(it.name)}" alt="" loading="lazy" onerror="this.style.opacity=.2">`
+        : (it.cover?`<img class="cover lg" src="${coverSrc(it.cover)}" alt="" loading="lazy">`:`<div class="cover lg"></div>`);
+      const checked=libSelectedNames.has(it.name)?'checked':'';
+      const canPrev=!!(it.can_preview||it.preview_file||it.merged_file);
+      const prevBtn=canPrev
+        ? `<button class="btn pri" type="button" data-pname="${esc(it.name)}" data-ptitle="${esc(it.title||it.name)}" onclick="event.preventDefault();previewLib(this)" title="Xem thử merged / tập đầu">▶</button>`
+        : '';
+      const job=jobFor(it);
+      const busy=(mqState.cur===it.name)||qi>=0;
+      const jobBtn=job
+        ? `<a class="btn" href="/ui3?job=${encodeURIComponent(job.job_id)}" target="_blank" onclick="event.stopPropagation()" title="Đã có job ${esc(job.job_id)} · ${esc(job.title||'')} — mở trên UI3">↗ UI3</a>`
+        : `<button class="btn" type="button" data-jname="${esc(it.name)}" ${(!it.merged_file||busy)?'disabled':''}
+            title="${!it.merged_file?'Chưa có file gộp — gộp trước':busy?'Đang trong hàng đợi gộp — chờ gộp xong':'Tạo job trên UI3 từ file đã gộp'}"
+            onclick="event.preventDefault();addJobs([this.getAttribute('data-jname')])">＋ Job</button>`;
+      return `<label class="librow ${isDone?'done':''}">
+        <input class="chk lib" type="checkbox" data-name="${esc(it.name)}" data-done="${isDone?1:0}" ${checked} onchange="syncLibSelectAll()">
+        ${img}
+        <div class="t"><b>${esc(it.title||it.name)}</b> ${badge}
+          <div class="meta muted">${meta}</div>
+        </div>
+        <div class="btns">
+          ${jobBtn}
+          ${prevBtn}
+          <button class="btn" type="button" data-mname="${esc(it.name)}" onclick="event.preventDefault();mergeOneBtn(this)">${isDone?'↻':'Merge'}</button>
+          <button class="btn danger" type="button" data-delname="${esc(it.name)}" onclick="event.preventDefault();deleteLibOne(this)" title="Xoá series này khỏi ổ đĩa thư viện (D:\Lib)">🗑</button>
+        </div>
+      </label>`;
+    }).join('');
+    syncLibSelectAll();
+    box.scrollTop=scrollTop;
+  }catch(e){
+    box.innerHTML=`<div class="err" style="padding:12px">${esc(e.message)}</div>`;
+  }
+}
+
+function mergeOneBtn(btn){ mergeNames([btn.getAttribute('data-mname')||''], true); }
+
+const _pv={mode:'lib', id:'', ep:1, free:3, total:0, seq:0, retried:false};
+function _pvEls(){
+  return {
+    mask:document.getElementById('prev-mask'),
+    vid:document.getElementById('prev-video'),
+    frame:document.getElementById('prev-frame'),
+    tit:document.getElementById('prev-title'),
+    sub:document.getElementById('prev-sub'),
+    tabs:document.getElementById('prev-tabs'),
+    stage:document.getElementById('prev-stage'),
+    msg:document.getElementById('prev-msg'),
+  };
+}
+function _pvMsg(html){
+  const {msg}=_pvEls();
+  if(!msg) return;
+  if(html==null){ msg.hidden=true; msg.innerHTML=''; }
+  else { msg.innerHTML=html; msg.hidden=false; }
+}
+function _pvStopCdn(){
+  const {frame}=_pvEls();
+  if(!frame) return;
+  try{
+    const v=frame.contentDocument&&frame.contentDocument.querySelector('video');
+    if(v){ v.pause(); v.removeAttribute('src'); v.load(); }
+  }catch(e){}
+  frame.onload=null;
+  frame.srcdoc='';
+  frame.hidden=true;
+}
+function _pvStopLib(){
+  const {vid}=_pvEls();
+  if(!vid) return;
+  try{ vid.pause(); }catch(e){}
+  vid.removeAttribute('src');
+  vid.load();
+  vid.hidden=true;
+}
+function _pvShape(w,h){
+  const {stage}=_pvEls();
+  const box=document.querySelector('#prev-mask .prev-box');
+  w=+w||720; h=+h||1280;
+  if(stage){
+    stage.style.setProperty('--pv-ar', w+'/'+h);
+    stage.style.setProperty('--pv-arn', (w/h).toFixed(4));
+  }
+  if(box) box.classList.toggle('land', w>h);
+}
+function _pvTabs(){
+  const {tabs}=_pvEls();
+  if(!tabs) return;
+  let h='';
+  for(let i=1;i<=_pv.free;i++){
+    h+=`<button type="button" class="epchip" data-pvep="${i}" aria-pressed="${i===_pv.ep}">Ep ${i}</button>`;
+  }
+  h+=`<span class="muted" style="align-self:center;font-size:11px">${_pv.total?`${_pv.free} free / ${_pv.total} tập`:'free preview'}</span>`;
+  tabs.innerHTML=h;
+  tabs.hidden=false;
+}
+function previewLib(btn){
+  const name=btn.getAttribute('data-pname')||'';
+  const title=btn.getAttribute('data-ptitle')||name;
+  if(!name) return;
+  openLibPreview(name, title);
+}
+function openPreview(name, title){ openLibPreview(name, title); }
+function openLibPreview(name, title){
+  _pv.mode='lib'; _pv.seq++;
+  const els=_pvEls();
+  const box=document.querySelector('#prev-mask .prev-box');
+  if(box) box.classList.add('lib');
+  if(els.tit) els.tit.textContent=title||name;
+  if(els.sub) els.sub.textContent='thư viện local';
+  if(els.tabs){ els.tabs.hidden=true; els.tabs.innerHTML=''; }
+  _pvStopCdn(); _pvMsg(null);
+  // merged thường 16:9 — chỉnh theo metadata thật
+  _pvShape(1280,720);
+  if(els.vid){
+    els.vid.hidden=false;
+    els.vid.onloadedmetadata=()=>{
+      if(_pv.mode!=='lib') return;
+      const vw=els.vid.videoWidth||1280, vh=els.vid.videoHeight||720;
+      if(vw>0 && vh>0) _pvShape(vw, vh);
+    };
+    els.vid.src='/api/hg/library/preview?name='+encodeURIComponent(name)+'&_t='+Date.now();
+    els.vid.load();
+  }
+  if(els.mask) els.mask.classList.add('on');
+}
+function previewCatalog(btn){
+  const sid=btn.getAttribute('data-sid')||'';
+  const title=btn.getAttribute('data-title')||sid;
+  const eps=parseInt(btn.getAttribute('data-eps')||'0',10)||0;
+  if(!sid) return;
+  openCatalogPreview(sid, title, eps);
+}
+function openCatalogPreview(sid, title, total){
+  _pv.mode='cdn'; _pv.id=sid; _pv.ep=1; _pv.free=3; _pv.total=total||0; _pv.retried=false;
+  const els=_pvEls();
+  const box=document.querySelector('#prev-mask .prev-box');
+  if(box) box.classList.remove('lib');
+  if(els.tit) els.tit.textContent=title||sid;
+  if(els.sub) els.sub.textContent='tập miễn phí';
+  _pvStopLib();
+  if(els.mask) els.mask.classList.add('on');
+  _pvShape(720,1280);
+  _pvTabs();
+  pvLoadCdn(1);
+}
+async function pvLoadCdn(ep, fresh){
+  if(_pv.mode!=='cdn') return;
+  _pv.ep=ep; const seq=++_pv.seq; if(!fresh) _pv.retried=false;
+  _pvTabs();
+  _pvStopCdn();
+  const {frame,sub}=_pvEls();
+  if(sub) sub.textContent=`Ep ${ep}${_pv.total?` / ${_pv.total}`:''} · free`;
+  _pvMsg('<span class="muted">Đang tải tập '+ep+'…</span>');
+  let j=null;
+  try{
+    j=await jget('/api/hg/preview?series_id='+encodeURIComponent(_pv.id)+'&ep='+ep+(fresh?'&fresh=1':''));
+  }catch(e){ j={ok:false, error:String(e.message||e)}; }
+  if(seq!==_pv.seq || _pv.mode!=='cdn') return;
+  if(!j || !j.ok || !j.url){
+    const err=j&&j.error;
+    if(err==='unavailable') _pvMsg('Series này không có preview miễn phí.');
+    else if(err==='locked') _pvMsg('Tập '+ep+' không nằm trong preview miễn phí.');
+    else _pvMsg('Không tải được preview. <button class="btn" type="button" data-pvretry>Thử lại</button>');
+    return;
+  }
+  _pv.free=Math.max(1, Math.min(3, j.free||1));
+  _pv.total=j.episode_cnt||_pv.total;
+  if(j.title){ const t=_pvEls().tit; if(t) t.textContent=j.title; }
+  if(sub) sub.textContent=`Ep ${ep}${_pv.total?` / ${_pv.total}`:''} · free`;
+  _pvTabs();
+  _pvShape(j.width, j.height);
+  _pvMsg(null);
+  if(!frame) return;
+  frame.hidden=false;
+  const seq2=seq;
+  frame.onload=()=>{
+    if(seq2!==_pv.seq) return;
+    let v=null;
+    try{ v=frame.contentDocument&&frame.contentDocument.querySelector('video'); }catch(e){}
+    if(!v) return;
+    v.addEventListener('error', ()=>{
+      if(seq2!==_pv.seq) return;
+      if(!_pv.retried){ _pv.retried=true; pvLoadCdn(_pv.ep, true); }
+      else _pvMsg('Không phát được. <button class="btn" type="button" data-pvretry>Thử lại</button>');
+    });
+    v.addEventListener('ended', ()=>{
+      if(seq2!==_pv.seq) return;
+      if(_pv.ep<_pv.free) pvLoadCdn(_pv.ep+1);
+      else _pvMsg('Hết '+_pv.free+' tập free'+(_pv.total?` · ${_pv.total} tập tổng`:''));
+    });
+    v.play().catch(()=>{ v.muted=true; v.play().catch(()=>{}); });
+  };
+  // srcdoc no-referrer: CDN 403 nếu có Referer từ :8800
+  const poster=j.poster?(' poster="'+esc(j.poster)+'"'):'';
+  frame.srcdoc='<!doctype html><meta name="referrer" content="no-referrer">'
+    +'<style>html,body{margin:0;height:100%;background:#000}video{width:100%;height:100%;display:block;background:#000;object-fit:contain}</style>'
+    +'<video src="'+esc(j.url)+'"'+poster+' controls playsinline preload="auto"></video>';
+}
+function closePreview(){
+  _pv.seq++;
+  const {mask}=_pvEls();
+  _pvStopLib(); _pvStopCdn(); _pvMsg(null);
+  const {tabs,sub,vid}=_pvEls();
+  if(tabs){ tabs.hidden=true; tabs.innerHTML=''; }
+  if(sub) sub.textContent='';
+  if(vid) vid.hidden=false;
+  if(mask) mask.classList.remove('on');
+}
+document.getElementById('prev-tabs')?.addEventListener('click', e=>{
+  const t=e.target.closest('[data-pvep]');
+  if(t){ const n=+t.dataset.pvep; if(n) pvLoadCdn(n); return; }
+});
+document.getElementById('prev-msg')?.addEventListener('click', e=>{
+  if(e.target.closest('[data-pvretry]')) pvLoadCdn(_pv.ep, true);
+});
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){ closePreview(); }
+});
+function selectLib(on){
+  document.querySelectorAll('input.lib').forEach(el=>{ el.checked=!!on; });
+  _rememberLibSel();
+  syncLibSelectAll();
+}
+function selectLibPending(){
+  document.querySelectorAll('input.lib').forEach(el=>{
+    const nm=el.dataset.name;
+    el.checked = el.dataset.done!=='1' && nm!==mqState.cur && !mqState.q.includes(nm);
+  });
+  _rememberLibSel();
+  syncLibSelectAll();
+}
+function syncLibSelectAll(){
+  if(document.querySelector('input.lib')) _rememberLibSel();
+  const all=[...document.querySelectorAll('input.lib')];
+  const n=all.filter(el=>el.checked).length;
+  const master=document.getElementById('lib-select-all');
+  if(master){
+    master.checked = all.length>0 && n===all.length;
+    master.indeterminate = n>0 && n<all.length;
+  }
+  const el=document.getElementById('lib-sel-n');
+  if(el) el.textContent=n+' chọn';
+}
+function libSelected(){
+  return [...document.querySelectorAll('input.lib:checked')].map(el=>el.dataset.name).filter(Boolean);
+}
+async function mergeNames(names, force=false){
+  if(!names.length){ alert('Chưa chọn series'); return; }
+  try{
+    const d=await jpost('/api/hg/merge',{names, force:!!force});
+    const skip=(d.skipped_done||[]).length;
+    if(skip) mergeHist.push({name:`bỏ qua ${skip} series đã gộp xong`, status:'', at:Date.now()/1000});
+    if(libSelectedNames){ names.forEach(n=>libSelectedNames.delete(n)); _saveLibSel(); }
+    document.querySelectorAll('input.lib:checked').forEach(el=>{ if(names.includes(el.dataset.name)) el.checked=false; });
+    switchLeftTab('merge');
+    await refreshMerge();
+    await refreshLibrary();
+  }catch(e){ alert(e.message); }
+}
+async function mergeSelected(){ await mergeNames(libSelected()); }
+
+async function deleteLibOne(btn){
+  const name = btn.getAttribute('data-delname');
+  if(!name) return;
+  if(!confirm(`⚠️ XÁC NHẬN XOÁ THƯ MỤC CỦA SERIES NÀY TRÊN Ổ ĐĨA D:\\Lib?\n\n• ${name}\n\nThao tác này sẽ xoá toàn bộ thư mục và các file video để giải phóng dung lượng.`)) return;
+  btn.disabled = true;
+  try{
+    const r = await jpost('/api/hg/library/delete', {names: [name]});
+    if(r.ok){
+      jobLog(`[lib] 🗑️ Đã xoá: ${name} (giải phóng ${r.freed_mb||0} MB)`);
+      if(libSelectedNames){ libSelectedNames.delete(name); _saveLibSel(); }
+      await refreshLibrary();
+    } else {
+      alert('Lỗi xoá: ' + (r.error || (r.errors||[]).join(', ')));
+    }
+  }catch(e){
+    alert('Lỗi: ' + e.message);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+async function deleteLibSelected(){
+  const names = libSelected();
+  if(!names.length){ alert('Chưa chọn series nào để xoá'); return; }
+  const preview = names.slice(0, 8).map(n => '• ' + n).join('\n') + (names.length > 8 ? `\n... và ${names.length - 8} series khác` : '');
+  const msg = `⚠️ XÁC NHẬN XOÁ VĨNH VIỄN ${names.length} SERIES ĐANG CHỌN KHỎI Ổ ĐĨA D:\\Lib?\n\nDanh sách:\n${preview}\n\nToàn bộ thư mục và video sẽ bị xoá khỏi ổ đĩa để giải phóng dung lượng!`;
+  if(!confirm(msg)) return;
+  try{
+    const r = await jpost('/api/hg/library/delete', {names});
+    if(r.ok){
+      alert(`🗑️ Đã xoá thành công ${r.count || (r.deleted||[]).length} series khỏi D:\\Lib (Giải phóng ${r.freed_mb||0} MB)!`);
+      if(libSelectedNames){ names.forEach(n => libSelectedNames.delete(n)); _saveLibSel(); }
+      await refreshLibrary();
+    } else {
+      alert('Lỗi: ' + (r.error || (r.errors||[]).join('\n')));
+    }
+  }catch(e){
+    alert('Lỗi: ' + e.message);
+  }
+}
+
+// ===== Tạo job UI3 từ file đã gộp =====
+let libRoot='', jobIndex={byName:{}, byPath:{}};
+const _normName=s=>String(s||'').replace(/\s*\(merged\)\s*$/i,'').trim().toLowerCase();
+const _normPath=s=>String(s||'').replace(/\//g,'\\').toLowerCase();
+function libPath(it){
+  return it&&it.merged_file&&libRoot ? libRoot.replace(/[\\/]+$/,'')+'\\'+it.name+'\\'+it.merged_file : '';
+}
+async function loadJobIndex(){
+  try{
+    const jobs=await jget('/api/jobs');
+    const byName={}, byPath={};
+    (Array.isArray(jobs)?jobs:[]).forEach(j=>{
+      const k=_normName(j.title_zh);
+      if(k) byName[k]=j;
+      const vp=((j.stages||{}).download||{}).video_path;
+      if(vp) byPath[_normPath(vp)]=j;
+    });
+    jobIndex={byName, byPath};
+  }catch(e){}
+}
+function jobFor(it){
+  return jobIndex.byPath[_normPath(libPath(it))] || jobIndex.byName[_normName(it.name)] || null;
+}
+function jobLog(s){ extraLog.push({at:Date.now()/1000, s}); renderLog(); }
+async function addJobs(names){
+  names=(names||[]).filter(Boolean);
+  if(!names.length){ alert('Chưa chọn series'); return; }
+  const items=names.map(n=>libItems.find(x=>x.name===n)).filter(Boolean);
+  const noFile=items.filter(it=>!it.merged_file).map(it=>it.name);
+  const busy=items.filter(it=>it.merged_file && (mqState.cur===it.name||mqState.q.includes(it.name))).map(it=>it.name);
+  let ok=items.filter(it=>it.merged_file && !busy.includes(it.name));
+  const dup=ok.filter(it=>jobFor(it));
+  if(dup.length && !confirm(`${dup.length} series đã có job:\n`+dup.map(it=>`· ${it.name} → ${jobFor(it).job_id}`).join('\n')
+      +'\n\nOK = vẫn tạo job mới · Huỷ = bỏ qua các series này')) ok=ok.filter(it=>!jobFor(it));
+  const skipped=[...noFile.map(n=>`${n} (chưa gộp)`), ...busy.map(n=>`${n} (đang trong hàng đợi gộp)`)];
+  if(skipped.length) jobLog(`[job] bỏ qua ${skipped.length}: ${skipped.join(' · ')}`);
+  if(!ok.length){ if(!skipped.length) jobLog('[job] không có series nào để tạo'); return; }
+  const autorun=!!document.getElementById('job-autorun')?.checked;
+  const ids=[];
+  for(const it of ok){
+    try{
+      const r=await jpost('/api/jobs/local-path',{path:libPath(it), title:it.name, move:false});
+      const id=r.job_id||(r.job_ids||[])[0];
+      if(id){ ids.push(id); jobLog(`[job] + ${it.name} → ${id}`); }
+    }catch(e){ jobLog(`[job] ✗ ${it.name}: ${e.message}`); }
+  }
+  if(ids.length && autorun){
+    try{ await jpost('/api/queue/jobs',{job_ids:ids, skip_done:false}); jobLog(`[job] đã xếp hàng chạy ${ids.length} job (CONFIG BATCH)`); }
+    catch(e){ jobLog(`[job] ✗ xếp hàng chạy: ${e.message}`); }
+  }
+  if(libSelectedNames){ ok.forEach(it=>libSelectedNames.delete(it.name)); _saveLibSel(); }
+  document.querySelectorAll('input.lib:checked').forEach(el=>{ if(ok.some(it=>it.name===el.dataset.name)) el.checked=false; });
+  await refreshLibrary();
+  if(ids.length===1 && confirm(`Đã tạo job ${ids[0]}. Mở trên UI3?`)) window.open('/ui3?job='+encodeURIComponent(ids[0]),'_blank');
+}
+async function addJobsSelected(){ await addJobs(libSelected()); }
+async function mergeAllLibrary(){
+  const pending=libItems.filter(x=>!(x.done||(x.merged&&!x.fragments))).map(x=>x.name);
+  if(!pending.length){ alert('Tất cả đã DONE'); return; }
+  if(!confirm('Enqueue merge '+pending.length+' series chưa xong?')) return;
+  await mergeNames(pending);
+}
+async function clearMergeQ(){
+  try{ await jpost('/api/hg/merge-queue/clear',{}); await refreshMerge(); }
+  catch(e){ alert(e.message); }
+}
+async function refreshMerge(){
+  try{
+    const d=await jget('/api/hg/merge-queue');
+    const hg=d.hongguo||{};
+    const ph=d.phase||{};
+    const b=d.batch||{};
+    const q=(d.queue||[]);
+    const pct=(ph.pct!=null)?ph.pct:(hg.running?(hg.pct||0):0);
+    const cur=d.current||ph.name||'';
+    const since=ph.started?Math.max(0,Math.floor(Date.now()/1000-ph.started)):0;
+    const el=since?` · ${Math.floor(since/60)}:${String(since%60).padStart(2,'0')}`:'';
+    let status;
+    if(cur) status=`<span class="ok">● Đang làm</span> <b>${esc(cur)}</b> · ${esc(ph.phase||'…')}`
+      +(ph.pct!=null?` · ${ph.pct}%`:'')+el;
+    else if(hg.running) status=`<span class="ok">● Hongguo đang gộp</span> <b>${esc(hg.name||'…')}</b> · ${hg.pct||0}%`;
+    else if(d.worker) status=`<span class="ok">● Worker</span> chờ…`;
+    else if(q.length) status=`<span class="err">⏸ Hàng đợi ${q.length} series đang dừng — chờ Hongguo mở để chạy tiếp</span>`;
+    else status=`<span class="muted">○ Idle</span>`;
+    if(b.total) status+=` · Lô: <b>${b.finished||0}/${b.total}</b> xong`+(b.errors?` (<span class="err">${b.errors} lỗi</span>)`:'');
+    if(hg.error && hg.running) status+=` · <span class="err">${esc(hg.error)}</span>`;
+    document.getElementById('merge-cur').innerHTML=status;
+    const n=q.length+(cur?1:0);
+    document.getElementById('tab-merge-n').textContent=n?String(n):'';
+    const sig=cur+'|'+q.join('|');
+    const changed=sig!==mqState.sig;
+    mqState={cur, q, sig};
+    if(changed) refreshLibrary();
+    const local=mergeHist.filter(h=>!h.status);
+    mergeHist=(d.history||[]).concat(local).sort((a,b)=>(a.at||0)-(b.at||0));
+    renderLog();
+    const lastBy={};
+    (d.history||[]).forEach(h=>{ if(h.status==='done'||h.status==='error') lastBy[h.name]=h; });
+    const results=Object.values(lastBy).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,20);
+    let h='<div class="mq-list">';
+    if(cur){
+      h+=`<h3>Đang làm</h3><div class="mq-item cur"><span class="n">▶</span><div class="t"><b>${esc(cur)}</b>
+        <div class="d">${esc(ph.phase||'…')}${ph.pct!=null?' · '+ph.pct+'%':''}${el}</div>
+        <div class="bar"><i style="width:${Math.min(100,pct)}%"></i></div></div></div>`;
+    }
+    h+=`<h3>Đang chờ (${q.length})</h3>`;
+    h+=q.length?q.map((nm,i)=>`<div class="mq-item"><span class="n">${i+1}</span><div class="t"><b>${esc(nm)}</b></div></div>`).join('')
+      :'<div class="muted">Không có series nào chờ.</div>';
+    if(results.length){
+      h+='<h3>Kết quả gần đây</h3>'+results.map(r=>`<div class="mq-item"><span class="n ${r.status==='done'?'ok':'err'}">${r.status==='done'?'✓':'✗'}</span>
+        <div class="t"><b>${esc(r.name)}</b><div class="d">${_fmtHms(r.at||0)}${r.detail?' · '+esc(r.detail):''}</div></div></div>`).join('');
+    }
+    document.getElementById('merge-list').innerHTML=h+'</div>';
+  }catch(e){
+    document.getElementById('merge-cur').textContent=e.message;
+  }
+}
+
+async function refreshAll(){
+  await ping();
+  // RPC helper 1 process + lock: library/status hay 5–15s.
+  // Không chờ chúng mới load bảng hot — nếu không UI kẹt "Đang tải bảng hot…".
+  const board = (leftTab==='rank')
+    ? (rankBoard==='catalog' ? loadCatalog(exPage||1) : loadRank())
+    : Promise.resolve();
+  await Promise.all([
+    board.catch(e=>console.warn('hongguo board', e)),
+    refreshStatus().catch(()=>{}),
+    refreshLibrary().catch(()=>{}),
+    refreshMerge().catch(()=>{}),
+  ]);
+}
+loadDlQueueFromStorage();
+const _libSeasonsEl=document.getElementById('libSeasons');
+if(_libSeasonsEl) _libSeasonsEl.addEventListener('click', lsnClick);
+refreshAll();
+setInterval(()=>{ ping(); refreshStatus(); refreshMerge(); }, 4000);
+setInterval(refreshLibrary, 15000);
+</script>
+</body>
+</html>

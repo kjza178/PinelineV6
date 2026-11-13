@@ -1,0 +1,32 @@
+# Build outputs
+**/target/
+**/node_modules/
+**/dist/
+__pycache__/
+*.pyc
+*.pdb
+*.rlib
+*.rmeta
+
+# Temp / scratch / backups
+scratch/
+"scratch/
+work/
+_to_delete/
+.backup_edit_*/
+*.backup_edit_*
+*.del
+*.tgz
+
+# Large models & media (use Git LFS if they must be versioned)
+models/
+*.th
+*.pth
+*.onnx
+*.ckpt
+*.safetensors
+*.wav
+*.mp3
+*.mp4
+*.mkv
+*.flac

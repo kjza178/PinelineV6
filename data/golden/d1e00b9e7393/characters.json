@@ -1,0 +1,54 @@
+{
+ "job": "d1e00b9e7393",
+ "status": "silver",
+ "characters": [
+  {
+   "id": "tranhuyen",
+   "zh": "陈玄",
+   "vi": "Trần Huyền",
+   "gender": "nam",
+   "role": "Nam chính, người tu tiên trở về (Trần đại sư/Trần tiên sinh)",
+   "relations": {}
+  },
+  {
+   "id": "tanvuphi",
+   "zh": "秦雨菲",
+   "vi": "Tần Vũ Phi",
+   "gender": "nữ",
+   "role": "Con gái Tần Chính, con tin bị bắt cóc (秦小姐)",
+   "relations": {
+    "tanchinh": "con gái",
+    "chunguyet": "chủ (Chu Nguyệt là tài xế của cô)",
+    "tranhuyen": "người cứu"
+   }
+  },
+  {
+   "id": "tanchinh",
+   "zh": "秦正",
+   "vi": "Tần Chính",
+   "gender": "nam",
+   "role": "Bố Tần Vũ Phi (ASR: 秦正海)",
+   "relations": {
+    "tanvuphi": "bố"
+   }
+  },
+  {
+   "id": "chunguyet",
+   "zh": "周月",
+   "vi": "Chu Nguyệt",
+   "gender": "nam",
+   "role": "Tài xế nhà họ Tần, kẻ giết người hàng loạt, kẻ bắt cóc (ASR: 周越/周夜)",
+   "relations": {
+    "tanvuphi": "tài xế cũ → kẻ bắt cóc"
+   }
+  },
+  {
+   "id": "canhsat",
+   "zh": "警察",
+   "vi": "Cảnh sát (không tên)",
+   "gender": "nam?",
+   "role": "Cán bộ cảnh sát phụ trách vụ án (danh tính không rõ)",
+   "relations": {}
+  }
+ ]
+}

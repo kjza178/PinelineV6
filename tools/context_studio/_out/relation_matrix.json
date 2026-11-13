@@ -1,0 +1,26 @@
+[
+  {
+    "who": "苏婉儿",
+    "to": "chung",
+    "self": "đệ tử",
+    "call": "các hạ"
+  },
+  {
+    "who": "苏婉儿",
+    "to": "Sư phụ",
+    "self": "đệ tử",
+    "call": "sư phụ"
+  },
+  {
+    "who": "Sư phụ",
+    "to": "chung",
+    "self": "bổn tọa",
+    "call": "ngươi"
+  },
+  {
+    "who": "Sư phụ",
+    "to": "苏婉儿",
+    "self": "bổn tọa",
+    "call": "đồ nhi"
+  }
+]

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Pineline V6</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header>
+  <h1>Pineline V6</h1>
+  <span id="inst"></span>
+  <span id="conn" class="conn off">mất kết nối</span>
+  <input id="q" placeholder="Lọc job…">
+  <span id="count"></span>
+</header>
+<main>
+  <table>
+    <thead><tr><th>Job</th><th>Trạng thái</th><th>download</th><th>asr</th><th>translate</th><th>tts</th><th>mux</th><th>Ghi chú</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

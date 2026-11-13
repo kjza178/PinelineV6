@@ -1,0 +1,979 @@
+{
+ "generated": "2026-11-12 07:54",
+ "golden": "data\\golden",
+ "work_root": "D:\\PinelineV6_work\\golden_ab",
+ "a": "base",
+ "b": "simple",
+ "jobs": {
+  "32da3d8f225b": {
+   "path_a": "D:\\PinelineV6_work\\golden_ab\\32da3d8f225b_base\\script.json",
+   "path_b": "D:\\PinelineV6_work\\golden_ab\\32da3d8f225b_simple\\script.json",
+   "has_a": true,
+   "has_b": true,
+   "unaligned_a": [],
+   "unaligned_b": [],
+   "n_both": 141,
+   "chrF_a": 61.77,
+   "chrF_b": 59.19,
+   "n_down": 54,
+   "n_up": 76,
+   "pron_wrong_a": 57,
+   "pron_wrong_b": 2,
+   "n_unaligned_a": 0,
+   "n_unaligned_b": 0
+  },
+  "9dedde16e35b": {
+   "path_a": "D:\\PinelineV6_work\\golden_ab\\9dedde16e35b_base\\script.json",
+   "path_b": "D:\\PinelineV6_work\\golden_ab\\9dedde16e35b_simple\\script.json",
+   "has_a": true,
+   "has_b": true,
+   "unaligned_a": [],
+   "unaligned_b": [],
+   "n_both": 140,
+   "chrF_a": 74.31,
+   "chrF_b": 67.03,
+   "n_down": 68,
+   "n_up": 54,
+   "pron_wrong_a": 37,
+   "pron_wrong_b": 2,
+   "n_unaligned_a": 0,
+   "n_unaligned_b": 0
+  },
+  "d1e00b9e7393": {
+   "path_a": "D:\\PinelineV6_work\\golden_ab\\d1e00b9e7393_base\\script.json",
+   "path_b": "D:\\PinelineV6_work\\golden_ab\\d1e00b9e7393_simple\\script.json",
+   "has_a": true,
+   "has_b": true,
+   "unaligned_a": [],
+   "unaligned_b": [],
+   "n_both": 144,
+   "chrF_a": 48.92,
+   "chrF_b": 54.27,
+   "n_down": 43,
+   "n_up": 81,
+   "pron_wrong_a": 34,
+   "pron_wrong_b": 7,
+   "n_unaligned_a": 0,
+   "n_unaligned_b": 0
+  },
+  "f0834acf0cc0": {
+   "path_a": "D:\\PinelineV6_work\\golden_ab\\f0834acf0cc0_base\\script.json",
+   "path_b": "D:\\PinelineV6_work\\golden_ab\\f0834acf0cc0_simple\\script.json",
+   "has_a": true,
+   "has_b": true,
+   "unaligned_a": [],
+   "unaligned_b": [
+    {
+     "i": 542,
+     "zh_gold": "杀吧，",
+     "rows_at_i": [
+      {
+       "zh": "杀吧杀吧，",
+       "vi": "Cứ giết đi, cứ giết đi,"
+      }
+     ],
+     "kind": "lech zh: lap ASR chua go (stutter) -> script giu nguyen ASR, gold da go",
+     "neighbors": [
+      {
+       "i": 541,
+       "zh": "呵，"
+      },
+      {
+       "i": 543,
+       "zh": "最好把整个华夏全灭了。"
+      }
+     ]
+    }
+   ],
+   "n_both": 141,
+   "chrF_a": 73.49,
+   "chrF_b": 62.77,
+   "n_down": 73,
+   "n_up": 53,
+   "pron_wrong_a": 29,
+   "pron_wrong_b": 8,
+   "n_unaligned_a": 0,
+   "n_unaligned_b": 1
+  }
+ },
+ "drops": [
+  {
+   "job": "9dedde16e35b",
+   "i": 560,
+   "zh": "啊。",
+   "gold": "À.",
+   "a": "À.",
+   "b": "A!",
+   "chrf_a": 100.0,
+   "chrf_b": 0.0,
+   "delta": -100.0,
+   "tags": []
+  },
+  {
+   "job": "9dedde16e35b",
+   "i": 608,
+   "zh": "啊。",
+   "gold": "À.",
+   "a": "À.",
+   "b": "Á!",
+   "chrf_a": 100.0,
+   "chrf_b": 0.0,
+   "delta": -100.0,
+   "tags": []
+  },
+  {
+   "job": "9dedde16e35b",
+   "i": 609,
+   "zh": "啊。",
+   "gold": "À.",
+   "a": "À.",
+   "b": "Á!",
+   "chrf_a": 100.0,
+   "chrf_b": 0.0,
+   "delta": -100.0,
+   "tags": []
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 523,
+   "zh": "再说了，",
+   "gold": "Vả lại,",
+   "a": "Vả lại,",
+   "b": "Hơn nữa,",
+   "chrf_a": 100.0,
+   "chrf_b": 2.7,
+   "delta": -97.3,
+   "tags": []
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 473,
+   "zh": "老大就是老大。",
+   "gold": "Lão đại chính là lão đại.",
+   "a": "Lão đại chính là lão đại.",
+   "b": "Trần tiểu tử đúng là Trần tiểu tử!",
+   "chrf_a": 100.0,
+   "chrf_b": 5.5,
+   "delta": -94.5,
+   "tags": []
+  },
+  {
+   "job": "32da3d8f225b",
+   "i": 3041,
+   "zh": "学长。",
+   "gold": "Học trưởng.",
+   "a": "Học trưởng.",
+   "b": "Anh.",
+   "chrf_a": 100.0,
+   "chrf_b": 8.5,
+   "delta": -91.5,
+   "tags": []
+  },
+  {
+   "job": "32da3d8f225b",
+   "i": 3081,
+   "zh": "学长。",
+   "gold": "Học trưởng.",
+   "a": "Học trưởng.",
+   "b": "Anh.",
+   "chrf_a": 100.0,
+   "chrf_b": 8.5,
+   "delta": -91.5,
+   "tags": []
+  },
+  {
+   "job": "32da3d8f225b",
+   "i": 3098,
+   "zh": "学长。",
+   "gold": "Học trưởng.",
+   "a": "Học trưởng.",
+   "b": "Anh.",
+   "chrf_a": 100.0,
+   "chrf_b": 8.5,
+   "delta": -91.5,
+   "tags": []
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 536,
+   "zh": "少辰。",
+   "gold": "Thiếu Thần.",
+   "a": "Thiếu Thần.",
+   "b": "Thôi đi.",
+   "chrf_a": 100.0,
+   "chrf_b": 9.1,
+   "delta": -90.9,
+   "tags": []
+  },
+  {
+   "job": "32da3d8f225b",
+   "i": 3070,
+   "zh": "学妹。",
+   "gold": "Học muội.",
+   "a": "Học muội.",
+   "b": "Em.",
+   "chrf_a": 100.0,
+   "chrf_b": 9.5,
+   "delta": -90.5,
+   "tags": []
+  },
+  {
+   "job": "d1e00b9e7393",
+   "i": 2562,
+   "zh": "走啊。",
+   "gold": "Đi thôi.",
+   "a": "Đi thôi.",
+   "b": "Chạy đi!",
+   "chrf_a": 100.0,
+   "chrf_b": 9.9,
+   "delta": -90.1,
+   "tags": []
+  },
+  {
+   "job": "32da3d8f225b",
+   "i": 3063,
+   "zh": "胡说八道。",
+   "gold": "Nói hươu nói vượn.",
+   "a": "Nói hươu nói vượn.",
+   "b": "Nói nhảm!",
+   "chrf_a": 100.0,
+   "chrf_b": 10.2,
+   "delta": -89.8,
+   "tags": []
+  },
+  {
+   "job": "9dedde16e35b",
+   "i": 572,
+   "zh": "玄澈师弟。",
+   "gold": "Huyền Triệt sư đệ.",
+   "a": "Huyền Triệt sư đệ.",
+   "b": "Âm Dương sư huynh.",
+   "chrf_a": 100.0,
+   "chrf_b": 12.6,
+   "delta": -87.4,
+   "tags": []
+  },
+  {
+   "job": "32da3d8f225b",
+   "i": 3047,
+   "zh": "这样啊。",
+   "gold": "Thế à.",
+   "a": "Thế à.",
+   "b": "Vậy à.",
+   "chrf_a": 100.0,
+   "chrf_b": 13.0,
+   "delta": -87.0,
+   "tags": []
+  },
+  {
+   "job": "32da3d8f225b",
+   "i": 2987,
+   "zh": "等着。",
+   "gold": "Đợi đấy.",
+   "a": "Đợi đấy.",
+   "b": "Cứ chờ đấy!",
+   "chrf_a": 100.0,
+   "chrf_b": 15.1,
+   "delta": -84.9,
+   "tags": []
+  },
+  {
+   "job": "32da3d8f225b",
+   "i": 3052,
+   "zh": "学长，",
+   "gold": "Học trưởng ơi.",
+   "a": "Học trưởng ơi,",
+   "b": "Anh,",
+   "chrf_a": 89.1,
+   "chrf_b": 4.8,
+   "delta": -84.3,
+   "tags": []
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 513,
+   "zh": "见过？",
+   "gold": "Gặp qua?",
+   "a": "Gặp qua?",
+   "b": "Từng gặp rồi à?",
+   "chrf_a": 100.0,
+   "chrf_b": 15.9,
+   "delta": -84.1,
+   "tags": []
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 496,
+   "zh": "老大。",
+   "gold": "Lão đại.",
+   "a": "Lão đại.",
+   "b": "Đại ca!",
+   "chrf_a": 100.0,
+   "chrf_b": 16.6,
+   "delta": -83.4,
+   "tags": []
+  },
+  {
+   "job": "32da3d8f225b",
+   "i": 3085,
+   "zh": "那是什么？",
+   "gold": "Đó là cái gì?",
+   "a": "Đó là cái gì?",
+   "b": "Thế là gì?",
+   "chrf_a": 100.0,
+   "chrf_b": 16.7,
+   "delta": -83.3,
+   "tags": []
+  },
+  {
+   "job": "9dedde16e35b",
+   "i": 605,
+   "zh": "唉。",
+   "gold": "Ối.",
+   "a": "Ối.",
+   "b": "Haiz...",
+   "chrf_a": 100.0,
+   "chrf_b": 17.5,
+   "delta": -82.5,
+   "tags": []
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 528,
+   "zh": "唉。",
+   "gold": "Ối.",
+   "a": "Ối.",
+   "b": "Haiz...",
+   "chrf_a": 100.0,
+   "chrf_b": 17.5,
+   "delta": -82.5,
+   "tags": []
+  },
+  {
+   "job": "9dedde16e35b",
+   "i": 606,
+   "zh": "不好意思，",
+   "gold": "Xin lỗi nhé.",
+   "a": "Xin lỗi nhé,",
+   "b": "Ngại quá,",
+   "chrf_a": 85.9,
+   "chrf_b": 3.5,
+   "delta": -82.4,
+   "tags": []
+  },
+  {
+   "job": "32da3d8f225b",
+   "i": 3078,
+   "zh": "呵呵。",
+   "gold": "Ha",
+   "a": "Ha",
+   "b": "Hê hê.",
+   "chrf_a": 100.0,
+   "chrf_b": 19.2,
+   "delta": -80.8,
+   "tags": []
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 455,
+   "zh": "这种情况。",
+   "gold": "Tình huống này.",
+   "a": "Tình huống này.",
+   "b": "Trong trường hợp này...",
+   "chrf_a": 100.0,
+   "chrf_b": 19.5,
+   "delta": -80.5,
+   "tags": []
+  },
+  {
+   "job": "9dedde16e35b",
+   "i": 694,
+   "zh": "既然如此。",
+   "gold": "Đã như vậy.",
+   "a": "Đã như vậy.",
+   "b": "Nếu đã vậy,",
+   "chrf_a": 100.0,
+   "chrf_b": 19.7,
+   "delta": -80.3,
+   "tags": []
+  },
+  {
+   "job": "9dedde16e35b",
+   "i": 604,
+   "zh": "呃。",
+   "gold": "Ừ.",
+   "a": "Ừ.",
+   "b": "Ờ...",
+   "chrf_a": 100.0,
+   "chrf_b": 20.8,
+   "delta": -79.2,
+   "tags": []
+  },
+  {
+   "job": "d1e00b9e7393",
+   "i": 2575,
+   "zh": "呃。",
+   "gold": "Ừ.",
+   "a": "Ừ.",
+   "b": "Ờ...",
+   "chrf_a": 100.0,
+   "chrf_b": 20.8,
+   "delta": -79.2,
+   "tags": []
+  },
+  {
+   "job": "32da3d8f225b",
+   "i": 3111,
+   "zh": "怎么刹车啊？",
+   "gold": "Phanh kiểu gì vậy?",
+   "a": "Phanh kiểu gì vậy?",
+   "b": "Phanh thế nào đây?",
+   "chrf_a": 100.0,
+   "chrf_b": 21.9,
+   "delta": -78.1,
+   "tags": [
+    "meaning"
+   ]
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 569,
+   "zh": "哼。",
+   "gold": "Hử.",
+   "a": "Hử.",
+   "b": "Hừ.",
+   "chrf_a": 100.0,
+   "chrf_b": 22.2,
+   "delta": -77.8,
+   "tags": []
+  },
+  {
+   "job": "9dedde16e35b",
+   "i": 659,
+   "zh": "恐怕连半年都撑不过去，",
+   "gold": "Chỉ sợ ngay cả nửa năm cũng không chống đỡ nổi",
+   "a": "Chỉ sợ ngay cả nửa năm cũng không chống đỡ nổi",
+   "b": "E là ngươi không trụ nổi quá nửa năm.",
+   "chrf_a": 100.0,
+   "chrf_b": 22.6,
+   "delta": -77.4,
+   "tags": []
+  }
+ ],
+ "pron_wrong_b": [
+  {
+   "job": "32da3d8f225b",
+   "i": 2973,
+   "spk": "hahaikhon",
+   "to": "minuong",
+   "zh": "我给你们策反了个未来执事。",
+   "gold": "Tôi đã kéo về cho các cô một chấp sự tương lai.",
+   "a": "Tôi đã lôi kéo các cậu một chấp sự tương lai.",
+   "b": "Tôi dụ được một chấp sự tương lai cho các người.",
+   "expect_self": [
+    "tôi"
+   ],
+   "expect_call": [
+    "các cô",
+    "cô"
+   ],
+   "viol_b": [
+    [
+     "call",
+     "các người"
+    ]
+   ],
+   "verdict_a": "wrong",
+   "viol_a": [
+    [
+     "call",
+     "các cậu"
+    ]
+   ]
+  },
+  {
+   "job": "32da3d8f225b",
+   "i": 3035,
+   "spk": "cothanh",
+   "to": "hathunhien",
+   "zh": "就算我不说，",
+   "gold": "dù anh không nói,",
+   "a": "Dù tôi không nói gì,",
+   "b": "dù em không nói,",
+   "expect_self": [
+    "anh"
+   ],
+   "expect_call": null,
+   "viol_b": [
+    [
+     "kin",
+     "em"
+    ]
+   ],
+   "verdict_a": "wrong",
+   "viol_a": [
+    [
+     "self",
+     "tôi"
+    ]
+   ]
+  },
+  {
+   "job": "9dedde16e35b",
+   "i": 572,
+   "spk": "dth",
+   "to": "adht",
+   "zh": "玄澈师弟。",
+   "gold": "Huyền Triệt sư đệ.",
+   "a": "Huyền Triệt sư đệ.",
+   "b": "Âm Dương sư huynh.",
+   "expect_self": null,
+   "expect_call": [
+    "sư đệ"
+   ],
+   "viol_b": [
+    [
+     "kin",
+     "sư huynh"
+    ]
+   ],
+   "verdict_a": "correct",
+   "viol_a": null
+  },
+  {
+   "job": "9dedde16e35b",
+   "i": 638,
+   "spk": "?",
+   "to": "mkl",
+   "zh": "你老人家还不出手吗？",
+   "gold": "lão nhân gia còn chưa ra tay sao?",
+   "a": "Lão nhân gia cậu còn chưa ra tay sao?",
+   "b": "Ngài còn chưa ra tay sao?",
+   "expect_self": null,
+   "expect_call": [
+    "lão nhân gia"
+   ],
+   "viol_b": [
+    [
+     "call",
+     "Ngài"
+    ]
+   ],
+   "verdict_a": "wrong",
+   "viol_a": [
+    [
+     "call",
+     "cậu"
+    ]
+   ]
+  },
+  {
+   "job": "d1e00b9e7393",
+   "i": 2524,
+   "spk": "chunguyet",
+   "to": "tanvuphi",
+   "zh": "你比以前聪明了一些。",
+   "gold": "Cô thông minh hơn trước rồi đấy.",
+   "a": "Cậu thông minh hơn trước một chút.",
+   "b": "Anh cũng khôn hơn trước một chút rồi.",
+   "expect_self": null,
+   "expect_call": [
+    "cô",
+    "mày"
+   ],
+   "viol_b": [
+    [
+     "kin",
+     "Anh"
+    ]
+   ],
+   "verdict_a": "wrong",
+   "viol_a": [
+    [
+     "call",
+     "Cậu"
+    ]
+   ]
+  },
+  {
+   "job": "d1e00b9e7393",
+   "i": 2570,
+   "spk": "tranhuyen",
+   "to": "chunguyet",
+   "zh": "我现在把你第三条腿也废掉。",
+   "gold": "Tôi phế luôn cái chân thứ ba của anh.",
+   "a": "Bây giờ tôi cũng phế luôn cái chân thứ ba của cậu.",
+   "b": "tôi phế luôn chân thứ ba của cậu.",
+   "expect_self": [
+    "tôi",
+    "tao"
+   ],
+   "expect_call": [
+    "anh",
+    "mày"
+   ],
+   "viol_b": [
+    [
+     "call",
+     "cậu"
+    ]
+   ],
+   "verdict_a": "wrong",
+   "viol_a": [
+    [
+     "call",
+     "cậu"
+    ]
+   ]
+  },
+  {
+   "job": "d1e00b9e7393",
+   "i": 2610,
+   "spk": "tranhuyen",
+   "to": "tanvuphi",
+   "zh": "别怕，是你父亲来了。",
+   "gold": "Đừng sợ, bố cô tới rồi.",
+   "a": "Đừng sợ, là phụ thân cậu đến rồi.",
+   "b": "Đừng sợ, bố cháu đến rồi.",
+   "expect_self": null,
+   "expect_call": [
+    "cô"
+   ],
+   "viol_b": [
+    [
+     "kin",
+     "cháu"
+    ]
+   ],
+   "verdict_a": "wrong",
+   "viol_a": [
+    [
+     "call",
+     "cậu"
+    ]
+   ]
+  },
+  {
+   "job": "d1e00b9e7393",
+   "i": 2626,
+   "spk": "canhsat",
+   "to": "tranhuyen",
+   "zh": "范围虽然您打断了他两条腿，",
+   "gold": "Tuy anh đánh gãy hai chân hắn,",
+   "a": "Dù ngài đã đánh gãy cả hai chân hắn,",
+   "b": "Dù ngài đã đánh gãy hai chân hắn,",
+   "expect_self": null,
+   "expect_call": [
+    "anh"
+   ],
+   "viol_b": [
+    [
+     "call",
+     "ngài"
+    ]
+   ],
+   "verdict_a": "wrong",
+   "viol_a": [
+    [
+     "call",
+     "ngài"
+    ]
+   ]
+  },
+  {
+   "job": "d1e00b9e7393",
+   "i": 2629,
+   "spk": "canhsat",
+   "to": "tranhuyen",
+   "zh": "您出手制服他，",
+   "gold": "anh ra tay khống chế hắn,",
+   "a": "Ngài ra tay khống chế hắn,",
+   "b": "ngài ra tay khống chế hắn,",
+   "expect_self": null,
+   "expect_call": [
+    "anh"
+   ],
+   "viol_b": [
+    [
+     "call",
+     "ngài"
+    ]
+   ],
+   "verdict_a": "wrong",
+   "viol_a": [
+    [
+     "call",
+     "Ngài"
+    ]
+   ]
+  },
+  {
+   "job": "d1e00b9e7393",
+   "i": 2634,
+   "spk": "canhsat",
+   "to": "tranhuyen",
+   "zh": "他活该您无需承担刑事责任，",
+   "gold": "anh không phải chịu trách nhiệm hình sự,",
+   "a": "trách nhiệm hình sự,",
+   "b": "Hắn đáng đời, ngài không phải chịu trách nhiệm hình sự.",
+   "expect_self": null,
+   "expect_call": [
+    "anh"
+   ],
+   "viol_b": [
+    [
+     "call",
+     "ngài"
+    ]
+   ],
+   "verdict_a": "omitted",
+   "viol_a": null
+  },
+  {
+   "job": "d1e00b9e7393",
+   "i": 2638,
+   "spk": "canhsat",
+   "to": "tranhuyen",
+   "zh": "不过后续还需要请您配合做一份详细笔录，可以。",
+   "gold": "nhưng sau đó vẫn cần anh phối hợp làm một bản tường trình chi tiết, được chứ?",
+   "a": "Tuy nhiên sau này còn cần nhờ ngài phối hợp làm một bản biên bản chi tiết, được.",
+   "b": "Nhưng sau đó, mong ngài phối hợp lấy lời khai chi tiết, được chứ?",
+   "expect_self": null,
+   "expect_call": [
+    "anh"
+   ],
+   "viol_b": [
+    [
+     "call",
+     "ngài"
+    ]
+   ],
+   "verdict_a": "wrong",
+   "viol_a": [
+    [
+     "call",
+     "ngài"
+    ]
+   ]
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 465,
+   "spk": "dongdoi",
+   "to": "tranphong",
+   "zh": "老大啥意思啊？",
+   "gold": "Lão đại có ý gì vậy?",
+   "a": "Lão đại có ý gì vậy?",
+   "b": "Trần tiểu tử, ý gì vậy?",
+   "expect_self": null,
+   "expect_call": [
+    "lão đại"
+   ],
+   "viol_b": [
+    [
+     "kin",
+     "tiểu tử"
+    ]
+   ],
+   "verdict_a": "correct",
+   "viol_a": null
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 466,
+   "spk": "dongdoi2",
+   "to": "tranphong",
+   "zh": "你是说这玩意儿是有人故意弄出来的。",
+   "gold": "Ý anh là thứ này có người cố tình tạo ra?",
+   "a": "Ý cậu là thứ này có người cố ý tạo ra.",
+   "b": "Ý Trần tiểu tử là có kẻ cố tình gây ra chuyện này à?",
+   "expect_self": null,
+   "expect_call": [
+    "anh",
+    "lão đại"
+   ],
+   "viol_b": [
+    [
+     "kin",
+     "tiểu tử"
+    ]
+   ],
+   "verdict_a": "wrong",
+   "viol_a": [
+    [
+     "call",
+     "cậu"
+    ]
+   ]
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 469,
+   "spk": "tranphong",
+   "to": "dongdoi",
+   "zh": "我也觉得是。",
+   "gold": "Tôi cũng thấy vậy.",
+   "a": "Tôi cũng cảm thấy đúng.",
+   "b": "Lão tử cũng thấy vậy, Trần tiểu tử.",
+   "expect_self": [
+    "tôi",
+    "anh"
+   ],
+   "expect_call": null,
+   "viol_b": [
+    [
+     "self",
+     "Lão tử"
+    ],
+    [
+     "kin",
+     "tiểu tử"
+    ]
+   ],
+   "verdict_a": "correct",
+   "viol_a": null
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 485,
+   "spk": "tranphong",
+   "to": "tudu",
+   "zh": "其他办法我还真不知道。",
+   "gold": "Những cách khác tôi thật sự không biết.",
+   "a": "Những cách khác tôi thật sự không biết.",
+   "b": "Ngoài cách đó, ta thật sự không biết.",
+   "expect_self": [
+    "tôi"
+   ],
+   "expect_call": null,
+   "viol_b": [
+    [
+     "self",
+     "ta"
+    ]
+   ],
+   "verdict_a": "correct",
+   "viol_a": null
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 496,
+   "spk": "dongdoi",
+   "to": "tranphong",
+   "zh": "老大。",
+   "gold": "Lão đại.",
+   "a": "Lão đại.",
+   "b": "Đại ca!",
+   "expect_self": null,
+   "expect_call": [
+    "lão đại"
+   ],
+   "viol_b": [
+    [
+     "kin",
+     "Đại ca"
+    ]
+   ],
+   "verdict_a": "correct",
+   "viol_a": null
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 504,
+   "spk": "dangxa",
+   "to": "tranphong",
+   "zh": "你不知道找个空空点的地方召唤我吗？",
+   "gold": "Nhóc không biết tìm chỗ nào trống trải mà triệu hồi lão tử à?",
+   "a": "Cậu không biết tìm một chỗ trống để triệu hồi tôi sao?",
+   "b": "Không biết tìm chỗ rộng hơn rồi hãy triệu hồi tôi à?",
+   "expect_self": [
+    "lão tử"
+   ],
+   "expect_call": [
+    "tiểu tử",
+    "nhóc",
+    "Trần tiểu tử",
+    "mày"
+   ],
+   "viol_b": [
+    [
+     "self",
+     "tôi"
+    ]
+   ],
+   "verdict_a": "wrong",
+   "viol_a": [
+    [
+     "call",
+     "Cậu"
+    ],
+    [
+     "self",
+     "tôi"
+    ]
+   ]
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 525,
+   "spk": "dangxa",
+   "to": "tranphong",
+   "zh": "也是哦哥也是神级了怕个屁。",
+   "gold": "Cũng phải, lão tử đây cũng là Thần cấp rồi, sợ cái quái gì.",
+   "a": "Cũng phải nha ca cũng là Thần Cấp, sợ cái gì chứ.",
+   "b": "Cũng phải, Trần tiểu tử cũng Thần Cấp rồi, sợ cái quái gì!",
+   "expect_self": [
+    "lão tử",
+    "anh mày"
+   ],
+   "expect_call": null,
+   "viol_b": [
+    [
+     "kin",
+     "tiểu tử"
+    ]
+   ],
+   "verdict_a": "omitted",
+   "viol_a": null
+  },
+  {
+   "job": "f0834acf0cc0",
+   "i": 529,
+   "spk": "tranphong",
+   "to": "dangxa",
+   "zh": "好吧那你去吧加油。",
+   "gold": "Thôi được, vậy ông đi đi, cố lên.",
+   "a": "Được rồi, vậy cậu đi cố lên nhé.",
+   "b": "Thôi được, Trần tiểu tử cứ đi đi, cố lên!",
+   "expect_self": null,
+   "expect_call": [
+    "ông",
+    "lão Đằng"
+   ],
+   "viol_b": [
+    [
+     "kin",
+     "tiểu tử"
+    ]
+   ],
+   "verdict_a": "wrong",
+   "viol_a": [
+    [
+     "call",
+     "cậu"
+    ]
+   ]
+  }
+ ],
+ "idiom_wrong_b": [],
+ "drop_by_tag_le_minus10": {
+  "(khong tag)": 162,
+  "pronoun": 14,
+  "meaning": 12,
+  "style": 3,
+  "halfcue_dup": 2,
+  "name": 1
+ },
+ "n_drop_le_minus10": 191,
+ "n_pairs": 566
+}
