@@ -39,6 +39,22 @@ GLOBAL_PUBLISH_LOCK_FILE = DATA_DIR / ".auto_publish_global.lock"
 PUBLISH_QUEUE_FILE = DATA_DIR / "auto_publish_queue.json"
 QUEUE_LOCK_FILE = DATA_DIR / ".auto_publish_queue"
 
+
+_DEFAULT_DATA_DIR = DATA_DIR
+
+
+def _data_path(const: Path) -> Path:
+    """Đường dẫn file runtime theo DATA_DIR HIỆN TẠI.
+
+    Các hằng *_FILE ở trên tính lúc import. Nếu DATA_DIR bị đổi sau đó (test monkeypatch, instance khác)
+    mà hằng vẫn trỏ thư mục mặc định → trả file cùng tên dưới DATA_DIR mới, để không ghi nhầm vào data/
+    thật. Hằng đã bị đặt riêng (không còn nằm trong thư mục mặc định) thì giữ nguyên.
+    """
+    if DATA_DIR != _DEFAULT_DATA_DIR and const.parent == _DEFAULT_DATA_DIR:
+        return DATA_DIR / const.name
+    return const
+
+
 # YouTube thường từ chối video >~12h; 11.5h + 64GiB = soft refuse (auto) / confirm (manual).
 YT_MAX_DURATION_SEC = 41400
 YT_HUGE_SIZE_BYTES = 64 * 1024 * 1024 * 1024
@@ -69,9 +85,9 @@ AUTO_STATE: dict[str, Any] = {
 def get_auto_state() -> dict[str, Any]:
     """Lấy trạng thái tiến trình tự động xuất bản (đồng bộ liên tiến trình qua file)."""
     with _lock:
-        if STATE_FILE.is_file():
+        if _data_path(STATE_FILE).is_file():
             try:
-                data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+                data = json.loads(_data_path(STATE_FILE).read_text(encoding="utf-8"))
                 if isinstance(data, dict):
                     AUTO_STATE.update(data)
             except Exception:
@@ -95,9 +111,9 @@ def update_auto_state(**kwargs) -> dict[str, Any]:
     trạng thái đang upload của tiến trình chính (server).
     """
     with _lock:
-        if STATE_FILE.is_file():
+        if _data_path(STATE_FILE).is_file():
             try:
-                disk_data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+                disk_data = json.loads(_data_path(STATE_FILE).read_text(encoding="utf-8"))
                 if isinstance(disk_data, dict):
                     AUTO_STATE.update(disk_data)
             except Exception:
@@ -106,17 +122,17 @@ def update_auto_state(**kwargs) -> dict[str, Any]:
         cur = dict(AUTO_STATE)
     try:
         from core.fileio import atomic_write_json
-        atomic_write_json(STATE_FILE, cur)
+        atomic_write_json(_data_path(STATE_FILE), cur)
     except Exception:
         pass
     return cur
 
 
 def _read_publish_queue() -> list[dict[str, Any]]:
-    if not PUBLISH_QUEUE_FILE.is_file():
+    if not _data_path(PUBLISH_QUEUE_FILE).is_file():
         return []
     try:
-        data = json.loads(PUBLISH_QUEUE_FILE.read_text(encoding="utf-8"))
+        data = json.loads(_data_path(PUBLISH_QUEUE_FILE).read_text(encoding="utf-8"))
         return data if isinstance(data, list) else []
     except Exception:
         return []
@@ -125,7 +141,7 @@ def _read_publish_queue() -> list[dict[str, Any]]:
 def _write_publish_queue(items: list[dict[str, Any]]) -> None:
     try:
         from core.fileio import atomic_write_json
-        atomic_write_json(PUBLISH_QUEUE_FILE, items)
+        atomic_write_json(_data_path(PUBLISH_QUEUE_FILE), items)
     except Exception:
         pass
 
@@ -179,7 +195,7 @@ def _enqueue_job_record(
         return _read_publish_queue()
     try:
         from core.fileio import file_lock
-        with file_lock(QUEUE_LOCK_FILE, timeout=5.0, stale_sec=30.0):
+        with file_lock(_data_path(QUEUE_LOCK_FILE), timeout=5.0, stale_sec=30.0):
             items = _read_publish_queue()
             existing = next((it for it in items if it.get("job_id") == job_id), None)
             if existing:
@@ -228,7 +244,7 @@ def _dequeue_job_record(job_id: str) -> list[dict[str, Any]]:
     job_id = str(job_id or "").strip()
     try:
         from core.fileio import file_lock
-        with file_lock(QUEUE_LOCK_FILE, timeout=5.0, stale_sec=30.0):
+        with file_lock(_data_path(QUEUE_LOCK_FILE), timeout=5.0, stale_sec=30.0):
             items = [it for it in _read_publish_queue() if it.get("job_id") != job_id]
             _write_publish_queue(items)
             return items
@@ -262,9 +278,17 @@ def touch_active_locks() -> None:
 
 
 def is_pid_alive(pid: int) -> bool:
-    """Kiểm tra xem PID có đang thực sự chạy trên Windows không."""
+    """Kiểm tra PID có đang chạy không (Windows: OpenProcess; hệ khác: tín hiệu 0)."""
     if pid <= 0:
         return False
+    if os.name != "nt":
+        try:
+            os.kill(int(pid), 0)
+            return True
+        except PermissionError:
+            return True     # có tiến trình nhưng của user khác
+        except OSError:
+            return False
     try:
         import ctypes
         kernel32 = ctypes.windll.kernel32
@@ -351,7 +375,7 @@ def acquire_global_publish_lock(
     Nếu có job trước đang upload dở, hàm này sẽ CHỜ đến khi job trước hoàn tất,
     tuyệt đối không ghi đè hoặc bỏ qua job trước hay job sau.
     """
-    lock_path = GLOBAL_PUBLISH_LOCK_FILE
+    lock_path = _data_path(GLOBAL_PUBLISH_LOCK_FILE)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
     logged_wait = False
@@ -419,12 +443,12 @@ def is_any_job_uploading(stale_sec: float = 14400.0) -> tuple[bool, str | None]:
     with _lock:
         if _active_jobs:
             return True, next(iter(_active_jobs))
-    if GLOBAL_PUBLISH_LOCK_FILE.exists():
+    if _data_path(GLOBAL_PUBLISH_LOCK_FILE).exists():
         try:
-            content = GLOBAL_PUBLISH_LOCK_FILE.read_text(encoding="utf-8").strip().split()
+            content = _data_path(GLOBAL_PUBLISH_LOCK_FILE).read_text(encoding="utf-8").strip().split()
             owner_pid = int(content[0]) if content else -1
             owner_job = content[2] if len(content) > 2 else None
-            mtime = GLOBAL_PUBLISH_LOCK_FILE.stat().st_mtime
+            mtime = _data_path(GLOBAL_PUBLISH_LOCK_FILE).stat().st_mtime
             if is_pid_alive(owner_pid) and (time.time() - mtime < stale_sec):
                 return True, owner_job
         except Exception:
@@ -466,10 +490,10 @@ def load_config() -> dict[str, Any]:
         "account_id": "default",         # Tài khoản trong Z:\yt_uploader\accounts
         "category_id": "24",             # 24 = Entertainment, 1 = Film & Animation
     }
-    if not CONFIG_FILE.is_file():
+    if not _data_path(CONFIG_FILE).is_file():
         return default_cfg
     try:
-        cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        cfg = json.loads(_data_path(CONFIG_FILE).read_text(encoding="utf-8"))
         default_cfg.update(cfg)
     except Exception:
         pass
@@ -480,8 +504,8 @@ def save_config(cfg: dict[str, Any]) -> dict[str, Any]:
     """Lưu cấu hình tự động upload."""
     current = load_config()
     current.update(cfg)
-    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8")
+    _data_path(CONFIG_FILE).parent.mkdir(parents=True, exist_ok=True)
+    _data_path(CONFIG_FILE).write_text(json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8")
     return current
 
 
@@ -1483,7 +1507,7 @@ def scan_and_publish_completed_jobs() -> dict[str, Any]:
     try:
         from core.fileio import file_lock
         # Scan chỉ giữ lock ngắn — stale 3 phút (trước 4h khiến worker kẹt sau restart sidecar)
-        with file_lock(SCAN_LOCK_FILE, timeout=0.5, stale_sec=180.0):
+        with file_lock(_data_path(SCAN_LOCK_FILE), timeout=0.5, stale_sec=180.0):
             count = _scan_and_publish_impl()
             return {"ok": True, "busy": False, "scanned": count}
     except TimeoutError:

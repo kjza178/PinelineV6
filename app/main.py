@@ -72,16 +72,24 @@ def _v6_router(inst: Instance) -> APIRouter:
 
     @r.get("/api/events")
     def events(request: Request):
-        # Generator ĐỒNG BỘ: Starlette chạy nó trong threadpool và tự lo việc client ngắt.
-        # (Bản cũ gọi request.is_disconnected() song song với listener của StreamingResponse
-        #  → hai bên tranh receive() → stream đứt → UI "mất kết nối — tự nối lại".)
+        # Generator ASYNC (fix 2026-11-13): chờ event bằng await trong event loop → KHÔNG giữ thread nào.
+        # Bản generator đồng bộ trước đây chiếm 1 thread của threadpool (40) cho MỖI client suốt kết nối;
+        # ~40 kết nối (nhiều tab + EventSource tự nối lại) là mọi route `def` của server.py đứng.
+        # Client ngắt: Starlette huỷ generator → finally trong bus.sse_stream gỡ subscriber.
+        # (Không gọi request.is_disconnected() ở đây: tranh receive() với StreamingResponse → stream đứt.)
         last = request.headers.get("last-event-id")
-        sub = bus.subscribe(since=int(last) if last and last.isdigit() else None)
-        snap = json.dumps({"jobs": index.list()}, ensure_ascii=False)
+        since = int(last) if last and last.isdigit() else None
 
-        def gen():
-            yield f"event: snapshot\ndata: {snap}\n\n"
-            yield from bus.sse_lines(sub, keepalive_sec=15.0)
+        async def gen():
+            sub = bus.subscribe_async(since=since)       # đăng ký TRƯỚC khi chụp snapshot → không lọt event
+            try:
+                snap = json.dumps({"jobs": index.list()}, ensure_ascii=False)
+                yield f"event: snapshot\ndata: {snap}\n\n"
+                async for chunk in bus.sse_stream(sub, keepalive_sec=15.0):
+                    yield chunk
+            finally:                                     # client ngắt ngay sau snapshot cũng phải gỡ
+                sub.closed = True
+                bus.unsubscribe(sub)
 
         return StreamingResponse(gen(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

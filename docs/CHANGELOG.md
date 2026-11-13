@@ -1,6 +1,13 @@
 # CHANGELOG — V6
 
 ## 2026-11-13
+- Fix review 4 bug (cloud, **chờ restart :8806** + chạy `verify_all.bat` trên Windows) — docs/fixes/2026-11-13-review-sse-timestamp-testdata-bat.md:
+  (1) SSE `/api/events` chuyển generator async (`events.bus.subscribe_async`/`sse_stream`) — bản đồng bộ giữ 1 thread
+  threadpool/client, ~40 kết nối là server đứng; (2) `started_at`/`finished_at` thống nhất ISO UTC (`core/timeutil.py`;
+  `state.job_state`, heal `server.py`, `engines/render_job.py`), `film_db`/feeder/ETA đọc được dữ liệu cũ lẫn epoch;
+  (3) `agents/auto_publisher.py` tính file runtime theo `DATA_DIR` lúc gọi + test dùng films.db tạm → pytest không còn
+  ghi `data/` thật; bỏ theo dõi git `data/auto_publish_queue.json` + `auto_publish_state.json` (chứa rác test `job2`);
+  (4) `.gitattributes` ép `*.bat` CRLF. `.gitignore` thêm `pineline.config.json`/token/cookies (file CHƯA gỡ khỏi git).
 - Port V2 → V6 (agent R6, từ V2 agent N): brain/heal/watch bỏ job ĐÃ XONG (`agents.agent_hold.job_finished` — đã đăng,
   parent đã ghép Full, part của parent đó, mux+output); 3 detector heal gốc; tin tạm dừng đúng loại (park tự thử lại ⏸ ≠
   HOLD cần người ⛔); «Chạy tiếp»/chạy tay/job xong gỡ khoá park. docs/fixes/2026-11-13-port-brain-finished-hold.md

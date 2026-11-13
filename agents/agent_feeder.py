@@ -396,14 +396,12 @@ def process_ratio() -> float:
         rows = [r for r in film_db.query(status="done", limit=500) if r.get("finished_at") and r.get("duration_sec")]
     except Exception:  # noqa: BLE001
         rows = []
-    rows.sort(key=lambda r: r["finished_at"])
+    # finished_at trong DB cũ lẫn ISO / epoch dạng chữ → quy về epoch rồi mới sắp và trừ (core/timeutil).
+    from core.timeutil import to_epoch  # noqa: PLC0415
+    timed = [(t, r) for t, r in ((to_epoch(r["finished_at"]), r) for r in rows) if t is not None]
+    timed.sort(key=lambda x: x[0])
     ratios = []
-    for a, b in zip(rows, rows[1:]):
-        try:
-            ta = datetime.fromisoformat(a["finished_at"].replace("Z", "+00:00")).timestamp()
-            tb = datetime.fromisoformat(b["finished_at"].replace("Z", "+00:00")).timestamp()
-        except ValueError:
-            continue
+    for (ta, _a), (tb, b) in zip(timed, timed[1:]):
         gap = tb - ta
         if 600 < gap < 12 * 3600:
             ratios.append(gap / float(b["duration_sec"]))

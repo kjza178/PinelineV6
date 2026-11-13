@@ -51,6 +51,7 @@ from fastapi.responses import (
 from pydantic import BaseModel
 
 from core.manifest import Manifest
+from core.timeutil import now_iso as _now_iso, to_epoch as _to_epoch
 from engines.download import download_video, job_id_from_url
 # B11: bỏ `from engines.asr.asr import run_asr` (không dùng — ASR chạy qua _run_engine tiến trình con).
 from engines.vram import free_gpu_vram
@@ -565,7 +566,7 @@ def _heal_stale_running(work_dir: Path) -> list[str]:
                 keep = {k: v for k, v in prev.items()
                         if k not in ("status", "error", "cur_text", "started_at")}
                 m.data.setdefault("stages", {})[s] = {
-                    **keep, "status": "done", "finished_at": time.time(),
+                    **keep, "status": "done", "finished_at": _now_iso(),
                     "healed": "stale_running",
                 }
                 healed.append(f"{s}->done")
@@ -3010,7 +3011,10 @@ def _queue_current_detail(job_id: str | None) -> dict | None:
     eta_sec = None
     if prog_f is not None and updated and prog_f > 5:
         try:
-            elapsed = time.time() - float(updated)
+            t0 = _to_epoch(updated)       # started_at là ISO (core/timeutil) — float() thẳng luôn lỗi → mất ETA
+            if t0 is None:
+                raise ValueError(updated)
+            elapsed = time.time() - t0
             if elapsed > 30 and prog_f < 99:
                 eta_sec = int(elapsed * (100.0 - prog_f) / max(prog_f, 1.0))
                 eta_sec = max(0, min(eta_sec, 48 * 3600))

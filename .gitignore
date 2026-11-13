@@ -31,3 +31,18 @@ models/
 *.mkv
 *.flac
 
+
+# Secret — không bao giờ commit (key/token chỉ nằm trong file local)
+pineline.config.json
+token*.json
+client_secret*.json
+cookies/
+cookies*.txt
+.env
+.env.*
+
+# Trạng thái runtime (sinh lại khi chạy)
+data/auto_publish_queue.json
+data/auto_publish_state.json
+data/.auto_publish_*
+data/.upload_*.lock
