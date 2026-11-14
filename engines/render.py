@@ -532,7 +532,7 @@ def _run_chunked(video: Path, work_dir: Path, graph: str, venc: list[str], pre_i
         cmd = ["ffmpeg", "-progress", "pipe:1", "-nostats", "-y", "-copyts", *pre_in]
         if s > 0:
             cmd += ["-ss", f"{s:.6f}"]
-        cmd += ["-i", _ff_input(video, work_dir), "-filter_complex_script", script.name,
+        cmd += ["-i", _ff_input(video, work_dir), filter_script_opt(), script.name,
                 "-map", "[vout]", "-an", *venc]
         if e is not None:
             cmd += ["-to", f"{e:.6f}"]
@@ -759,11 +759,48 @@ def _nvenc_mark_fail(err: str) -> None:
               "(RENDER_ENCODER=nvenc để ép thử GPU lại)", flush=True)
 
 
+_FILTER_SCRIPT_OPT: str | None = None
+
+
+def filter_script_opt() -> str:
+    """Tên tuỳ chọn ffmpeg để nạp filtergraph TỪ FILE — dò một lần theo ffmpeg đang cài.
+
+    fix 2026-11-14 (CI Windows, ffmpeg 8): `-filter_complex_script` bị BỎ từ ffmpeg 8.0 («Unrecognized option») —
+    máy nâng ffmpeg là mọi lần render hỏng. Cú pháp thay thế `-/filter_complex <file>` có từ ffmpeg 7.0.
+    Thử cú pháp mới bằng một lệnh thật (không đoán theo chuỗi version — bản build git không có số); không được
+    thì dùng tên cũ (ffmpeg ≤ 6). Không gọi được ffmpeg → tên cũ, lỗi sẽ lộ ở lệnh render thật."""
+    global _FILTER_SCRIPT_OPT
+    if _FILTER_SCRIPT_OPT is None:
+        import tempfile
+        opt = "-filter_complex_script"
+        probe = None
+        try:
+            with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as f:
+                f.write("[0:v]null[v]")
+                probe = f.name
+            r = subprocess.run(
+                ["ffmpeg", "-hide_banner", "-v", "error", "-f", "lavfi", "-i", "color=s=16x16:d=0.04",
+                 "-/filter_complex", probe, "-map", "[v]", "-frames:v", "1", "-f", "null", "-"],
+                capture_output=True, timeout=30, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            if r.returncode == 0:
+                opt = "-/filter_complex"
+        except Exception as e:  # noqa: BLE001
+            print(f"[render] không dò được cú pháp filter script của ffmpeg ({e}) → dùng {opt}", flush=True)
+        finally:
+            if probe:
+                try:
+                    os.unlink(probe)
+                except OSError:
+                    pass
+        _FILTER_SCRIPT_OPT = opt
+    return _FILTER_SCRIPT_OPT
+
+
 def _attach_filter_complex(cmd: list[str], graph: str, work_dir: Path) -> Path:
     """Ghi filtergraph ra file — tránh cắt cmdline Windows (~8191 ký tự)."""
     script = Path(work_dir) / "_filter_complex.txt"
     script.write_text(graph, encoding="utf-8")
-    cmd += ["-filter_complex_script", script.name]
+    cmd += [filter_script_opt(), script.name]
     return script
 
 

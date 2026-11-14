@@ -51,6 +51,7 @@ from fastapi.responses import (
 from pydantic import BaseModel
 
 from core.manifest import Manifest
+from core.timeutil import now_iso as _now_iso, to_epoch as _to_epoch
 from engines.download import download_video, job_id_from_url
 # B11: bỏ `from engines.asr.asr import run_asr` (không dùng — ASR chạy qua _run_engine tiến trình con).
 from engines.vram import free_gpu_vram
@@ -565,7 +566,7 @@ def _heal_stale_running(work_dir: Path) -> list[str]:
                 keep = {k: v for k, v in prev.items()
                         if k not in ("status", "error", "cur_text", "started_at")}
                 m.data.setdefault("stages", {})[s] = {
-                    **keep, "status": "done", "finished_at": time.time(),
+                    **keep, "status": "done", "finished_at": _now_iso(),
                     "healed": "stale_running",
                 }
                 healed.append(f"{s}->done")
@@ -3010,7 +3011,10 @@ def _queue_current_detail(job_id: str | None) -> dict | None:
     eta_sec = None
     if prog_f is not None and updated and prog_f > 5:
         try:
-            elapsed = time.time() - float(updated)
+            t0 = _to_epoch(updated)       # started_at là ISO (core/timeutil) — float() thẳng luôn lỗi → mất ETA
+            if t0 is None:
+                raise ValueError(updated)
+            elapsed = time.time() - t0
             if elapsed > 30 and prog_f < 99:
                 eta_sec = int(elapsed * (100.0 - prog_f) / max(prog_f, 1.0))
                 eta_sec = max(0, min(eta_sec, 48 * 3600))
@@ -4234,6 +4238,13 @@ def edit_script_line(job_id: str, req: ScriptLineEdit):
         return JSONResponse({"error": "script.json không phải list"}, status_code=400)
     if req.vi is None and req.zh is None:
         return JSONResponse({"error": "cần vi hoặc zh"}, status_code=400)
+    # fix 2026-11-14: đang dịch/soát thì engine giữ script trong bộ nhớ và ghi đè lúc xong → câu sửa tay sẽ MẤT.
+    try:
+        if (Manifest(work_dir).stage("translate") or {}).get("status") == "running":
+            return JSONResponse({"error": "đang dịch / soát — đợi xong rồi sửa (sửa bây giờ sẽ bị ghi đè)"},
+                                status_code=409)
+    except Exception as e:  # noqa: BLE001
+        print(f"[script-line] đọc manifest {job_id}: {e}", flush=True)
     hit = None
     for r in rows:
         if not isinstance(r, dict):
@@ -4281,7 +4292,10 @@ def edit_script_line(job_id: str, req: ScriptLineEdit):
         hit.pop("rv", None)
     hit["manual"] = 1
     try:
-        sp.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
+        # fix 2026-11-14: ghi atomic — trước đây write_text thẳng: server chết / tiến trình khác đọc giữa chừng
+        # → script.json cụt (luồng simple sẽ coi là hỏng và dựng lại từ ASR).
+        from core.fileio import atomic_write_json
+        atomic_write_json(sp, rows, fsync=False)
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"error": f"ghi script.json lỗi: {e}"}, status_code=500)
     if req.vi is not None:
@@ -5332,7 +5346,9 @@ def _cookie_info(path: Path) -> dict:
 
 @app.get("/api/cookies")
 def cookies_status():
-    COOKIES_DIR.mkdir(exist_ok=True)
+    # R5.3: GET chỉ đọc — không tạo thư mục (POST /api/cookies tự tạo khi lưu).
+    if not COOKIES_DIR.is_dir():
+        return {}
     return {p.name: _cookie_info(p) for p in sorted(COOKIES_DIR.glob("*cookie*.txt"))}
 
 
@@ -6497,6 +6513,13 @@ def delete_job(job_id: str):
         shutil.rmtree(work_dir)
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"error": str(e)}, status_code=500)
+    # fix 2026-11-14: báo index ngay → event `job.removed` tới mọi UI liền (trước đây chờ watcher quét đủ, tới 30 s,
+    # job đã xoá vẫn nằm trong danh sách).
+    try:
+        from state.index import index as _job_index
+        _job_index.remove(job_id)
+    except Exception as e:  # noqa: BLE001
+        print(f"[delete] index.remove {job_id}: {e}", flush=True)
     return {"deleted": job_id}
 
 
@@ -6558,6 +6581,35 @@ def _queue_park_ready(job_id: str) -> bool:
 
 
 job_queue.set_park_ready_hook(_queue_park_ready)
+
+
+def _queue_needs_human(job_id: str) -> bool:
+    """R7.3: job đang HOLD cần NGƯỜI (khác park tự thử lại) — theo agents.agent_hold.hold_info."""
+    try:
+        from agents.agent_hold import hold_info
+        ag = (Manifest(WORK_ROOT / job_id).data.get("agent") or {})
+        return bool(hold_info(ag).get("need_human"))
+    except Exception as e:  # noqa: BLE001
+        print(f"[queue] needs_human {job_id}: {e}", flush=True)
+        return False
+
+
+def _queue_notify(text: str) -> None:
+    """R7.4/R7.3: hàng chờ tạm dừng / nhường ghế → event cho UI (SSE) + Telegram (tôn trọng cờ instance)."""
+    try:
+        from events.bus import bus as _bus
+        _bus.publish("queue.changed", {"text": text[:300]})
+    except Exception as e:  # noqa: BLE001
+        print(f"[queue] publish queue.changed: {e}", flush=True)
+    try:
+        from agents.agent_watch import telegram_send
+        telegram_send("Pineline · " + text, force=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[queue] telegram: {e}", flush=True)
+
+
+job_queue.set_needs_human_hook(_queue_needs_human)
+job_queue.set_notify_hook(_queue_notify)
 
 
 # ===== Route tách file (đợt 7): UI, Hongguo, Agent =====

@@ -1,1 +1,1 @@
-﻿"""Agent / sidecar modules (Phase B layout)."""
+"""Agent / sidecar modules (Phase B layout)."""

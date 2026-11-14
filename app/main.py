@@ -34,6 +34,41 @@ UI_DIR = ROOT / "desktop" / "ui"
 V6_PREFIX = "/api/v6"
 
 
+DISK_WARN_GB = 20.0      # dưới mức này /api/health cảnh báo (một phim dài cần hàng chục GB tạm)
+_VERSIONS: dict | None = None
+
+
+def _disk_free(path) -> dict | None:
+    """Dung lượng ổ chứa `path` (đi ngược lên thư mục cha gần nhất đang tồn tại). Lỗi → None."""
+    import shutil
+    try:
+        p = Path(path).resolve()
+        while not p.exists() and p != p.parent:
+            p = p.parent
+        u = shutil.disk_usage(p)
+        return {"path": str(path), "free_gb": round(u.free / 1e9, 1), "total_gb": round(u.total / 1e9, 1)}
+    except OSError:
+        return None
+
+
+def _versions() -> dict:
+    """Phiên bản Python / ffmpeg (dò 1 lần mỗi tiến trình). ffmpeg đổi bản từng làm hỏng render (R6.1)."""
+    global _VERSIONS
+    if _VERSIONS is None:
+        import platform
+        import subprocess
+        ff = None
+        try:
+            r = subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True, timeout=10,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            first = (r.stdout or "").splitlines()[0] if r.returncode == 0 and r.stdout else ""
+            ff = first.replace("ffmpeg version", "").strip().split(" ")[0] or None
+        except (OSError, subprocess.SubprocessError):
+            ff = None
+        _VERSIONS = {"python": platform.python_version(), "ffmpeg": ff, "os": platform.platform()}
+    return _VERSIONS
+
+
 def _import_legacy(inst: Instance):
     """Nạp server.py (V5) cho instance này. Env (WORK_DIR, PINELINE_FLAG_*, PINELINE_ROUTERS…) phải có
     TRƯỚC khi import: server đọc chúng lúc import (WORK_ROOT, router tuỳ chọn) và lúc startup (cờ nền)."""
@@ -53,8 +88,32 @@ def _v6_router(inst: Instance) -> APIRouter:
 
     @r.get("/api/health")
     def health():
-        return {"ok": True, "instance": inst.name, "port": inst.port, "jobs": len(index.list()),
-                "sse_clients": bus.n_subscribers}
+        """Sức khoẻ backend cho người / giám sát (R3.1, R6.2). Chỉ đọc; mọi phần phụ lỗi → null, không làm hỏng cả câu trả lời."""
+        out = {"ok": True, "instance": inst.name, "port": inst.port, "jobs": len(index.list()),
+               "sse_clients": bus.n_subscribers}
+        try:
+            import core.job_queue as job_queue
+            st = job_queue.queue_state()
+            out["queue"] = {"current": st.get("current"), "waiting": len(st.get("queue") or []),
+                            "worker": bool(st.get("worker")), "paused": st.get("paused"),
+                            "persist_ok": st.get("persist_ok"), "consec_fail": st.get("consec_fail")}
+        except Exception as e:  # noqa: BLE001
+            out["queue"] = None
+            print(f"[health] queue: {e}", flush=True)
+        out["disk"] = {"work": _disk_free(inst.work_root), "temp": _disk_free(inst.temp)}
+        out["versions"] = _versions()
+        # cảnh báo gọn để UI / giám sát chỉ cần nhìn một chỗ
+        warn = []
+        q = out.get("queue") or {}
+        if q.get("paused"):
+            warn.append("hàng chờ đang tạm dừng vì lỗi liên tiếp")
+        if q.get("persist_ok") is False:
+            warn.append("không ghi được hàng chờ ra đĩa")
+        for name, d in out["disk"].items():
+            if d and d["free_gb"] < DISK_WARN_GB:
+                warn.append(f"ổ {name} còn {d['free_gb']} GB")
+        out["warnings"] = warn
+        return out
 
     @r.get(V6_PREFIX + "/jobs")
     def jobs():
@@ -70,18 +129,92 @@ def _v6_router(inst: Instance) -> APIRouter:
             raise HTTPException(404, "không có job")
         return json.loads(mf.read_text(encoding="utf-8"))
 
+    # ── D4: cấu hình batch (giọng, tốc độ, âm nền, render…) — trước đây chỉ sửa được qua sidecar :8802/config ──
+    @r.get(V6_PREFIX + "/config")
+    def config_get():
+        import core.batch_config as bc
+        return {"opts": bc.load(), "defaults": bc.DEFAULTS, "choices": {k: list(v) for k, v in bc.CHOICES.items()},
+                "labels": bc.LABELS, **bc.meta()}
+
+    @r.post(V6_PREFIX + "/config")
+    def config_set(body: dict):
+        """{"patch": {khoá: giá trị}} — khoá lạ / giá trị sai → 400 kèm lý do. Job ĐANG CHỜ tự theo config mới
+        (services.autopilot.config_watch_loop) trừ job đã ghim config riêng."""
+        import core.batch_config as bc
+        patch = body.get("patch") if isinstance(body, dict) else None
+        if not isinstance(patch, dict) or not patch:
+            raise HTTPException(400, "thiếu patch")
+        try:
+            out = bc.update(patch, by="desktop")
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        if out.get("changed"):
+            bus.publish("config.changed", {"changed": sorted(out["changed"])})
+        return {"ok": True, **out, **bc.meta()}
+
+    # ── D2: bản dịch của 1 job (chỉ đọc; sửa câu qua POST /api/jobs/{id}/script-line) ──
+    @r.get(V6_PREFIX + "/jobs/{job_id}/script")
+    def job_script(job_id: str):
+        if "/" in job_id or "\\" in job_id or job_id in ("", ".", ".."):
+            raise HTTPException(404, "không có job")
+        wd = inst.work_root / job_id
+        sp = wd / "script.json"
+        if not (wd / "manifest.json").is_file():
+            raise HTTPException(404, "không có job")
+        if not sp.is_file():
+            return {"rows": [], "exists": False, "wav": []}
+        try:
+            rows = json.loads(sp.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            raise HTTPException(409, f"script.json đang được ghi hoặc hỏng: {e}") from e
+        keep = ("i", "start", "end", "zh", "vi", "rv", "manual", "s_flags", "s_spk", "s_to", "junk",
+                "unreviewed_accepted")
+        out = [{k: r.get(k) for k in keep if k in r} for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+        wav = []
+        tdir = wd / "tts"
+        if tdir.is_dir():
+            for f in tdir.glob("seg_*.wav"):
+                try:
+                    if f.stat().st_size > 1000:
+                        wav.append(int(f.stem.split("_")[1]))
+                except (OSError, ValueError, IndexError):
+                    continue
+        return {"rows": out, "exists": True, "wav": sorted(wav)}
+
+    # ── hàng chờ: tạm dừng khi lỗi liên tiếp (R7.4) + nhật ký ra file (R7.5) ──
+    @r.post(V6_PREFIX + "/queue/resume")
+    def queue_resume():
+        """Người dùng đã xem lỗi → gỡ tạm dừng, chạy tiếp hàng chờ."""
+        import core.job_queue as job_queue
+        out = job_queue.queue_resume()
+        bus.publish("queue.changed", {"text": "chạy tiếp hàng chờ"})
+        return out
+
+    @r.get(V6_PREFIX + "/queue/history")
+    def queue_history(limit: int = 100):
+        import core.job_queue as job_queue
+        return {"history": job_queue.queue_history(limit)}
+
     @r.get("/api/events")
     def events(request: Request):
-        # Generator ĐỒNG BỘ: Starlette chạy nó trong threadpool và tự lo việc client ngắt.
-        # (Bản cũ gọi request.is_disconnected() song song với listener của StreamingResponse
-        #  → hai bên tranh receive() → stream đứt → UI "mất kết nối — tự nối lại".)
+        # Generator ASYNC (fix 2026-11-13): chờ event bằng await trong event loop → KHÔNG giữ thread nào.
+        # Bản generator đồng bộ trước đây chiếm 1 thread của threadpool (40) cho MỖI client suốt kết nối;
+        # ~40 kết nối (nhiều tab + EventSource tự nối lại) là mọi route `def` của server.py đứng.
+        # Client ngắt: Starlette huỷ generator → finally trong bus.sse_stream gỡ subscriber.
+        # (Không gọi request.is_disconnected() ở đây: tranh receive() với StreamingResponse → stream đứt.)
         last = request.headers.get("last-event-id")
-        sub = bus.subscribe(since=int(last) if last and last.isdigit() else None)
-        snap = json.dumps({"jobs": index.list()}, ensure_ascii=False)
+        since = int(last) if last and last.isdigit() else None
 
-        def gen():
-            yield f"event: snapshot\ndata: {snap}\n\n"
-            yield from bus.sse_lines(sub, keepalive_sec=15.0)
+        async def gen():
+            sub = bus.subscribe_async(since=since)       # đăng ký TRƯỚC khi chụp snapshot → không lọt event
+            try:
+                snap = json.dumps({"jobs": index.list()}, ensure_ascii=False)
+                yield f"event: snapshot\ndata: {snap}\n\n"
+                async for chunk in bus.sse_stream(sub, keepalive_sec=15.0):
+                    yield chunk
+            finally:                                     # client ngắt ngay sau snapshot cũng phải gỡ
+                sub.closed = True
+                bus.unsubscribe(sub)
 
         return StreamingResponse(gen(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

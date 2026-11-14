@@ -25,6 +25,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from core.timeutil import to_iso as _to_iso
+
 # Thư mục/parent không phải tên series Hongguo — không dùng làm hg_name/poster.
 _HG_NAME_JUNK = frozenset({
     "downloads", "download", "work", "tmp", "temp", "_split_parts",
@@ -348,7 +350,7 @@ def row_from_manifest(job_id: str, m: dict) -> dict:
         "tts_engine": opts.get("tts_engine") or (stages.get("tts") or {}).get("engine"),
         "audio_mode": opts.get("audio_mode"),
         "opts_json": json.dumps(opts, ensure_ascii=False) if opts else None,
-        "created_at": m.get("created_at"), "finished_at": mux.get("finished_at") if status in ("done", "uploaded", "uploading") else None,
+        "created_at": m.get("created_at"), "finished_at": _to_iso(mux.get("finished_at")) if status in ("done", "uploaded", "uploading") else None,
     }
 
 

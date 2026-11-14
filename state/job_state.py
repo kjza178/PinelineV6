@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from core.manifest import Manifest, register_write_hook
+from core.timeutil import now_iso as _iso
 from state.index import index as _index
 
 
@@ -68,10 +69,13 @@ def _stage(data: dict, name: str) -> dict:
 def mark_running(wd, stage: str, *, cur_text: str = "đang chạy…", **extra) -> dict:
     def fn(d):
         st = _stage(d, stage)
+        fresh = st.get("status") != "running"     # lượt chạy MỚI (không phải gọi lặp khi đang chạy)
         st.update(extra)
         st["status"] = "running"
         st["cur_text"] = cur_text
-        st.setdefault("started_at", _now())
+        if fresh or not st.get("started_at"):
+            st["started_at"] = _iso()             # ISO UTC — cùng dạng core.manifest (core/timeutil.py)
+            st.pop("finished_at", None)           # mốc xong của lượt trước không còn đúng
         st.pop("error", None)
         st["updated_at"] = _now()
     return _update(wd, fn)
@@ -82,7 +86,7 @@ def mark_done(wd, stage: str, **payload) -> dict:
         st = _stage(d, stage)
         st.update(payload)
         st["status"] = "done"
-        st["finished_at"] = _now()
+        st["finished_at"] = _iso()
         st.pop("error", None)
         st["updated_at"] = _now()
     return _update(wd, fn)
@@ -93,7 +97,7 @@ def mark_failed(wd, stage: str, error: BaseException | str) -> dict:
         st = _stage(d, stage)
         st["status"] = "failed"
         st["error"] = str(error)[:500]
-        st["finished_at"] = _now()
+        st["finished_at"] = _iso()
         st["updated_at"] = _now()
     return _update(wd, fn)
 

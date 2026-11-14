@@ -37,15 +37,36 @@ def _series_plan(work_dir: Path) -> dict | None:
         return None
 
 
+PLAN_FAILED = "plan_failed"      # plan["_meta"][PLAN_FAILED] = lý do (R1.2)
+
+
+def plan_failed(plan: dict | None) -> str:
+    """Lý do plan hỏng ("" = plan dùng được). Plan hỏng = lập lỗi, hoặc không có nhân vật lẫn thuật ngữ nào."""
+    meta = plan.get("_meta") if isinstance(plan, dict) else None
+    return str((meta or {}).get(PLAN_FAILED) or "") if isinstance(meta, dict) else ""
+
+
+def _has_content(plan: dict | None) -> bool:
+    return isinstance(plan, dict) and bool(plan.get("characters") or plan.get("terms") or plan.get("pronouns"))
+
+
 def build_plan(work_dir: Path, segments: list[dict], target: str, *, force: bool = False) -> dict:
+    """R1.2 (fix 2026-11-14): lập plan LỖI (cloud 429/timeout…) hoặc ra plan trống → đánh dấu `_meta.plan_failed`,
+    KHÔNG ghi glossary.json trống, và glossary.json mang dấu này không được dùng lại (lần chạy sau lập lại).
+    Trước đây plan trống bị ghi ra đĩa → mọi lần sau «dùng lại glossary.json có sẵn» → cả phim dịch không có bảng
+    nhân vật / xưng hô mà bộ kiểm không có cặp nào để so → cổng vẫn done."""
     import engines.translate as T
     from core.fileio import atomic_write_json
 
     plan_path = work_dir / "glossary.json"
     skip_plan = bool((_load_json(work_dir / "context_pack.json") or {}).get("skip_plan"))
     plan = None
+    fail_why = ""
     if plan_path.exists() and (not force or skip_plan):
         plan = _load_json(plan_path)
+        if isinstance(plan, dict) and plan_failed(plan) and not skip_plan:
+            print(f"[simple-plan] glossary.json mang dấu plan hỏng ({plan_failed(plan)[:80]}) → lập lại", flush=True)
+            plan = None
         if isinstance(plan, dict):
             print("[simple-plan] dùng lại glossary.json có sẵn", flush=True)
             if skip_plan:
@@ -69,19 +90,33 @@ def build_plan(work_dir: Path, segments: list[dict], target: str, *, force: bool
             except (TypeError, ValueError):
                 pass
             plan = T.build_plan(segments, target=target, **kw)
-            # review 2026-11-12: ghi plan vừa lập TRƯỚC save_from (như run_translate cũ) — trước đây
-            # save_from đọc glossary.json chưa tồn tại / cũ → bảng bộ không học được tập mới.
-            atomic_write_json(plan_path, plan, fsync=False)
+            if not _has_content(plan):
+                fail_why = "model không trả nhân vật / thuật ngữ nào"
+            else:
+                # review 2026-11-12: ghi plan vừa lập TRƯỚC save_from (như run_translate cũ) — trước đây
+                # save_from đọc glossary.json chưa tồn tại / cũ → bảng bộ không học được tập mới.
+                atomic_write_json(plan_path, plan, fsync=False)
         except Exception as e:  # noqa: BLE001
-            print(f"[simple-plan] LỖI lập plan ({e}) → dịch không có bảng nhân vật", flush=True)
-            plan = {"content_type": "", "genre": "", "tone": "", "characters": [], "terms": [],
-                    "pronouns": [], "scenes": [], "pronoun_notes": ""}
+            fail_why = f"{type(e).__name__}: {e}"[:200]
+            plan = None
+        if fail_why:
+            print(f"[simple-plan] LỖI lập plan ({fail_why}) → plan tạm, KHÔNG lưu glossary.json", flush=True)
+            if not isinstance(plan, dict):
+                plan = {"content_type": "", "genre": "", "tone": "", "characters": [], "terms": [],
+                        "pronouns": [], "scenes": [], "pronoun_notes": ""}
     try:
         import engines.series_glossary as series_glossary
         plan = series_glossary.apply(work_dir, plan)
-        series_glossary.save_from(work_dir, reason="cập nhật plan tập mới (simple)")
+        if not fail_why:      # plan hỏng không được «dạy» bảng bộ
+            series_glossary.save_from(work_dir, reason="cập nhật plan tập mới (simple)")
     except Exception as e:  # noqa: BLE001
         print(f"[simple-plan] bảng bộ: {e}", flush=True)
+    if fail_why:
+        meta = plan.get("_meta") if isinstance(plan.get("_meta"), dict) else {}
+        plan["_meta"] = {**meta, PLAN_FAILED: fail_why}
+        # Không ghi glossary.json: lần chạy sau phải lập lại. (Bảng bộ, nếu có, vẫn nằm trong `plan` trả về
+        # để lần này dùng tạm khi SIMPLE_REQUIRE_PLAN=0.)
+        return T.ensure_hard_terms(plan)
     plan = T.ensure_hard_terms(plan)
     if cfg.pronoun_analyze():
         try:

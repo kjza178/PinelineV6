@@ -163,3 +163,63 @@ def test_flags_off_in_this_instance():
     assert server._instance_flag("agent_brain") is False
     assert server._instance_flag("telegram") is False
     assert server._instance_flag("auto_publish") is False
+
+
+# ───────────── D2 / D4 (2026-11-14): bản dịch + cấu hình batch cho UI desktop ─────────────
+
+def test_v6_script_read_only_view(client, env_inst):
+    wd = Path(env_inst.work_root) / "job-a"
+    (wd / "tts").mkdir(exist_ok=True)
+    (wd / "tts" / "seg_0001.wav").write_bytes(b"\0" * 2048)
+    (wd / "tts" / "seg_0000.wav").write_bytes(b"\0" * 10)          # file hỏng (quá nhỏ) không tính
+    before = (wd / "script.json").read_bytes()
+    d = client.get("/api/v6/jobs/job-a/script").json()
+    assert d["exists"] is True and [r["i"] for r in d["rows"]] == [0, 1] and d["wav"] == [1]
+    assert (wd / "script.json").read_bytes() == before                # GET không ghi gì
+    assert client.get("/api/v6/jobs/khong-co/script").status_code == 404
+    assert client.get("/api/v6/jobs/..%2F..%2Fx/script").status_code == 404
+
+
+def test_script_line_edit_is_atomic_and_blocked_while_translating(client, env_inst):
+    wd = Path(env_inst.work_root) / "job-a"
+    r = client.post("/api/jobs/job-a/script-line", json={"i": 0, "vi": "Câu sửa tay"})
+    assert r.status_code == 200 and r.json()["changed"] is True
+    rows = json.loads((wd / "script.json").read_text(encoding="utf-8"))
+    assert rows[0]["vi"] == "Câu sửa tay" and rows[0]["manual"] == 1
+    assert not list(wd.glob(".script.json*.tmp")) and not list(wd.glob("*.tmp"))
+    m = json.loads((wd / "manifest.json").read_text(encoding="utf-8"))
+    m["stages"]["translate"] = {"status": "running"}
+    (wd / "manifest.json").write_text(json.dumps(m), encoding="utf-8")
+    try:
+        r = client.post("/api/jobs/job-a/script-line", json={"i": 1, "vi": "bị ghi đè"})
+        assert r.status_code == 409 and "đang dịch" in r.json()["error"]
+        assert json.loads((wd / "script.json").read_text(encoding="utf-8"))[1]["vi"] == "x"
+    finally:
+        m["stages"].pop("translate")
+        (wd / "manifest.json").write_text(json.dumps(m), encoding="utf-8")
+
+
+def test_v6_batch_config_get_and_update(client, tmp_path, monkeypatch):
+    import core.batch_config as bc
+    monkeypatch.setattr(bc, "CONFIG_PATH", tmp_path / "batch_config.json")   # không đụng cấu hình thật
+    d = client.get("/api/v6/config").json()
+    assert d["opts"]["speed"] == bc.DEFAULTS["speed"] and "grain" in d["choices"] and d["labels"]["speed"]
+    r = client.post("/api/v6/config", json={"patch": {"speed": 1.2, "lut": False}})
+    assert r.status_code == 200 and set(r.json()["changed"]) == {"speed", "lut"}
+    assert bc.load()["speed"] == 1.2 and bc.load()["lut"] is False
+    assert json.loads((tmp_path / "batch_config.json").read_text(encoding="utf-8"))["updated_by"] == "desktop"
+    bad = client.post("/api/v6/config", json={"patch": {"grain": "cuc_manh"}})
+    assert bad.status_code == 400 and "grain" in bad.json()["detail"]
+    assert client.post("/api/v6/config", json={"patch": {"khong_co": 1}}).status_code == 400
+    assert client.post("/api/v6/config", json={}).status_code == 400
+    assert bc.load()["grain"] == bc.DEFAULTS["grain"]                  # giá trị sai không được ghi
+
+
+def test_desktop_ui_has_editing_features_without_timers():
+    ui = Path(__file__).resolve().parents[1] / "desktop" / "ui"
+    js = (ui / "app.js").read_text(encoding="utf-8")
+    html = (ui / "index.html").read_text(encoding="utf-8")
+    for needle in ("/api/v6/config", "/script-line", "/tts-clip", "/tts-voice", "/api/v6/jobs/", "/file/output.mp4"):
+        assert needle in js, needle
+    assert 'id="btn-cfg"' in html and 'id="dlg-cfg"' in html
+    assert "setInterval" not in js       # UI desktop: không polling

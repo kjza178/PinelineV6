@@ -2205,14 +2205,15 @@ class _ExclusiveHTTPServer(ThreadingHTTPServer):
 
 def _single_instance_lock():
     """Khoá 1 bản / cổng; trả file handle (giữ sống tới khi thoát) hoặc None nếu đã có bản khác."""
-    try:
-        import msvcrt
-    except ImportError:
-        return True
     fh = open(Path(__file__).resolve().parents[1] / f".sidecar_{CTRL_PORT}.lock", "a+")
     fh.seek(0)
     try:
-        msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+        if os.name == "nt":
+            import msvcrt
+            msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+        else:   # fix 2026-11-14: trước đây ngoài Windows trả True (không khoá) → 2 sidecar cùng cổng không bị chặn
+            import fcntl
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
         fh.close()
         return None

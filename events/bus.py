@@ -4,18 +4,21 @@
     bus.publish("job.updated", {"job_id": jid, ...})
     sub = bus.subscribe(); sub.get(timeout=15) / for chunk in bus.sse_lines(sub): ...
 
-- Không phụ thuộc FastAPI: route SSE chỉ cần bọc `sse_lines()` trong StreamingResponse.
+- Không phụ thuộc FastAPI: route SSE bọc `sse_stream()` (async) trong StreamingResponse.
+  `sse_lines()` (đồng bộ) còn cho script/test — KHÔNG dùng cho route: mỗi client giữ 1 thread của
+  threadpool (40) suốt kết nối → ~40 client là mọi route `def` đứng (fix 2026-11-13).
 - `stage.progress` được gộp (throttle) theo job → UI tối đa ~4 cập nhật/giây/job.
 - Subscriber chậm không làm nghẽn publisher: hàng đợi có trần, đầy thì bỏ sự kiện cũ nhất.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import queue
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+from typing import Any, AsyncIterator, Iterator
 
 THROTTLED = {"stage.progress", "job.touched"}   # job.touched: V6 F3 (state.index)
 
@@ -58,10 +61,47 @@ class Subscription:
             return None
 
 
+class AsyncSubscription:
+    """Subscriber cho route SSE async: nhận event từ BẤT KỲ thread nào, đọc trong event loop.
+
+    Không giữ thread nào trong lúc chờ (khác Subscription + sse_lines). `put` chỉ hẹn việc vào loop
+    (call_soon_threadsafe) nên publisher không bao giờ bị chặn; hàng đầy thì bỏ event cũ nhất."""
+
+    def __init__(self, loop: asyncio.AbstractEventLoop, maxsize: int) -> None:
+        self.loop = loop
+        self.maxsize = maxsize
+        self.q: asyncio.Queue[Event] = asyncio.Queue()
+        self.dropped = 0
+        self.closed = False
+
+    def put(self, ev: Event) -> None:
+        if self.closed:
+            return
+        try:
+            self.loop.call_soon_threadsafe(self._put_now, ev)
+        except RuntimeError:        # loop đã đóng (server tắt) → bus tự gỡ ở lần emit sau
+            self.closed = True
+
+    def _put_now(self, ev: Event) -> None:
+        if self.q.qsize() >= self.maxsize:
+            try:
+                self.q.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+            self.dropped += 1
+        self.q.put_nowait(ev)
+
+    async def get(self, timeout: float | None = None) -> Event | None:
+        try:
+            return await asyncio.wait_for(self.q.get(), timeout)
+        except asyncio.TimeoutError:
+            return None
+
+
 class EventBus:
     def __init__(self, *, throttle_sec: float = 0.25, sub_maxsize: int = 500, history: int = 200) -> None:
         self._lock = threading.Lock()
-        self._subs: list[Subscription] = []
+        self._subs: list[Subscription | AsyncSubscription] = []
         self._seq = 0
         self._throttle = throttle_sec
         self._last_emit: dict[tuple[str, str], float] = {}
@@ -104,6 +144,9 @@ class EventBus:
         self._history.append(ev)
         del self._history[:-self._history_max]
         for s in list(self._subs):
+            if getattr(s, "closed", False):     # AsyncSubscription mà loop đã đóng
+                self._subs.remove(s)
+                continue
             s.put(ev)
         return ev
 
@@ -118,7 +161,31 @@ class EventBus:
             self._subs.append(s)
         return s
 
-    def unsubscribe(self, s: Subscription) -> None:
+    def subscribe_async(self, *, since: int | None = None,
+                        loop: asyncio.AbstractEventLoop | None = None) -> AsyncSubscription:
+        """Như subscribe nhưng cho route async — gọi TRONG event loop (hoặc truyền `loop`)."""
+        s = AsyncSubscription(loop or asyncio.get_running_loop(), self._sub_maxsize)
+        with self._lock:
+            if since is not None:
+                for ev in self._history:
+                    if ev.seq > since:
+                        s.put(ev)
+            self._subs.append(s)
+        return s
+
+    async def sse_stream(self, s: AsyncSubscription, *, keepalive_sec: float = 15.0) -> AsyncIterator[str]:
+        """Bản async của sse_lines: chờ event bằng await → không tốn thread; client ngắt thì Starlette
+        huỷ generator → `finally` gỡ subscriber ngay (không đợi hết keepalive)."""
+        try:
+            yield "retry: 2000\n\n"
+            while True:
+                ev = await s.get(timeout=keepalive_sec)
+                yield ev.sse() if ev else ": keepalive\n\n"
+        finally:
+            s.closed = True
+            self.unsubscribe(s)
+
+    def unsubscribe(self, s: Subscription | AsyncSubscription) -> None:
         with self._lock:
             if s in self._subs:
                 self._subs.remove(s)

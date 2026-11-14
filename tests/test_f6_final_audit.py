@@ -52,11 +52,28 @@ def test_watch_job_picks_child_write_without_full_scan(watcher):
     # "tiến trình con" ghi mux running (server không biết — index vẫn pending)
     _write(root / "j1", {"stages": {"download": {"status": "done"},
                                     "mux": {"status": "running", "progress": 12, "cur_text": "encode"}}})
-    assert w.scan_once() == 0                     # trước F6: job không "running" trong index → bỏ qua tới quét đủ
-    assert wmod.watch_job("j1") == 1
+    # R5.2 (2026-11-14): watcher theo dõi mọi job CHƯA XONG → thấy ngay ở lượt quét thường, không cần watch_job
+    # (trước: job không "running" trong index bị bỏ qua tới lượt quét đủ, chậm tới 30 s).
     assert w.scan_once() == 1
     assert idx.get("j1")["status"] == "running"
+    assert wmod.watch_job("j1") == 1              # watch_job vẫn dùng được (job đã done mà tiến trình con ghi lại)
+    assert w.scan_once() == 0
     assert any(t == "job.updated" for t, _ in got)
+
+
+def test_done_job_is_not_polled_until_watched(watcher):
+    """Job đã xong không bị stat mỗi giây (thư viện lớn); tiến trình con ghi lại lên nó → cần watch_job / quét đủ."""
+    from state import watcher as wmod
+    w, idx, root, _ = watcher
+    done = {"stages": {k: {"status": "done"} for k in ("download", "asr", "translate", "tts", "mux")}}
+    _write(root / "j1", done)
+    w.scan_once(full=True)
+    assert idx.get("j1")["status"] == "done"
+    _write(root / "j1", {**done, "stages": {**done["stages"], "mux": {"status": "running"}}})
+    assert w.scan_once() == 0
+    assert wmod.watch_job("j1") == 1 and w.scan_once() == 1
+    assert idx.get("j1")["status"] == "running"
+    wmod.unwatch_job("j1")
 
 
 def test_unwatch_job_final_check_applies_done(watcher):

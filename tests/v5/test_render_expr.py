@@ -80,7 +80,7 @@ def test_ffmpeg_accepts_300_segments(kind):
         f.write(f"[0:v]{chain}[v]")
     try:
         r = subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc2=s=1920x1080:r=25:d=1",
-                            "-filter_complex_script", f.name, "-map", "[v]", "-f", "null", "-"],
+                            render.filter_script_opt(), f.name, "-map", "[v]", "-f", "null", "-"],
                            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180)
     finally:
         Path(f.name).unlink(missing_ok=True)
@@ -108,3 +108,18 @@ def test_voice_bgm_runs_past_last_dub_line(tmp_path, monkeypatch):
                        cwd=tmp_path, capture_output=True, text=True, encoding="utf-8", errors="replace")
     mean = float(re.search(r"mean_volume: (-?[\d.]+) dB", r.stderr).group(1))
     assert mean > -50
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="không có ffmpeg")
+def test_filter_script_option_matches_installed_ffmpeg(tmp_path, monkeypatch):
+    """fix 2026-11-14: ffmpeg 8 bỏ `-filter_complex_script`; render phải tự chọn cú pháp mà ffmpeg đang cài nhận."""
+    monkeypatch.setattr(render, "_FILTER_SCRIPT_OPT", None)
+    opt = render.filter_script_opt()
+    assert opt in ("-filter_complex_script", "-/filter_complex")
+    cmd = ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=s=32x32:d=0.1"]
+    script = render._attach_filter_complex(cmd, "[0:v]null[v]", tmp_path)
+    assert cmd[-2:] == [opt, script.name]
+    r = subprocess.run(cmd + ["-map", "[v]", "-f", "null", "-"], cwd=tmp_path, capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", timeout=60)
+    assert r.returncode == 0, r.stderr[-400:]
+    assert render.filter_script_opt() == opt          # kết quả dò được giữ lại (không dò lại mỗi lần render)

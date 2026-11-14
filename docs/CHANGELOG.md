@@ -1,6 +1,53 @@
 # CHANGELOG — V6
 
+## 2026-11-14
+- **Desktop: sửa bản dịch, giọng đọc, cài đặt** (cần restart :8806 + build lại app). Khung chi tiết job có 4 tab:
+  Tổng quan · **Bản dịch** (lọc câu bị cờ / chưa soát / trống / sửa tay, tìm, sửa câu Việt, nghe và đọc lại từng câu) ·
+  **Giọng đọc** (giọng / tốc độ / bộ đọc của job) · **Kết quả** (xem video, tải phụ đề). Nút **Cài đặt**: sửa cấu hình batch
+  (API mới `GET/POST /api/v6/config`; trước chỉ sửa được qua sidecar). API mới `GET /api/v6/jobs/{id}/script` (chỉ đọc).
+  Vẫn 0 request khi để yên. Sửa kèm: `POST /api/jobs/{id}/script-line` ghi atomic và trả 409 khi đang dịch (trước: câu sửa
+  tay bị engine ghi đè lúc dịch xong).
+- **Hàng chờ 24/7 R7.3–R7.5** (cần restart :8806) — docs/fixes/2026-11-14-queue-24x7.md: 3 job lỗi liên tiếp → hàng chờ
+  TẠM DỪNG + báo (`QUEUE_MAX_CONSEC_FAIL`, 0 = tắt), gỡ bằng «Chạy tiếp hàng chờ»; nhật ký hàng chờ ra file + nút «Nhật ký»;
+  tuỳ chọn `QUEUE_HOLD_YIELD_SEC` (mặc định 0 = như cũ) cho job HOLD cần người nhường ghế. Thay đổi từ sidecar/CLI lên UI
+  trong ~1 s (trước tới 30 s). `/api/health` có hàng chờ, ổ đĩa, phiên bản, cảnh báo. Desktop: nút «Làm lại» một bước có xác nhận.
+- **Hàng chờ R7.1–R7.2** (cần restart :8806) — docs/fixes/2026-11-14-queue-worker-robust.md: ghi `_job_queue.json`
+  lỗi (đĩa đầy / file bị khoá) không còn giết luồng worker (trước: mọi job phía sau đứng im lặng) — thử lại, ghi log,
+  `persist_ok` trong `/api/queue/jobs`, UI desktop cảnh báo; job đang giữ ghế chạy lại trước dù hàng chờ bị sắp lại.
+- **Render R6.1** (cần restart :8806): ffmpeg 8 đã bỏ `-filter_complex_script` → mọi lần render sẽ lỗi «Unrecognized
+  option» trên máy nâng ffmpeg. `engines/render.py` `filter_script_opt()` dò một lần và dùng `-/filter_complex` khi
+  ffmpeg nhận (≥ 7), không thì giữ tên cũ. Lộ ra nhờ CI chạy trên Windows với ffmpeg mới nhất.
+- **Kế hoạch + mô hình làm việc:** `docs/ROADMAP.md` (G0 chạy thật → G1 độ bền 24/7 → G2 desktop đủ chức năng → G3 cấu trúc),
+  `docs/WORKING_MODEL.md` (vòng làm việc, 3 mức «đã kiểm», bảng chờ kiểm trên Windows, lịch rà từng khu vực);
+  `CLAUDE.md` sửa cho đúng hiện trạng (lõi vẫn là server.py, chưa cutover, chưa chạy job thật).
+- **CI** (`.github/workflows/ci.yml`): pytest Ubuntu + Windows, `cargo check` desktop. Bộ test 0 fail trên Linux
+  (sửa 3 kiểm thử lệch nền tảng; khoá một-bản của sidecar nay có tác dụng cả ngoài Windows).
+- **Dịch simple R1.1–R1.4** (cần restart :8806) — docs/fixes/2026-11-14-translate-simple-r1.md: «Soát lại» khi cloud
+  chết không còn báo xong giả; plan hỏng không bị lưu/dùng lại, job park chờ lập lại (`SIMPLE_REQUIRE_PLAN`, mặc định 1);
+  lỗi code → stage failed ngay + `translate_error.log` (không park 15 phút); giờ stage dịch ISO UTC.
+- **Desktop R2.1–R2.2** (cần build lại app, **chưa kiểm trên Windows**) — docs/fixes/2026-11-14-desktop-kill-tree-early-exit.md:
+  đóng app giết cả cây tiến trình (`taskkill /T /F`); backend chết lúc khởi động báo ngay kèm đường dẫn log.
+- **UI desktop `/v6/` có chức năng** (`desktop/ui/` viết lại — trước chỉ là bảng xem): thêm job (link / đường dẫn máy),
+  tick nhiều job → Xếp hàng chạy / Gỡ khỏi hàng chờ, Dừng hàng chờ; khung chi tiết job: Chạy tiếp (gỡ HOLD), Xếp hàng
+  chạy, Dừng, chạy/chạy lại từng bước, Mở thư mục, Xoá job. Vẫn 1 kết nối SSE, **để yên = 0 request** (đo: 20 s không
+  request nào; `/ui3` ~6 request/30 s). Chỉ gọi API khi bấm nút, mở chi tiết, hoặc job đang mở / hàng chờ đổi theo event.
+  Chưa có: sửa lời thoại, chọn giọng, cấu hình render, Phim, Hongguo (link sang trang cũ).
+  Tauri vẫn mở `/v6/` mặc định; đổi trang: env `PINELINE_DESKTOP_PATH` hoặc `"desktop_path"` trong instance JSON.
+  `DELETE /api/jobs/{id}` báo index ngay (trước: job đã xoá còn trong danh sách tới 30 s). Màn chờ ghi đúng 180 s.
+  Kiểm ở cloud bằng Chromium + backend instance test; **chưa chạy trong cửa sổ Tauri/WebView2 và chưa với job thật**.
+  Cần restart :8806 (server.py) + build lại app (`desktop\dev.bat`).
+- Fix UI cũ `/` (`index.html`): thiếu khai báo `selectedStep`, `panelJobId`, `lastPanelSig` → console «refresh: lỗi vẽ
+  ReferenceError: selectedStep is not defined», khung chi tiết job không vẽ. Thêm `let … = null` (như `index3.html`).
+  Lỗi có sẵn từ V4/V5. Không cần restart — hard refresh trang (Ctrl+F5).
+
 ## 2026-11-13
+- Fix review 4 bug (cloud, **chờ restart :8806** + chạy `verify_all.bat` trên Windows) — docs/fixes/2026-11-13-review-sse-timestamp-testdata-bat.md:
+  (1) SSE `/api/events` chuyển generator async (`events.bus.subscribe_async`/`sse_stream`) — bản đồng bộ giữ 1 thread
+  threadpool/client, ~40 kết nối là server đứng; (2) `started_at`/`finished_at` thống nhất ISO UTC (`core/timeutil.py`;
+  `state.job_state`, heal `server.py`, `engines/render_job.py`), `film_db`/feeder/ETA đọc được dữ liệu cũ lẫn epoch;
+  (3) `agents/auto_publisher.py` tính file runtime theo `DATA_DIR` lúc gọi + test dùng films.db tạm → pytest không còn
+  ghi `data/` thật; bỏ theo dõi git `data/auto_publish_queue.json` + `auto_publish_state.json` (chứa rác test `job2`);
+  (4) `.gitattributes` ép `*.bat` CRLF. `.gitignore` thêm `pineline.config.json`/token/cookies (file CHƯA gỡ khỏi git).
 - Port V2 → V6 (agent R6, từ V2 agent N): brain/heal/watch bỏ job ĐÃ XONG (`agents.agent_hold.job_finished` — đã đăng,
   parent đã ghép Full, part của parent đó, mux+output); 3 detector heal gốc; tin tạm dừng đúng loại (park tự thử lại ⏸ ≠
   HOLD cần người ⛔); «Chạy tiếp»/chạy tay/job xong gỡ khoá park. docs/fixes/2026-11-13-port-brain-finished-hold.md

@@ -407,6 +407,9 @@ const STAGES=[
   {key:'mux',name:'Ghép + xuất',sub:'che watermark/hardsub + sub + trộn',opt:false},
 ];
 let selected=null, expanded=new Set(), lastFull=null, cache=[], lastDetailSig=null, logOpen=true;
+// fix 2026-11-14: 3 biến này trước đây KHÔNG khai báo → refresh()/renderDetail() đọc trước khi gán → ReferenceError
+// («refresh: lỗi vẽ … selectedStep is not defined»), khung chi tiết job ở trang / không vẽ được. index3.html đã có sẵn.
+let selectedStep=null, panelJobId=null, lastPanelSig=null;
 let composeOpen=false;  // true chỉ khi user bấm + Thêm link
 
 const fmtDur=s=>{ if(!s) return ''; const m=Math.floor(s/60),ss=Math.floor(s%60); return m+':'+String(ss).padStart(2,'0'); };
