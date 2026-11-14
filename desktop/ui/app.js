@@ -122,7 +122,11 @@ function syncToolbar() {
 function paintQueue() {
   const cur = queue.current ? (jobs.get(queue.current)?.title || queue.current) : null;
   const n = (queue.queue || []).length;
-  $("#q-state").textContent = cur ? `đang chạy: ${cur}${n ? ` · chờ ${n} job` : ""}` : (n ? `chờ ${n} job` : "trống");
+  let text = cur ? `đang chạy: ${cur}${n ? ` · chờ ${n} job` : ""}` : (n ? `chờ ${n} job` : "trống");
+  // persist_ok=false: backend không ghi được hàng chờ ra đĩa (đĩa đầy / file bị khoá) — vẫn chạy, nhưng restart sẽ mất thứ tự
+  if (queue.persist_ok === false) text += " · ⚠ không lưu được hàng chờ ra đĩa (kiểm tra ổ đĩa)";
+  $("#q-state").textContent = text;
+  $("#q-state").classList.toggle("warn", queue.persist_ok === false);
   fullRedraw = true; schedule();
 }
 async function refreshQueue() {

@@ -1,6 +1,9 @@
 # CHANGELOG — V6
 
 ## 2026-11-14
+- **Hàng chờ R7.1–R7.2** (cần restart :8806) — docs/fixes/2026-11-14-queue-worker-robust.md: ghi `_job_queue.json`
+  lỗi (đĩa đầy / file bị khoá) không còn giết luồng worker (trước: mọi job phía sau đứng im lặng) — thử lại, ghi log,
+  `persist_ok` trong `/api/queue/jobs`, UI desktop cảnh báo; job đang giữ ghế chạy lại trước dù hàng chờ bị sắp lại.
 - **Render R6.1** (cần restart :8806): ffmpeg 8 đã bỏ `-filter_complex_script` → mọi lần render sẽ lỗi «Unrecognized
   option» trên máy nâng ffmpeg. `engines/render.py` `filter_script_opt()` dò một lần và dùng `-/filter_complex` khi
   ffmpeg nhận (≥ 7), không thì giữ tên cũ. Lộ ra nhờ CI chạy trên Windows với ffmpeg mới nhất.

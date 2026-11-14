@@ -259,21 +259,48 @@ def _persist_path() -> Path:
     return WORK_ROOT / _PERSIST_NAME
 
 
-def _save() -> None:
-    WORK_ROOT.mkdir(parents=True, exist_ok=True)
+_save_failed = 0      # số lần ghi _job_queue.json hỏng liên tiếp (0 = lần ghi gần nhất thành công)
+
+
+def _save() -> bool:
+    """Ghi hàng chờ ra đĩa (atomic). KHÔNG BAO GIỜ ném lỗi — trả False khi ghi hỏng.
+
+    R7.1 (fix 2026-11-14): trước đây lỗi ghi (đĩa đầy, `os.replace` dính PermissionError vì antivirus / tiến trình
+    khác đang mở file trên Windows) văng thẳng ra — trong luồng worker = thread chết im lặng: `current` kẹt, mọi job
+    còn lại đứng tới khi có người xếp job mới. Hàng chờ trong bộ nhớ vẫn đúng → thử lại ngắn, hỏng thì ghi log và
+    chạy tiếp; lần `_save` sau sẽ ghi bù. (Mất bản ghi đĩa chỉ ảnh hưởng nếu server chết đúng lúc đó.)"""
+    global _save_failed
     payload = {
         "queue": list(_q),
         "opts": dict(_opts),
         "opts_by_job": {k: dict(v) for k, v in _opts_by_job.items()},
         "current": _current,
     }
-    target = _persist_path()
-    temp = target.with_name(f".{target.name}.tmp")
-    with temp.open("w", encoding="utf-8") as handle:
-        json.dump(payload, handle, ensure_ascii=False, indent=2)
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.replace(temp, target)
+    last: Exception | None = None
+    for attempt in range(4):
+        try:
+            WORK_ROOT.mkdir(parents=True, exist_ok=True)
+            target = _persist_path()
+            temp = target.with_name(f".{target.name}.tmp")
+            with temp.open("w", encoding="utf-8") as handle:
+                json.dump(payload, handle, ensure_ascii=False, indent=2)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp, target)
+            if _save_failed:
+                print(f"[queue] ghi hàng chờ đã được lại (sau {_save_failed} lần hỏng)", flush=True)
+            _save_failed = 0
+            return True
+        except Exception as e:  # noqa: BLE001 — OSError là chính; TypeError nếu opts không tuần tự hoá được
+            last = e
+            if attempt < 3:
+                time.sleep(0.05 * (attempt + 1))
+    _save_failed += 1
+    if _save_failed == 1 or _save_failed % 20 == 0:      # không spam log khi đĩa đầy kéo dài
+        print(f"[queue] KHÔNG ghi được {_persist_path()} ({type(last).__name__}: {last}) — hàng chờ vẫn chạy "
+              f"trong bộ nhớ; khởi động lại lúc này có thể mất thứ tự hàng chờ (lần hỏng thứ {_save_failed})",
+              flush=True)
+    return False
 
 
 def _load() -> None:
@@ -329,6 +356,7 @@ def queue_state() -> dict:
             "opts": dict(_opts),
             "opts_by_job": {k: dict(v) for k, v in _opts_by_job.items()},
             "busy": bool(_current) or bool(_q) or bool(_thread and _thread.is_alive()),
+            "persist_ok": _save_failed == 0,     # False = đang không ghi được _job_queue.json (đĩa đầy / file bị khoá)
         }
 
 
@@ -582,6 +610,29 @@ def _ensure_worker() -> None:
 
 
 def _worker_loop() -> None:
+    """Vòng worker có lưới an toàn (R7.1): lỗi KHÔNG lường trước trong chính vòng lặp (không phải lỗi của job —
+    runner đã tự bắt) được ghi log kèm traceback rồi vòng lặp chạy tiếp, thay vì thread chết để hàng chờ đứng."""
+    global _current, _thread
+    crashes = 0
+    while True:
+        try:
+            _worker_loop_inner()
+            return
+        except Exception:  # noqa: BLE001
+            import traceback
+            crashes += 1
+            print(f"[queue] LỖI trong vòng worker (lần {crashes}) — chạy tiếp sau 2 s:\n{traceback.format_exc()}",
+                  flush=True)
+            with _lock:
+                _current = None
+                if crashes >= 5:      # lỗi lặp lại ngay → dừng hẳn, không quay vòng đốt CPU; xếp job mới sẽ bật lại
+                    _thread = None
+                    print("[queue] vòng worker lỗi 5 lần liên tiếp → DỪNG worker (hàng chờ giữ nguyên)", flush=True)
+                    return
+            time.sleep(2.0)
+
+
+def _worker_loop_inner() -> None:
     global _current, _stop, _thread
     while True:
         with _lock:
@@ -646,6 +697,12 @@ def _worker_loop() -> None:
                         break
                 if _park_ready(job_id):
                     with _lock:
+                        # R7.2 (fix 2026-11-14): job giữ ghế phải chạy lại TRƯỚC. Trong lúc park, hàng chờ có thể
+                        # bị sắp lại / job khác bị đẩy lên đầu (queue_move, queue_sort, queue_front của «Chạy tiếp»
+                        # job khác) → trước đây vòng kế lấy _q[0] là job KHÁC, phá luật «không nhảy job».
+                        if job_id in _q and _q[0] != job_id:
+                            _q.remove(job_id)
+                            _q.insert(0, job_id)
                         _current = None
                         _save()
                     break

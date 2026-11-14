@@ -18,6 +18,7 @@ header nav a:hover{text-decoration:underline}
 #queuebar{display:flex;gap:10px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
 #queuebar .lbl{color:var(--mut);text-transform:uppercase;font-size:11px;letter-spacing:.05em}
 #q-state{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50vw}
+#q-state.warn{color:var(--held)}
 #sel-count{color:var(--mut)}
 .grow{flex:1}
 

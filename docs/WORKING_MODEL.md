@@ -87,7 +87,7 @@ cái lớn ghi vào ROADMAP:
 | Dịch simple | `engines/translate_simple/*`, `pipeline/*` | 2026-11-14 (R1.1–R1.3) |
 | State / manifest / index | `core/manifest.py`, `state/*`, `events/bus.py` | 2026-11-13 |
 | Desktop | `desktop/src-tauri`, `desktop/ui` | 2026-11-14 |
-| Hàng chờ | `core/job_queue.py`, phần queue của `server.py` | — |
+| Hàng chờ | `core/job_queue.py`, phần queue của `server.py` | 2026-11-14 (`job_queue.py`: R7.1–R7.2; phần trong `server.py` chưa) |
 | Auto-publish / YouTube | `agents/auto_publisher.py` | một phần (2026-11-13) |
 | ASR | `engines/asr/*` | — |
 | TTS | `engines/clone_tts.py`, `rvc_bridge/*` | — |

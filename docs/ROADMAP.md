@@ -71,8 +71,15 @@ Ký hiệu: `[x]` xong và đã kiểm · `[~]` code xong ở cloud, **chờ ki�
 - [ ] **R4.5** Auto-publish: kiểm lại đường «job đang upload bị xếp hàng lần hai» bằng test liên tiến trình.
 - [ ] **R4.6** `core/manifest.py`: hết 5 s không lấy được khoá thì đang ghi không khoá → ghi log cảnh báo + đếm; cân nhắc từ chối ghi.
 
+### G1.7 Hàng chờ
+- [x] **R7.1** Ghi `_job_queue.json` lỗi (đĩa đầy / file bị khoá) làm chết worker, hàng chờ đứng im lặng.
+- [x] **R7.2** Job đang giữ ghế (park/HOLD) bị job khác chen lên trước khi hàng chờ bị sắp lại.
+- [ ] **R7.3 (chủ quyết)** HOLD cần người chặn cả hàng chờ vô thời hạn — giữ luật Studio, hay sau N phút nhường ghế cho job kế?
+- [ ] **R7.4** N job `failed` liên tiếp → tạm dừng hàng chờ + báo (không đốt sạch hàng chờ khi GPU/đĩa/cloud hỏng).
+- [ ] **R7.5** Lịch sử hàng chờ ghi ra file (ai chạy, lúc nào, kết quả, lý do) — hiện chỉ 20 mục trong bộ nhớ.
+
 ### G1.6 Render
-- [~] **R6.1** ffmpeg ≥ 8 bỏ `-filter_complex_script` → render tự dò cú pháp (`render.filter_script_opt`). Phát hiện nhờ CI Windows.
+- [x] **R6.1** ffmpeg ≥ 8 bỏ `-filter_complex_script` → render tự dò cú pháp (`render.filter_script_opt`). Phát hiện nhờ CI Windows.
 - [ ] **R6.2** Ghi phiên bản ffmpeg / Python / gói chính vào `/api/health` + `scripts/check_env.py`; cảnh báo khi khác bản đã kiểm.
 
 ### G1.5 Hiệu năng server
@@ -129,3 +136,4 @@ Luật: UI desktop **không polling** — 1 kết nối SSE, chỉ gọi API khi
 | 2026-11-14 | — | Test 728/0 trên Linux; thêm CI (Ubuntu + Windows + cargo check) |
 | 2026-11-14 | R1.1–R1.4 R2.1 R2.2 | Xem `docs/fixes/2026-11-14-*` |
 | 2026-11-14 | R6.1 | CI Windows lần đầu: 727 pass, 2 fail do ffmpeg 8 → sửa |
+| 2026-11-14 | R7.1 R7.2 | Rà hàng chờ; CI xanh Ubuntu + Windows + cargo (xác nhận R6.1 trên ffmpeg 8) |
