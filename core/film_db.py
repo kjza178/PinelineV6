@@ -75,7 +75,7 @@ def derive_hg_name(job_id: str, req: dict | None, title_clean: str = "") -> str:
         except Exception:
             pass
         try:
-            pmf = WORK / parent_id / "manifest.json"
+            pmf = _work() / parent_id / "manifest.json"
             if pmf.is_file():
                 pm = json.loads(pmf.read_text(encoding="utf-8"))
                 preq = pm.get("request") or {}
@@ -112,6 +112,15 @@ def derive_hg_name(job_id: str, req: dict | None, title_clean: str = "") -> str:
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "work"
+_DEFAULT_WORK = WORK
+
+
+def _work() -> Path:
+    """Work root hiện hành: WORK đã bị đặt riêng (test monkeypatch) → dùng nó; không thì work của instance (env)."""
+    if WORK != _DEFAULT_WORK:
+        return WORK
+    from core.instance import work_root_now
+    return work_root_now(WORK)
 DB_PATH = Path(os.getenv("FILM_DB") or ROOT / "data" / "films.db")
 YT_DIR = _machine.yt_uploader_dir()
 YT_HISTORY = YT_DIR / "upload_history.jsonl"
@@ -293,7 +302,7 @@ def _num(v, cast=float):
 
 def _is_upload_lock_active(job_id: str) -> bool:
     """Kiểm tra nhanh xem .upload.lock của job còn thuộc về tiến trình đang sống không."""
-    for lock_path in (WORK / job_id / ".upload.lock", ROOT / "data" / f".upload_{job_id}.lock"):
+    for lock_path in (_work() / job_id / ".upload.lock", ROOT / "data" / f".upload_{job_id}.lock"):
         if not lock_path.is_file():
             continue
         try:
@@ -366,7 +375,7 @@ def sync_one(job_id: str) -> dict | None:
     job_id = str(job_id or "").strip()
     if not job_id:
         return None
-    mf = WORK / job_id / "manifest.json"
+    mf = _work() / job_id / "manifest.json"
     if not mf.is_file():
         return get(job_id)
     try:
@@ -404,8 +413,8 @@ def sync_one(job_id: str) -> dict | None:
 def sync(hg_library: list[dict] | None = None) -> dict:
     """Quét manifest → upsert films; ghi event khi trạng thái đổi. Trả {new, changed, total}."""
     rows = []
-    if WORK.is_dir():
-        for d in WORK.iterdir():
+    if _work().is_dir():
+        for d in _work().iterdir():
             mf = d / "manifest.json"
             if not mf.is_file():
                 continue
@@ -635,9 +644,9 @@ def delete_film(job_id: str, delete_work: bool = True) -> dict:
     work_deleted = False
     if delete_work:
         try:
-            root = WORK.resolve()
-            p = (WORK / jid).resolve()
-            if (p.parent == root or p.parent == WORK) and p.is_dir():
+            root = _work().resolve()
+            p = (_work() / jid).resolve()
+            if (p.parent == root or p.parent == _work()) and p.is_dir():
                 shutil.rmtree(p)
                 work_deleted = True
         except Exception as e:
@@ -655,11 +664,11 @@ def delete_films(job_ids: list[str], delete_work: bool = True) -> dict:
         return {"ok": False, "deleted_count": 0, "deleted_ids": [], "error": "Danh sách rỗng"}
     work_deleted_count = 0
     if delete_work:
-        root = WORK.resolve()
+        root = _work().resolve()
         for jid in ids:
             try:
-                p = (WORK / jid).resolve()
-                if (p.parent == root or p.parent == WORK) and p.is_dir():
+                p = (_work() / jid).resolve()
+                if (p.parent == root or p.parent == _work()) and p.is_dir():
                     shutil.rmtree(p)
                     work_deleted_count += 1
             except Exception:

@@ -41,6 +41,18 @@ QUEUE_LOCK_FILE = DATA_DIR / ".auto_publish_queue"
 
 
 _DEFAULT_DATA_DIR = DATA_DIR
+_DEFAULT_ROOT = ROOT
+
+
+def _work_dir(job_id: str = "") -> Path:
+    """Thư mục job theo work root của instance (env) — fix 2026-11-14, trước cứng ROOT/"work".
+    ROOT bị đặt riêng (test monkeypatch) → giữ ROOT/"work" như cũ."""
+    if ROOT != _DEFAULT_ROOT:
+        base = ROOT / "work"
+    else:
+        from core.instance import work_root_now
+        base = work_root_now(ROOT / "work")
+    return base / job_id if job_id else base
 
 
 def _data_path(const: Path) -> Path:
@@ -157,7 +169,7 @@ def is_auto_split_part(job_id: str) -> bool:
         return False
     if _SPLIT_PART_ID_RE.match(jid):
         return True
-    mf = ROOT / "work" / jid / "manifest.json"
+    mf = _work_dir(jid) / "manifest.json"
     if not mf.is_file():
         return False
     try:
@@ -304,7 +316,7 @@ def is_pid_alive(pid: int) -> bool:
 
 def get_job_lock_path(job_id: str) -> Path:
     """Xác định đường dẫn file lock của job (ưu tiên trong thư mục work/<job_id>)."""
-    w_dir = ROOT / "work" / job_id
+    w_dir = _work_dir(job_id)
     if w_dir.is_dir():
         return w_dir / ".upload.lock"
     return DATA_DIR / f".upload_{job_id}.lock"
@@ -717,7 +729,7 @@ def _revert_job_to_done(job_id: str, error_msg: str | None = None) -> None:
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
         from core.manifest import Manifest
-        w_dir = ROOT / "work" / job_id
+        w_dir = _work_dir(job_id)
         if (w_dir / "manifest.json").is_file():
             m = Manifest(w_dir)
             if not m.data.get("yt_url"):
@@ -789,7 +801,7 @@ def enqueue_publish(
         row = film_db.get(job_id) or {}
         out_path = row.get("output_path")
         if not out_path or not Path(str(out_path)).is_file():
-            cand = ROOT / "work" / job_id / "output.mp4"
+            cand = _work_dir(job_id) / "output.mp4"
             out_path = str(cand) if cand.is_file() else out_path
         reasons = _oversized_youtube_reasons(row, out_path)
         if reasons:
@@ -924,7 +936,7 @@ def publish_job(
         row0 = film_db.get(job_id) or {}
         out0 = row0.get("output_path")
         if not out0 or not Path(str(out0)).is_file():
-            cand0 = ROOT / "work" / job_id / "output.mp4"
+            cand0 = _work_dir(job_id) / "output.mp4"
             out0 = str(cand0) if cand0.is_file() else out0
         reasons0 = _oversized_youtube_reasons(row0, out0)
         if reasons0:
@@ -1029,7 +1041,7 @@ def _publish_job_internal(
     if not row:
         return {"ok": False, "error": f"Không tìm thấy job {job_id} trong database"}
 
-    mf_path = ROOT / "work" / job_id / "manifest.json"
+    mf_path = _work_dir(job_id) / "manifest.json"
     m_data = {}
     if mf_path.is_file():
         try:
@@ -1044,9 +1056,9 @@ def _publish_job_internal(
     # Tìm file video hoàn chỉnh
     out_path = row.get("output_path")
     if not out_path or not Path(out_path).is_file():
-        cand = ROOT / "work" / job_id / "output.mp4"
+        cand = _work_dir(job_id) / "output.mp4"
         if not cand.is_file():
-            cand = ROOT / "work" / job_id / "final.mp4"
+            cand = _work_dir(job_id) / "final.mp4"
         if cand.is_file():
             out_path = str(cand)
         else:
@@ -1074,7 +1086,7 @@ def _publish_job_internal(
     # Đánh dấu upload_status = 'uploading' vào manifest và films.db ngay từ đầu để scanner không quét trúng
     try:
         from core.manifest import Manifest
-        m = Manifest(ROOT / "work" / job_id)
+        m = Manifest(_work_dir(job_id))
         m.data["upload_status"] = "uploading"
         m.data["upload_started_at"] = now_utc
         js.persist(m)
@@ -1340,7 +1352,7 @@ def _publish_job_internal(
     # 7. Cập nhật manifest.json của job
     try:
         from core.manifest import Manifest
-        m = Manifest(ROOT / "work" / job_id)
+        m = Manifest(_work_dir(job_id))
         m.data["yt_url"] = yt_url
         m.data["uploaded_at"] = now_utc
         m.data["upload_status"] = "uploaded"
@@ -1429,7 +1441,7 @@ def _collect_and_enqueue_done_jobs() -> list[dict[str, Any]]:
         title = str(f.get("title_vi") or f.get("title") or f.get("title_zh") or "")
         if _SPLIT_PART_TITLE_RE.search(title):
             continue
-        mf = ROOT / "work" / jid / "manifest.json"
+        mf = _work_dir(jid) / "manifest.json"
         if mf.is_file():
             try:
                 m_chk = json.loads(mf.read_text(encoding="utf-8"))

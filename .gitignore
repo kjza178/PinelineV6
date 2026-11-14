@@ -46,3 +46,6 @@ data/auto_publish_queue.json
 data/auto_publish_state.json
 data/.auto_publish_*
 data/.upload_*.lock
+
+# Dữ liệu runtime do agent_feeder tạo khi chạy
+data/series_meta/

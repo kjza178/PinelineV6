@@ -53,7 +53,7 @@ Ký hiệu: `[x]` xong và đã kiểm · `[~]` code xong ở cloud, **chờ ki�
 ### G1.2 Tiến trình và tắt/mở
 - [~] **R2.1** Desktop: đóng app phải giết cả cây tiến trình (ffmpeg, ASR, render worker), không chỉ Python.
 - [~] **R2.2** Desktop: backend chết sớm → báo ngay kèm đường dẫn log (trước: chờ đủ 180 s).
-- [ ] **R2.3** Desktop: còn job đang chạy thì hỏi xác nhận trước khi đóng; cho chọn «thu nhỏ xuống khay, để chạy tiếp».
+- [~] **R2.3** Desktop: bấm đóng khi còn job chạy → hộp thoại Windows hỏi (đóng = dừng job). Còn: thu nhỏ xuống khay để chạy tiếp.
 - [ ] **R2.4** Backend chạy như dịch vụ Windows / Task Scheduler: chết thì tự lên; hàng chờ chạy tiếp từ chỗ dở (`queue_autostart`).
 - [ ] **R2.5** Khởi động lại giữa chừng: mỗi stage resume đúng (đã có `reset_running`; cần test đầu-cuối bằng engine giả).
 
@@ -97,15 +97,16 @@ Luật: UI desktop **không polling** — 1 kết nối SSE, chỉ gọi API khi
 
 - [~] **D1** Bảng job, hàng chờ, thêm job, khung chi tiết: chạy tiếp / xếp hàng / dừng / chạy từng bước / mở thư mục / xoá.
 - [~] **D2** Tab «Bản dịch»: danh sách câu ZH ‖ VI, lọc (bị cờ / chưa soát / trống / sửa tay) + tìm, sửa câu (lưu `manual`), nghe giọng 1 câu, đọc lại 1 câu.
-      Khoá sửa khi đang dịch (server trả 409). Còn: sửa câu ZH, gộp/tách câu, xem trước theo video.
+      Khoá sửa khi đang dịch (server trả 409). Sửa câu ZH (2026-11-14). Còn: gộp/tách câu, xem trước theo video.
 - [~] **D3** «Làm lại» một bước đã xong (cờ `force`) có hộp xác nhận nêu rõ sẽ mất gì.
 - [~] **D4** Nút «Cài đặt»: sửa toàn bộ cấu hình batch (24 khoá, có kiểm giá trị) — trước chỉ sửa được qua sidecar. Còn: ghim cấu hình render riêng cho 1 job.
 - [ ] **D5** Hàng chờ: kéo đổi thứ tự, xem lịch sử, ước lượng thời gian.
-- [~] **D6** Tab «Giọng đọc»: chọn giọng / tốc độ / bộ đọc cho từng job. Còn: nghe mẫu giọng, thêm giọng clone mới.
-- [ ] **D7** Phim: thư viện, trạng thái upload, upload YouTube (luôn hỏi xác nhận).
-- [ ] **D8** Hongguo: tìm, tải, gộp tập.
+- [~] **D6** Tab «Giọng đọc»: chọn giọng / tốc độ / bộ đọc cho từng job, nghe mẫu, thêm giọng clone (upload file mẫu). Còn: xoá / đổi tên giọng.
+- [~] **D7** Nút «Thư viện phim»: đồng bộ + danh sách phim, tìm / lọc, mở job, «Đăng YouTube» (hỏi xác nhận + chọn chế độ riêng tư).
+      Chưa kiểm upload thật (cloud không có tài khoản YouTube). Còn: kiểm chặn bản quyền, gộp phần, metadata/thumbnail.
+- [ ] **D8** Hongguo: tìm, tải, gộp tập. (Cần app Hongguo :8000 chạy để làm và kiểm — vẫn dùng trang `/hongguo`.)
 - [ ] **D9** Cài đặt + kiểm máy lần đầu (`scripts/check_env.py` thành màn hình).
-- [ ] **D10** Chat với Agent / Second Brain.
+- [~] **D10** Nút «Agent»: chat (lịch sử 10 lượt), mặc định CHỈ ĐỌC, ô bật «cho phép thao tác». Chưa kiểm với LLM thật.
 - [ ] **D11** Thông báo native + biểu tượng khay; xem log backend trong app.
 
 ## G3 — Cấu trúc và phát hành
@@ -143,3 +144,4 @@ Luật: UI desktop **không polling** — 1 kết nối SSE, chỉ gọi API khi
 | 2026-11-14 | R7.1 R7.2 | Rà hàng chờ; CI xanh Ubuntu + Windows + cargo (xác nhận R6.1 trên ffmpeg 8) |
 | 2026-11-14 | R7.3 R7.4 R7.5 R5.2 R5.3 R3.1 R6.2 D3 R1.5 R4.5 | Đợt «fix all»: xem `docs/fixes/2026-11-14-queue-24x7.md` |
 | 2026-11-14 | D2 D4 D6 | Desktop có tab Bản dịch / Giọng đọc / Kết quả + Cài đặt chung |
+| 2026-11-14 | D2 D6 D7 D10 R2.3 + 2 bug | Desktop: câu Trung, giọng clone, thư viện phim, Agent, hỏi trước khi đóng · sửa /films hỏng, work root theo instance |

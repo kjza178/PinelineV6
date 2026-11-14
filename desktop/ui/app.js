@@ -291,7 +291,8 @@ function lineHtml(r, locked, enc) {
   const has = script.wav.has(Number(r.i));
   return `<div class="ln" data-i="${esc(r.i)}">
     <div class="ln-meta"><b>#${esc(r.i)}</b> <span class="mut">${fmtTime(r.start)}</span> ${tags.join(" ")}</div>
-    <div class="zh">${esc(r.zh || "")}</div>
+    <div class="zh"><span class="zh-text">${esc(r.zh || "")}</span>${locked || r.junk ? "" : ` <button class="btn xs ghost" data-act="zh-edit" data-i="${esc(r.i)}" title="Sửa câu Trung (khi ASR nghe nhầm)">✎</button>`}</div>
+    <textarea class="zh-edit" data-i="${esc(r.i)}" rows="1" spellcheck="false" hidden>${esc(r.zh || "")}</textarea>
     <textarea class="vi" data-i="${esc(r.i)}" data-junk="${r.junk ? 1 : 0}" rows="2" spellcheck="false"${locked || r.junk ? " readonly" : ""}>${esc(r.vi || "")}</textarea>
     <div class="ln-act"><button class="btn sm" data-act="play" data-i="${esc(r.i)}"${has ? "" : " disabled"} title="${has ? "Nghe giọng đọc câu này" : "Câu này chưa có giọng đọc"}">▶ Nghe</button>
     <button class="btn sm" data-act="clip" data-i="${esc(r.i)}" title="Đọc lại riêng câu này bằng giọng của job">Đọc lại câu</button>
@@ -342,6 +343,27 @@ function syncScriptLock(j) {
   document.querySelectorAll("#sc-list textarea.vi").forEach((t) => { t.readOnly = on || t.dataset.junk === "1"; });
 }
 
+async function saveZh(ta) {
+  const i = Number(ta.dataset.i), id = selected;
+  const row = script?.rows.find((r) => Number(r.i) === i);
+  if (!row) return;
+  const zh = ta.value.trim();
+  const st = document.querySelector(`[data-st="${CSS.escape(String(i))}"]`);
+  ta.hidden = true;
+  if (zh === (row.zh || "").trim() || !zh) return;
+  if (st) { st.textContent = "đang lưu câu Trung…"; st.className = "st"; }
+  try {
+    const r = await api("POST", `/api/jobs/${encodeURIComponent(id)}/script-line`, { i, zh });
+    row.zh = r.zh ?? zh; row.manual = 1; delete row.rv;
+    const span = ta.closest(".ln")?.querySelector(".zh-text");
+    if (span) span.textContent = row.zh;
+    if (st) { st.textContent = "đã lưu câu Trung — câu Việt không tự dịch lại; sửa câu Việt nếu cần"; st.className = "st ok"; }
+  } catch (e) {
+    ta.value = row.zh || "";
+    if (st) { st.textContent = "Lỗi: " + e.message; st.className = "st err"; }
+  }
+}
+
 async function saveLine(ta) {
   const i = Number(ta.dataset.i), id = selected;
   const row = script?.rows.find((r) => Number(r.i) === i);
@@ -386,9 +408,17 @@ function paintVoice(force) {
       <label>Giọng<select name="voice">${cur.voice && !vs.includes(cur.voice) ? `<option selected>${esc(cur.voice)}</option>` : ""}${opts || '<option value="">(chưa có giọng clone)</option>'}</select></label>
       <label>Tốc độ đọc<input name="speed" type="number" min="0.5" max="2" step="0.05" value="${esc(cur.speed)}"></label>
       <label>Bộ đọc (TTS)<select name="engine">${["vieneu", "omnivoice"].map((e) => `<option${e === cur.engine ? " selected" : ""}>${e}</option>`).join("")}</select></label>
-      <div class="actions"><button class="btn primary" data-act="voice-save" type="button">Lưu cho job này</button></div>
+      <div class="actions"><button class="btn" data-act="voice-sample" type="button" title="Đọc một câu mẫu bằng giọng + tốc độ đang chọn (lần đầu có thể mất vài chục giây)">▶ Nghe mẫu</button>
+        <button class="btn primary" data-act="voice-save" type="button">Lưu cho job này</button></div>
       <p class="hint">Áp dụng cho lần lồng tiếng tiếp theo của job này. Đã lồng tiếng rồi thì sang tab Tổng quan bấm «Làm lại» ở bước Lồng tiếng
       (hoặc «Đọc lại câu» ở tab Bản dịch cho từng câu). Giọng mặc định cho mọi job mới: nút «Cài đặt» trên cùng.</p>
+    </form>
+    <form class="voice clone">
+      <h3>Thêm giọng clone mới</h3>
+      <p class="hint">File ghi âm 3–8 giây, một người nói, rõ, không nhạc nền (wav / mp3 / m4a…). Dài hơn sẽ tự cắt. Giọng dùng chung cho mọi job.</p>
+      <label>File mẫu<input type="file" class="clone-file" name="clone-file" accept="audio/*,.wav,.mp3,.m4a,.flac,.ogg,.opus,.aac"></label>
+      <label>Tên giọng<input name="clone-name" maxlength="60" placeholder="vd: Ngọc Huyền"></label>
+      <div class="actions"><button class="btn primary" data-act="voice-clone" type="button">Tạo giọng</button></div>
     </form>`;
 }
 
@@ -425,6 +455,11 @@ async function detailAction(btn) {
   if (a === "sc-reload") return loadScript();
   if (a === "sc-more") { scriptShown += PAGE; return paintScript(false); }
   if (a === "play") return playLine(btn.dataset.i);
+  if (a === "zh-edit") {
+    const ta = document.querySelector(`textarea.zh-edit[data-i="${CSS.escape(btn.dataset.i)}"]`);
+    if (ta) { ta.hidden = false; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+    return;
+  }
   if (a === "clip") {
     const i = Number(btn.dataset.i);
     return act(btn, `Đã đọc lại câu #${i}`, async () => {
@@ -433,6 +468,35 @@ async function detailAction(btn) {
       const p = document.querySelector(`button[data-act="play"][data-i="${CSS.escape(String(i))}"]`);
       if (p) p.disabled = false;
       playLine(i);
+    });
+  }
+  if (a === "voice-sample") {
+    const f = btn.closest("form");
+    const q = new URLSearchParams({ engine: f.engine.value || "vieneu", voice: f.voice.value || "", speed: f.speed.value || "1" });
+    if (!f.voice.value) return say("Chưa có giọng để nghe", "err");
+    return act(btn, "", async () => {
+      btn.textContent = "Đang đọc mẫu…";
+      try {
+        const r = await fetch("/api/voice-sample?" + q);
+        if (!r.ok) { let m = `HTTP ${r.status}`; try { m = (await r.json()).error || m; } catch (_) { /* không phải JSON */ } throw new Error(m); }
+        player.src = URL.createObjectURL(await r.blob());
+        await player.play();
+      } finally { btn.textContent = "▶ Nghe mẫu"; }
+    });
+  }
+  if (a === "voice-clone") {
+    const f = btn.closest("form"), file = f.elements["clone-file"].files[0], name = f.elements["clone-name"].value.trim();
+    if (!file) return say("Chọn file ghi âm mẫu trước", "err");
+    if (!name) return say("Đặt tên cho giọng", "err");
+    return act(btn, `Đã tạo giọng «${name}»`, async () => {
+      btn.textContent = "Đang tạo (có thể mất 1 phút)…";
+      try {
+        const fd = new FormData(); fd.append("name", name); fd.append("file", file);
+        const r = await fetch("/api/clone-voice", { method: "POST", body: fd });
+        let d = null; try { d = await r.json(); } catch (_) { /* không phải JSON */ }
+        if (!r.ok || !d || d.error) throw new Error((d && d.error) || `HTTP ${r.status}`);
+        voices = null; await loadVoices(); paintVoice(true);
+      } finally { btn.textContent = "Tạo giọng"; }
     });
   }
   if (a === "voice-save") {
@@ -551,6 +615,88 @@ async function saveSettings(ev) {
   } finally { ok.disabled = false; }
 }
 
+// ───────────── Thư viện phim + đăng YouTube (D7) ─────────────
+const FILM_ST = { done: "xong", uploaded: "đã đăng", uploading: "đang đăng", running: "đang làm", failed: "lỗi", pending: "chờ" };
+function fmtDur(sec) { const t = Number(sec) || 0; if (!t) return ""; const h = Math.floor(t / 3600), m = Math.round((t % 3600) / 60); return h ? `${h} giờ ${m} phút` : `${m} phút`; }
+
+async function loadFilms() {
+  const q = new URLSearchParams({ q: $("#films-q").value.trim(), status: $("#films-status").value, limit: "500" });
+  const body = $("#films-rows");
+  let d;
+  try { d = await api("GET", "/films?" + q); } catch (e) {
+    body.innerHTML = `<tr><td colspan="6" class="note">Không đọc được thư viện: ${esc(e.message)}${/404/.test(e.message) ? " — instance này chưa bật router «films» (instances/*.json → routers)" : ""}</td></tr>`;
+    return;
+  }
+  const st = d.stats || {};
+  $("#films-stats").textContent = [st.total != null ? `${st.total} phim` : "", st.uploaded != null ? `${st.uploaded} đã đăng` : "", st.done_7d != null ? `${st.done_7d} xong trong 7 ngày` : "", st.done_hours ? `${st.done_hours} giờ phim` : ""].filter(Boolean).join(" · ");
+  const rows = d.films || [];
+  body.innerHTML = rows.length ? rows.map((f) => {
+    const title = f.title_vi || f.title || f.job_id;
+    const yt = f.yt_url ? `<a href="${esc(f.yt_url)}" target="_blank" rel="noopener">mở</a>` : "";
+    const canUp = !f.yt_url && f.status === "done" && f.work_exists !== 0;
+    return `<tr data-id="${esc(f.job_id)}"><td title="${esc(f.job_id)}">${esc(title)}</td><td><span class="b ${esc(f.status)}">${esc(FILM_ST[f.status] || f.status || "")}</span></td>`
+      + `<td>${esc(fmtDur(f.duration_sec))}</td><td>${esc(String(f.finished_at || "").slice(0, 16).replace("T", " "))}</td><td>${yt}</td>`
+      + `<td class="acts">${canUp ? `<button class="btn sm primary" data-film="upload">Đăng YouTube</button>` : ""}`
+      + `${jobs.has(f.job_id) ? `<button class="btn sm" data-film="open">Mở job</button>` : ""}</td></tr>`;
+  }).join("") : '<tr><td colspan="6" class="note">Không có phim nào khớp.</td></tr>';
+}
+const loadFilmsSoon = debounce(loadFilms, 300);
+
+async function filmAction(btn) {
+  const tr = btn.closest("tr[data-id]"), id = tr?.dataset.id;
+  if (!id) return;
+  if (btn.dataset.film === "open") { $("#dlg-films").close(); selected = null; select(id); return; }
+  if (btn.dataset.film === "upload") {
+    const priv = $("#films-privacy"), label = priv.options[priv.selectedIndex].text;
+    const title = tr.cells[0].textContent;
+    if (!confirm(`Đăng «${title}» lên YouTube ở chế độ «${label}»?\n\nViệc này gửi video ra ngoài (kênh YouTube đã cấu hình), không tự rút lại được.`)) return;
+    return act(btn, "", async () => {
+      // chuẩn bị metadata + thumbnail rồi mới upload — có thể mất cả phút; nút nói rõ đang làm gì
+      btn.textContent = "Đang chuẩn bị đăng…";
+      say("Đang chuẩn bị metadata / thumbnail rồi đăng — có thể mất vài phút, đừng tắt app");
+      let r;
+      try { r = await api("POST", "/api/auto-publish/trigger", { job_id: id, privacy: priv.value }); } finally { btn.textContent = "Đăng YouTube"; }
+      say(r.queued || r.enqueued ? "Đã xếp vào hàng đăng YouTube (đang có video khác đăng)" : (r.yt_url ? "Đã đăng: " + r.yt_url : "Đã gửi lệnh đăng YouTube"));
+      loadFilms();
+    });
+  }
+}
+
+// ───────────── Chat Agent (D10) ─────────────
+let agentHistory = [];
+function agentAppend(role, text, meta) {
+  const log = $("#agent-log");
+  const d = document.createElement("div");
+  d.className = "msg " + role;
+  d.textContent = text;
+  if (meta) { const m = document.createElement("div"); m.className = "msg-meta"; m.textContent = meta; d.appendChild(m); }
+  log.appendChild(d); log.scrollTop = log.scrollHeight;
+  return d;
+}
+async function agentSend(ev) {
+  ev.preventDefault();
+  const box = $("#agent-msg"), msg = box.value.trim();
+  if (!msg) return;
+  agentAppend("me", msg);
+  box.value = "";
+  const wait = agentAppend("bot", "Đang nghĩ…");
+  const btn = $("#agent-send"); btn.disabled = true;
+  try {
+    const r = await api("POST", "/api/agent/chat", { message: msg, history: agentHistory.slice(-10), allow_mutate: $("#agent-mutate").checked });
+    wait.remove();
+    const steps = Array.isArray(r.steps) ? r.steps.length : 0;
+    agentAppend("bot", r.reply || "(không có trả lời)", [r.model, steps ? `${steps} bước công cụ` : ""].filter(Boolean).join(" · "));
+    agentHistory.push({ role: "user", content: msg }, { role: "assistant", content: r.reply || "" });
+  } catch (e) {
+    wait.remove();
+    const m = e.message || "";
+    const hint = /Max retries|Connection refused|ConnectionError|Failed to establish|timed out/i.test(m)
+      ? "Không kết nối được máy chủ LLM của Agent (AGENT_BASE_URL trong cấu hình — router :3377 / 9router đang chạy chưa?)."
+      : "";
+    agentAppend("err", "Agent lỗi: " + (hint || m), hint ? m.slice(0, 200) : "");
+  } finally { btn.disabled = false; box.focus(); }
+}
+
 // ───────────── SSE ─────────────
 function connect() {
   const es = new EventSource("/api/events");
@@ -604,10 +750,13 @@ $("#ck-all").addEventListener("change", (e) => {
 $("#detail").addEventListener("click", (e) => { const b = e.target.closest("button[data-act]"); if (b) detailAction(b); });
 $("#detail").addEventListener("change", (e) => {
   if (e.target.matches("textarea.vi")) saveLine(e.target);
+  if (e.target.matches("textarea.zh-edit")) saveZh(e.target);
+  if (e.target.matches("input.clone-file")) { const n = e.target.form?.elements["clone-name"]; if (n && !n.value) n.value = (e.target.files[0]?.name || "").replace(/\.[^.]+$/, ""); }
   if (e.target.id === "sc-filter") { scriptFilter = e.target.value; scriptShown = PAGE; paintScript(false); }
 });
 $("#detail").addEventListener("keydown", (e) => {
-  if (e.target.matches("textarea.vi") && e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); e.target.blur(); }
+  if (e.target.matches("textarea.vi, textarea.zh-edit") && e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); e.target.blur(); }
+  if (e.target.matches("textarea.zh-edit") && e.key === "Escape") { e.target.value = e.target.defaultValue; e.target.hidden = true; }
 });
 const onScriptSearch = debounce(() => { scriptShown = PAGE; paintScript(false); }, 250);
 $("#detail").addEventListener("input", (e) => { if (e.target.id === "sc-q") { scriptQ = e.target.value.trim(); onScriptSearch(); } });
@@ -629,6 +778,22 @@ $("#btn-q-resume").addEventListener("click", (e) => act(e.currentTarget, "Đã c
 $("#btn-q-log").addEventListener("click", (e) => act(e.currentTarget, "", showQueueLog));
 $("#log-close").addEventListener("click", () => $("#dlg-log").close());
 $("#btn-cfg").addEventListener("click", (e) => act(e.currentTarget, "", openSettings));
+$("#btn-films").addEventListener("click", async () => {
+  $("#dlg-films").showModal();
+  $("#films-rows").innerHTML = '<tr><td colspan="6" class="note">Đang đồng bộ thư viện…</td></tr>';
+  // Đồng bộ films.db từ manifest các job trước khi xem (instance tắt vòng nền `feeder` thì DB không tự cập nhật).
+  try { await api("POST", "/films/sync"); } catch (e) { say("Không đồng bộ được thư viện: " + e.message, "err"); }
+  loadFilms();
+});
+$("#films-close").addEventListener("click", () => $("#dlg-films").close());
+$("#films-q").addEventListener("input", loadFilmsSoon);
+$("#films-status").addEventListener("change", loadFilms);
+$("#films-rows").addEventListener("click", (e) => { const b = e.target.closest("button[data-film]"); if (b) filmAction(b); });
+$("#btn-agent").addEventListener("click", () => { $("#dlg-agent").showModal(); $("#agent-msg").focus(); });
+$("#agent-close").addEventListener("click", () => $("#dlg-agent").close());
+$("#agent-clear").addEventListener("click", () => { agentHistory = []; $("#agent-log").querySelectorAll(".msg").forEach((m) => m.remove()); });
+$("#form-agent").addEventListener("submit", agentSend);
+$("#agent-msg").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $("#form-agent").requestSubmit(); } });
 $("#cfg-cancel").addEventListener("click", () => $("#dlg-cfg").close());
 $("#form-cfg").addEventListener("submit", saveSettings);
 $("#btn-new").addEventListener("click", () => { $("#new-err").hidden = true; $("#dlg-new").showModal(); $("#new-src").focus(); });

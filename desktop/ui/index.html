@@ -13,6 +13,8 @@
   <span id="conn" class="conn off">mất kết nối</span>
   <button id="btn-new" class="btn primary">+ Thêm job</button>
   <button id="btn-cfg" class="btn" title="Cấu hình mặc định cho mọi job: giọng, tốc độ, âm nền, render…">Cài đặt</button>
+  <button id="btn-films" class="btn" title="Thư viện phim đã làm + đăng YouTube">Thư viện phim</button>
+  <button id="btn-agent" class="btn" title="Hỏi / ra lệnh cho AI Agent về các job">Agent</button>
   <input id="q" placeholder="Lọc job…">
   <span id="count"></span>
   <nav><a href="/ui3" title="UI cũ: sửa lời thoại, giọng đọc, cấu hình">Studio cũ</a><a href="/films">Phim</a><a href="/hongguo">Hongguo</a></nav>
@@ -68,6 +70,27 @@
       <button type="button" class="btn" id="cfg-cancel">Huỷ</button>
       <button type="submit" class="btn primary" id="cfg-ok">Lưu</button>
     </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-films">
+  <div class="dlg-head"><h2>Thư viện phim</h2><span id="films-stats" class="mut"></span><span class="grow"></span>
+    <button type="button" class="btn" id="films-close">Đóng</button></div>
+  <div class="sc-bar">
+    <input id="films-q" placeholder="Tìm theo tên phim / mã job…">
+    <select id="films-status" aria-label="Lọc trạng thái"><option value="">Mọi trạng thái</option><option value="done">Xong, chưa đăng</option><option value="uploaded">Đã đăng</option><option value="uploading">Đang đăng</option><option value="running">Đang làm</option><option value="failed">Lỗi</option></select>
+    <label class="row mut">Đăng ở chế độ <select id="films-privacy"><option value="unlisted">Không công khai</option><option value="private">Riêng tư</option><option value="public">Công khai</option></select></label>
+  </div>
+  <div class="logwrap tall"><table><thead><tr><th>Phim</th><th>Trạng thái</th><th>Thời lượng</th><th>Xong lúc</th><th>YouTube</th><th></th></tr></thead><tbody id="films-rows"></tbody></table></div>
+</dialog>
+
+<dialog id="dlg-agent">
+  <div class="dlg-head"><h2>AI Agent</h2><span class="grow"></span><button type="button" class="btn" id="agent-clear" title="Xoá cuộc trò chuyện">Mới</button><button type="button" class="btn" id="agent-close">Đóng</button></div>
+  <div id="agent-log" aria-live="polite"><p class="hint">Hỏi về job, hàng chờ, lỗi… vd: «job nào đang lỗi và vì sao?», «tóm tắt hàng chờ». Agent chỉ ĐỌC trừ khi bật ô bên dưới.</p></div>
+  <form id="form-agent">
+    <textarea id="agent-msg" rows="2" placeholder="Nhập câu hỏi (Ctrl+Enter để gửi)…"></textarea>
+    <div class="actions"><label class="row mut"><input type="checkbox" id="agent-mutate"> Cho phép Agent thao tác (xếp hàng / dừng job)</label><span class="grow"></span>
+      <button type="submit" class="btn primary" id="agent-send">Gửi</button></div>
   </form>
 </dialog>
 

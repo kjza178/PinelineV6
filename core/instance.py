@@ -143,6 +143,16 @@ def load(name: str | None = None, *, directory: Path | None = None) -> Instance:
 DEFAULT_INSTANCE = "v6"
 
 
+def work_root_now(default: Path) -> Path:
+    """Thư mục work của instance ĐANG CHẠY (env do Instance.apply_env đặt), không thì `default`.
+
+    fix 2026-11-14: nhiều module (film_db, auto_publisher, feeder, meta_studio, batch_config…) cứng `ROOT/"work"` —
+    chỉ đúng khi junction ROOT/work trỏ đúng work root của instance. Instance `prod` (work cây V2) hay `test`
+    (scratch) thì đọc/ghi nhầm cây. Đọc env LÚC GỌI (không lúc import) vì sidecar import module trước apply_env."""
+    v = (os.environ.get("PINELINE_WORK_ROOT") or os.environ.get("WORK_DIR") or "").strip()
+    return Path(v) if v else Path(default)
+
+
 def _default_instance() -> Instance | None:
     try:
         return load(os.getenv("PINELINE_INSTANCE") or DEFAULT_INSTANCE)

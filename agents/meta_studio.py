@@ -31,6 +31,12 @@ SERIES_META_DIR = ROOT / "data" / "series_meta"
 SERIES_META_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _work_root() -> Path:
+    """Work root của instance đang chạy (fix 2026-11-14: trước cứng ROOT/"work")."""
+    from core.instance import work_root_now
+    return work_root_now(ROOT / "work")
+
+
 def to_series_slug(text: str) -> str:
     """Chuyển tên series sang slug không dấu (vd: 'Sinh Tồn Sa Mạc' -> 'sinh_ton_sa_mac')."""
     if not text:
@@ -536,7 +542,7 @@ def get_film_story_info(
     # 1. Nếu có job_id: Đọc manifest.json và .series.json trong thư mục nguồn
     if job_id:
         try:
-            work_dir = ROOT / "work" / str(job_id).strip()
+            work_dir = _work_root() / str(job_id).strip()
             mf_file = work_dir / "manifest.json"
             if mf_file.is_file():
                 mdata = json.loads(mf_file.read_text(encoding="utf-8"))
@@ -1035,7 +1041,7 @@ def extract_job_summary(job_id: str, max_chars: int = 5500) -> str:
     """
     if not job_id:
         return ""
-    work_dir = ROOT / "work" / str(job_id).strip()
+    work_dir = _work_root() / str(job_id).strip()
     if not work_dir.is_dir():
         return ""
 
@@ -1191,7 +1197,7 @@ def get_job_reference_images(job_id: str = "", poster_name: str = "") -> list[by
     để truyền vào Aurora /v1/images/edits giúp giữ đúng khuôn mặt, trang phục và art style nhân vật.
     """
     refs: list[bytes] = []
-    work_dir = (ROOT / "work" / str(job_id).strip()) if job_id else None
+    work_dir = (_work_root() / str(job_id).strip()) if job_id else None
     orig_path_str = ""
 
     if work_dir and (work_dir / "manifest.json").is_file():

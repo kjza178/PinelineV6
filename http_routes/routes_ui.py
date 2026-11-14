@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from fastapi.responses import HTMLResponse
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 router = APIRouter()
 
@@ -98,8 +98,33 @@ def ui_hongguo2():
 @router.get("/films/ui", response_class=HTMLResponse)
 @router.get("/film", response_class=HTMLResponse)
 @router.get("/films", response_class=HTMLResponse)
-def ui_films():
-    """Films UI (thư viện phim / mùa mới) — cùng host :8801."""
+def ui_films(request: Request):
+    """Films UI (thư viện phim / mùa mới) — cùng host :8801.
+
+    fix 2026-11-14: `GET /films` cũng là API JSON danh sách phim (routes_films.list_films) mà CHÍNH films_ui.html
+    gọi (`fetch('/films?limit=…')`). Router này nạp trước nên trước đây mọi lời gọi đó nhận HTML → trang Phim hỏng
+    («reading 'series'»). Nay: trình duyệt mở trang (không query, Accept HTML) → HTML; còn lại → API JSON.
+    """
+    if request.url.path == "/films" and (request.query_params or "text/html" not in request.headers.get("accept", "")):
+        import os
+        on = os.getenv("PINELINE_ROUTERS")      # None = bật hết (V5); có giá trị = danh sách router instance bật
+        try:
+            if on is not None and "films" not in {x.strip() for x in on.split(",")}:
+                raise RuntimeError("instance không bật router «films»")
+            from http_routes import routes_films
+        except Exception as e:  # noqa: BLE001 — router films tắt / lỗi import
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"error": f"thư viện phim chưa bật trên instance này ({e})"}, status_code=404)
+        qp = request.query_params
+        try:
+            limit = int(qp.get("limit") or 5000)
+        except ValueError:
+            limit = 5000
+        from fastapi.responses import JSONResponse
+        # route khai báo response_class=HTMLResponse → phải tự bọc JSONResponse (dict trả thẳng sẽ hỏng 500)
+        return JSONResponse(routes_films.list_films(q=qp.get("q", ""), status=qp.get("status", ""), limit=limit,
+                                                    order=qp.get("order", "recent"), work_exists=qp.get("work_exists"),
+                                                    block_status=qp.get("block_status", "")))
     return _html_file("films_ui.html")
 
 

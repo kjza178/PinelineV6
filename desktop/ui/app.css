@@ -127,3 +127,25 @@ form.voice select,form.voice input,.cfg select,.cfg input:not([type=checkbox]){d
 #tab-body video{width:100%;max-height:52vh;background:#000;border-radius:6px;margin-bottom:10px}
 a.btn{text-decoration:none;display:inline-block}
 @media (max-width:900px){#detail.wide{width:auto;max-width:none}}
+
+/* ── sửa câu Trung, giọng clone ── */
+.btn.xs{padding:0 6px;font-size:11px;line-height:18px}
+.ln textarea.zh-edit{width:100%;resize:vertical;background:var(--bg3);border:1px solid var(--acc);color:var(--fg);border-radius:6px;padding:4px 8px;font:inherit;margin-bottom:4px}
+form.voice h3{font-size:14px;margin:18px 0 4px}
+form.clone{border-top:1px solid var(--line);margin-top:14px}
+
+/* ── thư viện phim, agent ── */
+#dlg-films{width:min(1100px,96vw)}
+#dlg-agent{width:min(760px,94vw)}
+.dlg-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.dlg-head h2{margin:0}
+.logwrap.tall{max-height:68vh}
+#films-rows td.acts{display:flex;gap:6px}
+#agent-log{height:52vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
+.msg{white-space:pre-wrap;overflow-wrap:anywhere;padding:8px 10px;border-radius:8px;max-width:88%}
+.msg.me{align-self:flex-end;background:#1b2c4d}
+.msg.bot{align-self:flex-start;background:var(--bg3)}
+.msg.err{align-self:flex-start;background:#3a1717;color:#ffd4d1}
+.msg-meta{font-size:11px;color:var(--mut);margin-top:4px}
+#agent-msg{width:100%;resize:vertical;background:var(--bg3);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:7px 9px;font:inherit}
+#dlg-agent .actions{display:flex;align-items:center;gap:8px;margin-top:8px}

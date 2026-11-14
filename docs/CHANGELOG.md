@@ -1,6 +1,12 @@
 # CHANGELOG — V6
 
 ## 2026-11-14
+- **Desktop đợt 2** (cần restart :8806 + build lại app): sửa câu Trung (✎ trong tab Bản dịch); tab Giọng đọc có «Nghe mẫu»
+  và «Thêm giọng clone» (upload file mẫu); nút **Thư viện phim** (đồng bộ, tìm/lọc, mở job, «Đăng YouTube» có hỏi + chọn chế độ);
+  nút **Agent** (chat, mặc định chỉ đọc); app Tauri hỏi xác nhận khi đóng lúc còn job chạy (hộp thoại Windows, crate `rfd`).
+  `/api/health` thêm `running`, `routers`.
+- **Sửa:** trang Phim cũ `/films` hỏng do route trùng (luôn trả HTML); film_db / auto_publisher / feeder / meta_studio /
+  batch_config đọc work root của INSTANCE thay vì cứng `ROOT/work` — docs/fixes/2026-11-14-films-route-work-root.md.
 - **Desktop: sửa bản dịch, giọng đọc, cài đặt** (cần restart :8806 + build lại app). Khung chi tiết job có 4 tab:
   Tổng quan · **Bản dịch** (lọc câu bị cờ / chưa soát / trống / sửa tay, tìm, sửa câu Việt, nghe và đọc lại từng câu) ·
   **Giọng đọc** (giọng / tốc độ / bộ đọc của job) · **Kết quả** (xem video, tải phụ đề). Nút **Cài đặt**: sửa cấu hình batch

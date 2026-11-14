@@ -32,7 +32,16 @@ import core.film_db as film_db
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "work"
-STATE_PATH = WORK / "logs" / "feeder_state.json"
+_DEFAULT_WORK = WORK
+
+
+def _work() -> Path:
+    """Work root của instance đang chạy (fix 2026-11-14: trước cứng ROOT/"work"); WORK bị đặt riêng (test) → giữ."""
+    if WORK != _DEFAULT_WORK:
+        return WORK
+    from core.instance import work_root_now
+    return work_root_now(WORK)
+STATE_PATH = _work() / "logs" / "feeder_state.json"
 
 SOURCES = ("lib_merged", "auto_merge", "hongguo")
 DEFAULT_SPEC: dict[str, Any] = {
@@ -165,9 +174,9 @@ def _hg():
 
 def _job_manifests() -> list[tuple[str, dict]]:
     out = []
-    if not WORK.is_dir():
+    if not _work().is_dir():
         return out
-    for d in WORK.iterdir():
+    for d in _work().iterdir():
         mf = d / "manifest.json"
         if not mf.is_file():
             continue
@@ -1167,7 +1176,7 @@ def combine_rendered_jobs(
 
     job_records: list[dict] = []
     for jid in clean_ids:
-        wdir = WORK / jid
+        wdir = _work() / jid
         mf_path = wdir / "manifest.json"
         if not mf_path.is_file():
             return {"ok": False, "error": f"Job {jid} không còn manifest.json trên ổ đĩa"}
@@ -1188,7 +1197,7 @@ def combine_rendered_jobs(
         clean_ids = [r["job_id"] for r in job_records]
 
     merged_jid = hashlib.sha1(f"merged_jobs:{','.join(clean_ids)}:{int(time.time())}".encode("utf-8")).hexdigest()[:12]
-    merged_dir = WORK / merged_jid
+    merged_dir = _work() / merged_jid
     merged_dir.mkdir(parents=True, exist_ok=True)
     merged_mp4 = merged_dir / "output.mp4"
 
@@ -1733,7 +1742,7 @@ def _server_tree_cpu(lib: Path | None) -> float | None:
 
 
 def _job_activity(job_id: str) -> float:
-    wd = WORK / job_id
+    wd = _work() / job_id
     newest = 0.0
     try:
         with os.scandir(wd) as it:
@@ -1749,7 +1758,7 @@ def _job_activity(job_id: str) -> float:
 
 def _running_stage(job_id: str) -> tuple[str | None, dict, dict]:
     try:
-        m = json.loads((WORK / job_id / "manifest.json").read_text(encoding="utf-8"))
+        m = json.loads((_work() / job_id / "manifest.json").read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001
         return None, {}, {}
     for name, s in (m.get("stages") or {}).items():

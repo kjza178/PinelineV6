@@ -89,8 +89,10 @@ def _v6_router(inst: Instance) -> APIRouter:
     @r.get("/api/health")
     def health():
         """Sức khoẻ backend cho người / giám sát (R3.1, R6.2). Chỉ đọc; mọi phần phụ lỗi → null, không làm hỏng cả câu trả lời."""
-        out = {"ok": True, "instance": inst.name, "port": inst.port, "jobs": len(index.list()),
-               "sse_clients": bus.n_subscribers}
+        rows = index.list()
+        out = {"ok": True, "instance": inst.name, "port": inst.port, "jobs": len(rows),
+               "running": sum(1 for r in rows if r.get("status") == "running"),   # app desktop hỏi trước khi đóng
+               "routers": list(inst.routers), "sse_clients": bus.n_subscribers}
         try:
             import core.job_queue as job_queue
             st = job_queue.queue_state()

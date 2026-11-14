@@ -223,3 +223,37 @@ def test_desktop_ui_has_editing_features_without_timers():
         assert needle in js, needle
     assert 'id="btn-cfg"' in html and 'id="dlg-cfg"' in html
     assert "setInterval" not in js       # UI desktop: không polling
+
+
+def test_films_route_serves_page_to_browser_and_json_to_fetch(client):
+    """fix 2026-11-14: GET /films vừa là trang (routes_ui) vừa là API (routes_films). Trước: luôn trả HTML → trang Phim
+    tự gọi /films?… nhận HTML, hỏng. Instance test tắt router films → API trả 404 JSON có lý do (không phải HTML)."""
+    page = client.get("/films", headers={"accept": "text/html,application/xhtml+xml"})
+    assert page.status_code in (200, 404) and "text/html" in page.headers["content-type"]
+    api_r = client.get("/films?limit=5")
+    assert "application/json" in api_r.headers["content-type"]
+    assert api_r.status_code == 404 and "films" in api_r.json()["error"]
+
+
+def test_health_reports_running_jobs_for_desktop_close_prompt(client):
+    d = client.get("/api/health").json()
+    assert isinstance(d["running"], int) and "routers" in d
+
+
+def test_modules_follow_the_instance_work_root(tmp_path, monkeypatch):
+    """fix 2026-11-14: film_db / auto_publisher / batch_config cứng ROOT/work → instance prod/test đọc-ghi nhầm cây."""
+    from core.instance import work_root_now
+    import core.batch_config as bc
+    import core.film_db as fdb
+    import agents.auto_publisher as ap
+    monkeypatch.setenv("PINELINE_WORK_ROOT", str(tmp_path))
+    assert work_root_now(Path("x")) == tmp_path
+    assert fdb._work() == tmp_path
+    assert ap._work_dir("j1") == tmp_path / "j1"
+    assert bc._config_path() == tmp_path / "logs" / "batch_config.json"
+    monkeypatch.delenv("PINELINE_WORK_ROOT")
+    monkeypatch.delenv("WORK_DIR", raising=False)
+    assert fdb._work() == fdb.WORK and bc._config_path() == bc.CONFIG_PATH
+    monkeypatch.setattr(fdb, "WORK", tmp_path / "pinned")              # test đặt riêng vẫn thắng env
+    monkeypatch.setenv("PINELINE_WORK_ROOT", str(tmp_path / "env"))
+    assert fdb._work() == tmp_path / "pinned"

@@ -7,9 +7,11 @@
 // - Đóng app → kill backend VÀ MỌI tiến trình con của nó (render worker, ffmpeg, engine ASR/TTS) — R2.1.
 //   Chỉ backend do app tự spawn; backend đã chạy sẵn thì dùng lại, không kill.
 // - Backend chết trong lúc khởi động → báo ngay trên màn chờ kèm đường dẫn log (R2.2), không chờ hết 180 s.
+// - Bấm đóng cửa sổ khi còn job đang chạy → hỏi xác nhận (R2.3); đóng = dừng các job đó.
 // UI không polling: 1 kết nối SSE /api/events thay cho setInterval 2 s gọi /api/jobs (nguyên nhân treo cũ).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -107,6 +109,46 @@ fn kill_tree(child: &mut Child) {
     let _ = child.wait();
 }
 
+/// R2.3: hỏi backend còn bao nhiêu job đang chạy (GET /api/health). Không hỏi được → None (không chặn việc đóng).
+fn backend_busy(port: u16) -> Option<(u64, Option<String>)> {
+    let addr: SocketAddr = ([127, 0, 0, 1], port).into();
+    let mut s = TcpStream::connect_timeout(&addr, Duration::from_millis(800)).ok()?;
+    s.set_read_timeout(Some(Duration::from_secs(3))).ok()?;
+    write!(s, "GET /api/health HTTP/1.0\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n").ok()?;
+    let mut buf = String::new();
+    s.read_to_string(&mut buf).ok()?;
+    let body = buf.split("\r\n\r\n").nth(1)?;
+    let v: serde_json::Value = serde_json::from_str(body).ok()?;
+    let running = v.get("running").and_then(|x| x.as_u64()).unwrap_or(0);
+    let current = v.pointer("/queue/current").and_then(|x| x.as_str()).map(|x| x.to_string());
+    Some((running, current))
+}
+
+/// Hộp thoại hệ thống «đóng app?». Trả true = đồng ý đóng.
+#[cfg(windows)]
+fn confirm_close(running: u64) -> bool {
+    use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
+    let msg = format!(
+        "Đang có {running} job chạy (tải / nhận dạng / dịch / lồng tiếng / render).\n\n\
+         Đóng Pineline bây giờ sẽ DỪNG các job đó; mở lại app rồi bấm «Chạy tiếp» / «Xếp hàng chạy» để làm tiếp.\n\n\
+         Vẫn đóng?"
+    );
+    matches!(
+        MessageDialog::new()
+            .set_level(MessageLevel::Warning)
+            .set_title("Pineline V6 — còn job đang chạy")
+            .set_description(msg)
+            .set_buttons(MessageButtons::YesNo)
+            .show(),
+        MessageDialogResult::Yes
+    )
+}
+
+#[cfg(not(windows))]
+fn confirm_close(_running: u64) -> bool {
+    true // app chỉ phát hành cho Windows; nơi khác không có hộp thoại → đóng luôn
+}
+
 /// Chuỗi JS an toàn (chèn vào `win.eval`).
 fn js_str(s: &str) -> String {
     serde_json::to_string(s).unwrap_or_else(|_| "\"\"".into())
@@ -182,7 +224,21 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("tauri build");
 
-    app.run(|handle, ev| {
+    app.run(move |handle, ev| {
+        // R2.3: chỉ hỏi khi backend do CHÍNH app spawn (đóng app = giết backend). Backend chạy sẵn thì đóng cửa sổ
+        // không ảnh hưởng job → không hỏi.
+        if let RunEvent::WindowEvent { event: tauri::WindowEvent::CloseRequested { api, .. }, .. } = &ev {
+            let owns = handle.state::<Backend>().0.lock().map(|g| g.is_some()).unwrap_or(false);
+            if owns {
+                if let Some((running, current)) = backend_busy(port) {
+                    let busy = running.max(if current.is_some() { 1 } else { 0 });
+                    if busy > 0 && !confirm_close(busy) {
+                        api.prevent_close();
+                        return;
+                    }
+                }
+            }
+        }
         if let RunEvent::Exit = ev {
             if let Some(mut c) = handle.state::<Backend>().0.lock().unwrap().take() {
                 kill_tree(&mut c);
