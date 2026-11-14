@@ -15,6 +15,7 @@ Không sửa config.json. Khoá:
   SIMPLE_TIMEOUT           timeout giây mỗi lần gọi (300)
   SIMPLE_TEMPERATURE       (0.2)
   SIMPLE_PRONOUN_ANALYZE   1 = chạy pronoun_consistency.ensure_analyze_before_translate sau plan (0)
+  SIMPLE_REQUIRE_PLAN      1 = lập plan hỏng (lỗi cloud / plan trống) → không soát, park để lần sau lập lại (1)
   SIMPLE_NMT_WAIT_PLAN     1 = NMT chờ plan (chọn đúng flavor base/QT) thay vì song song (0)
   SIMPLE_NMT_UNLOAD        1 = nhả model NMT sau khi nháp (1)
   SIMPLE_TRACE_MAX_MB      trace.jsonl vượt ngưỡng → xoay sang trace.1.jsonl (8; 0 = không xoay)
@@ -230,6 +231,12 @@ def temperature() -> float:
 
 def pronoun_analyze() -> bool:
     return _flag("SIMPLE_PRONOUN_ANALYZE", "0")
+
+
+def require_plan() -> bool:
+    """R1.2: 1 (mặc định) = lập plan hỏng thì KHÔNG soát (park, lần sau lập lại) — không dịch cả phim thiếu bảng
+    nhân vật / xưng hô. 0 = vẫn dịch với plan tạm (như trước), plan hỏng vẫn không được lưu."""
+    return _flag("SIMPLE_REQUIRE_PLAN", "1")
 
 
 def nmt_wait_plan() -> bool:

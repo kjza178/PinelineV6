@@ -231,8 +231,10 @@ def make_jobs(rows: list[dict], todo_idx: list[int], batch: int, ctx: int) -> li
     return jobs
 
 
-def apply_result(store: ScriptStore, rows: list[dict], job: dict, res: dict[int, dict], step: str) -> int:
-    """Ghi kết quả 1 lô: câu trả hợp lệ → vi + s_spk/s_to/s_conf + rv=1. Câu thiếu → không rv."""
+def apply_result(store: ScriptStore, rows: list[dict], job: dict, res: dict[int, dict], step: str,
+                 done_pos: set | None = None) -> int:
+    """Ghi kết quả 1 lô: câu trả hợp lệ → vi + s_spk/s_to/s_conf + rv=1. Câu thiếu → không rv.
+    done_pos (R1.1): nhận vị trí các câu ĐƯỢC SOÁT trong lượt gọi này (khác `rv`, vốn còn từ lượt trước)."""
     n_ok = 0
     for p in job["pos"]:
         r = rows[p]
@@ -252,6 +254,8 @@ def apply_result(store: ScriptStore, rows: list[dict], job: dict, res: dict[int,
             r.pop("s_name_ok", None)   # vi mới → kiểm tên lại (không mang xác nhận cũ)
         r["rv"] = 1
         r.pop("unreviewed_accepted", None)
+        if done_pos is not None:
+            done_pos.add(p)
         n_ok += 1
     return n_ok
 
@@ -260,7 +264,10 @@ def run(store: ScriptStore, pv: PlanView, *, model: str | None, stop_check=None,
         rereview: bool = False, pair_sink: list | None = None, batch: int | None = None) -> dict:
     """Review mọi câu chưa rv (rereview=True: mọi câu). Lô lỗi → thử lại 1 lượt lô nhỏ (½), tuần tự.
     Câu rác (junk=1, fix 2026-11-13) không bao giờ gửi. batch: cỡ lô (mặc định SIMPLE_BATCH).
-    Trả thống kê {n_todo, n_ok, n_fail_lots, n_left}."""
+    Trả thống kê {n_todo, n_ok, n_fail_lots, n_left}.
+    R1.1 (fix 2026-11-14): n_ok / n_left / lượt thử lại tính theo câu ĐƯỢC SOÁT TRONG LƯỢT NÀY, không theo cờ `rv`.
+    Trước đây «Soát lại» (rereview) mà mọi lô lỗi vẫn ra n_ok = tất cả (rv=1 còn từ lượt trước) → báo xong giả,
+    không thử lại, pipeline tưởng cloud còn sống."""
     rows = store.rows
     todo_idx = [p for p, r in enumerate(rows) if (rereview or not r.get("rv")) and not r.get("junk")]
     stats = {"n_todo": len(todo_idx), "n_ok": 0, "n_fail_lots": 0, "n_left": 0, "lots": 0}
@@ -268,6 +275,7 @@ def run(store: ScriptStore, pv: PlanView, *, model: str | None, stop_check=None,
         return stats
     batch, ctx, workers = (int(batch) if batch else cfg.batch()), cfg.ctx(), cfg.workers()
     lock = threading.Lock()
+    done_pos: set[int] = set()      # vị trí câu đã được soát trong lượt gọi này
 
     def _do(job: dict, step: str) -> int:
         if stop_check and stop_check():
@@ -288,7 +296,7 @@ def run(store: ScriptStore, pv: PlanView, *, model: str | None, stop_check=None,
                   flush=True)
             return -1
         with lock:
-            n = apply_result(store, rows, job, res, step)
+            n = apply_result(store, rows, job, res, step, done_pos)
             store.write()
         return n
 
@@ -318,14 +326,14 @@ def run(store: ScriptStore, pv: PlanView, *, model: str | None, stop_check=None,
                     progress(f"review lô {done_n}/{len(jobs)}")
     # lượt thử lại: câu còn chưa rv (lô lỗi hoặc LLM bỏ sót) — lô ½, tuần tự
     stats["n_fail_lots"] = len(failed)
-    left_idx = [p for p in todo_idx if not rows[p].get("rv")]
+    left_idx = [p for p in todo_idx if p not in done_pos]
     if left_idx:
         small = max(4, batch // 2)
         retry = make_jobs(rows, left_idx, small, ctx)
-        print(f"[simple-review] thử lại {len(left_idx)} câu chưa rv ({len(retry)} lô × ≤{small}, tuần tự)",
+        print(f"[simple-review] thử lại {len(left_idx)} câu chưa soát được ({len(retry)} lô × ≤{small}, tuần tự)",
               flush=True)
         for j in retry:
             _do(j, "review-retry")
-    stats["n_left"] = sum(1 for p in todo_idx if not rows[p].get("rv"))
+    stats["n_left"] = sum(1 for p in todo_idx if p not in done_pos)
     stats["n_ok"] = len(todo_idx) - stats["n_left"]
     return stats

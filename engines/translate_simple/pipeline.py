@@ -28,7 +28,13 @@ INFERRED = "plan_inferred.json"
 
 
 def _now() -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%S")
+    # R1.4: cùng kiểu mốc thời gian với cả hệ (ISO UTC — core/timeutil.py), không còn giờ máy không múi giờ.
+    from core.timeutil import now_iso
+    return now_iso()
+
+
+class _PlanMissing(RuntimeError):
+    """R1.2: lập plan hỏng và SIMPLE_REQUIRE_PLAN=1 → không soát, park."""
 
 
 def _manifest_update(work_dir: Path, fn) -> bool:
@@ -307,6 +313,14 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
     try:
         # 2) plan ∥ NMT
         plan, dinfo = stage_draft.run(store, segments, target, force=force, progress=prog)
+        plan_bad = stage_draft.plan_failed(plan)
+        if plan_bad:
+            dinfo["plan_failed"] = plan_bad
+            store.note("plan", None, f"lập plan hỏng: {plan_bad}")
+        if plan_bad and cfg.require_plan():
+            # R1.2: không soát khi chưa có bảng nhân vật — câu soát lúc này mang rv=1 và sẽ KHÔNG được soát lại
+            # bằng plan đúng ở lần sau. Giữ nháp NMT, park; lần chạy kế lập lại plan.
+            raise _PlanMissing(plan_bad)
         pv = PlanView(plan)
         extra: dict = {}           # thống kê cờ «next» — rỗng khi mọi cờ tắt (manifest y hệt trước)
         if cfg.pair_rules():
@@ -326,6 +340,12 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
         rstats = stage_review.run(store, pv, model=model, stop_check=stop_check, progress=prog,
                                   rereview=rereview or force,
                                   pair_sink=pair_raw if cfg.suggest_pairs() else None)
+        # R1.1: soát LẠI mà còn câu chưa soát lại được (lô lỗi) — các câu đó giữ bản cũ (rv=1 từ trước) nên cổng
+        # vẫn có thể done; phải nói thật ra ngoài thay vì «đủ bản dịch».
+        rereview_left = int(rstats.get("n_left") or 0) if (rereview and not force) else 0
+        if rereview_left:
+            rstats["rereview_left"] = rereview_left
+            store.note("review", None, f"soát lại CHƯA xong: {rereview_left}/{rstats.get('n_todo')} câu giữ bản cũ")
         if cfg.pair_fill():
             from . import pair_fill
             pf = pair_fill.run(store.rows, pv, model=cfg.pair_fill_model(wd), conf_review=cfg.conf_min(),
@@ -384,6 +404,20 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
             gap = 0
         g = gate.decide(n_rows=len(store.rows), n_asr=len(segments), coverage_gap=gap,
                         n_missing=store.n_missing(), n_unreviewed=store.n_unreviewed(), flags=flags)
+    except _PlanMissing as e:
+        store.write()
+        _write_outputs(wd, store.rows)
+        why = f"chưa lập được bảng nhân vật (plan): {e}"[:200]
+        g = {"status": "park", "reasons": [why], "n_rows": len(store.rows), "n_asr": len(segments),
+             "coverage_gap": 0, "n_missing": store.n_missing(), "n_unreviewed": store.n_unreviewed(),
+             "n_flagged": 0, "n_flag_soft": 0, "flag_limit": 0, "flags_by_kind": {}, "flagged_i": []}
+        store.note("gate", None, f"park: {why}")
+        _set_stage(wd, status="pending", n_missing=g["n_missing"], cur_text=f"soát dở — {why}"[:240], mode="simple",
+                   review_model=model, simple={"status": "park", "reasons": [why], "plan_failed": str(e)[:200],
+                                               "at": _now()})
+        print(f"[simple] cổng=park · {why}", flush=True)
+        return {"status": "park", "gate": g, "draft": dinfo, "review": {"n_todo": 0, "n_ok": 0, "n_left": 0},
+                "repair": [], "model": model, "t_total": round(time.time() - t0, 1), "script_path": str(store.path)}
     except Exception as e:  # noqa: BLE001
         store.write()
         stopped = "stopped by user" in str(e).lower()
@@ -405,6 +439,13 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
     if acc_txt:
         simple_info["unreviewed_accepted"] = accepted
         simple_info["accept_reason"] = acc_txt
+    rr_txt = ""
+    if rereview_left:
+        rr_txt = f" · SOÁT LẠI CHƯA XONG: {rereview_left} câu giữ bản cũ (cloud lỗi) — bấm Soát lại lần nữa"
+        simple_info["rereview_left"] = rereview_left
+        res["rereview_left"] = rereview_left
+    if plan_bad:
+        simple_info["plan_failed"] = plan_bad      # chỉ tới đây khi SIMPLE_REQUIRE_PLAN=0
     if g["status"] == "done":
         def fn_done(d):
             prev = dict((d.setdefault("stages", {})).get(STAGE) or {})
@@ -414,7 +455,7 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
                 "glossary_path": str(wd / "glossary.json"), "n_segments": len(store.rows), "n_missing": 0,
                 "model": f"simple:{model}", "mode": "simple", "reviewed": True, "review_model": model,
                 "progress": 100, "cur_text": f"simple · đủ bản dịch ({g['n_flagged']} cờ ≤ {g['flag_limit']})"
-                + (f" · nhận {len(accepted)} câu nháp chưa soát" if acc_txt else ""),
+                + (f" · nhận {len(accepted)} câu nháp chưa soát" if acc_txt else "") + rr_txt,
                 "simple": simple_info, "updated_at": time.time(),
             }
         _manifest_update(wd, fn_done)
