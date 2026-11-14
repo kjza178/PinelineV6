@@ -1,6 +1,12 @@
 # CHANGELOG — V6
 
 ## 2026-11-14
+- **Desktop: sửa bản dịch, giọng đọc, cài đặt** (cần restart :8806 + build lại app). Khung chi tiết job có 4 tab:
+  Tổng quan · **Bản dịch** (lọc câu bị cờ / chưa soát / trống / sửa tay, tìm, sửa câu Việt, nghe và đọc lại từng câu) ·
+  **Giọng đọc** (giọng / tốc độ / bộ đọc của job) · **Kết quả** (xem video, tải phụ đề). Nút **Cài đặt**: sửa cấu hình batch
+  (API mới `GET/POST /api/v6/config`; trước chỉ sửa được qua sidecar). API mới `GET /api/v6/jobs/{id}/script` (chỉ đọc).
+  Vẫn 0 request khi để yên. Sửa kèm: `POST /api/jobs/{id}/script-line` ghi atomic và trả 409 khi đang dịch (trước: câu sửa
+  tay bị engine ghi đè lúc dịch xong).
 - **Hàng chờ 24/7 R7.3–R7.5** (cần restart :8806) — docs/fixes/2026-11-14-queue-24x7.md: 3 job lỗi liên tiếp → hàng chờ
   TẠM DỪNG + báo (`QUEUE_MAX_CONSEC_FAIL`, 0 = tắt), gỡ bằng «Chạy tiếp hàng chờ»; nhật ký hàng chờ ra file + nút «Nhật ký»;
   tuỳ chọn `QUEUE_HOLD_YIELD_SEC` (mặc định 0 = như cũ) cho job HOLD cần người nhường ghế. Thay đổi từ sidecar/CLI lên UI

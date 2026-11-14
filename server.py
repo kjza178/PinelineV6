@@ -4238,6 +4238,13 @@ def edit_script_line(job_id: str, req: ScriptLineEdit):
         return JSONResponse({"error": "script.json không phải list"}, status_code=400)
     if req.vi is None and req.zh is None:
         return JSONResponse({"error": "cần vi hoặc zh"}, status_code=400)
+    # fix 2026-11-14: đang dịch/soát thì engine giữ script trong bộ nhớ và ghi đè lúc xong → câu sửa tay sẽ MẤT.
+    try:
+        if (Manifest(work_dir).stage("translate") or {}).get("status") == "running":
+            return JSONResponse({"error": "đang dịch / soát — đợi xong rồi sửa (sửa bây giờ sẽ bị ghi đè)"},
+                                status_code=409)
+    except Exception as e:  # noqa: BLE001
+        print(f"[script-line] đọc manifest {job_id}: {e}", flush=True)
     hit = None
     for r in rows:
         if not isinstance(r, dict):
@@ -4285,7 +4292,10 @@ def edit_script_line(job_id: str, req: ScriptLineEdit):
         hit.pop("rv", None)
     hit["manual"] = 1
     try:
-        sp.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
+        # fix 2026-11-14: ghi atomic — trước đây write_text thẳng: server chết / tiến trình khác đọc giữa chừng
+        # → script.json cụt (luồng simple sẽ coi là hỏng và dựng lại từ ASR).
+        from core.fileio import atomic_write_json
+        atomic_write_json(sp, rows, fsync=False)
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"error": f"ghi script.json lỗi: {e}"}, status_code=500)
     if req.vi is not None:

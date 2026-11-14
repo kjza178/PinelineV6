@@ -12,6 +12,7 @@
   <span id="inst"></span>
   <span id="conn" class="conn off">mất kết nối</span>
   <button id="btn-new" class="btn primary">+ Thêm job</button>
+  <button id="btn-cfg" class="btn" title="Cấu hình mặc định cho mọi job: giọng, tốc độ, âm nền, render…">Cài đặt</button>
   <input id="q" placeholder="Lọc job…">
   <span id="count"></span>
   <nav><a href="/ui3" title="UI cũ: sửa lời thoại, giọng đọc, cấu hình">Studio cũ</a><a href="/films">Phim</a><a href="/hongguo">Hongguo</a></nav>
@@ -53,6 +54,19 @@
     <div class="actions">
       <button type="button" class="btn" id="new-cancel">Huỷ</button>
       <button type="submit" class="btn primary" id="new-ok">Tạo job</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-cfg">
+  <form method="dialog" id="form-cfg">
+    <h2>Cài đặt chung (cấu hình batch)</h2>
+    <p class="hint">Áp dụng cho job xếp hàng sau khi lưu, và cho job đang chờ chưa ghim cấu hình riêng. <span id="cfg-meta"></span></p>
+    <div id="cfg-body" class="cfg"></div>
+    <p id="cfg-err" class="err" hidden></p>
+    <div class="actions">
+      <button type="button" class="btn" id="cfg-cancel">Huỷ</button>
+      <button type="submit" class="btn primary" id="cfg-ok">Lưu</button>
     </div>
   </form>
 </dialog>

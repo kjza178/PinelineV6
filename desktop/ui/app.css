@@ -85,3 +85,45 @@ dialog .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
   #detail{width:auto;max-width:none;border-left:0;border-top:1px solid var(--line);max-height:55vh}
   header nav{display:none}
 }
+
+/* ── khung chi tiết có tab ── */
+#detail.wide{width:min(760px,62vw);max-width:62vw}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:4px 0 12px}
+.tab{background:none;border:0;border-bottom:2px solid transparent;color:var(--mut);padding:7px 12px;font:inherit;cursor:pointer}
+.tab:hover{color:var(--fg)}
+.tab.on{color:var(--fg);border-bottom-color:var(--acc)}
+.tab:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+#d-top .d-actions{margin-bottom:6px}
+
+/* ── tab Bản dịch ── */
+.sc-bar{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.sc-bar input,.sc-bar select,form.voice select,form.voice input,.cfg select,.cfg input:not([type=checkbox]){background:var(--bg3);border:1px solid var(--line);color:var(--fg);padding:5px 8px;border-radius:6px;font:inherit}
+.sc-bar input{flex:1;min-width:0}
+.ln{border-top:1px solid var(--line);padding:8px 0}
+.ln-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;margin-bottom:4px}
+.ln .zh{color:#c9c9cf;margin-bottom:4px;overflow-wrap:anywhere}
+.ln textarea.vi{width:100%;resize:vertical;background:var(--bg3);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:6px 8px;font:inherit;line-height:1.45}
+.ln textarea.vi:focus{border-color:var(--acc);outline:none}
+.ln textarea.vi[readonly]{opacity:.65}
+.ln-act{display:flex;gap:6px;align-items:center;margin-top:4px}
+.ln-act .st{font-size:12px;color:var(--mut)}
+.ln-act .st.ok{color:var(--done)}
+.ln-act .st.err{color:#ff9d96}
+.tag{display:inline-block;padding:0 6px;border-radius:4px;background:#23252a;color:var(--mut);font-size:11px}
+.tag.warn{background:#3a2e12;color:var(--held)}
+.tag.ok{background:#173a2a;color:var(--done)}
+.tag.mut{background:transparent;border:1px solid var(--line)}
+.mut{color:var(--mut)}
+.btn.more{display:block;width:100%;margin:10px 0}
+
+/* ── tab Giọng / Kết quả / Cài đặt ── */
+form.voice label,.cfg label{display:block;color:var(--mut);margin-bottom:10px}
+form.voice select,form.voice input,.cfg select,.cfg input:not([type=checkbox]){display:block;width:100%;margin-top:4px}
+.cfg label.row{display:flex;gap:8px;align-items:center;color:var(--fg)}
+.cfg{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px 18px;max-height:62vh;overflow:auto;padding-right:4px}
+.cfg fieldset{border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:0 0 10px}
+.cfg legend{color:var(--fg);padding:0 4px;font-weight:600}
+#dlg-cfg{width:min(980px,94vw)}
+#tab-body video{width:100%;max-height:52vh;background:#000;border-radius:6px;margin-bottom:10px}
+a.btn{text-decoration:none;display:inline-block}
+@media (max-width:900px){#detail.wide{width:auto;max-width:none}}

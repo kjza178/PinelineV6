@@ -129,6 +129,58 @@ def _v6_router(inst: Instance) -> APIRouter:
             raise HTTPException(404, "không có job")
         return json.loads(mf.read_text(encoding="utf-8"))
 
+    # ── D4: cấu hình batch (giọng, tốc độ, âm nền, render…) — trước đây chỉ sửa được qua sidecar :8802/config ──
+    @r.get(V6_PREFIX + "/config")
+    def config_get():
+        import core.batch_config as bc
+        return {"opts": bc.load(), "defaults": bc.DEFAULTS, "choices": {k: list(v) for k, v in bc.CHOICES.items()},
+                "labels": bc.LABELS, **bc.meta()}
+
+    @r.post(V6_PREFIX + "/config")
+    def config_set(body: dict):
+        """{"patch": {khoá: giá trị}} — khoá lạ / giá trị sai → 400 kèm lý do. Job ĐANG CHỜ tự theo config mới
+        (services.autopilot.config_watch_loop) trừ job đã ghim config riêng."""
+        import core.batch_config as bc
+        patch = body.get("patch") if isinstance(body, dict) else None
+        if not isinstance(patch, dict) or not patch:
+            raise HTTPException(400, "thiếu patch")
+        try:
+            out = bc.update(patch, by="desktop")
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        if out.get("changed"):
+            bus.publish("config.changed", {"changed": sorted(out["changed"])})
+        return {"ok": True, **out, **bc.meta()}
+
+    # ── D2: bản dịch của 1 job (chỉ đọc; sửa câu qua POST /api/jobs/{id}/script-line) ──
+    @r.get(V6_PREFIX + "/jobs/{job_id}/script")
+    def job_script(job_id: str):
+        if "/" in job_id or "\\" in job_id or job_id in ("", ".", ".."):
+            raise HTTPException(404, "không có job")
+        wd = inst.work_root / job_id
+        sp = wd / "script.json"
+        if not (wd / "manifest.json").is_file():
+            raise HTTPException(404, "không có job")
+        if not sp.is_file():
+            return {"rows": [], "exists": False, "wav": []}
+        try:
+            rows = json.loads(sp.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            raise HTTPException(409, f"script.json đang được ghi hoặc hỏng: {e}") from e
+        keep = ("i", "start", "end", "zh", "vi", "rv", "manual", "s_flags", "s_spk", "s_to", "junk",
+                "unreviewed_accepted")
+        out = [{k: r.get(k) for k in keep if k in r} for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+        wav = []
+        tdir = wd / "tts"
+        if tdir.is_dir():
+            for f in tdir.glob("seg_*.wav"):
+                try:
+                    if f.stat().st_size > 1000:
+                        wav.append(int(f.stem.split("_")[1]))
+                except (OSError, ValueError, IndexError):
+                    continue
+        return {"rows": out, "exists": True, "wav": sorted(wav)}
+
     # ── hàng chờ: tạm dừng khi lỗi liên tiếp (R7.4) + nhật ký ra file (R7.5) ──
     @r.post(V6_PREFIX + "/queue/resume")
     def queue_resume():

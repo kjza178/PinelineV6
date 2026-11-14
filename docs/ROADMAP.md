@@ -96,11 +96,12 @@ Ký hiệu: `[x]` xong và đã kiểm · `[~]` code xong ở cloud, **chờ ki�
 Luật: UI desktop **không polling** — 1 kết nối SSE, chỉ gọi API khi người dùng thao tác hoặc có event (test `test_tauri_opens_v6_ui`).
 
 - [~] **D1** Bảng job, hàng chờ, thêm job, khung chi tiết: chạy tiếp / xếp hàng / dừng / chạy từng bước / mở thư mục / xoá.
-- [ ] **D2** Xem và sửa bản dịch: danh sách câu (ZH ‖ VI), lọc câu bị cờ / chưa soát, sửa câu (đánh `manual`), nghe thử 1 câu.
+- [~] **D2** Tab «Bản dịch»: danh sách câu ZH ‖ VI, lọc (bị cờ / chưa soát / trống / sửa tay) + tìm, sửa câu (lưu `manual`), nghe giọng 1 câu, đọc lại 1 câu.
+      Khoá sửa khi đang dịch (server trả 409). Còn: sửa câu ZH, gộp/tách câu, xem trước theo video.
 - [~] **D3** «Làm lại» một bước đã xong (cờ `force`) có hộp xác nhận nêu rõ sẽ mất gì.
-- [ ] **D4** Cấu hình: cấu hình batch (giọng, tốc độ, kiểu âm thanh, render) + ghim cấu hình riêng cho job.
+- [~] **D4** Nút «Cài đặt»: sửa toàn bộ cấu hình batch (24 khoá, có kiểm giá trị) — trước chỉ sửa được qua sidecar. Còn: ghim cấu hình render riêng cho 1 job.
 - [ ] **D5** Hàng chờ: kéo đổi thứ tự, xem lịch sử, ước lượng thời gian.
-- [ ] **D6** Giọng đọc: danh sách, nghe mẫu, thêm giọng clone.
+- [~] **D6** Tab «Giọng đọc»: chọn giọng / tốc độ / bộ đọc cho từng job. Còn: nghe mẫu giọng, thêm giọng clone mới.
 - [ ] **D7** Phim: thư viện, trạng thái upload, upload YouTube (luôn hỏi xác nhận).
 - [ ] **D8** Hongguo: tìm, tải, gộp tập.
 - [ ] **D9** Cài đặt + kiểm máy lần đầu (`scripts/check_env.py` thành màn hình).
@@ -141,3 +142,4 @@ Luật: UI desktop **không polling** — 1 kết nối SSE, chỉ gọi API khi
 | 2026-11-14 | R6.1 | CI Windows lần đầu: 727 pass, 2 fail do ffmpeg 8 → sửa |
 | 2026-11-14 | R7.1 R7.2 | Rà hàng chờ; CI xanh Ubuntu + Windows + cargo (xác nhận R6.1 trên ffmpeg 8) |
 | 2026-11-14 | R7.3 R7.4 R7.5 R5.2 R5.3 R3.1 R6.2 D3 R1.5 R4.5 | Đợt «fix all»: xem `docs/fixes/2026-11-14-queue-24x7.md` |
+| 2026-11-14 | D2 D4 D6 | Desktop có tab Bản dịch / Giọng đọc / Kết quả + Cài đặt chung |

@@ -18,6 +18,13 @@ const dirty = new Set();
 const picked = new Set();        // job_id được tick
 let filter = "", rafQueued = false, fullRedraw = true;
 let selected = null, detail = null, queue = { queue: [], current: null, busy: false };
+// Khung chi tiết có tab. Tab Bản dịch / Giọng / Kết quả chỉ nạp dữ liệu KHI MỞ (không polling).
+const TABS = [["overview", "Tổng quan"], ["script", "Bản dịch"], ["voice", "Giọng đọc"], ["result", "Kết quả"]];
+let tab = "overview";
+let script = null;                       // {rows, wav:Set, exists} của job đang mở
+let scriptFilter = "all", scriptQ = "", scriptShown = 200;
+let voices = null;                       // danh sách giọng clone (nạp 1 lần)
+const PAGE = 200;                        // số câu vẽ mỗi lần (bản dịch dài hàng nghìn câu)
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -111,7 +118,12 @@ function upsert(row) {
   if (!prev || prev.status !== row.status) { fullRedraw = true; refreshQueueSoon(); }   // đổi thứ tự / hàng chờ nhích
   else dirty.add(row.job_id);
   schedule();
-  if (row.job_id === selected) { paintDetail(); refreshDetailSoon(); }
+  if (row.job_id === selected) {
+    paintDetail(); refreshDetailSoon();
+    // dịch / soát vừa xong (hoặc vừa bắt đầu) → bản dịch đang mở đã cũ: nạp lại 1 lần
+    const tPrev = prev?.stages?.translate, tNow = row.stages?.translate;
+    if (tab === "script" && script && tPrev !== tNow) loadScript();
+  }
 }
 
 function syncToolbar() {
@@ -176,6 +188,7 @@ const refreshDetailSoon = debounce(() => { if (selected) loadDetail(selected); }
 function select(id) {
   selected = (id && id !== selected) ? id : null;
   detail = null;
+  tab = "overview"; script = null; scriptFilter = "all"; scriptQ = ""; scriptShown = PAGE;
   fullRedraw = true; schedule();
   paintDetail();
   if (selected) loadDetail(selected);
@@ -189,10 +202,37 @@ function pct(st) {
 function paintDetail(err) {
   const box = $("#detail");
   const j = selected ? jobs.get(selected) : null;
-  if (!selected || !j) { box.hidden = true; box.innerHTML = ""; return; }
+  if (!selected || !j) { box.hidden = true; box.innerHTML = ""; delete box.dataset.job; box.classList.remove("wide"); return; }
   box.hidden = false;
+  if (box.dataset.job !== j.job_id || !box.querySelector("#d-top")) {
+    box.dataset.job = j.job_id;
+    box.innerHTML = `<div id="d-top"></div><nav class="tabs" role="tablist">${TABS.map(([k, v]) =>
+      `<button class="tab" role="tab" data-act="tab" data-tab="${k}">${v}</button>`).join("")}</nav><div id="tab-body"></div>`;
+  }
+  box.classList.toggle("wide", tab === "script");
+  box.querySelectorAll(".tab").forEach((b) => { const on = b.dataset.tab === tab; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); });
   const running = j.status === "running";
   const held = j.status === "held";
+  $("#d-top").innerHTML = `
+    <div class="d-head"><h2 title="${esc(j.job_id)}">${esc(j.title)}</h2><button class="btn sm" data-act="close" title="Đóng">✕</button></div>
+    <div class="d-id">${esc(j.job_id)} · <span class="b ${esc(j.status)}">${esc(j.status)}</span>${inQueue(j.job_id) ? " · trong hàng chờ" : ""}${running && j.cur_text ? ` · ${esc(j.cur_text)}` : ""}</div>
+    ${held ? `<div class="hold">⏸ Đang tạm dừng: <b>${esc(j.held_at || "")}</b><br>${esc(j.hold_reason || "")}</div>` : ""}
+    ${err ? `<div class="err">Không đọc được chi tiết: ${esc(err)}</div>` : ""}
+    <div class="d-actions">
+      ${held ? '<button class="btn primary" data-act="resume" title="Gỡ tạm dừng và chạy tiếp">Chạy tiếp</button>' : ""}
+      <button class="btn primary" data-act="enqueue"${running || inQueue(j.job_id) ? " disabled" : ""} title="Thêm vào hàng chờ, chạy hết các bước theo cấu hình batch">Xếp hàng chạy</button>
+      <button class="btn danger" data-act="stop"${running ? "" : " disabled"}>Dừng</button>
+      <button class="btn" data-act="reveal" title="Mở thư mục job trên máy">Mở thư mục</button>
+      <button class="btn danger ghost" data-act="delete"${running ? " disabled" : ""}>Xoá job</button>
+    </div>`;
+  if (tab === "overview") paintOverview(j);
+  else if (tab === "voice") paintVoice(false);
+  else if (tab === "result") paintResult(j);
+  else if (tab === "script") syncScriptLock(j);      // không vẽ lại danh sách (đang gõ thì mất chữ)
+}
+
+function paintOverview(j) {
+  const running = j.status === "running";
   const stages = STAGES.map((s) => {
     const sum = j.stages?.[s] || "pending";
     const st = detail?.stages?.[s] || {};
@@ -203,20 +243,170 @@ function paintDetail(err) {
         : `<button class="btn sm" data-act="stage" data-stage="${s}"${running ? " disabled" : ""} title="Chạy riêng bước này (làm tiếp phần còn dở)">Chạy</button>`)
       + `</div>${text}</li>`;
   }).join("");
-  box.innerHTML = `
-    <div class="d-head"><h2 title="${esc(j.job_id)}">${esc(j.title)}</h2><button class="btn sm" data-act="close" title="Đóng">✕</button></div>
-    <div class="d-id">${esc(j.job_id)} · <span class="b ${esc(j.status)}">${esc(j.status)}</span>${inQueue(j.job_id) ? " · trong hàng chờ" : ""}</div>
-    ${held ? `<div class="hold">⏸ Đang tạm dừng: <b>${esc(j.held_at || "")}</b><br>${esc(j.hold_reason || "")}</div>` : ""}
-    ${err ? `<div class="err">Không đọc được chi tiết: ${esc(err)}</div>` : ""}
-    <div class="d-actions">
-      ${held ? '<button class="btn primary" data-act="resume" title="Gỡ tạm dừng và chạy tiếp">Chạy tiếp</button>' : ""}
-      <button class="btn primary" data-act="enqueue"${running || inQueue(j.job_id) ? " disabled" : ""} title="Thêm vào hàng chờ, chạy hết các bước theo cấu hình batch">Xếp hàng chạy</button>
-      <button class="btn danger" data-act="stop"${running ? "" : " disabled"}>Dừng</button>
-      <button class="btn" data-act="reveal" title="Mở thư mục job trên máy">Mở thư mục</button>
-      <button class="btn danger ghost" data-act="delete"${running ? " disabled" : ""}>Xoá job</button>
-    </div>
-    <ol class="stages">${stages}</ol>
-    <p class="hint">Sửa lời thoại, chọn giọng, cấu hình render: <a href="/ui3">mở Studio cũ</a>.</p>`;
+  $("#tab-body").innerHTML = `<ol class="stages">${stages}</ol>`;
+}
+
+// ───────────── tab Bản dịch (D2) ─────────────
+const FLAG_VI = { pronoun: "xưng hô", name: "tên", empty: "trống", cjk: "còn chữ Hán" };
+function fmtTime(sec) {
+  const t = Math.max(0, Number(sec) || 0), m = Math.floor(t / 60), s = Math.floor(t % 60);
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+function translating(j) { return (j?.stages?.translate) === "running"; }
+
+async function loadScript() {
+  const id = selected;
+  if (!id) return;
+  const body = $("#tab-body");
+  if (!script) body.innerHTML = '<p class="hint">Đang tải bản dịch…</p>';
+  try {
+    const d = await api("GET", `/api/v6/jobs/${encodeURIComponent(id)}/script`);
+    if (id !== selected || tab !== "script") return;
+    script = { rows: d.rows || [], wav: new Set(d.wav || []), exists: d.exists };
+    paintScript(true);
+  } catch (e) {
+    if (id === selected && tab === "script") body.innerHTML = `<div class="err">Không đọc được bản dịch: ${esc(e.message)}</div>`;
+  }
+}
+
+function scriptMatches(r) {
+  if (scriptFilter === "flag" && !(r.s_flags && r.s_flags.length)) return false;
+  if (scriptFilter === "unrev" && (r.rv || r.junk)) return false;
+  if (scriptFilter === "manual" && !r.manual) return false;
+  if (scriptFilter === "empty" && (r.vi || "").trim()) return false;
+  if (scriptQ) {
+    const q = scriptQ.toLowerCase();
+    if (!((r.zh || "").toLowerCase().includes(q) || (r.vi || "").toLowerCase().includes(q) || String(r.i) === q)) return false;
+  }
+  return true;
+}
+
+function lineHtml(r, locked, enc) {
+  const tags = [];
+  for (const f of r.s_flags || []) tags.push(`<span class="tag warn">${esc(FLAG_VI[f] || f)}</span>`);
+  if (r.manual) tags.push('<span class="tag ok">sửa tay</span>');
+  else if (!r.rv && !r.junk) tags.push('<span class="tag">chưa soát</span>');
+  if (r.unreviewed_accepted) tags.push('<span class="tag">nháp chưa soát</span>');
+  if (r.s_spk && r.s_spk !== "?") tags.push(`<span class="tag mut">${esc(r.s_spk)} → ${esc(r.s_to || "?")}</span>`);
+  const has = script.wav.has(Number(r.i));
+  return `<div class="ln" data-i="${esc(r.i)}">
+    <div class="ln-meta"><b>#${esc(r.i)}</b> <span class="mut">${fmtTime(r.start)}</span> ${tags.join(" ")}</div>
+    <div class="zh">${esc(r.zh || "")}</div>
+    <textarea class="vi" data-i="${esc(r.i)}" data-junk="${r.junk ? 1 : 0}" rows="2" spellcheck="false"${locked || r.junk ? " readonly" : ""}>${esc(r.vi || "")}</textarea>
+    <div class="ln-act"><button class="btn sm" data-act="play" data-i="${esc(r.i)}"${has ? "" : " disabled"} title="${has ? "Nghe giọng đọc câu này" : "Câu này chưa có giọng đọc"}">▶ Nghe</button>
+    <button class="btn sm" data-act="clip" data-i="${esc(r.i)}" title="Đọc lại riêng câu này bằng giọng của job">Đọc lại câu</button>
+    <span class="st" data-st="${esc(r.i)}"></span></div></div>`;
+}
+
+function paintScript(rebuild) {
+  const body = $("#tab-body");
+  const j = jobs.get(selected);
+  if (!script || !j) return;
+  if (!script.exists) {
+    body.innerHTML = '<p class="hint">Job này chưa có bản dịch. Chạy bước «Dịch» ở tab Tổng quan (hoặc Xếp hàng chạy).</p>';
+    return;
+  }
+  const rows = script.rows;
+  const n = { all: rows.length, flag: 0, unrev: 0, manual: 0, empty: 0 };
+  for (const r of rows) {
+    if (r.s_flags && r.s_flags.length) n.flag++;
+    if (!r.rv && !r.junk) n.unrev++;
+    if (r.manual) n.manual++;
+    if (!(r.vi || "").trim()) n.empty++;
+  }
+  if (rebuild || !body.querySelector("#sc-list")) {
+    const opt = (k, label) => `<option value="${k}"${scriptFilter === k ? " selected" : ""}>${label} (${n[k]})</option>`;
+    body.innerHTML = `<div class="sc-bar">
+        <select id="sc-filter" aria-label="Lọc câu">${opt("all", "Tất cả")}${opt("flag", "Bị cờ")}${opt("unrev", "Chưa soát")}${opt("empty", "Trống")}${opt("manual", "Đã sửa tay")}</select>
+        <input id="sc-q" placeholder="Tìm trong câu Trung / Việt, hoặc số câu…" value="${esc(scriptQ)}">
+        <button class="btn sm" data-act="sc-reload" title="Nạp lại bản dịch từ đĩa">Tải lại</button>
+      </div>
+      <div id="sc-lock" class="hold" hidden>Đang dịch / soát — tạm khoá sửa (sửa bây giờ sẽ bị ghi đè). Bản dịch tự nạp lại khi xong.</div>
+      <p class="hint">Sửa câu Việt rồi bấm ra ngoài (hoặc Ctrl+Enter) để lưu. Câu đã sửa tay không bị máy soát ghi đè. Sửa xong muốn nghe lại thì bấm «Đọc lại câu».</p>
+      <div id="sc-list"></div>`;
+  }
+  syncScriptLock(j);
+  const list = rows.filter(scriptMatches);
+  const shown = list.slice(0, scriptShown);
+  const locked = translating(j);
+  const enc = encodeURIComponent(selected);
+  $("#sc-list").innerHTML = (shown.length ? shown.map((r) => lineHtml(r, locked, enc)).join("") : '<p class="hint">Không có câu nào khớp.</p>')
+    + (list.length > shown.length ? `<button class="btn more" data-act="sc-more">Xem thêm (${list.length - shown.length} câu)</button>` : "");
+}
+
+function syncScriptLock(j) {
+  const lock = $("#sc-lock");
+  if (!lock) return;
+  const on = translating(j);
+  lock.hidden = !on;
+  document.querySelectorAll("#sc-list textarea.vi").forEach((t) => { t.readOnly = on || t.dataset.junk === "1"; });
+}
+
+async function saveLine(ta) {
+  const i = Number(ta.dataset.i), id = selected;
+  const row = script?.rows.find((r) => Number(r.i) === i);
+  if (!row || ta.readOnly) return;
+  const vi = ta.value.trim();
+  if (vi === (row.vi || "").trim()) return;
+  const st = document.querySelector(`[data-st="${CSS.escape(String(i))}"]`);
+  if (st) { st.textContent = "đang lưu…"; st.className = "st"; }
+  try {
+    const r = await api("POST", `/api/jobs/${encodeURIComponent(id)}/script-line`, { i, vi });
+    row.vi = r.vi ?? vi; row.manual = 1; delete row.rv; row.s_flags = [];
+    if (st) { st.textContent = r.tts_stale ? "đã lưu · giọng đọc câu này đã cũ — bấm «Đọc lại câu»" : "đã lưu"; st.className = "st ok"; }
+  } catch (e) {
+    ta.value = row.vi || "";
+    if (st) { st.textContent = "Lỗi: " + e.message; st.className = "st err"; }
+  }
+}
+
+const player = new Audio();
+function playLine(i) {
+  const f = `tts/seg_${String(i).padStart(4, "0")}.wav`;
+  player.src = `/api/jobs/${encodeURIComponent(selected)}/file/${f}?t=${Date.now()}`;
+  player.play().catch((e) => say("Không phát được: " + e.message, "err"));
+}
+
+// ───────────── tab Giọng đọc (D6, theo job) ─────────────
+async function loadVoices() {
+  if (voices) return voices;
+  const d = await api("GET", "/api/voices");
+  voices = (d.vieneu || d.omnivoice || []).map((v) => v.id);
+  return voices;
+}
+
+function paintVoice(force) {
+  const body = $("#tab-body");
+  if (!force && body.querySelector("form.voice") && body.contains(document.activeElement)) return;   // đang chọn → giữ nguyên
+  const tts = detail?.stages?.tts || {};
+  const cur = { voice: tts.voice || "", speed: tts.speed || 1, engine: tts.tts_engine || tts.engine || "vieneu" };
+  const vs = voices || [];
+  const opts = vs.map((v) => `<option${v === cur.voice ? " selected" : ""}>${esc(v)}</option>`).join("");
+  body.innerHTML = `<form class="voice">
+      <label>Giọng<select name="voice">${cur.voice && !vs.includes(cur.voice) ? `<option selected>${esc(cur.voice)}</option>` : ""}${opts || '<option value="">(chưa có giọng clone)</option>'}</select></label>
+      <label>Tốc độ đọc<input name="speed" type="number" min="0.5" max="2" step="0.05" value="${esc(cur.speed)}"></label>
+      <label>Bộ đọc (TTS)<select name="engine">${["vieneu", "omnivoice"].map((e) => `<option${e === cur.engine ? " selected" : ""}>${e}</option>`).join("")}</select></label>
+      <div class="actions"><button class="btn primary" data-act="voice-save" type="button">Lưu cho job này</button></div>
+      <p class="hint">Áp dụng cho lần lồng tiếng tiếp theo của job này. Đã lồng tiếng rồi thì sang tab Tổng quan bấm «Làm lại» ở bước Lồng tiếng
+      (hoặc «Đọc lại câu» ở tab Bản dịch cho từng câu). Giọng mặc định cho mọi job mới: nút «Cài đặt» trên cùng.</p>
+    </form>`;
+}
+
+// ───────────── tab Kết quả ─────────────
+function paintResult(j) {
+  const enc = encodeURIComponent(j.job_id);
+  const done = j.stages?.mux === "done";
+  const body = $("#tab-body");
+  const cur = body.querySelector("video");
+  if (cur && cur.dataset.job === j.job_id && cur.dataset.done === String(done)) return;   // đang xem → không nạp lại
+  body.innerHTML = (done
+    ? `<video controls preload="metadata" data-job="${esc(j.job_id)}" data-done="true" src="/api/jobs/${enc}/file/output.mp4"></video>`
+    : `<p class="hint">Chưa render xong — video kết quả sẽ hiện ở đây khi bước «Ghép / render» xong.</p>`)
+    + `<div class="d-actions">
+         <a class="btn" href="/api/jobs/${enc}/srt/vi" download>Tải phụ đề Việt (.srt)</a>
+         <a class="btn" href="/api/jobs/${enc}/srt/zh" download>Tải phụ đề Trung (.srt)</a>
+         <button class="btn" data-act="reveal">Mở thư mục</button>
+       </div>`;
 }
 
 async function detailAction(btn) {
@@ -225,6 +415,31 @@ async function detailAction(btn) {
   const enc = encodeURIComponent(id);
   const title = jobs.get(id)?.title || id;
   if (a === "close") return select(null);
+  if (a === "tab") {
+    tab = btn.dataset.tab;
+    paintDetail();
+    if (tab === "script") { if (script) paintScript(true); else loadScript(); }
+    if (tab === "voice") { try { await loadVoices(); } catch (e) { say("Không đọc được danh sách giọng: " + e.message, "err"); } if (tab === "voice") paintVoice(true); }
+    return;
+  }
+  if (a === "sc-reload") return loadScript();
+  if (a === "sc-more") { scriptShown += PAGE; return paintScript(false); }
+  if (a === "play") return playLine(btn.dataset.i);
+  if (a === "clip") {
+    const i = Number(btn.dataset.i);
+    return act(btn, `Đã đọc lại câu #${i}`, async () => {
+      await api("POST", `/api/jobs/${enc}/tts-clip`, { i });
+      script?.wav.add(i);
+      const p = document.querySelector(`button[data-act="play"][data-i="${CSS.escape(String(i))}"]`);
+      if (p) p.disabled = false;
+      playLine(i);
+    });
+  }
+  if (a === "voice-save") {
+    const f = btn.closest("form");
+    const body = { voice: f.voice.value || null, speed: Number(f.speed.value) || null, engine: f.engine.value || null };
+    return act(btn, "Đã lưu giọng cho job này", async () => { await api("POST", `/api/jobs/${enc}/tts-voice`, body); await loadDetail(id); });
+  }
   if (a === "enqueue") return act(btn, "Đã xếp vào hàng chờ", async () => { await api("POST", "/api/queue/jobs", { job_ids: [id] }); await refreshQueue(); });
   if (a === "resume") return act(btn, "Đã gỡ tạm dừng, chạy tiếp", async () => { await api("POST", "/api/agent/resume/" + enc); await refreshQueue(); });
   if (a === "stop") return act(btn, "Đã gửi lệnh dừng", async () => { await api("POST", `/api/jobs/${enc}/stop`); await refreshQueue(); });
@@ -265,6 +480,75 @@ async function createJob(ev) {
   } catch (e) {
     errEl.textContent = e.message; errEl.hidden = false;
   } finally { ok.disabled = false; ok.textContent = "Tạo job"; }
+}
+
+// ───────────── Cài đặt: cấu hình batch (D4) ─────────────
+// Nhóm + thứ tự hiển thị. Khoá không có ở đây vẫn hiện ở nhóm «Khác» (backend thêm khoá mới không bị mất).
+const CFG_GROUPS = [
+  ["Lồng tiếng", ["voice", "speed", "tts_engine"]],
+  ["Nhận dạng & dịch", ["asr_engine", "translate_mode", "review_backup", "ocr"]],
+  ["Âm thanh", ["audio_mode", "voice_vol", "orig_vol"]],
+  ["Hình ảnh & render", ["resolution", "fit", "zoom", "motion", "lut", "grain", "flip", "hardsub_blur", "vbitrate", "render_speed"]],
+  ["Thương hiệu", ["brand_mode", "brand_text", "brand_logo", "frame"]],
+];
+let cfg = null;
+
+function cfgField(k) {
+  const v = cfg.opts[k], d = cfg.defaults[k], label = esc(cfg.labels[k] || k);
+  const name = `name="${esc(k)}"`;
+  if (typeof d === "boolean") {
+    return `<label class="row"><input type="checkbox" ${name}${v === true || v === "true" ? " checked" : ""}> ${label}</label>`;
+  }
+  let input;
+  if (k === "voice" && voices && voices.length) {
+    const list = voices.includes(v) ? voices : [v, ...voices];
+    input = `<select ${name}>${list.map((x) => `<option${x === v ? " selected" : ""}>${esc(x)}</option>`).join("")}</select>`;
+  } else if (cfg.choices[k]) {
+    input = `<select ${name}>${cfg.choices[k].map((x) => `<option${String(x) === String(v) ? " selected" : ""}>${esc(x)}</option>`).join("")}</select>`;
+  } else if (typeof d === "number") {
+    input = `<input type="number" step="0.01" ${name} value="${esc(v)}">`;
+  } else {
+    input = `<input ${name} value="${esc(v ?? "")}">`;
+  }
+  return `<label>${label}${input}</label>`;
+}
+
+async function openSettings() {
+  const [c] = await Promise.all([api("GET", "/api/v6/config"), loadVoices().catch(() => null)]);
+  cfg = c;
+  const used = new Set(CFG_GROUPS.flatMap(([, ks]) => ks));
+  const extra = Object.keys(cfg.defaults).filter((k) => !used.has(k));
+  const groups = extra.length ? [...CFG_GROUPS, ["Khác", extra]] : CFG_GROUPS;
+  $("#cfg-body").innerHTML = groups.map(([g, ks]) => {
+    const fs = ks.filter((k) => k in cfg.defaults).map(cfgField).join("");
+    return fs ? `<fieldset><legend>${esc(g)}</legend>${fs}</fieldset>` : "";
+  }).join("");
+  $("#cfg-meta").textContent = cfg.updated_at ? `Sửa lần cuối: ${cfg.updated_at}${cfg.updated_by ? ` · bởi ${cfg.updated_by}` : ""}` : "";
+  $("#cfg-err").hidden = true;
+  $("#dlg-cfg").showModal();
+}
+
+async function saveSettings(ev) {
+  ev.preventDefault();
+  const form = $("#form-cfg"), patch = {};
+  for (const k of Object.keys(cfg.defaults)) {
+    const el = form.elements[k];
+    if (!el) continue;
+    let v = el.type === "checkbox" ? el.checked : el.value;
+    if (typeof cfg.defaults[k] === "number" && el.type !== "checkbox") v = Number(v);
+    if (String(v) !== String(cfg.opts[k])) patch[k] = v;
+  }
+  if (!Object.keys(patch).length) { $("#dlg-cfg").close(); return; }
+  const ok = $("#cfg-ok");
+  ok.disabled = true;
+  try {
+    const r = await api("POST", "/api/v6/config", { patch });
+    $("#dlg-cfg").close();
+    const n = Object.keys(r.changed || {}).length;
+    say(n ? `Đã lưu ${n} thay đổi — job đang chờ (chưa ghim cấu hình riêng) sẽ chạy theo cấu hình mới` : "Không có gì thay đổi");
+  } catch (e) {
+    $("#cfg-err").textContent = e.message; $("#cfg-err").hidden = false;
+  } finally { ok.disabled = false; }
 }
 
 // ───────────── SSE ─────────────
@@ -318,6 +602,15 @@ $("#ck-all").addEventListener("change", (e) => {
   fullRedraw = true; schedule();
 });
 $("#detail").addEventListener("click", (e) => { const b = e.target.closest("button[data-act]"); if (b) detailAction(b); });
+$("#detail").addEventListener("change", (e) => {
+  if (e.target.matches("textarea.vi")) saveLine(e.target);
+  if (e.target.id === "sc-filter") { scriptFilter = e.target.value; scriptShown = PAGE; paintScript(false); }
+});
+$("#detail").addEventListener("keydown", (e) => {
+  if (e.target.matches("textarea.vi") && e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); e.target.blur(); }
+});
+const onScriptSearch = debounce(() => { scriptShown = PAGE; paintScript(false); }, 250);
+$("#detail").addEventListener("input", (e) => { if (e.target.id === "sc-q") { scriptQ = e.target.value.trim(); onScriptSearch(); } });
 $("#btn-enqueue").addEventListener("click", (e) => act(e.currentTarget, "Đã xếp vào hàng chờ", async () => {
   await api("POST", "/api/queue/jobs", { job_ids: [...picked] });
   picked.clear(); await refreshQueue();
@@ -335,6 +628,9 @@ $("#btn-q-resume").addEventListener("click", (e) => act(e.currentTarget, "Đã c
 }));
 $("#btn-q-log").addEventListener("click", (e) => act(e.currentTarget, "", showQueueLog));
 $("#log-close").addEventListener("click", () => $("#dlg-log").close());
+$("#btn-cfg").addEventListener("click", (e) => act(e.currentTarget, "", openSettings));
+$("#cfg-cancel").addEventListener("click", () => $("#dlg-cfg").close());
+$("#form-cfg").addEventListener("submit", saveSettings);
 $("#btn-new").addEventListener("click", () => { $("#new-err").hidden = true; $("#dlg-new").showModal(); $("#new-src").focus(); });
 $("#new-cancel").addEventListener("click", () => $("#dlg-new").close());
 $("#form-new").addEventListener("submit", createJob);
