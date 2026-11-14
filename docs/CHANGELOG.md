@@ -1,5 +1,10 @@
 # CHANGELOG — V6
 
+## 2026-11-14
+- Fix UI cũ `/` (`index.html`): thiếu khai báo `selectedStep`, `panelJobId`, `lastPanelSig` → console «refresh: lỗi vẽ
+  ReferenceError: selectedStep is not defined», khung chi tiết job không vẽ. Thêm `let … = null` (như `index3.html`).
+  Lỗi có sẵn từ V4/V5. Không cần restart — hard refresh trang (Ctrl+F5).
+
 ## 2026-11-13
 - Fix review 4 bug (cloud, **chờ restart :8806** + chạy `verify_all.bat` trên Windows) — docs/fixes/2026-11-13-review-sse-timestamp-testdata-bat.md:
   (1) SSE `/api/events` chuyển generator async (`events.bus.subscribe_async`/`sse_stream`) — bản đồng bộ giữ 1 thread
