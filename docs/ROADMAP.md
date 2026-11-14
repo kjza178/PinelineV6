@@ -45,7 +45,7 @@ Ký hiệu: `[x]` xong và đã kiểm · `[~]` code xong ở cloud, **chờ ki�
 - [x] **R1.1** «Soát lại» khi cloud chết vẫn báo `done` (`stage_review.run` đếm bằng cờ `rv` cũ).
 - [x] **R1.2** Lập plan lỗi một lần → `glossary.json` rỗng bị lưu, các lần sau không lập lại; phim dịch không có bảng xưng hô mà cổng vẫn cho qua.
 - [x] **R1.3** Lỗi code bị coi như lỗi cloud: park 3 × 5 phút rồi mới HOLD, mất traceback.
-- [ ] **R1.4** Giờ trong `stages.translate` (`_now()` giờ máy không múi giờ) → `core.timeutil.now_iso`.
+- [x] **R1.4** Giờ trong `stages.translate` (`_now()` giờ máy không múi giờ) → `core.timeutil.now_iso`.
 - [ ] **R1.5** Bộ kiểm xưng hô báo nhầm từ thân tộc chỉ người thứ ba («Chị bảo tôi tới»): đo tỉ lệ báo nhầm trên golden, rồi mới chỉnh.
 - [ ] **R1.6** Đo chất lượng trên job thật của V6 (golden hiện là nhãn «silver» do AI gán, 283 câu held-out).
 
@@ -70,6 +70,10 @@ Ký hiệu: `[x]` xong và đã kiểm · `[~]` code xong ở cloud, **chờ ki�
 - [ ] **R4.4** Bỏ `data/films.db` khỏi git (làm tại máy: `git rm --cached`).
 - [ ] **R4.5** Auto-publish: kiểm lại đường «job đang upload bị xếp hàng lần hai» bằng test liên tiến trình.
 - [ ] **R4.6** `core/manifest.py`: hết 5 s không lấy được khoá thì đang ghi không khoá → ghi log cảnh báo + đếm; cân nhắc từ chối ghi.
+
+### G1.6 Render
+- [~] **R6.1** ffmpeg ≥ 8 bỏ `-filter_complex_script` → render tự dò cú pháp (`render.filter_script_opt`). Phát hiện nhờ CI Windows.
+- [ ] **R6.2** Ghi phiên bản ffmpeg / Python / gói chính vào `/api/health` + `scripts/check_env.py`; cảnh báo khi khác bản đã kiểm.
 
 ### G1.5 Hiệu năng server
 - [x] **R5.1** SSE async (trước: ~40 kết nối là server đứng).
@@ -123,4 +127,5 @@ Luật: UI desktop **không polling** — 1 kết nối SSE, chỉ gọi API khi
 | 2026-11-13 | R4.1 R4.2 R5.1 | PR #1: SSE async, timestamp, cách ly test, `.gitattributes` |
 | 2026-11-14 | D1 | UI desktop có thao tác job + hàng chờ |
 | 2026-11-14 | — | Test 728/0 trên Linux; thêm CI (Ubuntu + Windows + cargo check) |
-| 2026-11-14 | R1.1 R1.2 R1.3 R2.1 R2.2 | Xem `docs/fixes/2026-11-14-*` |
+| 2026-11-14 | R1.1–R1.4 R2.1 R2.2 | Xem `docs/fixes/2026-11-14-*` |
+| 2026-11-14 | R6.1 | CI Windows lần đầu: 727 pass, 2 fail do ffmpeg 8 → sửa |
