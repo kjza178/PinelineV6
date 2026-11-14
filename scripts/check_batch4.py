@@ -220,17 +220,22 @@ src = (ROOT / "server.py").read_text(encoding="utf-8")
 tail = src[src.rfind('if __name__ == "__main__"'):]
 check("__main__ có khoá msvcrt một bản", "msvcrt.locking" in tail and "LK_NBLCK" in tail)
 lockf = TMP / ".server_test.lock"
-holder = subprocess.Popen([sys.executable, "-c", (
+if os.name != "nt":
+    # msvcrt chỉ có trên Windows — phần khoá một-bản của `python server.py` không áp dụng ở hệ khác
+    # (V6 chạy qua `python -m app`, khoá bằng app/__main__._single_instance_lock: msvcrt | fcntl).
+    print("  SKIP bản thứ hai không lấy được khoá (msvcrt — chỉ Windows)")
+else:
+  holder = subprocess.Popen([sys.executable, "-c", (
     "import msvcrt, time\n"
     "f = open(r'%s', 'a+'); f.seek(0); msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)\n"
     "print('locked', flush=True); time.sleep(5)\n") % lockf], stdout=subprocess.PIPE, text=True)
-holder.stdout.readline()
-second = subprocess.run([sys.executable, "-c", (
+  holder.stdout.readline()
+  second = subprocess.run([sys.executable, "-c", (
     "import msvcrt, sys\n"
     "f = open(r'%s', 'a+'); f.seek(0)\n"
     "try:\n    msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)\nexcept OSError:\n    sys.exit(7)\n") % lockf])
-holder.kill()
-check("bản thứ hai không lấy được khoá", second.returncode == 7)
+  holder.kill()
+  check("bản thứ hai không lấy được khoá", second.returncode == 7)
 
 # ---------- 6. hàng đợi: đổi opts tại chỗ (X4) ----------
 print("[6] queue_update_opts + /api/queue/jobs/opts")
