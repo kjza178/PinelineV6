@@ -1,6 +1,9 @@
 // Pineline V6 desktop shell.
 // - Tự spawn backend `python -m app --instance <tên>` (cổng đọc từ instances/<tên>.json).
-// - Chờ cổng mở rồi chuyển cửa sổ sang http://127.0.0.1:<port>/v6/ (UI do FastAPI phục vụ, cùng origin → không CORS).
+// - Chờ cổng mở rồi chuyển cửa sổ sang http://127.0.0.1:<port><trang> (UI do FastAPI phục vụ, cùng origin → không CORS).
+//   <trang> mặc định /ui3 = UI đầy đủ chức năng (tạo/chạy/dừng job, hàng chờ, HOLD…). Trang /v6/ (desktop/ui) mới
+//   chỉ là bảng XEM, chưa có thao tác → không còn là mặc định (fix 2026-11-14). Đổi: env PINELINE_DESKTOP_PATH
+//   hoặc khoá "desktop_path" trong instances/<tên>.json (vd "/v6/").
 // - Đóng app → kill backend (chỉ backend do app tự spawn; nếu backend đã chạy sẵn thì dùng lại, không kill).
 // UI không polling: 1 kết nối SSE /api/events thay cho setInterval 2 s gọi /api/jobs (nguyên nhân treo cũ).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -44,6 +47,20 @@ fn instance_port(root: &Path, name: &str) -> u16 {
         .unwrap_or(8806)
 }
 
+/// Trang mở sau khi backend lên: env PINELINE_DESKTOP_PATH → instances/<tên>.json "desktop_path" → /ui3.
+/// Chỉ nhận đường dẫn nội bộ bắt đầu bằng "/" (không nhận URL ngoài).
+fn desktop_path(root: &Path, name: &str) -> String {
+    let from_json = || {
+        std::fs::read_to_string(root.join("instances").join(format!("{name}.json")))
+            .ok()
+            .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+            .and_then(|v| v.get("desktop_path").and_then(|x| x.as_str()).map(|s| s.to_string()))
+    };
+    let p = std::env::var("PINELINE_DESKTOP_PATH").ok().or_else(from_json).unwrap_or_default();
+    let p = p.trim();
+    if p.starts_with('/') && !p.starts_with("//") { p.to_string() } else { "/ui3".to_string() }
+}
+
 fn port_open(port: u16) -> bool {
     let addr: SocketAddr = ([127, 0, 0, 1], port).into();
     TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
@@ -73,6 +90,7 @@ fn main() {
     let _ = std::fs::create_dir_all(root.join("scratch"));
     let instance = std::env::var("PINELINE_INSTANCE").unwrap_or_else(|_| "v6".into());
     let port = instance_port(&root, &instance);
+    let page = desktop_path(&root, &instance);
 
     let child = if port_open(port) {
         None // backend đã chạy (vd chạy tay để debug) → dùng lại
@@ -100,8 +118,8 @@ fn main() {
                     }
                     std::thread::sleep(Duration::from_millis(400));
                 }
-                // V6 F3: cùng cổng phục vụ cả UI cũ (/ , /ui3) lẫn UI desktop mới ở /v6/.
-                if let Ok(url) = Url::parse(&format!("http://127.0.0.1:{port}/v6/")) {
+                // Cùng cổng phục vụ UI đầy đủ (/ui3, /films, /hongguo) lẫn bảng xem /v6/ — mở trang đã chọn.
+                if let Ok(url) = Url::parse(&format!("http://127.0.0.1:{port}{page}")) {
                     let _ = win.navigate(url);
                 }
             });

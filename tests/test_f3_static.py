@@ -166,6 +166,10 @@ def test_bus_throttles_job_touched():
 
 def test_tauri_opens_v6_ui():
     rs = (ROOT / "desktop" / "src-tauri" / "src" / "main.rs").read_text(encoding="utf-8")
-    assert 'format!("http://127.0.0.1:{port}/v6/")' in rs
+    # fix 2026-11-14: mặc định mở UI đầy đủ chức năng /ui3 (bảng /v6/ chỉ xem); đổi được qua env / instance.
+    assert 'format!("http://127.0.0.1:{port}{page}")' in rs
+    assert '"/ui3".to_string()' in rs and "PINELINE_DESKTOP_PATH" in rs and '"desktop_path"' in rs
+    ui = (ROOT / "desktop" / "ui" / "index.html").read_text(encoding="utf-8")
+    assert 'href="/ui3"' in ui
     js = (ROOT / "desktop" / "ui" / "app.js").read_text(encoding="utf-8")
     assert 'new EventSource("/api/events")' in js and "setInterval" not in js

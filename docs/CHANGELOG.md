@@ -1,6 +1,10 @@
 # CHANGELOG — V6
 
 ## 2026-11-14
+- Desktop Tauri mở **/ui3** (UI đầy đủ chức năng) thay vì bảng chỉ-xem `/v6/` — `desktop/src-tauri/src/main.rs`
+  `desktop_path()`: env `PINELINE_DESKTOP_PATH` → `"desktop_path"` trong `instances/<tên>.json` → mặc định `/ui3`.
+  `/v6/` thêm link sang /ui3, /films, /hongguo; màn chờ ghi đúng 180 s. `cargo check` (target Windows) qua ở cloud —
+  **cần build lại app trên Windows** (`desktop\dev.bat` / `build.bat`) mới có hiệu lực.
 - Fix UI cũ `/` (`index.html`): thiếu khai báo `selectedStep`, `panelJobId`, `lastPanelSig` → console «refresh: lỗi vẽ
   ReferenceError: selectedStep is not defined», khung chi tiết job không vẽ. Thêm `let … = null` (như `index3.html`).
   Lỗi có sẵn từ V4/V5. Không cần restart — hard refresh trang (Ctrl+F5).

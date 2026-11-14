@@ -8,3 +8,6 @@ th{color:var(--mut);font-weight:500;position:sticky;top:45px;background:var(--bg
 .b{display:inline-block;min-width:62px;padding:1px 6px;border-radius:4px;font-size:12px;text-align:center;background:#23252a;color:var(--mut)}
 .b.running{background:#1b2c4d;color:var(--run)}.b.done{background:#173a2a;color:var(--done)}.b.failed{background:#3a1717;color:var(--fail)}.b.held{background:#3a2e12;color:var(--held)}
 tr.flash{animation:f .8s}@keyframes f{from{background:#1f2a3d}to{background:transparent}}
+header nav{display:flex;gap:12px;margin-left:8px}
+header nav a{color:#8ab4ff;text-decoration:none;font-size:13px}
+header nav a:hover{text-decoration:underline}
