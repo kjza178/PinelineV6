@@ -34,6 +34,41 @@ UI_DIR = ROOT / "desktop" / "ui"
 V6_PREFIX = "/api/v6"
 
 
+DISK_WARN_GB = 20.0      # dưới mức này /api/health cảnh báo (một phim dài cần hàng chục GB tạm)
+_VERSIONS: dict | None = None
+
+
+def _disk_free(path) -> dict | None:
+    """Dung lượng ổ chứa `path` (đi ngược lên thư mục cha gần nhất đang tồn tại). Lỗi → None."""
+    import shutil
+    try:
+        p = Path(path).resolve()
+        while not p.exists() and p != p.parent:
+            p = p.parent
+        u = shutil.disk_usage(p)
+        return {"path": str(path), "free_gb": round(u.free / 1e9, 1), "total_gb": round(u.total / 1e9, 1)}
+    except OSError:
+        return None
+
+
+def _versions() -> dict:
+    """Phiên bản Python / ffmpeg (dò 1 lần mỗi tiến trình). ffmpeg đổi bản từng làm hỏng render (R6.1)."""
+    global _VERSIONS
+    if _VERSIONS is None:
+        import platform
+        import subprocess
+        ff = None
+        try:
+            r = subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True, timeout=10,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            first = (r.stdout or "").splitlines()[0] if r.returncode == 0 and r.stdout else ""
+            ff = first.replace("ffmpeg version", "").strip().split(" ")[0] or None
+        except (OSError, subprocess.SubprocessError):
+            ff = None
+        _VERSIONS = {"python": platform.python_version(), "ffmpeg": ff, "os": platform.platform()}
+    return _VERSIONS
+
+
 def _import_legacy(inst: Instance):
     """Nạp server.py (V5) cho instance này. Env (WORK_DIR, PINELINE_FLAG_*, PINELINE_ROUTERS…) phải có
     TRƯỚC khi import: server đọc chúng lúc import (WORK_ROOT, router tuỳ chọn) và lúc startup (cờ nền)."""
@@ -53,8 +88,32 @@ def _v6_router(inst: Instance) -> APIRouter:
 
     @r.get("/api/health")
     def health():
-        return {"ok": True, "instance": inst.name, "port": inst.port, "jobs": len(index.list()),
-                "sse_clients": bus.n_subscribers}
+        """Sức khoẻ backend cho người / giám sát (R3.1, R6.2). Chỉ đọc; mọi phần phụ lỗi → null, không làm hỏng cả câu trả lời."""
+        out = {"ok": True, "instance": inst.name, "port": inst.port, "jobs": len(index.list()),
+               "sse_clients": bus.n_subscribers}
+        try:
+            import core.job_queue as job_queue
+            st = job_queue.queue_state()
+            out["queue"] = {"current": st.get("current"), "waiting": len(st.get("queue") or []),
+                            "worker": bool(st.get("worker")), "paused": st.get("paused"),
+                            "persist_ok": st.get("persist_ok"), "consec_fail": st.get("consec_fail")}
+        except Exception as e:  # noqa: BLE001
+            out["queue"] = None
+            print(f"[health] queue: {e}", flush=True)
+        out["disk"] = {"work": _disk_free(inst.work_root), "temp": _disk_free(inst.temp)}
+        out["versions"] = _versions()
+        # cảnh báo gọn để UI / giám sát chỉ cần nhìn một chỗ
+        warn = []
+        q = out.get("queue") or {}
+        if q.get("paused"):
+            warn.append("hàng chờ đang tạm dừng vì lỗi liên tiếp")
+        if q.get("persist_ok") is False:
+            warn.append("không ghi được hàng chờ ra đĩa")
+        for name, d in out["disk"].items():
+            if d and d["free_gb"] < DISK_WARN_GB:
+                warn.append(f"ổ {name} còn {d['free_gb']} GB")
+        out["warnings"] = warn
+        return out
 
     @r.get(V6_PREFIX + "/jobs")
     def jobs():
@@ -69,6 +128,20 @@ def _v6_router(inst: Instance) -> APIRouter:
         if not mf.is_file():
             raise HTTPException(404, "không có job")
         return json.loads(mf.read_text(encoding="utf-8"))
+
+    # ── hàng chờ: tạm dừng khi lỗi liên tiếp (R7.4) + nhật ký ra file (R7.5) ──
+    @r.post(V6_PREFIX + "/queue/resume")
+    def queue_resume():
+        """Người dùng đã xem lỗi → gỡ tạm dừng, chạy tiếp hàng chờ."""
+        import core.job_queue as job_queue
+        out = job_queue.queue_resume()
+        bus.publish("queue.changed", {"text": "chạy tiếp hàng chờ"})
+        return out
+
+    @r.get(V6_PREFIX + "/queue/history")
+    def queue_history(limit: int = 100):
+        import core.job_queue as job_queue
+        return {"history": job_queue.queue_history(limit)}
 
     @r.get("/api/events")
     def events(request: Request):

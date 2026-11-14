@@ -44,8 +44,15 @@ class ManifestWatcher:
         with self._lock:
             self._extra.discard(job_id)
 
+    # R5.2 (fix 2026-11-14): trước đây chỉ stat job `running` → thay đổi do tiến trình KHÁC ghi lên job chưa chạy
+    # (sidecar Telegram gỡ/đặt HOLD, script CLI, agent chạy riêng) phải chờ lượt quét đủ, tới 30 s mới lên UI.
+    # Nay stat mọi job CHƯA XONG (running / held / pending / failed). stat không đọc file nên rẻ; có trần để
+    # thư viện vài nghìn job không thành gánh nặng (job `done` vẫn theo lượt quét đủ).
+    MAX_TARGETS = 500
+
     def _targets(self) -> set[str]:
-        ids = {r["job_id"] for r in self.index.list() if r["status"] == "running"}
+        rows = [r for r in self.index.list() if r["status"] != "done"]      # index.list(): running trước, rồi held…
+        ids = {r["job_id"] for r in rows[: self.MAX_TARGETS]}
         with self._lock:
             return ids | self._extra
 
@@ -69,11 +76,14 @@ class ManifestWatcher:
     def scan_once(self, *, full: bool = False) -> int:
         ids = self._targets()
         if full and self.work_root.is_dir():
-            ids |= {d.name for d in self.work_root.iterdir() if (d / "manifest.json").is_file()}
+            on_disk = {d.name for d in self.work_root.iterdir() if (d / "manifest.json").is_file()}
+            ids |= on_disk
             known = {r["job_id"] for r in self.index.list()}
-            for gone in known - ids:
+            # so với ĐĨA (không phải `ids`: từ R5.2 `ids` chứa sẵn mọi job chưa xong trong index)
+            for gone in known - on_disk:
                 if not (self.work_root / gone / "manifest.json").exists():
                     self.index.remove(gone)
+                    self._mtimes.pop(gone, None)
         return sum(self._check(j) for j in ids)
 
     def start(self) -> None:

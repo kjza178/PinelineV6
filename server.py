@@ -5336,7 +5336,9 @@ def _cookie_info(path: Path) -> dict:
 
 @app.get("/api/cookies")
 def cookies_status():
-    COOKIES_DIR.mkdir(exist_ok=True)
+    # R5.3: GET chỉ đọc — không tạo thư mục (POST /api/cookies tự tạo khi lưu).
+    if not COOKIES_DIR.is_dir():
+        return {}
     return {p.name: _cookie_info(p) for p in sorted(COOKIES_DIR.glob("*cookie*.txt"))}
 
 
@@ -6569,6 +6571,35 @@ def _queue_park_ready(job_id: str) -> bool:
 
 
 job_queue.set_park_ready_hook(_queue_park_ready)
+
+
+def _queue_needs_human(job_id: str) -> bool:
+    """R7.3: job đang HOLD cần NGƯỜI (khác park tự thử lại) — theo agents.agent_hold.hold_info."""
+    try:
+        from agents.agent_hold import hold_info
+        ag = (Manifest(WORK_ROOT / job_id).data.get("agent") or {})
+        return bool(hold_info(ag).get("need_human"))
+    except Exception as e:  # noqa: BLE001
+        print(f"[queue] needs_human {job_id}: {e}", flush=True)
+        return False
+
+
+def _queue_notify(text: str) -> None:
+    """R7.4/R7.3: hàng chờ tạm dừng / nhường ghế → event cho UI (SSE) + Telegram (tôn trọng cờ instance)."""
+    try:
+        from events.bus import bus as _bus
+        _bus.publish("queue.changed", {"text": text[:300]})
+    except Exception as e:  # noqa: BLE001
+        print(f"[queue] publish queue.changed: {e}", flush=True)
+    try:
+        from agents.agent_watch import telegram_send
+        telegram_send("Pineline · " + text, force=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[queue] telegram: {e}", flush=True)
+
+
+job_queue.set_needs_human_hook(_queue_needs_human)
+job_queue.set_notify_hook(_queue_notify)
 
 
 # ===== Route tách file (đợt 7): UI, Hongguo, Agent =====

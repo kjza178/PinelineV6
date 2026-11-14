@@ -46,7 +46,8 @@ Ký hiệu: `[x]` xong và đã kiểm · `[~]` code xong ở cloud, **chờ ki�
 - [x] **R1.2** Lập plan lỗi một lần → `glossary.json` rỗng bị lưu, các lần sau không lập lại; phim dịch không có bảng xưng hô mà cổng vẫn cho qua.
 - [x] **R1.3** Lỗi code bị coi như lỗi cloud: park 3 × 5 phút rồi mới HOLD, mất traceback.
 - [x] **R1.4** Giờ trong `stages.translate` (`_now()` giờ máy không múi giờ) → `core.timeutil.now_iso`.
-- [ ] **R1.5** Bộ kiểm xưng hô báo nhầm từ thân tộc chỉ người thứ ba («Chị bảo tôi tới»): đo tỉ lệ báo nhầm trên golden, rồi mới chỉnh.
+- [x] **R1.5** Bộ kiểm xưng hô báo nhầm từ thân tộc chỉ người thứ ba? Đã đo 2026-11-14: **0 / 317** câu gold bị đánh cờ nhầm
+      (lưu ý: bộ kiểm dựng từ cùng bộ luật với công cụ đo golden → chưa phải phép đo độc lập; đo lại trên job thật ở R1.6).
 - [ ] **R1.6** Đo chất lượng trên job thật của V6 (golden hiện là nhãn «silver» do AI gán, 283 câu held-out).
 
 ### G1.2 Tiến trình và tắt/mở
@@ -57,7 +58,7 @@ Ký hiệu: `[x]` xong và đã kiểm · `[~]` code xong ở cloud, **chờ ki�
 - [ ] **R2.5** Khởi động lại giữa chừng: mỗi stage resume đúng (đã có `reset_running`; cần test đầu-cuối bằng engine giả).
 
 ### G1.3 Giám sát và cảnh báo
-- [ ] **R3.1** `/api/health` mở rộng: hàng chờ, job đang chạy + tuổi nhịp tim, dung lượng ổ work/temp, VRAM, phiên bản.
+- [~] **R3.1** `/api/health` mở rộng: đã có hàng chờ, dung lượng ổ work/temp, phiên bản, danh sách cảnh báo. Còn: tuổi nhịp tim job đang chạy, VRAM.
 - [ ] **R3.2** Watchdog: stage `running` không có nhịp tim quá ngưỡng → dừng cây tiến trình, đánh `failed` có lý do, hàng chờ đi tiếp.
 - [ ] **R3.3** Kiểm ổ đĩa trước mỗi stage nặng; thiếu chỗ → giữ job, báo, không ghi hỏng file.
 - [ ] **R3.4** Một kênh thông báo (Telegram): job xong / HOLD cần người / lỗi không tự phục hồi / backend vừa tự khởi động lại. Không spam (gộp, chống trùng).
@@ -68,24 +69,26 @@ Ký hiệu: `[x]` xong và đã kiểm · `[~]` code xong ở cloud, **chờ ki�
 - [x] **R4.2** Test không ghi vào `data/` thật; bỏ file runtime khỏi git.
 - [ ] **R4.3** Sao lưu `data/films.db` + cấu hình hằng ngày, giữ 14 bản; lệnh khôi phục có test.
 - [ ] **R4.4** Bỏ `data/films.db` khỏi git (làm tại máy: `git rm --cached`).
-- [ ] **R4.5** Auto-publish: kiểm lại đường «job đang upload bị xếp hàng lần hai» bằng test liên tiến trình.
+- [x] **R4.5** Auto-publish «job đang upload bị xếp hàng lần hai»: đã kiểm — scanner có chặn (`is_job_uploading`); test fail trước đây là do
+      `is_pid_alive` chỉ chạy trên Windows (đã sửa), không phải lỗi logic.
 - [ ] **R4.6** `core/manifest.py`: hết 5 s không lấy được khoá thì đang ghi không khoá → ghi log cảnh báo + đếm; cân nhắc từ chối ghi.
 
 ### G1.7 Hàng chờ
 - [x] **R7.1** Ghi `_job_queue.json` lỗi (đĩa đầy / file bị khoá) làm chết worker, hàng chờ đứng im lặng.
 - [x] **R7.2** Job đang giữ ghế (park/HOLD) bị job khác chen lên trước khi hàng chờ bị sắp lại.
-- [ ] **R7.3 (chủ quyết)** HOLD cần người chặn cả hàng chờ vô thời hạn — giữ luật Studio, hay sau N phút nhường ghế cho job kế?
-- [ ] **R7.4** N job `failed` liên tiếp → tạm dừng hàng chờ + báo (không đốt sạch hàng chờ khi GPU/đĩa/cloud hỏng).
-- [ ] **R7.5** Lịch sử hàng chờ ghi ra file (ai chạy, lúc nào, kết quả, lý do) — hiện chỉ 20 mục trong bộ nhớ.
+- [~] **R7.3** HOLD cần người chặn cả hàng chờ vô thời hạn → có công tắc `QUEUE_HOLD_YIELD_SEC` (giây; **mặc định 0 = giữ luật Studio cũ**).
+      Bật thì job HOLD cần người quá hạn nhường ghế cho job kế (park tự thử lại không bị ảnh hưởng). **(chủ quyết có bật không.)**
+- [x] **R7.4** 3 job `failed` liên tiếp (`QUEUE_MAX_CONSEC_FAIL`, 0 = tắt) → tạm dừng hàng chờ + báo (UI + Telegram); «Chạy tiếp hàng chờ» để gỡ.
+- [x] **R7.5** Nhật ký hàng chờ ra file `work/_job_queue_history.jsonl` (sống qua restart) + nút «Nhật ký» trên desktop.
 
 ### G1.6 Render
 - [x] **R6.1** ffmpeg ≥ 8 bỏ `-filter_complex_script` → render tự dò cú pháp (`render.filter_script_opt`). Phát hiện nhờ CI Windows.
-- [ ] **R6.2** Ghi phiên bản ffmpeg / Python / gói chính vào `/api/health` + `scripts/check_env.py`; cảnh báo khi khác bản đã kiểm.
+- [~] **R6.2** Phiên bản ffmpeg / Python đã có trong `/api/health`. Còn: `scripts/check_env.py`, cảnh báo khi khác bản đã kiểm.
 
 ### G1.5 Hiệu năng server
 - [x] **R5.1** SSE async (trước: ~40 kết nối là server đứng).
-- [ ] **R5.2** Thay đổi manifest từ tiến trình khác lên UI chậm tới 30 s → sidecar/CLI gọi một API «job đã đổi», hoặc watcher theo dõi mọi job chưa xong.
-- [ ] **R5.3** `GET /api/voice-sample`, `GET /api/cookies` còn ghi đĩa → chuyển sang POST / bỏ side effect.
+- [x] **R5.2** Thay đổi manifest từ tiến trình khác lên UI chậm tới 30 s → watcher theo dõi mọi job chưa xong (≤ 500), lên UI trong ~1 s.
+- [~] **R5.3** `GET /api/cookies` hết ghi đĩa. Còn `GET /api/voice-sample` (tạo file mẫu khi chưa có — đổi sang POST sẽ vỡ UI cũ, làm cùng D6).
 
 ## G2 — App desktop đủ chức năng
 
@@ -94,7 +97,7 @@ Luật: UI desktop **không polling** — 1 kết nối SSE, chỉ gọi API khi
 
 - [~] **D1** Bảng job, hàng chờ, thêm job, khung chi tiết: chạy tiếp / xếp hàng / dừng / chạy từng bước / mở thư mục / xoá.
 - [ ] **D2** Xem và sửa bản dịch: danh sách câu (ZH ‖ VI), lọc câu bị cờ / chưa soát, sửa câu (đánh `manual`), nghe thử 1 câu.
-- [ ] **D3** «Chạy lại từ đầu» một bước (cờ `force`) có hộp xác nhận nêu rõ sẽ xoá gì.
+- [~] **D3** «Làm lại» một bước đã xong (cờ `force`) có hộp xác nhận nêu rõ sẽ mất gì.
 - [ ] **D4** Cấu hình: cấu hình batch (giọng, tốc độ, kiểu âm thanh, render) + ghim cấu hình riêng cho job.
 - [ ] **D5** Hàng chờ: kéo đổi thứ tự, xem lịch sử, ước lượng thời gian.
 - [ ] **D6** Giọng đọc: danh sách, nghe mẫu, thêm giọng clone.
@@ -137,3 +140,4 @@ Luật: UI desktop **không polling** — 1 kết nối SSE, chỉ gọi API khi
 | 2026-11-14 | R1.1–R1.4 R2.1 R2.2 | Xem `docs/fixes/2026-11-14-*` |
 | 2026-11-14 | R6.1 | CI Windows lần đầu: 727 pass, 2 fail do ffmpeg 8 → sửa |
 | 2026-11-14 | R7.1 R7.2 | Rà hàng chờ; CI xanh Ubuntu + Windows + cargo (xác nhận R6.1 trên ffmpeg 8) |
+| 2026-11-14 | R7.3 R7.4 R7.5 R5.2 R5.3 R3.1 R6.2 D3 R1.5 R4.5 | Đợt «fix all»: xem `docs/fixes/2026-11-14-queue-24x7.md` |

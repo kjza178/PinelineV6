@@ -24,6 +24,8 @@
   <span id="sel-count"></span>
   <button id="btn-enqueue" class="btn primary" disabled>Xếp hàng chạy</button>
   <button id="btn-dequeue" class="btn" disabled>Gỡ khỏi hàng chờ</button>
+  <button id="btn-q-resume" class="btn primary" hidden title="Đã xem lỗi — gỡ tạm dừng và chạy tiếp các job còn lại">Chạy tiếp hàng chờ</button>
+  <button id="btn-q-log" class="btn" title="Xem job nào đã chạy, lúc nào, kết quả ra sao">Nhật ký</button>
   <button id="btn-q-stop" class="btn danger" disabled title="Dừng job đang chạy và xoá hàng chờ">Dừng hàng chờ</button>
 </section>
 
@@ -53,6 +55,12 @@
       <button type="submit" class="btn primary" id="new-ok">Tạo job</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="dlg-log">
+  <h2>Nhật ký hàng chờ</h2>
+  <div class="logwrap"><table><thead><tr><th>Lúc</th><th>Kết quả</th><th>Job</th><th>Chi tiết</th></tr></thead><tbody id="log-rows"></tbody></table></div>
+  <div class="actions"><button type="button" class="btn" id="log-close">Đóng</button></div>
 </dialog>
 
 <script src="app.js"></script>

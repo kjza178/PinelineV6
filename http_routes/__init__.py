@@ -1,1 +1,1 @@
-﻿"""HTTP route modules (Phase B layout)."""
+"""HTTP route modules (Phase B layout)."""

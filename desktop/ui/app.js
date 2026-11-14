@@ -6,6 +6,13 @@
 "use strict";
 const STAGES = ["download", "asr", "translate", "tts", "mux"];
 const STAGE_VI = { download: "Tải nguồn", asr: "Nhận dạng tiếng (ASR)", translate: "Dịch", tts: "Lồng tiếng (TTS)", mux: "Ghép / render" };
+const REDO_WARN = {
+  download: "Video nguồn sẽ được TẢI LẠI từ đầu (file cũ bị thay).",
+  asr: "Kết quả nhận dạng tiếng cũ bị bỏ, nhận dạng lại từ đầu (tốn GPU).",
+  translate: "Bản dịch hiện tại bị XOÁ và dịch lại từ đầu — câu máy dịch/soát đều mất (câu bạn đã sửa tay được giữ).",
+  tts: "Toàn bộ clip giọng đọc bị xoá và đọc lại từ đầu.",
+  mux: "Video kết quả được render lại từ đầu.",
+};
 const jobs = new Map();          // job_id → hàng tóm tắt (từ SSE)
 const dirty = new Set();
 const picked = new Set();        // job_id được tick
@@ -113,7 +120,7 @@ function syncToolbar() {
   $("#sel-count").textContent = n ? `đã chọn ${n}` : "";
   $("#btn-enqueue").disabled = n === 0;
   $("#btn-dequeue").disabled = ![...picked].some(inQueue);
-  $("#btn-q-stop").disabled = !queue.busy;
+  $("#btn-q-stop").disabled = !(queue.busy || queue.paused);
   const vis = visible();
   $("#ck-all").checked = vis.length > 0 && vis.every((j) => picked.has(j.job_id));
 }
@@ -125,14 +132,33 @@ function paintQueue() {
   let text = cur ? `đang chạy: ${cur}${n ? ` · chờ ${n} job` : ""}` : (n ? `chờ ${n} job` : "trống");
   // persist_ok=false: backend không ghi được hàng chờ ra đĩa (đĩa đầy / file bị khoá) — vẫn chạy, nhưng restart sẽ mất thứ tự
   if (queue.persist_ok === false) text += " · ⚠ không lưu được hàng chờ ra đĩa (kiểm tra ổ đĩa)";
+  // paused: backend tự TẠM DỪNG vì nhiều job lỗi liên tiếp (lỗi chung: GPU, đĩa, cloud, cấu hình) — R7.4
+  const pz = queue.paused;
+  if (pz) {
+    const last = (pz.fails || []).slice(-1)[0] || {};
+    text = `⏸ TẠM DỪNG: ${pz.reason || "nhiều job lỗi"} · còn ${n} job chưa chạy` + (last.detail ? ` · lỗi gần nhất: ${last.detail}` : "");
+  }
   $("#q-state").textContent = text;
-  $("#q-state").classList.toggle("warn", queue.persist_ok === false);
+  $("#q-state").title = text;
+  $("#q-state").classList.toggle("warn", queue.persist_ok === false || !!pz);
+  $("#btn-q-resume").hidden = !pz;
   fullRedraw = true; schedule();
 }
 async function refreshQueue() {
   try { queue = await api("GET", "/api/queue/jobs"); paintQueue(); } catch (_) { /* SSE báo mất kết nối riêng */ }
 }
 const refreshQueueSoon = debounce(refreshQueue, 600);
+
+// Nhật ký hàng chờ (file, sống qua restart): gọi 1 lần khi bấm nút.
+const HIST_VI = { done: "xong", failed: "lỗi", stopped: "đã dừng", held: "tạm dừng", parked: "tạm dừng",
+  waiting_review: "chờ soát", sidelined: "nhường ghế" };
+async function showQueueLog() {
+  const d = await api("GET", "/api/v6/queue/history?limit=200");
+  const rows = (d.history || []).map((h) => `<tr><td>${esc(h.at || "")}</td><td><span class="b ${esc(h.status === "sidelined" ? "held" : h.status)}">${esc(HIST_VI[h.status] || h.status)}</span></td>`
+    + `<td title="${esc(h.job_id)}">${esc(h.title || h.job_id)}</td><td class="note">${esc(h.detail || "")}</td></tr>`).join("");
+  $("#log-rows").innerHTML = rows || '<tr><td colspan="4" class="note">Chưa có mục nào.</td></tr>';
+  $("#dlg-log").showModal();
+}
 
 // ───────────── chi tiết job ─────────────
 async function loadDetail(id) {
@@ -172,7 +198,10 @@ function paintDetail(err) {
     const st = detail?.stages?.[s] || {};
     const text = st.error ? `<div class="err">${esc(st.error)}</div>` : (st.cur_text ? `<div class="sub">${esc(st.cur_text)}</div>` : "");
     return `<li><div class="st-head"><span class="b ${esc(sum)}">${esc(sum)}${esc(pct(st))}</span><b>${esc(STAGE_VI[s])}</b>`
-      + `<button class="btn sm" data-act="stage" data-stage="${s}"${running ? " disabled" : ""} title="Chạy riêng bước này">${sum === "done" ? "Chạy lại" : "Chạy"}</button></div>${text}</li>`;
+      + (sum === "done"
+        ? `<button class="btn sm" data-act="stage" data-stage="${s}" data-force="1"${running ? " disabled" : ""} title="Bỏ kết quả cũ của bước này và làm lại từ đầu">Làm lại</button>`
+        : `<button class="btn sm" data-act="stage" data-stage="${s}"${running ? " disabled" : ""} title="Chạy riêng bước này (làm tiếp phần còn dở)">Chạy</button>`)
+      + `</div>${text}</li>`;
   }).join("");
   box.innerHTML = `
     <div class="d-head"><h2 title="${esc(j.job_id)}">${esc(j.title)}</h2><button class="btn sm" data-act="close" title="Đóng">✕</button></div>
@@ -200,7 +229,14 @@ async function detailAction(btn) {
   if (a === "resume") return act(btn, "Đã gỡ tạm dừng, chạy tiếp", async () => { await api("POST", "/api/agent/resume/" + enc); await refreshQueue(); });
   if (a === "stop") return act(btn, "Đã gửi lệnh dừng", async () => { await api("POST", `/api/jobs/${enc}/stop`); await refreshQueue(); });
   if (a === "reveal") return act(btn, "", () => api("POST", `/api/jobs/${enc}/reveal`));
-  if (a === "stage") return act(btn, `Đã chạy bước ${btn.dataset.stage}`, () => api("POST", `/api/jobs/${enc}/run/${btn.dataset.stage}`));
+  if (a === "stage") {
+    const stg = btn.dataset.stage, force = btn.dataset.force === "1";
+    // D3: bước đã xong — chạy không kèm force thì server coi như xong rồi (TTS chỉ đọc nốt phần thiếu) → nút
+    // «Làm lại» gửi force=true và phải nói rõ sẽ mất gì.
+    if (force && !confirm(`Làm lại bước «${STAGE_VI[stg]}» của «${title}»?\n\n${REDO_WARN[stg]}\n\nCác bước phía sau có thể phải chạy lại theo.`)) return;
+    return act(btn, force ? `Đang làm lại bước ${STAGE_VI[stg]}` : `Đã chạy bước ${STAGE_VI[stg]}`,
+      () => api("POST", `/api/jobs/${enc}/run/${stg}${force ? "?force=true" : ""}`));
+  }
   if (a === "delete") {
     if (!confirm(`Xoá VĨNH VIỄN job «${title}»?\nToàn bộ thư mục job (video, âm thanh, bản dịch) sẽ bị xoá, không phục hồi được.`)) return;
     return act(btn, "Đã xoá job", async () => { 
@@ -250,6 +286,10 @@ function connect() {
     if (id === selected) select(null);
     fullRedraw = true; schedule(); refreshQueueSoon();
   });
+  es.addEventListener("queue.changed", (e) => {
+    refreshQueueSoon();
+    try { const t = JSON.parse(e.data).text; if (t && /TẠM DỪNG|nhường ghế/.test(t)) say(t, "err"); } catch (_) { /* event không có text */ }
+  });
   es.addEventListener("job.touched", (e) => { if (JSON.parse(e.data).job_id === selected) refreshDetailSoon(); });
   es.addEventListener("stage.progress", (e) => {
     const d = JSON.parse(e.data), j = jobs.get(d.job_id);
@@ -290,6 +330,11 @@ $("#btn-q-stop").addEventListener("click", (e) => {
   if (!confirm("Dừng job đang chạy và xoá toàn bộ hàng chờ?")) return;
   act(e.currentTarget, "Đã dừng hàng chờ", async () => { await api("POST", "/api/queue/jobs/stop"); await refreshQueue(); });
 });
+$("#btn-q-resume").addEventListener("click", (e) => act(e.currentTarget, "Đã chạy tiếp hàng chờ", async () => {
+  await api("POST", "/api/v6/queue/resume"); await refreshQueue();
+}));
+$("#btn-q-log").addEventListener("click", (e) => act(e.currentTarget, "", showQueueLog));
+$("#log-close").addEventListener("click", () => $("#dlg-log").close());
 $("#btn-new").addEventListener("click", () => { $("#new-err").hidden = true; $("#dlg-new").showModal(); $("#new-src").focus(); });
 $("#new-cancel").addEventListener("click", () => $("#dlg-new").close());
 $("#form-new").addEventListener("submit", createJob);

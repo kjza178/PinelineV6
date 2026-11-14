@@ -75,6 +75,9 @@ dialog h2{margin:0 0 12px;font-size:15px}
 dialog label{display:block;color:var(--mut);margin-bottom:10px}
 dialog label.row{display:flex;gap:8px;align-items:center}
 dialog input:not([type=checkbox]){display:block;width:100%;margin-top:6px;background:var(--bg3);border:1px solid var(--line);color:var(--fg);padding:7px 9px;border-radius:6px;font:inherit}
+#dlg-log{width:min(900px,94vw)}
+.logwrap{max-height:60vh;overflow:auto;border:1px solid var(--line);border-radius:6px;margin-bottom:12px}
+.logwrap th{top:0;background:var(--bg2)}
 dialog .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
 
 @media (max-width:900px){
