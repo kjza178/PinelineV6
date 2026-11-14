@@ -1,9 +1,9 @@
 // Pineline V6 desktop shell.
 // - Tự spawn backend `python -m app --instance <tên>` (cổng đọc từ instances/<tên>.json).
 // - Chờ cổng mở rồi chuyển cửa sổ sang http://127.0.0.1:<port><trang> (UI do FastAPI phục vụ, cùng origin → không CORS).
-//   <trang> mặc định /ui3 = UI đầy đủ chức năng (tạo/chạy/dừng job, hàng chờ, HOLD…). Trang /v6/ (desktop/ui) mới
-//   chỉ là bảng XEM, chưa có thao tác → không còn là mặc định (fix 2026-11-14). Đổi: env PINELINE_DESKTOP_PATH
-//   hoặc khoá "desktop_path" trong instances/<tên>.json (vd "/v6/").
+//   <trang> mặc định /v6/ = UI desktop (desktop/ui): 1 kết nối SSE, không polling, có thao tác job + hàng chờ
+//   (2026-11-14). Đổi trang: env PINELINE_DESKTOP_PATH hoặc khoá "desktop_path" trong instances/<tên>.json
+//   (vd "/ui3" = Studio cũ).
 // - Đóng app → kill backend (chỉ backend do app tự spawn; nếu backend đã chạy sẵn thì dùng lại, không kill).
 // UI không polling: 1 kết nối SSE /api/events thay cho setInterval 2 s gọi /api/jobs (nguyên nhân treo cũ).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -47,7 +47,7 @@ fn instance_port(root: &Path, name: &str) -> u16 {
         .unwrap_or(8806)
 }
 
-/// Trang mở sau khi backend lên: env PINELINE_DESKTOP_PATH → instances/<tên>.json "desktop_path" → /ui3.
+/// Trang mở sau khi backend lên: env PINELINE_DESKTOP_PATH → instances/<tên>.json "desktop_path" → /v6/.
 /// Chỉ nhận đường dẫn nội bộ bắt đầu bằng "/" (không nhận URL ngoài).
 fn desktop_path(root: &Path, name: &str) -> String {
     let from_json = || {
@@ -58,7 +58,7 @@ fn desktop_path(root: &Path, name: &str) -> String {
     };
     let p = std::env::var("PINELINE_DESKTOP_PATH").ok().or_else(from_json).unwrap_or_default();
     let p = p.trim();
-    if p.starts_with('/') && !p.starts_with("//") { p.to_string() } else { "/ui3".to_string() }
+    if p.starts_with('/') && !p.starts_with("//") { p.to_string() } else { "/v6/".to_string() }
 }
 
 fn port_open(port: u16) -> bool {
@@ -118,7 +118,7 @@ fn main() {
                     }
                     std::thread::sleep(Duration::from_millis(400));
                 }
-                // Cùng cổng phục vụ UI đầy đủ (/ui3, /films, /hongguo) lẫn bảng xem /v6/ — mở trang đã chọn.
+                // Cùng cổng phục vụ UI desktop /v6/ lẫn các trang cũ (/ui3, /films, /hongguo) — mở trang đã chọn.
                 if let Ok(url) = Url::parse(&format!("http://127.0.0.1:{port}{page}")) {
                     let _ = win.navigate(url);
                 }

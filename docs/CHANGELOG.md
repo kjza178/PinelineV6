@@ -1,10 +1,15 @@
 # CHANGELOG — V6
 
 ## 2026-11-14
-- Desktop Tauri mở **/ui3** (UI đầy đủ chức năng) thay vì bảng chỉ-xem `/v6/` — `desktop/src-tauri/src/main.rs`
-  `desktop_path()`: env `PINELINE_DESKTOP_PATH` → `"desktop_path"` trong `instances/<tên>.json` → mặc định `/ui3`.
-  `/v6/` thêm link sang /ui3, /films, /hongguo; màn chờ ghi đúng 180 s. `cargo check` (target Windows) qua ở cloud —
-  **cần build lại app trên Windows** (`desktop\dev.bat` / `build.bat`) mới có hiệu lực.
+- **UI desktop `/v6/` có chức năng** (`desktop/ui/` viết lại — trước chỉ là bảng xem): thêm job (link / đường dẫn máy),
+  tick nhiều job → Xếp hàng chạy / Gỡ khỏi hàng chờ, Dừng hàng chờ; khung chi tiết job: Chạy tiếp (gỡ HOLD), Xếp hàng
+  chạy, Dừng, chạy/chạy lại từng bước, Mở thư mục, Xoá job. Vẫn 1 kết nối SSE, **để yên = 0 request** (đo: 20 s không
+  request nào; `/ui3` ~6 request/30 s). Chỉ gọi API khi bấm nút, mở chi tiết, hoặc job đang mở / hàng chờ đổi theo event.
+  Chưa có: sửa lời thoại, chọn giọng, cấu hình render, Phim, Hongguo (link sang trang cũ).
+  Tauri vẫn mở `/v6/` mặc định; đổi trang: env `PINELINE_DESKTOP_PATH` hoặc `"desktop_path"` trong instance JSON.
+  `DELETE /api/jobs/{id}` báo index ngay (trước: job đã xoá còn trong danh sách tới 30 s). Màn chờ ghi đúng 180 s.
+  Kiểm ở cloud bằng Chromium + backend instance test; **chưa chạy trong cửa sổ Tauri/WebView2 và chưa với job thật**.
+  Cần restart :8806 (server.py) + build lại app (`desktop\dev.bat`).
 - Fix UI cũ `/` (`index.html`): thiếu khai báo `selectedStep`, `panelJobId`, `lastPanelSig` → console «refresh: lỗi vẽ
   ReferenceError: selectedStep is not defined», khung chi tiết job không vẽ. Thêm `let … = null` (như `index3.html`).
   Lỗi có sẵn từ V4/V5. Không cần restart — hard refresh trang (Ctrl+F5).

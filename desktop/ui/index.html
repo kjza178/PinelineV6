@@ -11,16 +11,50 @@
   <h1>Pineline V6</h1>
   <span id="inst"></span>
   <span id="conn" class="conn off">mất kết nối</span>
-  <nav><a href="/ui3">Studio (thao tác job)</a><a href="/films">Phim</a><a href="/hongguo">Hongguo</a></nav>
+  <button id="btn-new" class="btn primary">+ Thêm job</button>
   <input id="q" placeholder="Lọc job…">
   <span id="count"></span>
+  <nav><a href="/ui3" title="UI cũ: sửa lời thoại, giọng đọc, cấu hình">Studio cũ</a><a href="/films">Phim</a><a href="/hongguo">Hongguo</a></nav>
 </header>
+
+<section id="queuebar">
+  <span class="lbl">Hàng chờ</span>
+  <span id="q-state">—</span>
+  <span class="grow"></span>
+  <span id="sel-count"></span>
+  <button id="btn-enqueue" class="btn primary" disabled>Xếp hàng chạy</button>
+  <button id="btn-dequeue" class="btn" disabled>Gỡ khỏi hàng chờ</button>
+  <button id="btn-q-stop" class="btn danger" disabled title="Dừng job đang chạy và xoá hàng chờ">Dừng hàng chờ</button>
+</section>
+
+<div id="msg" hidden></div>
+
 <main>
-  <table>
-    <thead><tr><th>Job</th><th>Trạng thái</th><th>download</th><th>asr</th><th>translate</th><th>tts</th><th>mux</th><th>Ghi chú</th></tr></thead>
-    <tbody id="rows"></tbody>
-  </table>
+  <div id="list">
+    <table>
+      <thead><tr><th class="ck"><input type="checkbox" id="ck-all" title="Chọn tất cả job đang hiện"></th><th>Job</th><th>Trạng thái</th><th>download</th><th>asr</th><th>translate</th><th>tts</th><th>mux</th><th>Ghi chú</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="empty" hidden>Chưa có job nào. Bấm «+ Thêm job» để bắt đầu.</div>
+  </div>
+  <aside id="detail" hidden></aside>
 </main>
+
+<dialog id="dlg-new">
+  <form method="dialog" id="form-new">
+    <h2>Thêm job</h2>
+    <label>Link video / playlist, hoặc đường dẫn file / thư mục trên máy
+      <input id="new-src" autocomplete="off" placeholder="https://…  hoặc  D:\phim\tap01.mp4" required>
+    </label>
+    <label class="row"><input type="checkbox" id="new-move"> Chuyển file vào thư mục job (không chép) — chỉ áp dụng cho file trên máy</label>
+    <p id="new-err" class="err" hidden></p>
+    <div class="actions">
+      <button type="button" class="btn" id="new-cancel">Huỷ</button>
+      <button type="submit" class="btn primary" id="new-ok">Tạo job</button>
+    </div>
+  </form>
+</dialog>
+
 <script src="app.js"></script>
 </body>
 </html>

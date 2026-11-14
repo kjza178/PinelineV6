@@ -6501,6 +6501,13 @@ def delete_job(job_id: str):
         shutil.rmtree(work_dir)
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"error": str(e)}, status_code=500)
+    # fix 2026-11-14: báo index ngay → event `job.removed` tới mọi UI liền (trước đây chờ watcher quét đủ, tới 30 s,
+    # job đã xoá vẫn nằm trong danh sách).
+    try:
+        from state.index import index as _job_index
+        _job_index.remove(job_id)
+    except Exception as e:  # noqa: BLE001
+        print(f"[delete] index.remove {job_id}: {e}", flush=True)
     return {"deleted": job_id}
 
 
