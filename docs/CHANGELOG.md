@@ -1,6 +1,16 @@
 # CHANGELOG — V6
 
 ## 2026-11-14
+- **Kế hoạch + mô hình làm việc:** `docs/ROADMAP.md` (G0 chạy thật → G1 độ bền 24/7 → G2 desktop đủ chức năng → G3 cấu trúc),
+  `docs/WORKING_MODEL.md` (vòng làm việc, 3 mức «đã kiểm», bảng chờ kiểm trên Windows, lịch rà từng khu vực);
+  `CLAUDE.md` sửa cho đúng hiện trạng (lõi vẫn là server.py, chưa cutover, chưa chạy job thật).
+- **CI** (`.github/workflows/ci.yml`): pytest Ubuntu + Windows, `cargo check` desktop. Bộ test 0 fail trên Linux
+  (sửa 3 kiểm thử lệch nền tảng; khoá một-bản của sidecar nay có tác dụng cả ngoài Windows).
+- **Dịch simple R1.1–R1.4** (cần restart :8806) — docs/fixes/2026-11-14-translate-simple-r1.md: «Soát lại» khi cloud
+  chết không còn báo xong giả; plan hỏng không bị lưu/dùng lại, job park chờ lập lại (`SIMPLE_REQUIRE_PLAN`, mặc định 1);
+  lỗi code → stage failed ngay + `translate_error.log` (không park 15 phút); giờ stage dịch ISO UTC.
+- **Desktop R2.1–R2.2** (cần build lại app, **chưa kiểm trên Windows**) — docs/fixes/2026-11-14-desktop-kill-tree-early-exit.md:
+  đóng app giết cả cây tiến trình (`taskkill /T /F`); backend chết lúc khởi động báo ngay kèm đường dẫn log.
 - **UI desktop `/v6/` có chức năng** (`desktop/ui/` viết lại — trước chỉ là bảng xem): thêm job (link / đường dẫn máy),
   tick nhiều job → Xếp hàng chạy / Gỡ khỏi hàng chờ, Dừng hàng chờ; khung chi tiết job: Chạy tiếp (gỡ HOLD), Xếp hàng
   chạy, Dừng, chạy/chạy lại từng bước, Mở thư mục, Xoá job. Vẫn 1 kết nối SSE, **để yên = 0 request** (đo: 20 s không
