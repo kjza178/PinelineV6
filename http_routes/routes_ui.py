@@ -1,4 +1,7 @@
-"""Trang UI: /, /hongguo2, /films/ui, /v5-map (+ đường cũ chuyển hướng).
+"""Trang UI: / (→ /v6/), /studio, /hongguo2, /films/ui, /v5-map (+ đường cũ chuyển hướng).
+
+2026-11-15 (2): `/` chuyển sang giao diện mới `/v6/` (app desktop / trình duyệt mở `/` là vào app chính); Studio ở
+`/studio` (cũng `/ui3`, `/index3.html`).
 
 2026-11-15 (chủ dự án): Studio (UI3, trước là index3.html) thành trang chính `index.html` ở `/`; UI0 cũ và UI4 bỏ;
 Hongguo 1 (hongguo.html) bỏ, thay bằng hongguo2. Đường cũ giữ được: /ui3, /index3.html, /studio → cùng trang `/`;
@@ -41,8 +44,15 @@ def find_index() -> Path | None:
     return None
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/")
+def root():
+    """Trang chủ = giao diện mới (desktop/ui ở /v6/)."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/v6/", status_code=307)
+
+
 def index():
+    """Studio (index.html)."""
     p = find_index()
     if not p:
         return HTMLResponse(

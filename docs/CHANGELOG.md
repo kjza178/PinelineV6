@@ -1,6 +1,8 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **Trang chủ `/` = giao diện mới (`/v6/`)**; Studio ở `/studio` (cũng `/ui3`) và có nút «← Giao diện mới»; trang Phim
+  có «⬅ Giao diện chính». App desktop build trước 14/11 tối mở `/ui3` (Studio) — build lại (`desktop\build.bat`) để mở `/v6/`.
 - **Hongguo 2 không còn giới hạn số phim** (cần restart :8806; trang /hongguo2 tải lại):
   - Sửa: Browse MẤT phim giữa các trang — engine trả ~20 thẻ/lần, code gom cho đủ 24 rồi CẮT phần thừa nhưng vị trí trang
     sau đã nằm sau phần bị cắt (mỗi trang mất ~15 phim). Nay trả hết thẻ đã gom.

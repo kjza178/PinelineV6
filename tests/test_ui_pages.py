@@ -20,8 +20,11 @@ def client():
 
 
 def test_root_and_old_studio_paths_serve_studio(client):
-    home = client.get("/").text
+    r = client.get("/", follow_redirects=False)
+    assert r.status_code == 307 and r.headers["location"] == "/v6/"     # 2026-11-15: trang chủ = giao diện mới
+    home = client.get("/studio").text
     assert 'id="btn-agent"' in home and "PinelineLive.startLive" in home     # Studio (UI3 cũ)
+    assert 'href="/v6/"' in home                                            # Studio có đường về giao diện mới
     for p in ("/ui3", "/index3.html", "/studio"):
         r = client.get(p)
         assert r.status_code == 200 and r.text == home, p
