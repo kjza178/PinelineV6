@@ -1185,49 +1185,58 @@ async function filmAction(btn) {
   }
 }
 
-// ───────────── Phim trên ổ (services/disk_library: quét LIBRARY_DIR, tạo job, gộp tập) ─────────────
+// ───────────── Phim chờ làm (services/disk_library: thư viện Hongguo 2 + ổ, tạo job, gộp tập) ─────────────
 const DISK_ST = { ready: ["Sẵn sàng", "ok"], need_merge: ["Cần gộp tập", "warn"], merging: ["Đang gộp…", "info"], done: ["Đã làm", "mut"] };
-let disk = null;
+let disk = null, diskTrTried = new Set();
 const diskPicked = new Set();
 function fmtSize(b) { const n = Number(b) || 0; return n >= 1e9 ? (n / 1e9).toFixed(1) + " GB" : n >= 1e6 ? Math.round(n / 1e6) + " MB" : ""; }
-async function loadDisk() {
-  const body = $("#disk-rows");
-  try { disk = await api("GET", "/api/v6/disk-library"); } catch (e) {
-    body.innerHTML = `<tr><td colspan="7" class="note">Không quét được thư viện: ${esc(e.message)}</td></tr>`; return;
+async function loadDisk(fresh = false) {
+  const grid = $("#disk-grid");
+  if (!disk) grid.innerHTML = '<p class="note">Đang đọc thư viện…</p>';
+  try { disk = await api("GET", "/api/v6/disk-library" + (fresh ? "?fresh=1" : "")); } catch (e) {
+    grid.innerHTML = `<p class="note">Không đọc được thư viện: ${esc(e.message)}</p>`; return;
   }
-  $("#disk-root").textContent = disk.root || "";
-  if (!disk.ok) { body.innerHTML = `<tr><td colspan="7" class="note">${esc(disk.error || "Không quét được")}</td></tr>`; $("#disk-stats").textContent = ""; return; }
+  $("#disk-foot").textContent = disk.source === "hongguo2"
+    ? `Nguồn: thư viện Hongguo 2 · thư mục ${disk.root}`
+    : `Nguồn: thư mục ${disk.root || "(chưa đặt)"} — không đọc được Hongguo 2${disk.hg_error ? ` (${disk.hg_error})` : ""}. Đổi thư mục ở Cài đặt → Thư mục.`;
+  if (!disk.ok) { grid.innerHTML = `<p class="note">${esc(disk.error || "Không quét được")}</p>`; $("#disk-stats").textContent = ""; return; }
   const c = disk.counts || {};
   $("#disk-stats").textContent = [`${disk.items.length} phim`, c.ready ? `${c.ready} sẵn sàng` : "", c.need_merge ? `${c.need_merge} cần gộp tập` : "",
     c.merging ? `${c.merging} đang gộp` : "", c.done ? `${c.done} đã làm` : ""].filter(Boolean).join(" · ");
   paintDisk();
+  // tên tiếng Việt: dịch các phim chưa có (có cache — lần sau hiện ngay)
+  const miss = disk.items.filter((it) => !it.title_vi && it.state !== "done" && !diskTrTried.has(it.name)).slice(0, 60).map((it) => it.name);
+  if (miss.length) {
+    miss.forEach((n) => diskTrTried.add(n));
+    api("POST", "/api/v6/disk-library/translate", { names: miss }).then((r) => { if (r.translated && curView === "disk") loadDisk(); })
+      .catch((e) => console.warn("dịch tên phim lỗi", e));
+  }
 }
 function paintDisk() {
   if (!disk?.ok) return;
   const q = $("#disk-q").value.trim().toLowerCase(), want = $("#disk-state").value;
-  const rows = disk.items.filter((it) => (!q || (it.title + " " + it.name).toLowerCase().includes(q))
+  const rows = disk.items.filter((it) => (!q || (it.title + " " + it.name + " " + (it.title_vi || "")).toLowerCase().includes(q))
     && (!want || (want === "todo" ? it.state !== "done" : it.state === want)));
-  for (const n of [...diskPicked]) if (!disk.items.some((it) => it.name === n && it.state !== "done" && it.state !== "merging")) diskPicked.delete(n);
-  $("#disk-rows").innerHTML = rows.length ? rows.map((it) => {
+  for (const n of [...diskPicked]) if (!disk.items.some((it) => it.name === n && (it.state === "ready" || it.state === "need_merge"))) diskPicked.delete(n);
+  $("#disk-grid").innerHTML = rows.length ? rows.map((it) => {
     const [t, cls] = DISK_ST[it.state] || [it.state, ""];
     const pick = it.state === "ready" || it.state === "need_merge";
-    const sub = it.title !== it.name ? `<div class="mut small">${esc(it.name)}</div>` : "";
-    const err = it.merge_error ? `<div class="err small">Gộp lỗi: ${esc(it.merge_error)}</div>` : "";
-    return `<tr data-name="${esc(it.name)}"><td>${pick ? `<input type="checkbox" data-pick${diskPicked.has(it.name) ? " checked" : ""}>` : ""}</td>`
-      + `<td title="${esc(it.path || it.folder || "")}"><b style="font-weight:500">${esc(it.title)}</b>${sub}${err}</td>`
-      + `<td>${it.episodes > 1 ? `${it.episodes} tập` : ""}</td><td>${esc(fmtSize(it.size))}</td>`
-      + `<td>${it.mtime ? esc(new Date(it.mtime * 1000).toLocaleDateString("vi-VN")) : ""}</td>`
-      + `<td><span class="tag ${cls}">${esc(t)}</span></td><td class="acts">`
-      + (it.state === "ready" ? `<button class="btn sm primary" data-disk="add">Tạo job</button>` : "")
-      + (it.state === "need_merge" ? `<button class="btn sm" data-disk="merge" title="Nối các tập thành 1 file (cùng độ phân giải: giữ nguyên chất lượng)">Gộp tập</button>` : "")
-      + `</td></tr>`;
-  }).join("") : `<tr><td colspan="7" class="note">${disk.items.length ? "Không có phim nào khớp bộ lọc." : "Thư mục thư viện chưa có phim nào."}</td></tr>`;
+    const meta = [it.episodes > 1 ? `${it.episodes} tập` : "", fmtSize(it.size), it.mtime ? new Date(it.mtime * 1000).toLocaleDateString("vi-VN") : ""].filter(Boolean).join(" · ");
+    const img = it.has_poster ? `<img loading="lazy" src="/api/v6/disk-library/poster?name=${encodeURIComponent(it.name)}" alt="">` : `<span class="noimg">${esc((it.title || "?").slice(0, 2))}</span>`;
+    return `<article class="lib-card${diskPicked.has(it.name) ? " picked" : ""}${pick ? " can-pick" : ""}" data-name="${esc(it.name)}" title="${esc(it.path || it.folder || "")}">`
+      + `<div class="poster">${img}<span class="tag ${cls} st">${esc(t)}</span>${pick ? `<span class="pick" aria-hidden="true">✓</span>` : ""}</div>`
+      + `<div class="tt">${esc(it.title)}</div><div class="tvi">${esc(it.title_vi || "")}</div><div class="meta">${esc(meta)}</div>`
+      + (it.merge_error ? `<div class="err small">Gộp lỗi: ${esc(it.merge_error)}</div>` : "")
+      + `<div class="acts">${it.state === "ready" ? `<button class="btn sm primary" data-disk="add">Tạo job</button>` : ""}`
+      + `${it.state === "need_merge" ? `<button class="btn sm" data-disk="merge" title="Nối các tập thành 1 file (cùng độ phân giải: giữ nguyên chất lượng)">Gộp tập</button>` : ""}</div></article>`;
+  }).join("") : `<p class="note">${disk.items.length ? "Không có phim nào khớp bộ lọc." : "Thư viện chưa có phim nào."}</p>`;
   diskPickedPaint();
 }
 function diskPickedPaint() {
   const items = disk?.items || [], sel = items.filter((it) => diskPicked.has(it.name));
   const nAdd = sel.filter((it) => it.state === "ready").length, nMerge = sel.filter((it) => it.state === "need_merge").length;
-  $("#disk-picked").textContent = sel.length ? `Đã chọn ${sel.length}` : "";
+  $("#disk-picked").textContent = sel.length ? `Đã chọn ${sel.length}` : "Bấm vào poster để chọn nhiều phim";
+  $("#disk-clear").hidden = !sel.length;
   $("#disk-add-sel").disabled = !nAdd; $("#disk-add-sel").textContent = nAdd ? `Tạo ${nAdd} job` : "Tạo job đã chọn";
   $("#disk-merge-sel").disabled = !nMerge; $("#disk-merge-sel").textContent = nMerge ? `Gộp tập ${nMerge} bộ` : "Gộp tập đã chọn";
 }
@@ -1251,25 +1260,24 @@ async function diskMerge(btn, names) {
     loadDisk();
   });
 }
-$("#disk-rows").addEventListener("click", (e) => {
-  const tr = e.target.closest("tr[data-name]"); if (!tr) return;
-  const name = tr.dataset.name;
-  if (e.target.matches("input[data-pick]")) { e.target.checked ? diskPicked.add(name) : diskPicked.delete(name); diskPickedPaint(); return; }
-  const b = e.target.closest("button[data-disk]"); if (!b) return;
-  if (b.dataset.disk === "add") diskAdd(b, [name]);
-  if (b.dataset.disk === "merge") diskMerge(b, [name]);
-});
-$("#disk-all").addEventListener("change", (e) => {
-  document.querySelectorAll("#disk-rows input[data-pick]").forEach((cb) => { cb.checked = e.target.checked; const n = cb.closest("tr").dataset.name; e.target.checked ? diskPicked.add(n) : diskPicked.delete(n); });
+$("#disk-grid").addEventListener("click", (e) => {
+  const card = e.target.closest(".lib-card[data-name]"); if (!card) return;
+  const name = card.dataset.name;
+  const b = e.target.closest("button[data-disk]");
+  if (b) { if (b.dataset.disk === "add") diskAdd(b, [name]); if (b.dataset.disk === "merge") diskMerge(b, [name]); return; }
+  if (!card.classList.contains("can-pick")) return;
+  diskPicked.has(name) ? diskPicked.delete(name) : diskPicked.add(name);
+  card.classList.toggle("picked", diskPicked.has(name));
   diskPickedPaint();
 });
+$("#disk-clear").addEventListener("click", () => { diskPicked.clear(); paintDisk(); });
 $("#disk-add-sel").addEventListener("click", (e) => {
   const names = (disk?.items || []).filter((it) => diskPicked.has(it.name) && it.state === "ready").map((it) => it.name);
   if (names.length > 1 && !confirm(`Tạo ${names.length} job và xếp vào hàng chờ?`)) return;
   diskAdd(e.currentTarget, names);
 });
 $("#disk-merge-sel").addEventListener("click", (e) => diskMerge(e.currentTarget, (disk?.items || []).filter((it) => diskPicked.has(it.name) && it.state === "need_merge").map((it) => it.name)));
-$("#disk-rescan").addEventListener("click", (e) => act(e.currentTarget, "", loadDisk));
+$("#disk-rescan").addEventListener("click", (e) => act(e.currentTarget, "", () => loadDisk(true)));
 $("#disk-q").addEventListener("input", debounce(paintDisk, 200));
 $("#disk-state").addEventListener("change", paintDisk);
 

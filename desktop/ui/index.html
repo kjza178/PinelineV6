@@ -24,7 +24,7 @@
     <div class="brand"><span class="logo">P</span><div class="brand-t"><b>Pineline</b><small id="inst">V6</small></div></div>
     <nav class="side-nav" aria-label="Điều hướng chính">
       <button class="nav-it on" data-view="jobs"><svg><use href="#i-jobs"/></svg><span>Công việc</span><em id="nav-running" hidden></em></button>
-      <button class="nav-it" data-view="disk"><svg><use href="#i-disk"/></svg><span>Phim trên ổ</span></button>
+      <button class="nav-it" data-view="disk"><svg><use href="#i-disk"/></svg><span>Phim chờ làm</span></button>
       <button class="nav-it" data-view="films"><svg><use href="#i-films"/></svg><span>Phim đã làm</span></button>
       <button class="nav-it" data-view="agent"><svg><use href="#i-agent"/></svg><span>Trợ lý AI</span></button>
       <button class="nav-it" data-view="settings"><svg><use href="#i-settings"/></svg><span>Cài đặt</span></button>
@@ -79,23 +79,24 @@
     </section>
 
     <!-- ───────── Thư viện phim ───────── -->
-    <!-- ───────── Phim trên ổ (quét LIBRARY_DIR — services/disk_library) ───────── -->
+    <!-- ───────── Phim chờ làm (thư viện Hongguo 2 + ổ — services/disk_library) ───────── -->
     <section class="view" id="view-disk" hidden>
       <header class="page-head">
-        <div><h1>Phim trên ổ</h1><p id="disk-stats" class="sub">Phim trong thư mục thư viện. Chọn phim rồi «Tạo job» để đưa vào hàng chờ.</p></div>
+        <div><h1>Phim chờ làm</h1><p id="disk-stats" class="sub">Phim đã tải về. Chọn phim rồi «Tạo job» để đưa vào hàng chờ.</p></div>
         <span class="grow"></span>
-        <button type="button" class="btn" id="disk-rescan" title="Quét lại thư mục thư viện">Quét lại</button>
+        <button type="button" class="btn" id="disk-rescan" title="Đọc lại thư viện Hongguo 2 và thư mục phim">Quét lại</button>
       </header>
       <div class="toolbar">
-        <label class="search"><svg><use href="#i-search"/></svg><input id="disk-q" placeholder="Tìm theo tên phim…"></label>
+        <label class="search"><svg><use href="#i-search"/></svg><input id="disk-q" placeholder="Tìm theo tên phim (Trung / Việt)…"></label>
         <select id="disk-state" aria-label="Lọc trạng thái"><option value="todo">Chưa làm</option><option value="ready">Sẵn sàng tạo job</option><option value="need_merge">Cần gộp tập</option><option value="done">Đã làm</option><option value="">Tất cả</option></select>
         <span class="grow"></span>
         <span id="disk-picked" class="sub"></span>
+        <button type="button" class="btn ghost" id="disk-clear" hidden>Bỏ chọn</button>
         <button type="button" class="btn" id="disk-merge-sel" disabled>Gộp tập đã chọn</button>
         <button type="button" class="btn primary" id="disk-add-sel" disabled>Tạo job đã chọn</button>
       </div>
-      <div class="card scroll"><table class="data"><thead><tr><th style="width:32px"><input type="checkbox" id="disk-all" aria-label="Chọn tất cả"></th><th>Phim</th><th>Tập</th><th>Dung lượng</th><th>Ngày</th><th>Trạng thái</th><th></th></tr></thead><tbody id="disk-rows"></tbody></table></div>
-      <p class="sub small films-foot">Job tạo ra dùng cấu hình chung (Cài đặt) và tự xếp vào hàng chờ. Thư mục thư viện: <span id="disk-root"></span> — đổi ở Cài đặt → Thư mục.</p>
+      <div id="disk-grid" class="lib-grid"></div>
+      <p class="sub small films-foot" id="disk-foot"></p>
     </section>
 
     <section class="view" id="view-films" hidden>

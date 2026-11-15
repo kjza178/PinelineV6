@@ -14,9 +14,26 @@ def _names(body: dict) -> list[str]:
 
 
 @router.get("/api/v6/disk-library")
-def disk_library_scan():
+def disk_library_scan(fresh: int = 0):
     from services import disk_library
-    return disk_library.scan()
+    return disk_library.scan(fresh=bool(fresh))
+
+
+@router.get("/api/v6/disk-library/poster")
+def disk_library_poster(name: str):
+    from fastapi.responses import FileResponse
+
+    from services import disk_library
+    p = disk_library.poster(name)
+    if not p:
+        raise HTTPException(404, "không có poster")
+    return FileResponse(p, headers={"Cache-Control": "public, max-age=3600"})
+
+
+@router.post("/api/v6/disk-library/translate")
+def disk_library_translate(body: dict):
+    from services import disk_library
+    return disk_library.translate(_names(body))
 
 
 @router.post("/api/v6/disk-library/add")

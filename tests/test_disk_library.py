@@ -29,6 +29,8 @@ def lib(tmp_path, monkeypatch):
     (work / "job1" / "manifest.json").write_text(json.dumps({"request": {"orig_path": str(root / "le.mp4")}}), encoding="utf-8")
     monkeypatch.setenv("PINELINE_WORK_ROOT", str(work))
     monkeypatch.setattr(dl, "root", lambda: root)
+    monkeypatch.setattr(dl, "_hg_library", lambda: ({}, None, "không có Hongguo 2 (test)"))
+    dl._HG_CACHE["at"] = 0.0
     return root
 
 
@@ -79,5 +81,24 @@ def test_merge_runs_in_background_and_reports_error(lib, monkeypatch):
 def test_desktop_has_disk_view():
     ui = Path(__file__).resolve().parents[1] / "desktop" / "ui"
     html, js = (ui / "index.html").read_text(encoding="utf-8"), (ui / "app.js").read_text(encoding="utf-8")
-    assert 'data-view="disk"' in html and 'id="view-disk"' in html and "Phim đã làm" in html
+    assert 'data-view="disk"' in html and 'id="view-disk"' in html and "Phim đã làm" in html and "Phim chờ làm" in html
     assert "/api/v6/disk-library/add" in js and "/api/v6/disk-library/merge" in js and "disk_library.merge" in js
+
+
+def test_hongguo2_library_is_main_source(lib, tmp_path, monkeypatch):
+    """Có Hongguo 2: dùng thư mục lưu + tên / series_id của nó; ổ vẫn quyết trạng thái."""
+    (lib / "BoA" / "poster.jpg").write_bytes(b"j" * 64)
+    monkeypatch.setattr(dl, "_hg_library", lambda: ({"BoA": {"name": "BoA", "title": "天赋 第八季", "series_id": "77"}}, lib, ""))
+    dl._HG_CACHE["at"] = 0.0
+    r = dl.scan(fresh=True)
+    a = {it["name"]: it for it in r["items"]}["BoA"]
+    assert r["source"] == "hongguo2" and a["title"] == "天赋 第八季" and a["series_id"] == "77" and a["in_hongguo"]
+    assert a["has_poster"] and dl.poster("BoA") == lib / "BoA" / "poster.jpg" and dl.poster("../x") is None
+    assert dl.lib_dir() == lib
+
+
+def test_title_vi_from_cache_only(lib, monkeypatch):
+    import engines.title_mt as tmt
+    monkeypatch.setattr(tmt, "_load_cache", lambda: {"by_id": {}, "by_zh": {"仙界篇 第二季": {"zh": "仙界篇 第二季", "vi": "Tiên Giới Thiên 2"}}})
+    by = {it["name"]: it for it in dl.scan()["items"]}
+    assert by["BoB"]["title_vi"] == "Tiên Giới Thiên 2" and by["BoA"]["title_vi"] == ""

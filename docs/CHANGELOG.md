@@ -1,6 +1,9 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **«Phim chờ làm»** (đổi từ «Phim trên ổ»): nguồn chính = **thư viện Hongguo 2** (tên Trung, series_id, thư mục lưu,
+  poster) như tab Library của Hongguo 2; máy chưa có / chưa mở Hongguo 2 → quét LIBRARY_DIR. Dạng lưới poster, tên
+  tiếng Việt (dịch có cache), mới tải lên đầu, bấm poster để chọn nhiều phim → «Tạo N job».
 - **«Phim trên ổ» (mới, giao diện chính)** — thay tab «Thư viện chưa làm» đã bỏ cùng Hongguo 1: quét THẲNG thư mục thư
   viện (Cài đặt → Thư mục, vd `D:\Lib`), không cần Hongguo trả lời. Mỗi bộ: số tập, dung lượng, trạng thái (sẵn sàng /
   cần gộp tập / đang gộp / đã làm). «Tạo job» (một hoặc nhiều bộ) → tạo job + xếp hàng theo cấu hình chung, gom nhóm

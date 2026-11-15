@@ -1,4 +1,7 @@
-"""Phim trên ổ — quét THẲNG thư mục thư viện (LIBRARY_DIR, vd D:\\Lib), tạo job, gộp tập.
+"""Phim chờ làm — thư viện phim đã tải (như tab Library của Hongguo 2), tạo job, gộp tập.
+
+Nguồn: thư viện Hongguo 2 (RPC library.get: tên, series_id, poster, thư mục lưu) ghép với quét ổ thư mục đó. Máy chưa
+có / chưa mở Hongguo 2 → chỉ quét ổ (LIBRARY_DIR). Ổ đĩa luôn quyết trạng thái (file gộp / tập lẻ / đã làm job).
 
 2026-11-15: thay tab «Thư viện chưa làm» của trang Phim cũ. Tab cũ (agents/agent_feeder.library_view) lấy danh sách từ
 Hongguo trước (/api/hg/library) rồi mới soi ổ → Hongguo không trả lời thì cả tab hỏng, và bỏ sót phim tải bằng công cụ khác.
@@ -37,6 +40,81 @@ def _norm(p: str | Path) -> str:
 def root() -> Path:
     from core import machine
     return machine.library_dir()
+
+
+def _hg_library() -> tuple[dict, Path | None, str]:
+    """({tên thư mục: mục Hongguo 2}, thư mục lưu của Hongguo 2, lỗi). Không có Hongguo 2 → ({}, None, lý do)."""
+    try:
+        import agents.hongguo_bridge as hg
+        hg._use_rpc()
+        data = hg._rpc_mod().library() or {}
+    except Exception as e:  # noqa: BLE001
+        return {}, None, str(e)
+    by = {str(it.get("name") or ""): it for it in data.get("items") or [] if it.get("name")}
+    folder = data.get("folder")
+    if not folder:
+        for it in by.values():
+            if it.get("folder"):
+                folder = str(Path(it["folder"]).parent)
+                break
+    return by, (Path(folder) if folder else None), ""
+
+
+def _cached_vi(sid: str, zh: str) -> str:
+    """Tên tiếng Việt đã dịch (cache engines/title_mt) — CHỈ đọc, không gọi dịch (GET không side effect)."""
+    try:
+        import engines.title_mt as tmt
+        c = tmt._load_cache()
+    except Exception as e:  # noqa: BLE001
+        print(f"[disk_library] đọc cache tên dịch lỗi: {e}", flush=True)
+        return ""
+    hit = (c.get("by_id") or {}).get(sid) if sid else None
+    hit = hit or (c.get("by_zh") or {}).get(zh)
+    return str(hit.get("vi") or "") if hit and hit.get("zh") == zh else ""
+
+
+def translate(names: list[str]) -> dict:
+    """Dịch tên các phim chưa có tên Việt (engines/title_mt, có cache) — POST, gọi sau khi danh sách đã hiện."""
+    want = {str(n) for n in names or []}
+    items = [{"series_id": it.get("series_id") or "", "title": it["title"]}
+             for it in scan()["items"] if it["name"] in want and not it.get("title_vi")]
+    if not items:
+        return {"ok": True, "translated": 0}
+    import engines.title_mt as tmt
+    r = tmt.translate_titles(items)
+    return {"ok": True, "translated": r.get("translated", 0), "failed": r.get("failed", 0)}
+
+
+POSTER_NAMES = ("poster.jpg", "poster.jpeg", "poster.png", "poster.webp", "cover.jpg", "cover.png", "thumb.jpg")
+
+
+def poster(name: str) -> Path | None:
+    import agents.hongguo_bridge as hg
+    _, hg_root, _ = _hg_library_cached()
+    for base in (hg_root, root()):
+        folder = hg.safe_child(base, name) if base else None
+        if folder and folder.is_dir():
+            for n in POSTER_NAMES:
+                p = folder / n
+                if p.is_file() and p.stat().st_size > 32:
+                    return p
+    return None
+
+
+_HG_CACHE: dict = {"at": 0.0, "val": ({}, None, "")}
+
+
+def lib_dir() -> Path:
+    """Thư mục thư viện đang dùng: thư mục lưu của Hongguo 2 nếu có, không thì LIBRARY_DIR (Cài đặt → Thư mục)."""
+    _, hg_root, _ = _hg_library_cached()
+    return hg_root if hg_root and hg_root.is_dir() else root()
+
+
+def _hg_library_cached(max_age: float = 30.0) -> tuple[dict, Path | None, str]:
+    if time.time() - _HG_CACHE["at"] > max_age:
+        _HG_CACHE["val"] = _hg_library()
+        _HG_CACHE["at"] = time.time()
+    return _HG_CACHE["val"]
 
 
 def _imported() -> set[str]:
@@ -86,10 +164,12 @@ def _item(name: str, title: str, path: Path | None, state: str, **kw) -> dict:
             "size": st.st_size if st else kw.pop("size", 0), "mtime": st.st_mtime if st else kw.pop("mtime", 0), **kw}
 
 
-def scan(lib: Path | None = None) -> dict:
-    lib = Path(lib) if lib else root()
+def scan(lib: Path | None = None, fresh: bool = False) -> dict:
+    hg_items, hg_root, hg_err = ({}, None, "") if lib else _hg_library_cached(0 if fresh else 30)
+    lib = Path(lib) if lib else (hg_root if hg_root and hg_root.is_dir() else root())
+    source = "hongguo2" if hg_items else "disk"
     if not lib.is_dir():
-        return {"ok": False, "root": str(lib), "items": [],
+        return {"ok": False, "root": str(lib), "items": [], "source": source, "hg_error": hg_err,
                 "error": f"Không thấy thư mục thư viện {lib} — sửa ở Cài đặt → Thư mục"}
     import agents.hongguo_bridge as hg
     done = _imported()
@@ -107,6 +187,8 @@ def scan(lib: Path | None = None) -> dict:
         if not p.is_dir():
             continue
         title, sid = _series_meta(p)
+        hgi = hg_items.get(p.name) or {}
+        title, sid = str(hgi.get("title") or title), str(hgi.get("series_id") or sid)
         info = hg.inspect_series_folder(p)
         frags = hg._list_episode_frags(p)
         n = len(frags)
@@ -128,11 +210,14 @@ def scan(lib: Path | None = None) -> dict:
             state = "done" if _norm(f) in done else "ready"
         size = sum(x.stat().st_size for x in frags) if f is None else 0
         items.append(_item(p.name, title, f, state, series_id=sid, episodes=max(n, 1), folder=str(p),
-                           size=size, mtime=p.stat().st_mtime, merge_error=errs.get(p.name, "")))
+                           size=size, mtime=p.stat().st_mtime, merge_error=errs.get(p.name, ""),
+                           in_hongguo=bool(hgi), has_poster=any((p / x).is_file() for x in POSTER_NAMES)))
     counts: dict[str, int] = {}
     for it in items:
         counts[it["state"]] = counts.get(it["state"], 0) + 1
-    return {"ok": True, "root": str(lib), "items": items, "counts": counts}
+        it["title_vi"] = _cached_vi(it.get("series_id") or "", it["title"])
+    items.sort(key=lambda it: -float(it.get("mtime") or 0))          # mới tải lên đầu (như Library của Hongguo 2)
+    return {"ok": True, "root": str(lib), "items": items, "counts": counts, "source": source, "hg_error": hg_err}
 
 
 def _find(names: list[str]) -> list[dict]:
@@ -169,7 +254,7 @@ def merge(names: list[str]) -> dict:
     (hongguo_bridge.merge_series_copy); lệch → chuẩn hoá 1080p (merge_series_normalized). Tiến độ qua SSE
     `disk_library.merge`."""
     global _merge_cur
-    lib = root()
+    lib = lib_dir()
     import agents.hongguo_bridge as hg
     queued = []
     with _merge_lock:
@@ -206,7 +291,7 @@ def _merge_worker() -> None:
                 return
             name = _merge_q.pop(0)
             _merge_cur = name
-        folder = hg.safe_child(root(), name)
+        folder = hg.safe_child(lib_dir(), name)
         t0 = time.time()
         _publish("disk_library.merge", {"name": name, "state": "start"})
         try:
