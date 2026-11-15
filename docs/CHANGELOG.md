@@ -1,6 +1,9 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **Sửa: mọi `/api/hg/*` bị ép sang Hongguo 1 (:8000, đã ngừng)** (cần restart :8806) — trang Phim «Thư viện chưa làm»,
+  «Mùa mới», gửi tải; Studio thư viện / Merge; feeder tự thêm job đều 502. Nay theo `HG_BACKEND` (mặc định auto =
+  Hongguo 2). Sơ đồ hoạt động toàn bộ UI: docs/design/2026-11-15-ui-map.md (`scripts/ui_map.py`).
 - **Giao diện desktop làm lại** (cần restart :8806; app desktop chỉ cần mở lại — giao diện tải từ server):
   thanh bên trái (Công việc · Thư viện phim · Trợ lý AI · Cài đặt) thay cho hàng nút + hộp thoại; bảng job gọn (tên,
   thanh tiến độ 5 bước, trạng thái tiếng Việt, việc đang làm); **một màn hình Cài đặt** gộp «Cài đặt» + «Cài đặt AI»:

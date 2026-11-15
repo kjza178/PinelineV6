@@ -6745,7 +6745,10 @@ async def _hg1_hg2_split(request, call_next):
     """Tách hoàn toàn Hongguo1 / Hongguo2.
 
     - `/api/hg2/*` → rewrite thành `/api/hg/*` (hoặc `/api/disk`) + ép RPC
-    - `/api/hg/*`  → ép HTTP Downloader :8000 (classic, không license)
+    - `/api/hg/*`  → 2026-11-15: KHÔNG ép HTTP :8000 nữa. Hongguo 1 (Downloader :8000) đã ngừng; trước đây mọi
+      `/api/hg/*` (trang Phim: Thư viện chưa làm / Mùa mới / gửi tải; Studio: thư viện, ghép; feeder tự thêm job
+      gọi `/api/hg/library`) bị ép sang :8000 → 502, cả tab hỏng. Nay theo cấu hình HG_BACKEND (mặc định auto =
+      Hongguo 2 nếu có engine, không thì :8000). Muốn ép Hongguo 1: HG_BACKEND=http.
     """
     import agents.hg_ui_ctx as ctx
     path = request.scope.get("path") or ""
@@ -6767,8 +6770,8 @@ async def _hg1_hg2_split(request, call_next):
         request.scope["path"] = "/api/hg"
         request.scope["raw_path"] = b"/api/hg"
     elif path.startswith("/api/hg/") or path == "/api/hg":
-        request.state.hg_ui = "1"
-        ctx.force("http")
+        request.state.hg_ui = "auto"
+        ctx.backend_override.set(None)          # theo HG_BACKEND (hongguo_bridge._hg_backend_pref)
     return await call_next(request)
 
 
