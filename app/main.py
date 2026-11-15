@@ -444,6 +444,8 @@ def create_app(inst: Instance, *, legacy: bool = True):
     app.include_router(_v6_router(inst))
     from app.routes import ui_compat           # nút trang Phim / Studio trước đây chỉ sidecar có (2026-11-15)
     app.include_router(ui_compat.router)
+    from app.routes import disk_library         # «Phim trên ổ»: quét LIBRARY_DIR thẳng (2026-11-15)
+    app.include_router(disk_library.router)
     _install_lifecycle(app, inst, rt, legacy=legacy)
 
     if UI_DIR.is_dir():

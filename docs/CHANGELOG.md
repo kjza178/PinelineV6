@@ -1,6 +1,12 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **«Phim trên ổ» (mới, giao diện chính)** — thay tab «Thư viện chưa làm» đã bỏ cùng Hongguo 1: quét THẲNG thư mục thư
+  viện (Cài đặt → Thư mục, vd `D:\Lib`), không cần Hongguo trả lời. Mỗi bộ: số tập, dung lượng, trạng thái (sẵn sàng /
+  cần gộp tập / đang gộp / đã làm). «Tạo job» (một hoặc nhiều bộ) → tạo job + xếp hàng theo cấu hình chung, gom nhóm
+  theo bộ như tab cũ. «Gộp tập» chạy nền tuần tự (cùng độ phân giải: giữ nguyên chất lượng; lệch: chuẩn hoá 1080p),
+  không xoá tập lẻ; báo xong / lỗi qua SSE. `services/disk_library.py`, `/api/v6/disk-library*`.
+  «Thư viện phim» đổi tên **«Phim đã làm»**.
 - **Thư viện phim gom về giao diện chính (`/v6/`)**: thêm thanh «Đăng YouTube» (tự đăng khi render xong — công tắc khoá
   và ghi rõ khi instance tắt `auto_publish`; chế độ; hẹn giờ; đăng tất cả phim chưa đăng; bỏ qua video đang đăng), cột +
   bộ lọc «Bản quyền», nút «Kiểm» từng video / «Kiểm bản quyền tất cả», «Dọn phim mất thư mục», «Ẩn phim mất thư mục»,

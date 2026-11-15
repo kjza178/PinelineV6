@@ -9,6 +9,7 @@
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="i-jobs" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></symbol>
+  <symbol id="i-disk" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
   <symbol id="i-films" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4"/></symbol>
   <symbol id="i-agent" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/><path d="M9 11h.01M15 11h.01"/></symbol>
   <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></symbol>
@@ -23,7 +24,8 @@
     <div class="brand"><span class="logo">P</span><div class="brand-t"><b>Pineline</b><small id="inst">V6</small></div></div>
     <nav class="side-nav" aria-label="Điều hướng chính">
       <button class="nav-it on" data-view="jobs"><svg><use href="#i-jobs"/></svg><span>Công việc</span><em id="nav-running" hidden></em></button>
-      <button class="nav-it" data-view="films"><svg><use href="#i-films"/></svg><span>Thư viện phim</span></button>
+      <button class="nav-it" data-view="disk"><svg><use href="#i-disk"/></svg><span>Phim trên ổ</span></button>
+      <button class="nav-it" data-view="films"><svg><use href="#i-films"/></svg><span>Phim đã làm</span></button>
       <button class="nav-it" data-view="agent"><svg><use href="#i-agent"/></svg><span>Trợ lý AI</span></button>
       <button class="nav-it" data-view="settings"><svg><use href="#i-settings"/></svg><span>Cài đặt</span></button>
     </nav>
@@ -77,9 +79,28 @@
     </section>
 
     <!-- ───────── Thư viện phim ───────── -->
+    <!-- ───────── Phim trên ổ (quét LIBRARY_DIR — services/disk_library) ───────── -->
+    <section class="view" id="view-disk" hidden>
+      <header class="page-head">
+        <div><h1>Phim trên ổ</h1><p id="disk-stats" class="sub">Phim trong thư mục thư viện. Chọn phim rồi «Tạo job» để đưa vào hàng chờ.</p></div>
+        <span class="grow"></span>
+        <button type="button" class="btn" id="disk-rescan" title="Quét lại thư mục thư viện">Quét lại</button>
+      </header>
+      <div class="toolbar">
+        <label class="search"><svg><use href="#i-search"/></svg><input id="disk-q" placeholder="Tìm theo tên phim…"></label>
+        <select id="disk-state" aria-label="Lọc trạng thái"><option value="todo">Chưa làm</option><option value="ready">Sẵn sàng tạo job</option><option value="need_merge">Cần gộp tập</option><option value="done">Đã làm</option><option value="">Tất cả</option></select>
+        <span class="grow"></span>
+        <span id="disk-picked" class="sub"></span>
+        <button type="button" class="btn" id="disk-merge-sel" disabled>Gộp tập đã chọn</button>
+        <button type="button" class="btn primary" id="disk-add-sel" disabled>Tạo job đã chọn</button>
+      </div>
+      <div class="card scroll"><table class="data"><thead><tr><th style="width:32px"><input type="checkbox" id="disk-all" aria-label="Chọn tất cả"></th><th>Phim</th><th>Tập</th><th>Dung lượng</th><th>Ngày</th><th>Trạng thái</th><th></th></tr></thead><tbody id="disk-rows"></tbody></table></div>
+      <p class="sub small films-foot">Job tạo ra dùng cấu hình chung (Cài đặt) và tự xếp vào hàng chờ. Thư mục thư viện: <span id="disk-root"></span> — đổi ở Cài đặt → Thư mục.</p>
+    </section>
+
     <section class="view" id="view-films" hidden>
       <header class="page-head">
-        <div><h1>Thư viện phim</h1><p id="films-stats" class="sub"></p></div>
+        <div><h1>Phim đã làm</h1><p id="films-stats" class="sub"></p></div>
         <span class="grow"></span>
         <a class="btn ghost" id="films-csv" href="/films.csv" download title="Tải danh sách đang lọc ra file CSV (mở bằng Excel)">Tải CSV</a>
         <button type="button" class="btn ghost" id="films-purge" title="Xoá khỏi thư viện các phim mà thư mục job không còn trên ổ" hidden>Dọn phim mất thư mục</button>

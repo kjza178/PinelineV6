@@ -282,3 +282,14 @@ def test_modules_follow_the_instance_work_root(tmp_path, monkeypatch):
     monkeypatch.setattr(fdb, "WORK", tmp_path / "pinned")              # test đặt riêng vẫn thắng env
     monkeypatch.setenv("PINELINE_WORK_ROOT", str(tmp_path / "env"))
     assert fdb._work() == tmp_path / "pinned"
+
+
+def test_disk_library_routes(client, tmp_path, monkeypatch):
+    from services import disk_library
+    (tmp_path / "Lib" / "Bo").mkdir(parents=True)
+    (tmp_path / "Lib" / "Bo" / "Bo (merged).mp4").write_bytes(b"x")
+    monkeypatch.setattr(disk_library, "root", lambda: tmp_path / "Lib")
+    d = client.get("/api/v6/disk-library").json()
+    assert d["ok"] and d["items"][0]["state"] == "ready"
+    assert client.post("/api/v6/disk-library/add", json={}).status_code == 400
+    assert client.post("/api/v6/disk-library/merge", json={"names": []}).status_code == 400
