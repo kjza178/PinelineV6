@@ -178,24 +178,31 @@ def _v6_router(inst: Instance) -> APIRouter:
     @r.get(V6_PREFIX + "/config")
     def config_get():
         import core.batch_config as bc
+        from core import audio_levels
         return {"opts": bc.load(), "defaults": bc.DEFAULTS, "choices": {k: list(v) for k, v in bc.CHOICES.items()},
-                "labels": bc.LABELS, **bc.meta()}
+                "labels": bc.LABELS, "levels": audio_levels.snapshot(), **bc.meta()}
 
     @r.post(V6_PREFIX + "/config")
     def config_set(body: dict):
-        """{"patch": {khoá: giá trị}} — khoá lạ / giá trị sai → 400 kèm lý do. Job ĐANG CHỜ tự theo config mới
-        (services.autopilot.config_watch_loop) trừ job đã ghim config riêng."""
+        """{"patch": {khoá: giá trị}, "levels": {dub|bgm|lib_music|sfx: số|null}} — khoá lạ / giá trị sai → 400 kèm
+        lý do, không ghi gì. Job ĐANG CHỜ tự theo config mới (services.autopilot.config_watch_loop) trừ job đã ghim
+        config riêng. `levels` = mức trộn tiếng RENDER_* (core/audio_levels.py)."""
         import core.batch_config as bc
-        patch = body.get("patch") if isinstance(body, dict) else None
-        if not isinstance(patch, dict) or not patch:
+        from core import audio_levels
+        b = body if isinstance(body, dict) else {}
+        patch, levels = b.get("patch") or {}, b.get("levels") or {}
+        if not isinstance(patch, dict) or not isinstance(levels, dict) or not (patch or levels):
             raise HTTPException(400, "thiếu patch")
         try:
-            out = bc.update(patch, by="desktop")
+            audio_levels.validate(levels)      # kiểm trước: mức âm lượng sai → không ghi cả cấu hình batch
+            out = bc.update(patch, by="desktop") if patch else {"changed": {}, "opts": bc.load()}
+            lv = audio_levels.update(levels) if levels else {"changed": []}
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
-        if out.get("changed"):
-            bus.publish("config.changed", {"changed": sorted(out["changed"])})
-        return {"ok": True, **out, **bc.meta()}
+        changed = sorted(out.get("changed") or []) + lv["changed"]
+        if changed:
+            bus.publish("config.changed", {"changed": changed})
+        return {"ok": True, **out, "levels_changed": lv["changed"], **bc.meta()}
 
     # ── Cài đặt AI: chức năng nào dùng model nào (core/ai_models.py) ──
     @r.get(V6_PREFIX + "/ai")

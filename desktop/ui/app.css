@@ -301,3 +301,6 @@ dialog .scroll{max-height:62vh;margin-top:10px}
   .set-wrap{grid-template-columns:1fr}.set-nav{flex-direction:row;flex-wrap:wrap;position:static}
   .field{grid-template-columns:1fr}
 }
+.row-ctl{display:flex;gap:8px;align-items:center}
+.row-ctl select{flex:1;min-width:0}
+td.acts .mut.small{margin-right:6px}

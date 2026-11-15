@@ -215,6 +215,28 @@ def test_v6_batch_config_get_and_update(client, tmp_path, monkeypatch):
     assert bc.load()["grain"] == bc.DEFAULTS["grain"]                  # giá trị sai không được ghi
 
 
+def test_v6_config_levels(client, tmp_path, monkeypatch):
+    """2026-11-15: `levels` = mức trộn tiếng thật (RENDER_DUB_VOL…). Mức sai → 400, không ghi cả patch đi kèm."""
+    import core.batch_config as bc
+    import core.config as cfg
+    from core import audio_levels
+    monkeypatch.setattr(bc, "CONFIG_PATH", tmp_path / "batch_config.json")
+    f = tmp_path / "pineline.config.json"
+    f.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(cfg, "_cfg_file", f)
+    monkeypatch.setattr(cfg, "_CFG", {})
+    monkeypatch.setattr(cfg, "_cfg_mtime", 0.0)
+    for lv in audio_levels.LEVELS.values():
+        monkeypatch.delenv(lv.key, raising=False)
+    cfg._load_cfg(force=True)
+    assert client.get("/api/v6/config").json()["levels"]["dub"]["value"] == 1.25
+    r = client.post("/api/v6/config", json={"levels": {"dub": 1.1}})
+    assert r.status_code == 200 and r.json()["levels_changed"] == ["RENDER_DUB_VOL"]
+    assert json.loads(f.read_text(encoding="utf-8"))["RENDER_DUB_VOL"] == 1.1
+    bad = client.post("/api/v6/config", json={"patch": {"speed": 1.2}, "levels": {"dub": 5}})
+    assert bad.status_code == 400 and bc.load()["speed"] == bc.DEFAULTS["speed"]
+
+
 def test_desktop_ui_has_editing_features_without_timers():
     ui = Path(__file__).resolve().parents[1] / "desktop" / "ui"
     js = (ui / "app.js").read_text(encoding="utf-8")

@@ -2485,9 +2485,8 @@ def _build_audio_filter(cmd: list, work_dir: Path, dub: Path | None, no_vocals: 
             mode = "duck"
         else:
             vol = bgm_volume()
-            ov = float(orig_vol)
-            if ov > 0.28:
-                ov = 0.18
+            # trần 0.28 (để không át nhạc mới). fix 2026-11-15: trước >0.28 bị hạ thẳng về 0.18 → kéo cao lại nhỏ đi
+            ov = min(float(orig_vol), 0.28)
             cmd += ["-stream_loop", "-1", "-i", _ai(bgm), "-i", _ai(dub)]
             if have_nv:
                 cmd += ["-i", _ai(no_vocals)]

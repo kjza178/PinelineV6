@@ -69,7 +69,7 @@ LABELS: dict[str, str] = {
     "tts_engine": "TTS",
     "asr_engine": "ASR",
     "audio_mode": "Âm nền",
-    "voice_vol": "Âm lượng giọng Việt",
+    "voice_vol": "Giọng Trung nền (chỉ demucs_keep)",   # KHÔNG phải giọng Việt — giọng Việt = RENDER_DUB_VOL
     "orig_vol": "Tiếng gốc nền (khi ducking)",
     "translate_mode": "Dịch",
     "review_backup": "REVIEW backup (Aurora parallel)",

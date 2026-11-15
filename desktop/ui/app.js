@@ -592,7 +592,7 @@ async function createJob(ev) {
 const pctFmt = (v) => `${Math.round(Number(v) * 100)}%`;
 const xFmt = (v) => `${Number(v).toFixed(2).replace(/0$/, "")}×`;
 const FIELDS = {
-  voice: { label: "Giọng mặc định", hint: "Giọng đọc cho job mới. Thêm giọng clone ở tab «Giọng đọc» của một job.", type: "voice" },
+  voice: { label: "Giọng mặc định", hint: "Giọng clone dùng cho job mới (cả hai bộ đọc dùng chung danh sách). Tạo giọng mới ở tab «Giọng đọc» của một job.", type: "voice" },
   speed: { label: "Tốc độ đọc", hint: "1× là tốc độ chuẩn. Nhanh quá dễ nuốt chữ.", type: "range", min: 0.8, max: 1.3, step: 0.05, fmt: xFmt },
   tts_engine: { label: "Bộ đọc", type: "radio", options: [["vieneu", "VieNeu", "Nhanh, ổn định — nên dùng"], ["omnivoice", "OmniVoice", "Giọng tự nhiên hơn, chậm hơn"]] },
   asr_engine: { label: "Nhận dạng tiếng Trung", hint: "Chuyển lời thoại gốc thành chữ trước khi dịch.", type: "select",
@@ -607,8 +607,9 @@ const FIELDS = {
     ["duck", "Giữ tiếng gốc, hạ khi có lời", "Có thể dính bản quyền nhạc gốc"],
     ["demucs_clean", "Nhạc gốc, bỏ giọng Trung", "Có thể dính bản quyền nhạc gốc"],
     ["demucs_keep", "Nhạc gốc + giọng Trung nhỏ", "Có thể dính bản quyền nhạc gốc"]] },
-  voice_vol: { label: "Âm lượng giọng Việt", type: "range", min: 0, max: 1, step: 0.01, fmt: pctFmt },
-  orig_vol: { label: "Âm lượng tiếng gốc", hint: "Chỉ khi giữ tiếng gốc làm nền.", type: "range", min: 0, max: 1, step: 0.01, fmt: pctFmt },
+  // voice_vol của render = GIỌNG TRUNG nền (chỉ demucs_keep) — KHÔNG phải giọng Việt (giọng Việt = cfg.levels.dub = RENDER_DUB_VOL)
+  voice_vol: { label: "Giọng Trung nền", hint: "Giọng Trung gốc để nhỏ phía sau giọng Việt.", type: "range", min: 0, max: 1, step: 0.01, fmt: pctFmt },
+  orig_vol: { label: "Tiếng gốc nền", hint: "Tiếng gốc (đã tách giọng nếu có) tự hạ khi giọng Việt nói. Ở «Nhạc thư viện + tiếng gốc nhỏ» tối đa 28%.", type: "range", min: 0, max: 1, step: 0.01, fmt: pctFmt },
   resolution: { label: "Độ phân giải", type: "radio", cols: true, options: [["source", "Giữ như video gốc", ""], ["1080", "Full HD 1080p", "Nâng lên 1080p"]] },
   vbitrate: { label: "Chất lượng nén", hint: "Cao = đẹp hơn, file nặng hơn.", type: "select", options: [["8M", "Cao"], ["4M", "Vừa"], ["2M", "Nhẹ"]] },
   fit: { label: "Khớp giọng với thời gian câu", hint: "Co giãn câu đọc cho vừa khoảng lời gốc.", type: "switch" },
@@ -624,8 +625,9 @@ const FIELDS = {
   brand_text: { label: "Tên kênh", hint: "Chữ hiện trên video.", type: "text", placeholder: "vd: Phim Hay Mỗi Ngày" },
   brand_logo: { label: "Logo", type: "select", options: [["off", "Không"], ["auto", "Tự động (logo trong thư mục assets)"]] },
   frame: { label: "Khung viền", type: "select", options: [["off", "Không"], ["auto", "Tự động"]] },
-  translate_mode: { label: "Kiểu dịch (luồng cũ)", hint: "Chỉ dùng khi quay về luồng dịch cũ.", type: "select", options: [["batch", "Theo lô"], ["auto", "Tự động"], ["oneshot", "Một lần"]] },
-  review_backup: { label: "Soát dự phòng bằng Aurora (luồng cũ)", type: "select", options: [["off", "Tắt"], ["aurora_parallel", "Bật"]] },
+  // Chỉ luồng dịch cũ (translate_pipeline=legacy) đọc hai khoá này — luồng V6 tự chọn cỡ lô theo model → không hiện.
+  translate_mode: { hidden: true },
+  review_backup: { hidden: true },
 };
 const CFG_PANES = [
   ["voice", "Giọng đọc", "Giọng và tốc độ lồng tiếng mặc định cho job mới.", [["Lồng tiếng", ["voice", "speed", "tts_engine"]], ["Nhận dạng lời thoại gốc", ["asr_engine", "ocr"]]]],
@@ -634,6 +636,43 @@ const CFG_PANES = [
   ["brand", "Thương hiệu", "Tên kênh, logo và khung viền trên video.", [["Nhận diện kênh", ["brand_mode", "brand_text", "brand_logo", "frame"]]]],
 ];
 let cfg = null;
+
+// ── Âm thanh: chế độ âm nền + CHỈ những mức âm lượng mà chế độ đó dùng (engines/render._build_audio_filter) ──
+const SAFE_AUDIO = ["voice_bgm", "sfx_lib", "duck_bgm", "voice_only"];
+const LEVEL_HINT = {
+  dub: "100% = nguyên mức của bộ đọc. Mặc định 125%.",
+  bgm: "Nhạc lấy từ thư mục assets/bgm.",
+  lib_music: "Nhạc kho theo cảnh (assets/bgm_yt), tự hạ khi có lời.",
+  sfx: "Tiếng động tách từ video gốc, tự hạ khi có lời.",
+};
+const VOL_ROWS = { orig_vol: ["duck", "duck_bgm"], voice_vol: ["demucs_keep"] };
+function levelRow(name, label, hint, value, min, max, modes) {
+  const n = Number(value);
+  return `<div class="field" data-modes="${esc(modes.join(" "))}"><div class="lbl"><b>${esc(label)}</b>${hint ? `<span>${esc(hint)}</span>` : ""}</div>`
+    + `<div class="ctl"><div class="range"><input type="range" name="${esc(name)}" min="${min}" max="${max}" step="0.01" value="${esc(n)}"><output>${esc(pctFmt(n))}</output></div></div></div>`;
+}
+function audioPane() {
+  const v = String(cfg.opts.audio_mode ?? "");
+  const opt = ([val, t, d]) => `<label class="choice"><input type="radio" name="audio_mode" value="${esc(val)}"${v === val ? " checked" : ""}><div><b>${esc(t)}</b>${d ? `<span>${esc(d)}</span>` : ""}</div></label>`;
+  const all = FIELDS.audio_mode.options, safe = all.filter((o) => SAFE_AUDIO.includes(o[0])), risky = all.filter((o) => !SAFE_AUDIO.includes(o[0]));
+  const rows = Object.entries(cfg.levels || {}).map(([k, L]) => levelRow("lvl_" + k, L.label, LEVEL_HINT[k], L.value, L.min, L.max, L.modes));
+  for (const [k, modes] of Object.entries(VOL_ROWS)) if (k in cfg.defaults) rows.push(levelRow(k, FIELDS[k].label, FIELDS[k].hint, cfg.opts[k] ?? cfg.defaults[k], 0, 1, modes));
+  return `<div class="sec"><h3>Âm nền</h3><div class="field stack"><div class="ctl"><div class="choices">${safe.map(opt).join("")}</div>`
+    + `<details class="more"${risky.some((o) => o[0] === v) ? " open" : ""}><summary>Giữ nhạc gốc của phim (dễ dính bản quyền)</summary><div class="inner"><div class="choices">${risky.map(opt).join("")}</div></div></details></div></div></div>`
+    + `<div class="sec"><h3>Âm lượng</h3><p class="sub">Chỉ hiện các mức mà chế độ âm nền đang chọn dùng tới.</p><div id="vol-rows">${rows.join("")}</div></div>`;
+}
+function syncAudioRows() {
+  const m = document.querySelector('#form-cfg input[name="audio_mode"]:checked')?.value || "";
+  document.querySelectorAll("#vol-rows [data-modes]").forEach((r) => { const ms = r.dataset.modes.split(" "); r.hidden = !(ms.includes("*") || ms.includes(m)); });
+}
+function levelsPatch() {
+  const form = $("#form-cfg"), out = {};
+  for (const [k, L] of Object.entries(cfg?.levels || {})) {
+    const el = form.elements["lvl_" + k];
+    if (el && Math.abs(Number(el.value) - Number(L.value)) > 1e-9) out[k] = Number(el.value);
+  }
+  return out;
+}
 
 function asBool(v) { return v === true || ["1", "true", "on", "yes"].includes(String(v).toLowerCase()); }
 function cfgControl(k, f) {
@@ -649,7 +688,8 @@ function cfgControl(k, f) {
   }
   if (f.type === "voice") {
     const list = voices && voices.length ? (voices.includes(v) ? voices : [v, ...voices].filter(Boolean)) : [v].filter(Boolean);
-    return `<select ${name}>${list.map((x) => `<option${x === v ? " selected" : ""}>${esc(x)}</option>`).join("") || '<option value="">(chưa có giọng)</option>'}</select>`;
+    return `<div class="row-ctl"><select ${name}>${list.map((x) => `<option${x === v ? " selected" : ""}>${esc(x)}</option>`).join("") || '<option value="">(chưa có giọng)</option>'}</select>`
+      + `<button type="button" class="btn sm" id="cfg-sample" title="Đọc một câu mẫu bằng giọng, tốc độ và bộ đọc đang chọn (lần đầu có thể mất vài chục giây)">▶ Nghe thử</button></div>`;
   }
   if (f.type === "select") {
     const opts = f.options.some(([val]) => val === String(v ?? "")) ? f.options : [...f.options, [String(v), String(v)]];
@@ -672,11 +712,11 @@ function cfgSection(title, keys, sub) {
   return fs ? `<div class="sec"><h3>${esc(title)}</h3>${sub ? `<p class="sub">${esc(sub)}</p>` : ""}${fs}</div>` : "";
 }
 function paintCfg() {
-  const used = new Set([...CFG_PANES.flatMap(([, , , secs]) => secs.flatMap(([, ks]) => ks)), ...Object.keys(FIELDS).filter((k) => FIELDS[k].adv)]);
+  const used = new Set([...CFG_PANES.flatMap(([, , , secs]) => secs.flatMap(([, ks]) => ks)), ...Object.keys(FIELDS).filter((k) => FIELDS[k].adv || FIELDS[k].hidden)]);
   const extra = Object.keys(cfg.defaults).filter((k) => !used.has(k));
   const advVideo = Object.keys(FIELDS).filter((k) => FIELDS[k].adv === "video");
   $("#cfg-body").innerHTML = CFG_PANES.map(([id, title, sub, secs]) => {
-    let html = secs.map(([t, ks]) => cfgSection(t, ks)).join("");
+    let html = id === "audio" ? audioPane() : secs.map(([t, ks]) => cfgSection(t, ks)).join("");
     if (id === "video") {
       html += `<div class="sec"><details class="more"><summary>Chống trùng nội dung (phóng to, chuyển động, chỉnh màu, lật…)</summary>
         <div class="inner">${advVideo.filter((k) => k in cfg.defaults).map(cfgField).join("")}</div></details></div>`;
@@ -685,6 +725,7 @@ function paintCfg() {
   }).join("") + (extra.length ? `<div class="pane" data-pane="advanced" hidden>${cfgSection("Cấu hình chung khác", extra, "Các tuỳ chọn ít dùng hoặc của luồng cũ.")}</div>` : "");
   $("#cfg-meta").textContent = cfg.updated_at ? `Áp dụng cho job chạy sau khi lưu · sửa lần cuối ${String(cfg.updated_at).replace("T", " ").slice(0, 16)}${cfg.updated_by ? ` (${cfg.updated_by})` : ""}` : "Áp dụng cho job chạy sau khi lưu.";
   $("#cfg-bar").hidden = true; $("#cfg-err").hidden = true;
+  syncAudioRows();
   showPane(curPane);
 }
 function cfgPatch() {
@@ -701,19 +742,20 @@ function cfgPatch() {
 }
 function onCfgInput(e) {
   const t = e.target;
-  if (t.type === "range") { const f = FIELDS[t.name]; t.nextElementSibling.textContent = f ? f.fmt(t.value) : t.value; }
+  if (t.type === "range") t.nextElementSibling.textContent = (FIELDS[t.name]?.fmt || pctFmt)(t.value);
   if (t.type === "checkbox" && t.closest(".switch")) t.parentElement.lastChild.textContent = t.checked ? "Bật" : "Tắt";
-  $("#cfg-bar").hidden = !Object.keys(cfgPatch()).length;
+  if (t.name === "audio_mode") syncAudioRows();
+  $("#cfg-bar").hidden = !(Object.keys(cfgPatch()).length || Object.keys(levelsPatch()).length);
 }
 async function saveSettings(ev) {
   ev.preventDefault();
-  const patch = cfgPatch();
-  if (!Object.keys(patch).length) { $("#cfg-bar").hidden = true; return; }
+  const patch = cfgPatch(), levels = levelsPatch();
+  if (!Object.keys(patch).length && !Object.keys(levels).length) { $("#cfg-bar").hidden = true; return; }
   const ok = $("#cfg-ok");
   ok.disabled = true;
   try {
-    const r = await api("POST", "/api/v6/config", { patch });
-    const n = Object.keys(r.changed || {}).length;
+    const r = await api("POST", "/api/v6/config", { patch, levels });
+    const n = Object.keys(r.changed || {}).length + (r.levels_changed || []).length;
     cfg = await api("GET", "/api/v6/config"); paintCfg();
     say(n ? `Đã lưu ${n} thay đổi — áp dụng cho job chạy tiếp theo` : "Không có gì thay đổi");
   } catch (e) {
@@ -1045,7 +1087,10 @@ async function loadFilms() {
     return `<tr data-id="${esc(f.job_id)}"><td title="${esc(f.job_id)}"><b style="font-weight:500">${esc(title)}</b></td><td><span class="b ${esc(f.status)}">${esc(FILM_ST[f.status] || f.status || "")}</span></td>`
       + `<td>${esc(fmtDur(f.duration_sec))}</td><td>${esc(String(f.finished_at || "").slice(0, 16).replace("T", " "))}</td><td>${yt}</td>`
       + `<td class="acts">${canUp ? `<button class="btn sm primary" data-film="upload">Đăng YouTube</button>` : ""}`
-      + `${jobs.has(f.job_id) ? `<button class="btn sm" data-film="open">Mở job</button>` : ""}</td></tr>`;
+      + `${jobs.has(f.job_id) ? `<button class="btn sm" data-film="open">Mở job</button>` : ""}`
+      + `${f.work_exists === 0 ? `<span class="mut small" title="Thư mục job không còn trên ổ (đã xoá hoặc thuộc máy / instance khác)">mất thư mục</span>` : ""}`
+      // chỉ dòng KHÔNG còn là job trong hàng (routes_films /films/delete còn gỡ job khỏi hàng chờ)
+      + `${jobs.has(f.job_id) ? "" : `<button class="btn sm ghost" data-film="delete" title="Xoá dòng này khỏi thư viện (không xoá file trên ổ)">Xoá</button>`}</td></tr>`;
   }).join("") : '<tr><td colspan="6" class="note">Không có phim nào khớp.</td></tr>';
 }
 const loadFilmsSoon = debounce(loadFilms, 300);
@@ -1054,6 +1099,10 @@ async function filmAction(btn) {
   const tr = btn.closest("tr[data-id]"), id = tr?.dataset.id;
   if (!id) return;
   if (btn.dataset.film === "open") { showView("jobs"); selected = null; select(id); return; }
+  if (btn.dataset.film === "delete") {
+    if (!confirm(`Xoá «${tr.cells[0].textContent}» khỏi thư viện?\n\nChỉ xoá dòng trong thư viện, không xoá thư mục job / video trên ổ.`)) return;
+    return act(btn, "Đã xoá khỏi thư viện", async () => { await api("POST", "/films/delete", { job_ids: [id], delete_work: false }); loadFilms(); });
+  }
   if (btn.dataset.film === "upload") {
     const priv = $("#films-privacy"), label = priv.options[priv.selectedIndex].text;
     const title = tr.cells[0].textContent;
@@ -1207,6 +1256,23 @@ $("#form-cfg").addEventListener("input", onCfgInput);
 $("#form-cfg").addEventListener("change", onCfgInput);
 $("#form-cfg").addEventListener("submit", saveSettings);
 $("#cfg-cancel").addEventListener("click", () => paintCfg());
+$("#form-cfg").addEventListener("click", (e) => {
+  const btn = e.target.closest("#cfg-sample");
+  if (!btn) return;
+  const f = $("#form-cfg"), voice = f.elements.voice?.value || "";
+  if (!voice) return say("Chưa có giọng để nghe", "err");
+  const engine = f.querySelector('input[name="tts_engine"]:checked')?.value || "vieneu";
+  const q = new URLSearchParams({ engine, voice, speed: f.elements.speed?.value || "1" });
+  act(btn, "", async () => {
+    btn.textContent = "Đang đọc…";
+    try {
+      const r = await fetch("/api/voice-sample?" + q);
+      if (!r.ok) { let m = `HTTP ${r.status}`; try { m = (await r.json()).error || m; } catch (_) { /* không phải JSON */ } throw new Error(m); }
+      player.src = URL.createObjectURL(await r.blob());
+      await player.play();
+    } finally { btn.textContent = "▶ Nghe thử"; }
+  });
+});
 $("#form-ai").addEventListener("submit", saveAI);
 $("#form-ai").addEventListener("click", (e) => { const b = e.target.closest("button[data-ai]"); if (b) aiAction(b); });
 

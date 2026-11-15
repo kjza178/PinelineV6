@@ -1,6 +1,14 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **Cài đặt → Âm thanh sửa sai khoá**: thanh «Âm lượng giọng Việt» trước gắn vào `voice_vol` — render dùng khoá này cho
+  GIỌNG TRUNG nền (chỉ chế độ «Nhạc gốc + giọng Trung nhỏ»), kéo không đổi gì giọng Việt. Nay: «Giọng Việt» =
+  `RENDER_DUB_VOL` (mặc định 125%), «Nhạc nền thư viện» = `RENDER_BGM_VOL`, «Nhạc kho» / «Tiếng động gốc» (sfx_lib),
+  «Tiếng gốc nền» = `orig_vol`, «Giọng Trung nền» = `voice_vol`; chỉ hiện mức mà chế độ âm nền đang chọn dùng
+  (`core/audio_levels.py`, `/api/v6/config` nhận `levels`). 3 chế độ giữ nhạc gốc gom vào mục gập «dễ dính bản quyền».
+  Render `duck_bgm`: tiếng gốc > 28% trước bị hạ thẳng về 18% → nay giữ ở trần 28%.
+- Cài đặt: bỏ «Kiểu dịch (luồng cũ)», «Soát dự phòng Aurora (luồng cũ)» khỏi giao diện (luồng V6 tự chọn cỡ lô).
+  Giọng đọc: nút «▶ Nghe thử» cạnh giọng mặc định. Thư viện phim: nút «Xoá» dòng không còn là job (vd dòng test cũ).
 - **Trang chủ `/` = giao diện mới (`/v6/`)**; Studio ở `/studio` (cũng `/ui3`) và có nút «← Giao diện mới»; trang Phim
   có «⬅ Giao diện chính». App desktop build trước 14/11 tối mở `/ui3` (Studio) — build lại (`desktop\build.bat`) để mở `/v6/`.
 - **Hongguo 2 không còn giới hạn số phim** (cần restart :8806; trang /hongguo2 tải lại):
