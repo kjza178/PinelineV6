@@ -206,7 +206,7 @@ def _v6_router(inst: Instance) -> APIRouter:
         except (OSError, ValueError) as e:
             raise HTTPException(409, f"script.json đang được ghi hoặc hỏng: {e}") from e
         keep = ("i", "start", "end", "zh", "vi", "rv", "manual", "s_flags", "s_spk", "s_to", "junk",
-                "unreviewed_accepted")
+                "unreviewed_accepted", "s_act", "s_why", "s_step")
         out = [{k: r.get(k) for k in keep if k in r} for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
         wav = []
         tdir = wd / "tts"
@@ -218,6 +218,35 @@ def _v6_router(inst: Instance) -> APIRouter:
                 except (OSError, ValueError, IndexError):
                     continue
         return {"rows": out, "exists": True, "wav": sorted(wav)}
+
+    # ── A10: lịch sử sửa 1 câu (trace.jsonl của luồng simple; chỉ đọc) ──
+    @r.get(V6_PREFIX + "/jobs/{job_id}/script/{i}/history")
+    def job_line_history(job_id: str, i: int, limit: int = 50):
+        if "/" in job_id or "\\" in job_id or job_id in ("", ".", ".."):
+            raise HTTPException(404, "không có job")
+        wd = inst.work_root / job_id
+        if not (wd / "manifest.json").is_file():
+            raise HTTPException(404, "không có job")
+        out: list[dict] = []
+        for name in ("trace.1.jsonl", "trace.jsonl"):          # cũ → mới
+            fp = wd / name
+            if not fp.is_file():
+                continue
+            try:
+                with open(fp, encoding="utf-8", errors="replace") as f:
+                    for line in f:
+                        if f'"i": {i},' not in line and f'"i": {i}}}' not in line:
+                            continue
+                        try:
+                            rec = json.loads(line)
+                        except ValueError:
+                            continue
+                        if rec.get("i") == i:
+                            out.append({k: rec.get(k) for k in ("ts", "step", "old", "new", "why") if k in rec})
+            except OSError as e:
+                raise HTTPException(409, f"không đọc được {name}: {e}") from e
+        limit = max(1, min(int(limit or 50), 500))
+        return {"i": i, "history": out[-limit:], "n": len(out)}
 
     # ── hàng chờ: tạm dừng khi lỗi liên tiếp (R7.4) + nhật ký ra file (R7.5) ──
     @r.post(V6_PREFIX + "/queue/resume")

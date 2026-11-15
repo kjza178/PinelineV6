@@ -11,7 +11,7 @@ from core import ai_models
 
 MODEL_KEYS = ("SIMPLE_MODEL", "REVIEW_MODEL", "TRANSLATE_MODEL", "LLM_MODEL", "PLAN_MODEL", "PLAN_MODE", "NAME_MODEL",
               "PRONOUN_MODEL", "CHATGPT_MODEL", "AGENT_MODEL", "AGENT_FALLBACK_MODEL", "HANG_FIX_MODEL",
-              "SIMPLE_PAIR_FILL_MODEL", "PRONOUN_ANALYZE_MODEL", "DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL",
+              "SIMPLE_PAIR_FILL_MODEL", "PRONOUN_ANALYZE_MODEL", "PRONOUN_ANALYZE_MODE", "DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL",
               "DASHSCOPE_API_KEY", "ALIBABA_API_KEY", "ALIBABA_BASE_URL")
 
 
@@ -167,3 +167,13 @@ def test_model_without_name_after_prefix_is_rejected(conf):
     with pytest.raises(ValueError) as ei:
         ai_models.apply({"review": "deepseek/"})
     assert "thiếu tên model" in str(ei.value)
+
+
+def test_pronoun_analyze_needs_aurora_only_in_file_mode(conf):
+    """fix 2026-11-15: chế độ full / fast quét theo lô bằng llm.chat → DeepSeek dùng được."""
+    with pytest.raises(ValueError):
+        ai_models.apply({"pronoun_analyze": "deepseek/deepseek-flash"})          # mặc định file → chỉ Aurora
+    cfg.save_config({"PRONOUN_ANALYZE_MODE": "full"})
+    ai_models.apply({"pronoun_analyze": "deepseek/deepseek-flash"})
+    assert _file(conf)["PRONOUN_ANALYZE_MODEL"] == "deepseek/deepseek-flash"
+    assert _row(ai_models.snapshot(), "pronoun_analyze")["needs"] == ""

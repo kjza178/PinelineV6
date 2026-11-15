@@ -96,6 +96,12 @@ Ký hiệu: `[x]` xong và đã kiểm · `[~]` code xong ở cloud, **chờ ki�
 - [x] **A3** (C) Màn hình «Cài đặt AI» trên desktop: nhà cung cấp (URL, key chỉ ghi, kiểm tra kết nối) + model cho từng chức năng + bộ cài sẵn.
 - [ ] **A4** (hoãn — user quyết bỏ qua 2026-11-15) Key ra file riêng không lên git (`pineline.secrets.json`); API cài đặt không trả key dạng chữ thường.
 - [x] **A5** Sửa đọc cấu hình: OCR dịch chữ trên hình (đọc lúc import), Context Studio (chỉ đọc env).
+- [ ] **A7** Plan đọc cả phim cho model không phải Aurora (hiện `sample` chỉ gửi ~240 câu khi phim > 250 câu).
+- [x] **A8** (C) Soát/vá ngữ cảnh cả phim: phần đầu cố định (plan đầy đủ + toàn bộ zh) cho mọi lô → cache được,
+  lô 60 câu; `SIMPLE_CONTEXT=auto|full|window` (auto = full cho deepseek/alibaba). `engines/translate_simple/film_context.py`.
+- [ ] **A9** Lượt kiểm nhất quán cả phim bằng AI (bắt lệch KHÔNG có trong plan: cặp chưa ghi, thuật ngữ chưa ghi, văn phong).
+- [x] **A10** (C) Mỗi câu soát: `s_act` giữ nháp / máy đã sửa / dịch mới + `s_why` (lý do model trả); tab Bản dịch có
+  nhãn, lọc «Máy đã sửa», nút «Lịch sử» (đọc trace.jsonl, `GET /api/v6/jobs/{id}/script/{i}/history`).
 - [ ] **A6 (chủ)** Thử 1 lần với key DeepSeek / Alibaba thật; đo chất lượng bằng `scripts/golden_ab.py`.
 
 ## G2 — App desktop đủ chức năng
@@ -154,4 +160,5 @@ Luật: UI desktop **không polling** — 1 kết nối SSE, chỉ gọi API khi
 | 2026-11-14 | D2 D4 D6 | Desktop có tab Bản dịch / Giọng đọc / Kết quả + Cài đặt chung |
 | 2026-11-14 | D2 D6 D7 D10 R2.3 + 2 bug | Desktop: câu Trung, giọng clone, thư viện phim, Agent, hỏi trước khi đóng · sửa /films hỏng, work root theo instance |
 | 2026-11-15 | A1 | DeepSeek + Alibaba qua engines/providers; bỏ 9router khỏi mặc định |
+| 2026-11-15 | A8 A10 | soát ngữ cảnh cả phim (cache) + giữ nháp/đã sửa/lý do/lịch sử từng câu |
 | 2026-11-15 | A2 A3 A5 | core/ai_models + /api/v6/ai + desktop «Cài đặt AI»; PLAN_MODEL ở chế độ sample; save_config |

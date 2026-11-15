@@ -120,7 +120,8 @@ FUNCTIONS: tuple[AIFunction, ...] = (
     AIFunction("agent_fallback", "AI Agent — model dự phòng", "Thử khi model Agent chính lỗi (timeout, 429, 5xx).",
                "AGENT_FALLBACK_MODEL", _eff_agent_fallback, "(không có)", needs="tools", group="Agent"),
     AIFunction("pronoun_analyze", "Phân tích xưng hô cả phim", "Gửi CẢ file phụ đề lên để dựng bảng xưng hô — chỉ khi "
-               "bật SIMPLE_PRONOUN_ANALYZE=1. Cần upload file → chỉ Aurora.", "PRONOUN_ANALYZE_MODEL",
+               "bật SIMPLE_PRONOUN_ANALYZE=1. Chế độ file (mặc định) upload phụ đề → chỉ Aurora; "
+               "PRONOUN_ANALYZE_MODE=full/fast quét theo lô → model nào cũng được.", "PRONOUN_ANALYZE_MODEL",
                _eff_pronoun_analyze, "PRONOUN_MODEL", needs="aurora_file", enabled_key="SIMPLE_PRONOUN_ANALYZE"),
     AIFunction("meta", "Tiêu đề / mô tả YouTube", "Meta Studio khi đăng YouTube (agents/meta_studio).", "",
                lambda: "chatgpt/gpt-5-6", fixed="chatgpt/gpt-5-6 (Aurora, cố định trong code)", group="Đăng YouTube"),
@@ -219,9 +220,21 @@ def check_model(fid: str, model: str) -> str:
         return f"thiếu tên model sau «{hit[0].name}/» — bấm «Lấy danh sách model» ở dòng {hit[0].label}"
     if not MODEL_RE.match(m) and not re.match(r"^[\w.:\-]+$", m):
         return "tên model không hợp lệ"
-    if f.needs == "aurora_file" and not m.lower().startswith(AURORA_PREFIXES):
+    if _needs(f) == "aurora_file" and not m.lower().startswith(AURORA_PREFIXES):
         return "chức năng này cần upload file — chỉ Aurora (chatgpt/… aurora/…) làm được"
     return ""
+
+
+def _needs(f: AIFunction) -> str:
+    """Yêu cầu THỰC của chức năng lúc này. Phân tích xưng hô chỉ cần Aurora ở chế độ «file» (upload phụ đề);
+    PRONOUN_ANALYZE_MODE=full / fast quét theo lô bằng lời gọi thường → model nào cũng được."""
+    if f.id == "pronoun_analyze":
+        try:
+            from engines.pronoun_consistency import analyze_mode
+            return "aurora_file" if analyze_mode() == "file" else ""
+        except Exception as e:  # noqa: BLE001
+            print(f"[ai_models] đọc PRONOUN_ANALYZE_MODE lỗi: {e}", flush=True)
+    return f.needs
 
 
 def _key_hint(v: str) -> str:
@@ -257,7 +270,7 @@ def snapshot() -> dict:
         row = {"id": f.id, "label": f.label, "where": f.where, "group": f.group, "key": f.key,
                "value": set_val, "effective": eff, "provider": provider_of(eff),
                "source": (f.key if set_val else (f"dự phòng: {f.fallback}" if f.fallback else "mặc định")),
-               "needs": f.needs, "fixed": f.fixed, "problem": check_model(f.id, eff) if (eff and not f.fixed) else ""}
+               "needs": _needs(f), "fixed": f.fixed, "problem": check_model(f.id, eff) if (eff and not f.fixed) else ""}
         if f.enabled_key:
             row["enabled"] = _get(f.enabled_key).lower() in ("1", "true", "yes", "on")
             row["enabled_key"] = f.enabled_key

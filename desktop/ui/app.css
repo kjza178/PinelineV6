@@ -113,6 +113,10 @@ dialog .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
 .tag.warn{background:#3a2e12;color:var(--held)}
 .tag.ok{background:#173a2a;color:var(--done)}
 .tag.mut{background:transparent;border:1px solid var(--line)}
+.tag.info{background:#16304a;color:#9cc8f0}
+.ln .why{margin:2px 0 4px}
+.ln .hist{margin:4px 0 2px;padding:6px 8px;border-left:2px solid var(--line);display:grid;gap:6px}
+.ln .hist s{text-decoration:line-through}
 .mut{color:var(--mut)}
 .btn.more{display:block;width:100%;margin:10px 0}
 

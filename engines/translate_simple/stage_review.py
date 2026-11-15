@@ -5,6 +5,9 @@ tên/thuật ngữ, thành ngữ, dịch câu trống. Trả mỗi câu {i, vi, 
 - Khối plan thu gọn theo lô (plan_view.block_for) + gợi ý thành ngữ (lexicon.hints_for).
 - Parse CHẶT (học từ translate._parse_review_fixes C1/R1): rỗng / cụt / fence mở / thiếu "lines" /
   JSON hỏng = LÔ LỖI. Câu không được trả hợp lệ → KHÔNG đánh rv (để cổng park/thử lại).
+- A8 (2026-11-15): model có ngữ cảnh lớn → phần đầu CẢ PHIM cố định cho mọi lô (film_context.py), lô SIMPLE_FULL_BATCH.
+- A10 (2026-11-15): mỗi câu soát ghi s_act = pass (giữ nháp) / fixed (đã sửa) / new (dịch mới) + s_why (lý do model
+  trả trong «sua»); trace.jsonl giữ lịch sử cũ → mới.
 - Song song có giới hạn (SIMPLE_WORKERS, mặc định 8). Mọi gọi cloud qua
   cloud_retry.call_with_cloud_retry (một chính sách retry). KHÔNG fallback local / switch_preset.
 """
@@ -46,7 +49,8 @@ SYSTEM_PROMPT = (
     "dùng, i = câu đầu tiên của cặp; tối đa 5; không lặp cặp đã có trong bảng). Không có cặp mới → bỏ khoá này.\n"
     "Trả về DUY NHẤT một JSON object:\n"
     "{\"lines\":[{\"i\":<int>,\"vi\":\"<bản cuối>\",\"spk\":\"<tên VI người nói | ?>\",\"to\":\"<tên VI người "
-    "nghe | * | ?>\",\"conf\":<0..1 = độ chắc về spk/to>}],"
+    "nghe | * | ?>\",\"conf\":<0..1 = độ chắc về spk/to>,\"sua\":\"<CHỈ khi vi khác nhap: lý do ngắn ≤12 từ, vd "
+    "«sai nghĩa: 走 là đi chứ không phải chạy», «xưng hô theo cặp Lâm Phàm→Tô Yên»>\"}],"
     "\"new_pairs\":[{\"who\":\"<tên VI>\",\"to\":\"<tên VI>\",\"self\":\"<tự xưng>\",\"call\":\"<gọi>\",\"i\":<int>}]}\n"
     "Đủ MỌI i trong DANH SÁCH (kể cả câu giữ nguyên), đúng thứ tự, không thêm i ngoài DANH SÁCH, không trả câu "
     "NGỮ CẢNH. Không markdown, không chú thích."
@@ -62,7 +66,8 @@ REPAIR_PROMPT = (
     "- empty: câu chưa có bản dịch → dịch mới từ zh.\n"
     "- cjk: còn chữ Hán → dịch hết sang tiếng Việt.\n"
     "Trả về DUY NHẤT JSON: {\"lines\":[{\"i\":<int>,\"vi\":\"…\",\"spk\":\"…\",\"to\":\"…\",\"conf\":<0..1>,"
-    "\"ok\":<true nếu xác nhận câu hiện tại đúng>}]} — đủ mọi i trong DANH SÁCH, không markdown."
+    "\"ok\":<true nếu xác nhận câu hiện tại đúng>,\"sua\":\"<CHỈ khi đổi vi: đã sửa gì, ≤12 từ>\"}]} — đủ mọi i "
+    "trong DANH SÁCH, không markdown."
 )
 
 
@@ -133,8 +138,10 @@ def parse_lines(text: str | None, want: set[int]) -> dict[int, dict]:
             if out[ii]["vi"] != vi.strip():
                 conflict.add(ii)
             continue
+        why = it.get("sua") if it.get("sua") is not None else it.get("why")
         out[ii] = {"vi": vi.strip(), "spk": str(it.get("spk") or "?").strip(),
-                   "to": str(it.get("to") or "?").strip(), "conf": conf, "ok": bool(it.get("ok"))}
+                   "to": str(it.get("to") or "?").strip(), "conf": conf, "ok": bool(it.get("ok")),
+                   "why": " ".join(str(why or "").split())[:160]}
     for ii in conflict:
         out.pop(ii, None)
     return out
@@ -167,9 +174,16 @@ def _ctx_line(r: dict, key: str) -> str:
 
 
 def build_prompt(rows: list[dict], before: list[dict], after: list[dict], pv: PlanView, *,
-                 repair_flags: dict[int, list[dict]] | None = None) -> tuple[str, str]:
-    """(system, user) cho 1 lô. repair_flags → prompt vá (REPAIR_PROMPT + trường loi)."""
-    parts = [pv.block_for(rows, before + after)]
+                 repair_flags: dict[int, list[dict]] | None = None, film=None) -> tuple[str, str]:
+    """(system, user) cho 1 lô. repair_flags → prompt vá (REPAIR_PROMPT + trường loi).
+    film (FilmContext): chế độ full — cả phim + plan đầy đủ đã ở phần đầu (call_llm(prefix=film.text)); ở đây chỉ còn
+    khối «trọng tâm của lô» (nhân vật / cặp / cảnh / thuật ngữ liên quan) để model chú ý đúng chỗ."""
+    focus = pv.block_for(rows, before + after)
+    if film is not None:
+        idx = [int(r["i"]) for r in rows if r.get("i") is not None]
+        head = (f"LÔ NÀY: câu {min(idx)}→{max(idx)} — hồ sơ phim và TOÀN BỘ PHIM ở tin nhắn trước." if idx else "")
+        focus = head + ("\nTRỌNG TÂM CỦA LÔ:\n" + focus if focus else "")
+    parts = [focus]
     hints = lexicon.hints_for([r.get("zh") or "" for r in rows], pv.plan)
     if hints:
         parts.append("GỢI Ý THÀNH NGỮ / LÓNG (có trong lô):\n" + "\n".join(lexicon.hint_lines(hints)))
@@ -197,14 +211,20 @@ def build_prompt(rows: list[dict], before: list[dict], after: list[dict], pv: Pl
 
 # ---------------------------------------------------------------------------- gọi LLM
 def call_llm(system: str, user: str, want: set[int], *, model: str | None, stop_check=None,
-             label: str = "[simple]", pair_sink: list | None = None) -> dict[int, dict]:
+             label: str = "[simple]", pair_sink: list | None = None, prefix: str | None = None) -> dict[int, dict]:
     """1 lần gọi (qua cloud_retry) + parse chặt. Ném lỗi khi lô hỏng.
-    pair_sink: list nhận đề xuất "new_pairs" của lần gọi THÀNH CÔNG (không ảnh hưởng rv)."""
+    pair_sink: list nhận đề xuất "new_pairs" của lần gọi THÀNH CÔNG (không ảnh hưởng rv).
+    prefix: phần đầu cả phim (chế độ full) — message user RIÊNG đứng ngay sau system, giống hệt nhau mọi lô để
+    nhà cung cấp cache được; phần riêng của lô đi ở message sau."""
     import engines.cloud_retry as cloud_retry
     from engines.llm import chat
+    msgs = [{"role": "system", "content": system}]
+    if prefix:
+        msgs.append({"role": "user", "content": prefix})
+    msgs.append({"role": "user", "content": user})
 
     def _once():
-        out = chat([{"role": "system", "content": system}, {"role": "user", "content": user}],
+        out = chat(msgs,
                    model=model, temperature=cfg.temperature(), json_mode=True,
                    max_tokens=cfg.max_tokens(), timeout=cfg.timeout())
         res = parse_lines(out, want)
@@ -244,8 +264,16 @@ def apply_result(store: ScriptStore, rows: list[dict], job: dict, res: dict[int,
             store.note(step, ii, "LLM không trả câu này — giữ chưa rv")
             continue
         if not is_manual(r):
-            store.set_vi(r, got["vi"], step, f"spk={got['spk']} to={got['to']} conf={got['conf']}")
+            before = (r.get("vi") or "").strip()
+            act = "new" if not before else ("pass" if got["vi"] == before else "fixed")
+            note = f"spk={got['spk']} to={got['to']} conf={got['conf']}" + (f" · {got['why']}" if got.get("why") else "")
+            store.set_vi(r, got["vi"], step, note)
             r.pop("fill_pending", None)
+            r["s_act"], r["s_step"] = act, step
+            if act != "pass" and got.get("why"):
+                r["s_why"] = got["why"]
+            else:
+                r.pop("s_why", None)
         r["s_spk"], r["s_to"] = got["spk"], got["to"]
         r["s_conf"] = None if got["conf"] is None else round(got["conf"], 3)
         if got.get("ok"):
@@ -261,7 +289,8 @@ def apply_result(store: ScriptStore, rows: list[dict], job: dict, res: dict[int,
 
 
 def run(store: ScriptStore, pv: PlanView, *, model: str | None, stop_check=None, progress=None,
-        rereview: bool = False, pair_sink: list | None = None, batch: int | None = None) -> dict:
+        rereview: bool = False, pair_sink: list | None = None, batch: int | None = None,
+        film="auto") -> dict:
     """Review mọi câu chưa rv (rereview=True: mọi câu). Lô lỗi → thử lại 1 lượt lô nhỏ (½), tuần tự.
     Câu rác (junk=1, fix 2026-11-13) không bao giờ gửi. batch: cỡ lô (mặc định SIMPLE_BATCH).
     Trả thống kê {n_todo, n_ok, n_fail_lots, n_left}.
@@ -273,7 +302,14 @@ def run(store: ScriptStore, pv: PlanView, *, model: str | None, stop_check=None,
     stats = {"n_todo": len(todo_idx), "n_ok": 0, "n_fail_lots": 0, "n_left": 0, "lots": 0}
     if not todo_idx:
         return stats
-    batch, ctx, workers = (int(batch) if batch else cfg.batch()), cfg.ctx(), cfg.workers()
+    if film == "auto":
+        from . import film_context
+        film = film_context.for_stage(rows, pv, model, label="[simple-review]")
+    if film is not None:            # chế độ window: thống kê y hệt trước (không thêm khoá)
+        stats["context"] = "full"
+        stats["prefix_tokens"] = film.est_tokens
+    batch = int(batch) if batch else (cfg.full_batch() if film is not None else cfg.batch())
+    ctx, workers = cfg.ctx(), cfg.workers()
     lock = threading.Lock()
     done_pos: set[int] = set()      # vị trí câu đã được soát trong lượt gọi này
 
@@ -282,10 +318,10 @@ def run(store: ScriptStore, pv: PlanView, *, model: str | None, stop_check=None,
             raise RuntimeError("stopped by user")
         lot = [rows[p] for p in job["pos"]]
         want = {int(r["i"]) for r in lot}
-        system, user = build_prompt(lot, job["before"], job["after"], pv)
+        system, user = build_prompt(lot, job["before"], job["after"], pv, film=film)
         try:
             res = call_llm(system, user, want, model=model, stop_check=stop_check, label="[simple-review]",
-                           pair_sink=pair_sink)
+                           pair_sink=pair_sink, prefix=film.text if film is not None else None)
         except Exception as e:  # noqa: BLE001
             if "stopped by user" in str(e).lower():
                 raise
@@ -302,7 +338,8 @@ def run(store: ScriptStore, pv: PlanView, *, model: str | None, stop_check=None,
 
     jobs = make_jobs(rows, todo_idx, batch, ctx)
     stats["lots"] = len(jobs)
-    print(f"[simple-review] model={model} · {len(todo_idx)} câu · {len(jobs)} lô × ≤{batch} · ctx ±{ctx} · "
+    print(f"[simple-review] model={model} · {stats.get('context', 'window')} · {len(todo_idx)} câu · {len(jobs)} lô × ≤{batch} · "
+          f"ctx ±{ctx} · "
           f"workers={min(workers, len(jobs))}", flush=True)
     failed: list[dict] = []
     done_n = 0

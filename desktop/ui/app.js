@@ -273,6 +273,7 @@ function scriptMatches(r) {
   if (scriptFilter === "flag" && !(r.s_flags && r.s_flags.length)) return false;
   if (scriptFilter === "unrev" && (r.rv || r.junk)) return false;
   if (scriptFilter === "manual" && !r.manual) return false;
+  if (scriptFilter === "fixed" && !(!r.manual && (r.s_act === "fixed" || r.s_act === "new"))) return false;
   if (scriptFilter === "empty" && (r.vi || "").trim()) return false;
   if (scriptQ) {
     const q = scriptQ.toLowerCase();
@@ -287,16 +288,39 @@ function lineHtml(r, locked, enc) {
   if (r.manual) tags.push('<span class="tag ok">sửa tay</span>');
   else if (!r.rv && !r.junk) tags.push('<span class="tag">chưa soát</span>');
   if (r.unreviewed_accepted) tags.push('<span class="tag">nháp chưa soát</span>');
+  if (!r.manual && r.rv && r.s_act) tags.push(`<span class="tag ${r.s_act === "pass" ? "mut" : "info"}" title="${esc(ACT_TIP[r.s_act] || "")}">${esc(ACT_VI[r.s_act] || r.s_act)}</span>`);
   if (r.s_spk && r.s_spk !== "?") tags.push(`<span class="tag mut">${esc(r.s_spk)} → ${esc(r.s_to || "?")}</span>`);
+  const why = (!r.manual && r.s_why && r.s_act !== "pass") ? `<div class="why small mut">Máy sửa: ${esc(r.s_why)}</div>` : "";
   const has = script.wav.has(Number(r.i));
   return `<div class="ln" data-i="${esc(r.i)}">
     <div class="ln-meta"><b>#${esc(r.i)}</b> <span class="mut">${fmtTime(r.start)}</span> ${tags.join(" ")}</div>
     <div class="zh"><span class="zh-text">${esc(r.zh || "")}</span>${locked || r.junk ? "" : ` <button class="btn xs ghost" data-act="zh-edit" data-i="${esc(r.i)}" title="Sửa câu Trung (khi ASR nghe nhầm)">✎</button>`}</div>
     <textarea class="zh-edit" data-i="${esc(r.i)}" rows="1" spellcheck="false" hidden>${esc(r.zh || "")}</textarea>
-    <textarea class="vi" data-i="${esc(r.i)}" data-junk="${r.junk ? 1 : 0}" rows="2" spellcheck="false"${locked || r.junk ? " readonly" : ""}>${esc(r.vi || "")}</textarea>
+    <textarea class="vi" data-i="${esc(r.i)}" data-junk="${r.junk ? 1 : 0}" rows="2" spellcheck="false"${locked || r.junk ? " readonly" : ""}>${esc(r.vi || "")}</textarea>${why}
     <div class="ln-act"><button class="btn sm" data-act="play" data-i="${esc(r.i)}"${has ? "" : " disabled"} title="${has ? "Nghe giọng đọc câu này" : "Câu này chưa có giọng đọc"}">▶ Nghe</button>
     <button class="btn sm" data-act="clip" data-i="${esc(r.i)}" title="Đọc lại riêng câu này bằng giọng của job">Đọc lại câu</button>
-    <span class="st" data-st="${esc(r.i)}"></span></div></div>`;
+    <button class="btn sm ghost" data-act="hist" data-i="${esc(r.i)}" title="Câu này đã qua những bước nào: nháp → soát → vá → hậu kỳ (cũ → mới, lý do)">Lịch sử</button>
+    <span class="st" data-st="${esc(r.i)}"></span></div><div class="hist small" data-hist="${esc(r.i)}" hidden></div></div>`;
+}
+
+const ACT_VI = { pass: "giữ nháp", fixed: "máy đã sửa", new: "dịch mới" };
+const ACT_TIP = { pass: "Soát xong, bản nháp đã đúng nên giữ nguyên", fixed: "Bước soát/vá đã đổi bản nháp — xem lý do bên dưới hoặc «Lịch sử»", new: "Câu chưa có nháp, máy dịch mới từ câu Trung" };
+const STEP_VI = { nmt: "nháp NMT", review: "soát", "review-retry": "soát lại (lô lỗi)", repair1: "vá lượt 1", repair2: "vá lượt 2", post: "hậu kỳ", force: "dịch lại", junk: "câu rác", unreviewed_accepted: "nhận nháp chưa soát", "review-missing": "soát câu còn thiếu" };
+
+async function toggleHistory(btn) {
+  const i = btn.dataset.i, box = document.querySelector(`[data-hist="${CSS.escape(String(i))}"]`);
+  if (!box) return;
+  if (!box.hidden) { box.hidden = true; return; }
+  box.hidden = false; box.textContent = "đang tải…";
+  try {
+    const d = await api("GET", `/api/v6/jobs/${encodeURIComponent(selected)}/script/${encodeURIComponent(i)}/history`);
+    if (!d.history.length) { box.innerHTML = '<span class="mut">Chưa có lịch sử (job dịch bằng luồng cũ, hoặc trace đã xoay).</span>'; return; }
+    box.innerHTML = d.history.map((h) => {
+      const t = h.ts ? new Date(h.ts * 1000).toLocaleString("vi-VN") : "";
+      const chg = ("old" in h || "new" in h) ? `<div><s class="mut">${esc(h.old || "∅")}</s> → <b>${esc(h.new || "∅")}</b></div>` : "";
+      return `<div class="h-it"><span class="tag mut">${esc(STEP_VI[h.step] || h.step)}</span> <span class="mut">${esc(t)}</span>${chg}${h.why ? `<div class="mut">${esc(h.why)}</div>` : ""}</div>`;
+    }).join("") + (d.n > d.history.length ? `<div class="mut">… ${d.n - d.history.length} mục cũ hơn không hiện</div>` : "");
+  } catch (e) { box.innerHTML = `<span class="err">Lỗi: ${esc(e.message)}</span>`; }
 }
 
 function paintScript(rebuild) {
@@ -308,8 +332,9 @@ function paintScript(rebuild) {
     return;
   }
   const rows = script.rows;
-  const n = { all: rows.length, flag: 0, unrev: 0, manual: 0, empty: 0 };
+  const n = { all: rows.length, flag: 0, unrev: 0, manual: 0, empty: 0, fixed: 0 };
   for (const r of rows) {
+    if (!r.manual && (r.s_act === "fixed" || r.s_act === "new")) n.fixed++;
     if (r.s_flags && r.s_flags.length) n.flag++;
     if (!r.rv && !r.junk) n.unrev++;
     if (r.manual) n.manual++;
@@ -318,7 +343,7 @@ function paintScript(rebuild) {
   if (rebuild || !body.querySelector("#sc-list")) {
     const opt = (k, label) => `<option value="${k}"${scriptFilter === k ? " selected" : ""}>${label} (${n[k]})</option>`;
     body.innerHTML = `<div class="sc-bar">
-        <select id="sc-filter" aria-label="Lọc câu">${opt("all", "Tất cả")}${opt("flag", "Bị cờ")}${opt("unrev", "Chưa soát")}${opt("empty", "Trống")}${opt("manual", "Đã sửa tay")}</select>
+        <select id="sc-filter" aria-label="Lọc câu">${opt("all", "Tất cả")}${opt("flag", "Bị cờ")}${opt("fixed", "Máy đã sửa")}${opt("unrev", "Chưa soát")}${opt("empty", "Trống")}${opt("manual", "Đã sửa tay")}</select>
         <input id="sc-q" placeholder="Tìm trong câu Trung / Việt, hoặc số câu…" value="${esc(scriptQ)}">
         <button class="btn sm" data-act="sc-reload" title="Nạp lại bản dịch từ đĩa">Tải lại</button>
       </div>
@@ -455,6 +480,7 @@ async function detailAction(btn) {
   if (a === "sc-reload") return loadScript();
   if (a === "sc-more") { scriptShown += PAGE; return paintScript(false); }
   if (a === "play") return playLine(btn.dataset.i);
+  if (a === "hist") return toggleHistory(btn);
   if (a === "zh-edit") {
     const ta = document.querySelector(`textarea.zh-edit[data-i="${CSS.escape(btn.dataset.i)}"]`);
     if (ta) { ta.hidden = false; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }

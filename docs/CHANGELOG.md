@@ -1,6 +1,12 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **A8 soát theo ngữ cảnh cả phim** (cần restart :8806) — model DeepSeek/Alibaba: mọi lô soát và vá gửi CÙNG một phần
+  đầu (plan đầy đủ + toàn bộ câu Trung, không có VI) → nhà cung cấp cache được, model thấy cả phim; lô 60 câu (ít lần
+  gọi hơn). Model khác giữ y cách cũ (lô 30, ±4 câu). Khoá `SIMPLE_CONTEXT`, `SIMPLE_FULL_BATCH`, `SIMPLE_FULL_MAX_TOKENS`.
+- **A10 vì sao câu bị sửa** (cần restart :8806 + build lại app) — mỗi câu soát ghi giữ nháp / máy đã sửa / dịch mới
+  kèm lý do model trả; tab Bản dịch: nhãn, lọc «Máy đã sửa», nút «Lịch sử» (nháp → soát → vá → hậu kỳ, cũ → mới).
+- **Sửa:** Cài đặt AI khoá «Phân tích xưng hô» chỉ cho Aurora cả khi `PRONOUN_ANALYZE_MODE=full/fast` (không cần upload).
 - **Không ghi cứng tên model DeepSeek/Alibaba** (cần restart :8806 + build lại app) — `deepseek-chat` /
   `deepseek-reasoner` đã bị DeepSeek khai tử (sau 24/07/2026) mà bộ cài sẵn đang dùng. Nay: nút «Lấy danh sách model»
   ở dòng nhà cung cấp (GET /models bằng key, nạp vào ô gợi ý); bộ cài sẵn DeepSeek/Alibaba hỏi danh sách thật rồi chọn

@@ -6,6 +6,10 @@ Không sửa config.json. Khoá:
   SIMPLE_MODEL             model REVIEW cloud (trống = REVIEW model như luồng cũ: _resolve_review_model)
   SIMPLE_BATCH             số câu / lô review (30)
   SIMPLE_CTX               số câu ngữ cảnh chỉ đọc mỗi phía lô (4)
+  SIMPLE_CONTEXT           A8: auto | full | window — full = mọi lô gửi CẢ PHIM + plan đầy đủ ở phần đầu cố định
+                           (cache được); auto = full khi model là deepseek/… alibaba/… (film_context.py) (auto)
+  SIMPLE_FULL_BATCH        số câu / lô ở chế độ full (60)
+  SIMPLE_FULL_MAX_TOKENS   phần đầu cả phim ước lượng vượt ngưỡng → về window (100000)
   SIMPLE_WORKERS           số lô gọi song song (8)
   SIMPLE_REPAIR_ROUNDS     số lượt vá câu bị cờ (2, tối đa 2)
   SIMPLE_CONF_MIN          ngưỡng conf (độ chắc spk/to) để kiểm xưng hô (0.7)
@@ -169,6 +173,19 @@ def job_pipeline(work_dir, *, fresh: bool = False, stamp: bool = True) -> str:
 
 def batch() -> int:
     return _int("SIMPLE_BATCH", 30, 4, 120)
+
+
+def context_mode() -> str:
+    v = str(get("SIMPLE_CONTEXT", "auto") or "auto").strip().lower()
+    return v if v in ("auto", "full", "window") else "auto"
+
+
+def full_batch() -> int:
+    return _int("SIMPLE_FULL_BATCH", 60, 4, 150)
+
+
+def full_max_tokens() -> int:
+    return _int("SIMPLE_FULL_MAX_TOKENS", 100000, 2000, 2000000)
 
 
 def ctx() -> int:

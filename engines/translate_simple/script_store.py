@@ -113,7 +113,8 @@ class ScriptStore:
                     if (r.get("vi") or "").strip():
                         self._trace("force", r.get("i"), r.get("vi"), "", "force: dịch lại")
                     r["vi"] = ""
-                    for k in ("rv", "mt", "s_spk", "s_to", "s_conf", "s_flags", "s_name_ok", "fill_pending"):
+                    for k in ("rv", "mt", "s_spk", "s_to", "s_conf", "s_flags", "s_name_ok", "fill_pending",
+                              "s_act", "s_step", "s_why"):
                         r.pop(k, None)
             self.rows = rows
             self.write()
