@@ -20,7 +20,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 
 from core.instance import Instance
 from events.bus import bus
@@ -79,6 +79,21 @@ def _import_legacy(inst: Instance):
         server.WORK_ROOT = want
         server.job_queue.WORK_ROOT = want
     return server
+
+
+def versioned_index(ui_dir: Path) -> str:
+    """index.html của UI desktop với app.css / app.js gắn `?v=<giờ sửa file>` — fix 2026-11-15: WebView2 của app desktop
+    giữ app.js CŨ trong cache (server cũ không gửi Cache-Control) nên `git pull` xong vẫn thấy giao diện cũ. Đổi file =
+    đổi URL → cache cũ không bao giờ được dùng nhầm."""
+    html = (ui_dir / "index.html").read_text(encoding="utf-8")
+    for name in ("app.css", "app.js"):
+        try:
+            v = int((ui_dir / name).stat().st_mtime)
+        except OSError as e:
+            print(f"[v6] không đọc được giờ sửa {name}: {e}", flush=True)
+            continue
+        html = html.replace(f'"{name}"', f'"{name}?v={v}"')
+    return html
 
 
 _UI_PAGES = {"/", "/ui3", "/index3.html", "/studio", "/studio/ui", "/films/ui", "/film", "/hongguo2", "/v5-map", "/v6"}
@@ -412,6 +427,11 @@ def create_app(inst: Instance, *, legacy: bool = True):
             @app.get("/v6", include_in_schema=False)
             def _v6_slash():
                 return RedirectResponse("/v6/")
+
+            @app.get("/v6/", include_in_schema=False)
+            @app.get("/v6/index.html", include_in_schema=False)
+            def _v6_index():
+                return HTMLResponse(versioned_index(UI_DIR))
             app.mount("/v6", StaticFiles(directory=str(UI_DIR), html=True), name="ui_v6")
         else:
             app.mount("/", StaticFiles(directory=str(UI_DIR), html=True), name="ui")

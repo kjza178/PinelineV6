@@ -167,7 +167,7 @@ def test_bus_throttles_job_touched():
 def test_tauri_opens_v6_ui():
     rs = (ROOT / "desktop" / "src-tauri" / "src" / "main.rs").read_text(encoding="utf-8")
     # 2026-11-14: mặc định mở UI desktop /v6/ (có thao tác job + hàng chờ); đổi trang qua env / instance.
-    assert 'format!("http://127.0.0.1:{port}{page}")' in rs
+    assert 'format!("http://127.0.0.1:{port}{page}")' in rs and "_v={bust}" in rs   # 2026-11-15: chống cache WebView2
     assert '"/v6/".to_string()' in rs and "PINELINE_DESKTOP_PATH" in rs and '"desktop_path"' in rs
     # UI desktop phải có thao tác (không chỉ bảng xem) và chỉ gọi API khi có việc — không vòng hẹn giờ.
     js = (ROOT / "desktop" / "ui" / "app.js").read_text(encoding="utf-8")

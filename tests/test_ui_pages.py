@@ -63,3 +63,15 @@ def test_ui_files_are_served_no_cache_but_api_untouched():
     c = TestClient(app)
     assert c.get("/v6/app.js").headers["cache-control"] == "no-cache"
     assert "cache-control" not in c.get("/api/v6/jobs").headers
+
+
+def test_desktop_index_assets_are_versioned(tmp_path):
+    """fix 2026-11-15: app.css / app.js gắn ?v=<giờ sửa> → WebView2 không dùng app.js cũ trong cache sau khi cập nhật."""
+    from app.main import versioned_index
+    (tmp_path / "index.html").write_text('<link href="app.css"><script src="app.js"></script>', encoding="utf-8")
+    (tmp_path / "app.css").write_text("x", encoding="utf-8")
+    (tmp_path / "app.js").write_text("x", encoding="utf-8")
+    import os
+    os.utime(tmp_path / "app.js", (1700000000, 1700000000))
+    html = versioned_index(tmp_path)
+    assert 'src="app.js?v=1700000000"' in html and 'href="app.css?v=' in html

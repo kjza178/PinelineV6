@@ -215,7 +215,14 @@ fn main() {
                     std::thread::sleep(Duration::from_millis(400));
                 }
                 // Cùng cổng phục vụ UI desktop /v6/ lẫn các trang cũ (/ Studio, /films/ui, /hongguo2) — mở trang đã chọn.
-                if let Ok(url) = Url::parse(&format!("http://127.0.0.1:{port}{page}")) {
+                // fix 2026-11-15: thêm `_v=<giây>` để WebView2 không lấy trang cũ trong cache sau khi cập nhật code.
+                let base = format!("http://127.0.0.1:{port}{page}");
+                let bust = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+                let sep = if base.contains('?') { '&' } else { '?' };
+                if let Ok(url) = Url::parse(&format!("{base}{sep}_v={bust}")) {
                     let _ = win.navigate(url);
                 }
             });
