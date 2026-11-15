@@ -221,7 +221,10 @@ def test_desktop_ui_has_editing_features_without_timers():
     html = (ui / "index.html").read_text(encoding="utf-8")
     for needle in ("/api/v6/config", "/script-line", "/tts-clip", "/tts-voice", "/api/v6/jobs/", "/file/output.mp4"):
         assert needle in js, needle
-    assert 'id="btn-cfg"' in html and 'id="dlg-cfg"' in html
+    # 2026-11-15: giao diện làm lại — Cài đặt là một màn hình (thanh bên) gộp cấu hình chung + AI, không còn hộp thoại riêng
+    assert 'data-view="settings"' in html and 'id="form-cfg"' in html and 'id="ai-simple"' in html
+    for view in ("jobs", "films", "agent", "settings"):
+        assert f'id="view-{view}"' in html, view
     assert "setInterval" not in js       # UI desktop: không polling
 
 

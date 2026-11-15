@@ -1,6 +1,13 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **Giao diện desktop làm lại** (cần restart :8806; app desktop chỉ cần mở lại — giao diện tải từ server):
+  thanh bên trái (Công việc · Thư viện phim · Trợ lý AI · Cài đặt) thay cho hàng nút + hộp thoại; bảng job gọn (tên,
+  thanh tiến độ 5 bước, trạng thái tiếng Việt, việc đang làm); **một màn hình Cài đặt** gộp «Cài đặt» + «Cài đặt AI»:
+  AI dịch (chọn nhà cung cấp → dán key → Kiểm tra → Áp dụng; tốc độ Tiết kiệm/Cân bằng/Tối đa; danh sách «AI đang làm gì»),
+  Giọng đọc, Âm thanh, Hình ảnh, Thương hiệu — mỗi tuỳ chọn có nhãn + một dòng giải thích, thanh trượt / lựa chọn có
+  mô tả / công tắc, không hiện tên khoá; bảng model từng chức năng, địa chỉ API, tuỳ chọn luồng cũ dồn vào «Nâng cao».
+  Trợ lý AI thành một màn hình chat có câu hỏi gợi ý. Thư viện phim thành một màn hình.
 - **Cài đặt AI chỉ hiện chức năng luồng V6 dùng thật** — «Pass sửa tên», «Pass xưng hô» (cơ chế V2), «Bổ sung cặp xưng hô»,
   «Phân tích xưng hô cả phim» (thử nghiệm đang tắt), «Soát luồng cũ» gấp vào mục «Luồng cũ / thử nghiệm». Agent «rà soát»
   trên job V6 KHÔNG chạy pass tên / xưng hô cũ nữa (soát lại V6 tự xử lý theo plan + kiểm + vá).

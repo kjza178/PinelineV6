@@ -7,124 +7,185 @@
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<header>
-  <h1>Pineline V6</h1>
-  <span id="inst"></span>
-  <span id="conn" class="conn off">mất kết nối</span>
-  <button id="btn-new" class="btn primary">+ Thêm job</button>
-  <button id="btn-cfg" class="btn" title="Cấu hình mặc định cho mọi job: giọng, tốc độ, âm nền, render…">Cài đặt</button>
-  <button id="btn-ai" class="btn" title="Chọn model AI cho từng chức năng (dịch, soát, Agent…) và nhà cung cấp">Cài đặt AI</button>
-  <button id="btn-conf" class="btn warn" hidden title="Tập mới đề xuất tên / xưng hô khác với bảng nhân vật đã chốt của bộ — chọn giữ hay dùng bản mới">Xung đột tên <b id="conf-n"></b></button>
-  <button id="btn-films" class="btn" title="Thư viện phim đã làm + đăng YouTube">Thư viện phim</button>
-  <button id="btn-agent" class="btn" title="Hỏi / ra lệnh cho AI Agent về các job">Agent</button>
-  <input id="q" placeholder="Lọc job…">
-  <span id="count"></span>
-  <nav><a href="/" title="Studio (UI3): sửa lời thoại, giọng đọc, cấu hình">Studio</a><a href="/films/ui">Phim</a><a href="/hongguo2">Hongguo</a></nav>
-</header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-jobs" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></symbol>
+  <symbol id="i-films" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4"/></symbol>
+  <symbol id="i-agent" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/><path d="M9 11h.01M15 11h.01"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4M12 17h.01"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+</svg>
 
-<section id="queuebar">
-  <span class="lbl">Hàng chờ</span>
-  <span id="q-state">—</span>
-  <span class="grow"></span>
-  <span id="sel-count"></span>
-  <button id="btn-enqueue" class="btn primary" disabled>Xếp hàng chạy</button>
-  <button id="btn-dequeue" class="btn" disabled>Gỡ khỏi hàng chờ</button>
-  <button id="btn-q-resume" class="btn primary" hidden title="Đã xem lỗi — gỡ tạm dừng và chạy tiếp các job còn lại">Chạy tiếp hàng chờ</button>
-  <button id="btn-q-log" class="btn" title="Xem job nào đã chạy, lúc nào, kết quả ra sao">Nhật ký</button>
-  <button id="btn-q-stop" class="btn danger" disabled title="Dừng job đang chạy và xoá hàng chờ">Dừng hàng chờ</button>
-</section>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="logo">P</span><div class="brand-t"><b>Pineline</b><small id="inst">V6</small></div></div>
+    <nav class="side-nav" aria-label="Điều hướng chính">
+      <button class="nav-it on" data-view="jobs"><svg><use href="#i-jobs"/></svg><span>Công việc</span><em id="nav-running" hidden></em></button>
+      <button class="nav-it" data-view="films"><svg><use href="#i-films"/></svg><span>Thư viện phim</span></button>
+      <button class="nav-it" data-view="agent"><svg><use href="#i-agent"/></svg><span>Trợ lý AI</span></button>
+      <button class="nav-it" data-view="settings"><svg><use href="#i-settings"/></svg><span>Cài đặt</span></button>
+    </nav>
+    <button id="btn-conf" class="side-alert" hidden title="AI ở một tập đề xuất tên / xưng hô khác bảng nhân vật đã chốt của bộ — bấm để chọn">
+      <svg><use href="#i-warn"/></svg><span>Xung đột tên nhân vật</span><b id="conf-n"></b></button>
+    <div class="side-foot">
+      <div class="side-links">
+        <a href="/" title="Studio (giao diện web đầy đủ)">Studio <svg><use href="#i-ext"/></svg></a>
+        <a href="/hongguo2" title="Hongguo — tải phim">Hongguo <svg><use href="#i-ext"/></svg></a>
+      </div>
+      <div class="conn-row"><span id="conn" class="conn off">Mất kết nối</span></div>
+    </div>
+  </aside>
 
-<div id="msg" hidden></div>
+  <main class="main">
+    <!-- ───────── Công việc ───────── -->
+    <section class="view" id="view-jobs">
+      <header class="page-head">
+        <div><h1>Công việc</h1><p id="count" class="sub"></p></div>
+        <span class="grow"></span>
+        <label class="search"><svg><use href="#i-search"/></svg><input id="q" placeholder="Tìm theo tên phim…" aria-label="Tìm job"></label>
+        <button id="btn-new" class="btn primary"><svg><use href="#i-plus"/></svg>Thêm job</button>
+      </header>
 
-<main>
-  <div id="list">
-    <table>
-      <thead><tr><th class="ck"><input type="checkbox" id="ck-all" title="Chọn tất cả job đang hiện"></th><th>Job</th><th>Trạng thái</th><th>download</th><th>asr</th><th>translate</th><th>tts</th><th>mux</th><th>Ghi chú</th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
-    <div id="empty" hidden>Chưa có job nào. Bấm «+ Thêm job» để bắt đầu.</div>
-  </div>
-  <aside id="detail" hidden></aside>
-</main>
+      <section id="queuebar" class="queuebar">
+        <div class="q-info"><span class="q-dot" id="q-dot"></span><div><b>Hàng chờ</b><span id="q-state">—</span></div></div>
+        <span class="grow"></span>
+        <span id="sel-count" class="sub"></span>
+        <button id="btn-enqueue" class="btn primary" disabled>Chạy job đã chọn</button>
+        <button id="btn-dequeue" class="btn" disabled>Bỏ khỏi hàng chờ</button>
+        <button id="btn-q-resume" class="btn primary" hidden title="Đã xem lỗi — gỡ tạm dừng và chạy tiếp các job còn lại">Chạy tiếp hàng chờ</button>
+        <button id="btn-q-log" class="btn ghost" title="Job nào đã chạy, lúc nào, kết quả ra sao">Nhật ký</button>
+        <button id="btn-q-stop" class="btn danger ghost" disabled title="Dừng job đang chạy và xoá hàng chờ">Dừng tất cả</button>
+      </section>
+
+      <div class="split">
+        <div id="list" class="card">
+          <table class="jobs">
+            <thead><tr><th class="ck"><input type="checkbox" id="ck-all" title="Chọn tất cả job đang hiện"></th><th>Phim</th><th class="c-steps">Tiến độ</th><th class="c-st">Trạng thái</th><th>Đang làm</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <div id="empty" class="empty" hidden>
+            <svg><use href="#i-jobs"/></svg>
+            <h3>Chưa có job nào</h3>
+            <p>Dán link video hoặc chọn file trên máy để bắt đầu lồng tiếng.</p>
+            <button class="btn primary" data-open="new"><svg><use href="#i-plus"/></svg>Thêm job đầu tiên</button>
+          </div>
+        </div>
+        <aside id="detail" class="card" hidden></aside>
+      </div>
+    </section>
+
+    <!-- ───────── Thư viện phim ───────── -->
+    <section class="view" id="view-films" hidden>
+      <header class="page-head">
+        <div><h1>Thư viện phim</h1><p id="films-stats" class="sub"></p></div>
+        <span class="grow"></span>
+        <button type="button" class="btn" id="films-sync" title="Đọc lại mọi job để cập nhật thư viện">Đồng bộ</button>
+      </header>
+      <div class="toolbar">
+        <label class="search"><svg><use href="#i-search"/></svg><input id="films-q" placeholder="Tìm theo tên phim / mã job…"></label>
+        <select id="films-status" aria-label="Lọc trạng thái"><option value="">Mọi trạng thái</option><option value="done">Xong, chưa đăng</option><option value="uploaded">Đã đăng</option><option value="uploading">Đang đăng</option><option value="running">Đang làm</option><option value="failed">Lỗi</option></select>
+        <span class="grow"></span>
+        <label class="inline">Khi đăng YouTube: <select id="films-privacy"><option value="unlisted">Không công khai</option><option value="private">Riêng tư</option><option value="public">Công khai</option></select></label>
+      </div>
+      <div class="card scroll"><table class="data"><thead><tr><th>Phim</th><th>Trạng thái</th><th>Thời lượng</th><th>Xong lúc</th><th>YouTube</th><th></th></tr></thead><tbody id="films-rows"></tbody></table></div>
+    </section>
+
+    <!-- ───────── Trợ lý AI ───────── -->
+    <section class="view" id="view-agent" hidden>
+      <header class="page-head">
+        <div><h1>Trợ lý AI</h1><p class="sub">Hỏi về job, hàng chờ, lỗi. Mặc định trợ lý chỉ xem, không thao tác.</p></div>
+        <span class="grow"></span>
+        <button type="button" class="btn ghost" id="agent-clear">Cuộc trò chuyện mới</button>
+      </header>
+      <div class="chat card">
+        <div id="agent-log" aria-live="polite">
+          <div class="chat-hello">
+            <p>Thử hỏi:</p>
+            <div class="chips">
+              <button type="button" class="chip" data-ask="Job nào đang lỗi và vì sao?">Job nào đang lỗi và vì sao?</button>
+              <button type="button" class="chip" data-ask="Tóm tắt hàng chờ hiện tại">Tóm tắt hàng chờ hiện tại</button>
+              <button type="button" class="chip" data-ask="Hôm nay đã làm xong những phim nào?">Hôm nay đã làm xong những phim nào?</button>
+            </div>
+          </div>
+        </div>
+        <form id="form-agent" class="chat-input">
+          <textarea id="agent-msg" rows="2" placeholder="Nhập câu hỏi… (Ctrl+Enter để gửi)"></textarea>
+          <div class="chat-bar">
+            <label class="switch"><input type="checkbox" id="agent-mutate"><span></span>Cho phép thao tác (xếp hàng, dừng job)</label>
+            <span class="grow"></span>
+            <button type="submit" class="btn primary" id="agent-send">Gửi</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ───────── Cài đặt ───────── -->
+    <section class="view" id="view-settings" hidden>
+      <header class="page-head"><div><h1>Cài đặt</h1><p class="sub" id="cfg-meta">Áp dụng cho các job chạy sau khi lưu.</p></div></header>
+      <div class="set-wrap">
+        <nav class="set-nav" aria-label="Mục cài đặt">
+          <button class="set-it on" data-pane="ai">AI dịch</button>
+          <button class="set-it" data-pane="voice">Giọng đọc</button>
+          <button class="set-it" data-pane="audio">Âm thanh</button>
+          <button class="set-it" data-pane="video">Hình ảnh</button>
+          <button class="set-it" data-pane="brand">Thương hiệu</button>
+          <button class="set-it" data-pane="advanced">Nâng cao</button>
+        </nav>
+        <div class="set-body">
+          <div class="pane" data-pane="ai" id="ai-simple"></div>
+          <div class="pane" data-pane="advanced" hidden>
+            <h2>Nâng cao</h2><p class="sub">Chọn AI riêng cho từng việc, địa chỉ API và các tuỳ chọn ít dùng.</p>
+            <div class="callout warn"><b>Dành cho lúc cần chỉnh sâu.</b> Thông thường chỉ cần mục «AI dịch». Sửa ở đây có thể làm job chạy sai model.</div>
+            <form id="form-ai">
+              <div id="ai-body"></div>
+              <p id="ai-err" class="err" hidden></p>
+              <div class="save-bar"><span class="grow"></span><button type="submit" class="btn primary" id="ai-ok">Lưu cấu hình AI nâng cao</button></div>
+            </form>
+          </div>
+          <form id="form-cfg" class="cfg-form">
+            <div id="cfg-body"></div>
+            <div class="save-bar" id="cfg-bar" hidden>
+              <span id="cfg-dirty" class="sub">Có thay đổi chưa lưu</span><span class="grow"></span>
+              <p id="cfg-err" class="err" hidden></p>
+              <button type="button" class="btn ghost" id="cfg-cancel">Hoàn tác</button>
+              <button type="submit" class="btn primary" id="cfg-ok">Lưu thay đổi</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="msg" role="status" hidden></div>
+<datalist id="dl-models"></datalist>
 
 <dialog id="dlg-new">
   <form method="dialog" id="form-new">
     <h2>Thêm job</h2>
-    <label>Link video / playlist, hoặc đường dẫn file / thư mục trên máy
-      <input id="new-src" autocomplete="off" placeholder="https://…  hoặc  D:\phim\tap01.mp4" required>
-    </label>
-    <label class="row"><input type="checkbox" id="new-move"> Chuyển file vào thư mục job (không chép) — chỉ áp dụng cho file trên máy</label>
+    <p class="sub">Link video / playlist, hoặc đường dẫn file / thư mục trên máy.</p>
+    <input id="new-src" autocomplete="off" placeholder="https://…   hoặc   D:\phim\tap01.mp4" required>
+    <label class="check"><input type="checkbox" id="new-move"> Chuyển file vào thư mục job thay vì chép (chỉ với file trên máy)</label>
     <p id="new-err" class="err" hidden></p>
     <div class="actions">
-      <button type="button" class="btn" id="new-cancel">Huỷ</button>
+      <button type="button" class="btn ghost" id="new-cancel">Huỷ</button>
       <button type="submit" class="btn primary" id="new-ok">Tạo job</button>
     </div>
   </form>
 </dialog>
 
-<dialog id="dlg-cfg">
-  <form method="dialog" id="form-cfg">
-    <h2>Cài đặt chung (cấu hình batch)</h2>
-    <p class="hint">Áp dụng cho job xếp hàng sau khi lưu, và cho job đang chờ chưa ghim cấu hình riêng. <span id="cfg-meta"></span></p>
-    <div id="cfg-body" class="cfg"></div>
-    <p id="cfg-err" class="err" hidden></p>
-    <div class="actions">
-      <button type="button" class="btn" id="cfg-cancel">Huỷ</button>
-      <button type="submit" class="btn primary" id="cfg-ok">Lưu</button>
-    </div>
-  </form>
+<dialog id="dlg-log" class="wide">
+  <div class="dlg-head"><h2>Nhật ký hàng chờ</h2><span class="grow"></span><button type="button" class="btn ghost" id="log-close">Đóng</button></div>
+  <div class="scroll"><table class="data"><thead><tr><th>Lúc</th><th>Kết quả</th><th>Phim</th><th>Chi tiết</th></tr></thead><tbody id="log-rows"></tbody></table></div>
 </dialog>
 
-<dialog id="dlg-ai">
-  <form method="dialog" id="form-ai">
-    <div class="dlg-head"><h2>Cài đặt AI</h2><span class="grow"></span>
-      <span class="mut">Bộ cài sẵn:</span><span id="ai-presets"></span></div>
-    <p class="hint">Mỗi chức năng dùng một model. Để trống = dùng model dự phòng (cột «Đang dùng» cho biết thực tế sẽ chạy model nào).
-      Tiền tố: <code>deepseek/…</code> · <code>alibaba/…</code> · <code>chatgpt/…</code> (Aurora) · <code>local</code> (llama :8083) · <code>local/&lt;tên&gt;</code> (Ollama).
-      Lưu là có hiệu lực ở lần gọi kế tiếp, không cần khởi động lại.</p>
-    <div id="ai-body" class="ai"></div>
-    <p id="ai-err" class="err" hidden></p>
-    <div class="actions">
-      <button type="button" class="btn" id="ai-cancel">Đóng</button>
-      <button type="submit" class="btn primary" id="ai-ok">Lưu</button>
-    </div>
-  </form>
-  <datalist id="dl-models"></datalist>
-</dialog>
-
-<dialog id="dlg-films">
-  <div class="dlg-head"><h2>Thư viện phim</h2><span id="films-stats" class="mut"></span><span class="grow"></span>
-    <button type="button" class="btn" id="films-sync" title="Đọc lại manifest mọi job để cập nhật thư viện">Đồng bộ</button>
-    <button type="button" class="btn" id="films-close">Đóng</button></div>
-  <div class="sc-bar">
-    <input id="films-q" placeholder="Tìm theo tên phim / mã job…">
-    <select id="films-status" aria-label="Lọc trạng thái"><option value="">Mọi trạng thái</option><option value="done">Xong, chưa đăng</option><option value="uploaded">Đã đăng</option><option value="uploading">Đang đăng</option><option value="running">Đang làm</option><option value="failed">Lỗi</option></select>
-    <label class="row mut">Đăng ở chế độ <select id="films-privacy"><option value="unlisted">Không công khai</option><option value="private">Riêng tư</option><option value="public">Công khai</option></select></label>
-  </div>
-  <div class="logwrap tall"><table><thead><tr><th>Phim</th><th>Trạng thái</th><th>Thời lượng</th><th>Xong lúc</th><th>YouTube</th><th></th></tr></thead><tbody id="films-rows"></tbody></table></div>
-</dialog>
-
-<dialog id="dlg-agent">
-  <div class="dlg-head"><h2>AI Agent</h2><span class="grow"></span><button type="button" class="btn" id="agent-clear" title="Xoá cuộc trò chuyện">Mới</button><button type="button" class="btn" id="agent-close">Đóng</button></div>
-  <div id="agent-log" aria-live="polite"><p class="hint">Hỏi về job, hàng chờ, lỗi… vd: «job nào đang lỗi và vì sao?», «tóm tắt hàng chờ». Agent chỉ ĐỌC trừ khi bật ô bên dưới.</p></div>
-  <form id="form-agent">
-    <textarea id="agent-msg" rows="2" placeholder="Nhập câu hỏi (Ctrl+Enter để gửi)…"></textarea>
-    <div class="actions"><label class="row mut"><input type="checkbox" id="agent-mutate"> Cho phép Agent thao tác (xếp hàng / dừng job)</label><span class="grow"></span>
-      <button type="submit" class="btn primary" id="agent-send">Gửi</button></div>
-  </form>
-</dialog>
-
-<dialog id="dlg-conf">
-  <div class="dlg-head"><h2>Xung đột bảng nhân vật của bộ</h2><span class="grow"></span><button type="button" class="btn" id="conf-close">Đóng</button></div>
-  <p class="hint">Bảng nhân vật / xưng hô / thuật ngữ của cả bộ KHÔNG bị tập mới âm thầm ghi đè. Khi AI ở một tập đề xuất khác bản đã chốt,
-    hệ thống giữ bản đã chốt và ghi lại ở đây. «Dùng bản mới» = các tập SAU dùng bản mới (tập đã dịch không tự đổi).</p>
-  <div class="logwrap tall"><table><thead><tr><th>Bộ</th><th>Mục</th><th>Đang dùng</th><th>Đề xuất</th><th>Từ tập</th><th></th></tr></thead><tbody id="conf-rows"></tbody></table></div>
-</dialog>
-
-<dialog id="dlg-log">
-  <h2>Nhật ký hàng chờ</h2>
-  <div class="logwrap"><table><thead><tr><th>Lúc</th><th>Kết quả</th><th>Job</th><th>Chi tiết</th></tr></thead><tbody id="log-rows"></tbody></table></div>
-  <div class="actions"><button type="button" class="btn" id="log-close">Đóng</button></div>
+<dialog id="dlg-conf" class="wide">
+  <div class="dlg-head"><h2>Xung đột tên nhân vật</h2><span class="grow"></span><button type="button" class="btn ghost" id="conf-close">Đóng</button></div>
+  <p class="sub">Bảng nhân vật của mỗi bộ phim không bị tập mới tự ghi đè. Khi AI ở một tập đề xuất khác bản đã chốt, hệ thống giữ bản cũ và hỏi bạn ở đây.
+    «Dùng bản mới» áp cho các tập dịch sau.</p>
+  <div class="scroll"><table class="data"><thead><tr><th>Bộ phim</th><th>Mục</th><th>Đang dùng</th><th>Đề xuất mới</th><th>Từ tập</th><th></th></tr></thead><tbody id="conf-rows"></tbody></table></div>
 </dialog>
 
 <script src="app.js"></script>
