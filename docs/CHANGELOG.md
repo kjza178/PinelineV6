@@ -1,6 +1,13 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **Rà model theo khuyến nghị** (cần restart :8806 + build lại app):
+  - Sửa: Agent / Agent dự phòng chọn Aurora (`chatgpt/…`) hoặc Ollama (`local/<tên>`) bị gửi nhầm tới llama :8083 →
+    không chạy. Nay qua `engines.llm.chat` bằng giao thức JSON {tool,args}|{final}.
+  - Sửa: plan dự phòng (khi model plan lỗi) dùng `SIMPLE_MODEL` thay vì `TRANSLATE_MODEL` (máy đặt model local nhỏ
+    cho dịch phụ → Aurora lỗi là cả bảng nhân vật do model 12B lập).
+  - «Cài đặt AI» thêm bộ cài sẵn «Khuyến nghị»: DeepSeek cho soát/dịch, pass tên, pass xưng hô, Agent; Aurora cho plan
+    (`PLAN_MODE=file`) + Agent dự phòng; local cho dịch chữ trên hình và sửa job treo.
 - **A14 song song theo nhà cung cấp + cỡ lô tự tính** (cần restart :8806 + build lại app) — DeepSeek/Alibaba gửi
   32 lô cùng lúc (chỉnh «Song song» ở dòng nhà cung cấp trong «Cài đặt AI»; Aurora/local vẫn 8). Cỡ lô = số câu ÷ số
   request song song (40–200 câu, không vượt «Trần output») → cả phim xong trong ~1 đợt. Lô 200 câu cần trần output

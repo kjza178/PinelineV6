@@ -846,7 +846,11 @@ def _build_plan_sample(
     )
 
     primary_model = model or plan_model() or None
-    fallback_model = _tmodel() or primary_model or "local"
+    # fix 2026-11-15: dự phòng ưu tiên model soát chính (SIMPLE_MODEL, vd DeepSeek) — trước đây là TRANSLATE_MODEL,
+    # mà máy đặt model local nhỏ cho việc dịch phụ → Aurora lỗi là bảng nhân vật cả tập do model 12B lập.
+    fallback_model = ((_cfg_get("SIMPLE_MODEL") or "").strip() or _tmodel() or primary_model or "local")
+    if fallback_model == primary_model:
+        fallback_model = _tmodel() or primary_model or "local"
     data: dict = {}
     print(f"[plan] sample-mode model={primary_model or 'default'}…", flush=True)
     try:

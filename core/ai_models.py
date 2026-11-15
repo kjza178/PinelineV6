@@ -137,6 +137,12 @@ BY_ID = {f.id: f for f in FUNCTIONS}
 # Lúc áp, hỏi GET /models bằng key đã lưu rồi chọn bản «flash» (providers.pick_model) cho mọi chức năng.
 _PRESET_FUNCS = ("review", "plan", "name", "pronoun", "pair_fill", "translate", "legacy_review", "hang_fix", "agent")
 PRESETS: dict[str, dict] = {
+    # Khuyến nghị 2026-11-15: DeepSeek làm việc nặng / chặn hàng chờ; Aurora plan (đọc cả tập qua file, tới khi xong
+    # A7) + Agent dự phòng (khác nhà cung cấp); local cho việc nhỏ không tốn tiền (dịch chữ trên hình, sửa job treo).
+    "recommended": {"label": "Khuyến nghị (DeepSeek + Aurora + local)", "plan_mode": "file", "provider": "deepseek",
+                    "provider_funcs": ("review", "name", "pronoun", "agent"),
+                    "models": {"plan": "chatgpt/gpt-5-6-mini", "agent_fallback": "chatgpt/gpt-5-6-mini",
+                               "translate": "local", "hang_fix": "local", "pair_fill": ""}},
     "deepseek": {"label": "Tất cả DeepSeek", "plan_mode": "sample", "provider": "deepseek"},
     "alibaba": {"label": "Tất cả Alibaba (Qwen)", "plan_mode": "sample", "provider": "alibaba"},
     "aurora": {"label": "Aurora (ChatGPT)", "plan_mode": "file",
@@ -176,13 +182,15 @@ def fetch_models(name: str, *, api_key: str | None = None, base_url: str | None 
 
 
 def _preset_models(pr: dict) -> dict:
-    if "models" in pr:
+    if "provider" not in pr:
         return dict(pr["models"])
     res = fetch_models(pr["provider"])                 # ValueError nếu chưa có key / lỗi mạng
     if not res["suggested"]:
         raise ValueError(f"{res['label']}: không tìm thấy model dịch được trong danh sách ({len(res['models'])} model)"
                          " — chọn tay ở từng chức năng")
-    return {k: res["suggested"] for k in _PRESET_FUNCS}
+    out = {k: res["suggested"] for k in pr.get("provider_funcs", _PRESET_FUNCS)}
+    out.update(pr.get("models") or {})
+    return out
 
 
 def provider_of(model: str) -> str:

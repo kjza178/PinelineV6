@@ -752,7 +752,7 @@ async function saveAI(ev) {
 async function aiAction(btn) {
   if (btn.dataset.ai === "preset") {
     const label = btn.textContent;
-    const prov = { deepseek: "DeepSeek", alibaba: "Alibaba" }[btn.dataset.preset];
+    const prov = { deepseek: "DeepSeek", alibaba: "Alibaba", recommended: "DeepSeek" }[btn.dataset.preset];
     const note = prov ? `\nTên model lấy từ danh sách thật của ${prov} (ưu tiên bản «flash») — cần LƯU key trước.` : "";
     if (!confirm(`Áp dụng bộ «${label}» cho mọi chức năng chỉnh được?\n(Lưu ngay vào cấu hình; vẫn sửa lại từng dòng được.)${note}`)) return;
     return act(btn, `Đã áp dụng «${label}»`, async () => { ai = await api("POST", "/api/v6/ai", { preset: btn.dataset.preset }); paintAI(); });

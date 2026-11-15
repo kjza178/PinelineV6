@@ -1778,6 +1778,11 @@ def _chat_turn_model(
                                        tools=TOOLS if use_tools else None,
                                        tool_choice=(tool_choice if tool_choice is not None else "auto") if use_tools else None,
                                        retries=3, timeout=180)
+    # fix 2026-11-15: Aurora (chatgpt/… aurora/…) và Ollama (local/<tên>) trước đây bị gửi nhầm tới AGENT_BASE_URL /
+    # LLM_BASE_URL (llama :8083) kèm tên model đó → Agent / Agent dự phòng chọn Aurora không chạy. Nay đi qua
+    # engines.llm.chat (đúng đường Aurora / Ollama) bằng giao thức JSON {tool,args} | {final} (không cần native tools).
+    if _routed_via_llm(model):
+        return _chat_turn_text_protocol(messages, model, via_llm=True)
     base, key, _ = _llm_cfg()
     url = f"{base}/chat/completions"
     enable_think = (os.getenv("LLM_ENABLE_THINKING") or "").strip() in ("1", "true", "yes")
@@ -1809,8 +1814,57 @@ def _chat_turn_model(
     return choice.get("message") or {}
 
 
-def _chat_turn_text_protocol(messages: list[dict], model: str | None = None) -> dict:
-    """Fallback khi model không tool-call: ép JSON {tool,args} hoặc {final}."""
+def _routed_via_llm(model: str | None) -> bool:
+    """Model không đi qua base OpenAI của Agent: Aurora (chatgpt/… aurora/…) hoặc Ollama (local/<tên>)."""
+    m = (model or "").strip().lower()
+    if m.startswith("local/"):
+        return True
+    try:
+        from engines.llm import is_chatgpt
+        return is_chatgpt(m)
+    except Exception as e:  # noqa: BLE001
+        print(f"[agent] không xác định đường đi của model {model!r}: {e}", flush=True)
+        return False
+
+
+def _flatten_for_text(messages: list[dict]) -> list[dict]:
+    """Lịch sử có tool_calls / role=tool → chỉ còn system / user / assistant dạng chữ (đường Aurora / Ollama)."""
+    out = []
+    for m in messages:
+        role = m.get("role")
+        if role == "tool":
+            out.append({"role": "user", "content": f"KẾT QUẢ CÔNG CỤ {m.get('name') or ''}:\n{m.get('content') or ''}"})
+        elif role == "assistant" and m.get("tool_calls"):
+            calls = [{"tool": (c.get("function") or {}).get("name"),
+                      "args": (c.get("function") or {}).get("arguments")} for c in m.get("tool_calls") or []]
+            out.append({"role": "assistant", "content": json.dumps(calls[0] if len(calls) == 1 else calls,
+                                                                   ensure_ascii=False)})
+        else:
+            out.append({"role": role or "user", "content": m.get("content") or ""})
+    return out
+
+
+def _tool_menu() -> str:
+    lines = []
+    for t in TOOLS:
+        f = t.get("function") or {}
+        params = list(((f.get("parameters") or {}).get("properties") or {}).keys())
+        lines.append(f"- {f.get('name')}({', '.join(params)}): {str(f.get('description') or '')[:140]}")
+    return "\n".join(lines)
+
+
+def _chat_turn_text_protocol(messages: list[dict], model: str | None = None, *, via_llm: bool = False) -> dict:
+    """Fallback khi model không tool-call: ép JSON {tool,args} hoặc {final}.
+    via_llm=True: gọi qua engines.llm.chat (Aurora / Ollama) thay vì base OpenAI của Agent."""
+    if via_llm:
+        from engines.llm import chat as _llm_chat
+        sys_msg = {"role": "system", "content": (
+            "Bạn gọi được các CÔNG CỤ sau (không có native tools):\n" + _tool_menu() + "\n"
+            "Mỗi lượt CHỈ trả MỘT JSON thuần: {\"tool\":\"<tên>\",\"args\":{...}} để gọi công cụ, hoặc "
+            "{\"final\":\"câu trả lời cho người dùng\"} khi đã đủ thông tin.")}
+        content = (_llm_chat([sys_msg, *_flatten_for_text(messages)], model=model, temperature=0.2,
+                             json_mode=True, max_tokens=1024, timeout=180) or "").strip()
+        return _text_protocol_message(content)
     extra = {
         "role": "system",
         "content": (
@@ -1852,7 +1906,11 @@ def _chat_turn_text_protocol(messages: list[dict], model: str | None = None) -> 
         )
     r.raise_for_status()
     content = ((r.json().get("choices") or [{}])[0].get("message") or {}).get("content") or ""
-    content = content.strip()
+    return _text_protocol_message(content.strip())
+
+
+def _text_protocol_message(content: str) -> dict:
+    """JSON {final} | {tool,args} → message dict (content / tool_calls giả lập)."""
     m = re.search(r"\{[\s\S]*\}", content)
     if not m:
         return {"content": content}

@@ -202,3 +202,33 @@ def test_provider_concurrency_saved_validated_and_reset(conf):
     ai_models.apply(None, providers_cfg={"deepseek": {"concurrency": ""}})
     assert "DEEPSEEK_CONCURRENCY" not in _file(conf)
     assert next(p for p in ai_models.snapshot()["providers"] if p["name"] == "deepseek")["concurrency"] == 32
+
+
+def test_preset_recommended_mixes_deepseek_aurora_local(conf, monkeypatch):
+    from engines import providers
+    monkeypatch.setattr(providers, "list_models", lambda p, **k: ["deepseek-v4-pro", "deepseek-flash"])
+    ai_models.apply(preset="recommended")
+    d = _file(conf)
+    for k in ("SIMPLE_MODEL", "NAME_MODEL", "PRONOUN_MODEL", "AGENT_MODEL"):
+        assert d[k] == "deepseek/deepseek-flash", k
+    assert d["PLAN_MODEL"] == "chatgpt/gpt-5-6-mini" and d["PLAN_MODE"] == "file"
+    assert d["AGENT_FALLBACK_MODEL"] == "chatgpt/gpt-5-6-mini"
+    assert d["TRANSLATE_MODEL"] == "local" and d["HANG_FIX_MODEL"] == "local"
+    assert "SIMPLE_PAIR_FILL_MODEL" not in d
+
+
+def test_plan_sample_fallback_uses_review_model_not_small_translate_model(conf, monkeypatch):
+    """fix 2026-11-15: Aurora (plan) lỗi → dự phòng SIMPLE_MODEL (DeepSeek), không phải TRANSLATE_MODEL=local."""
+    import engines.translate as T
+    cfg.save_config({"PLAN_MODEL": "chatgpt/gpt-5-6-mini", "PLAN_MODE": "sample",
+                     "SIMPLE_MODEL": "deepseek/deepseek-flash", "TRANSLATE_MODEL": "local"})
+    seen = []
+
+    def chat(msgs, model=None, **k):
+        seen.append(model)
+        if model.startswith("chatgpt/"):
+            raise RuntimeError("Aurora 503")
+        return '{"characters":[{"zh":"林","vi":"Lâm"}]}'
+    monkeypatch.setattr(T, "chat", chat)
+    data = T.build_plan([{"i": 0, "start": 0, "end": 1, "text": "你好"}], work_dir=None)
+    assert seen == ["chatgpt/gpt-5-6-mini", "deepseek/deepseek-flash"] and data["characters"]
