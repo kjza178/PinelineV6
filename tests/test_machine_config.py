@@ -39,7 +39,7 @@ def test_defaults_keep_old_values(cfg):
     cmd = machine.model_start_cmd("gemma4-12b")
     assert cmd[:5] == ["powershell", "-ExecutionPolicy", "Bypass", "-File", str(machine.model_start_script())]
     assert cmd[-1] == "gemma4-12b"
-    assert machine.hongguo_base_url() == "http://127.0.0.1:8000"
+    assert not hasattr(machine, "hongguo_base_url")      # 2026-11-15: Hongguo 1 (:8000) bỏ hẳn
     assert machine.mt_model_dir() == Path(r"E:\models\mt")
     assert machine.library_dir() == Path(r"D:\Lib")
     assert machine.yt_uploader_dir() == Path(r"Z:\yt_uploader")

@@ -15,6 +15,16 @@ from typing import Any
 import os
 
 
+
+def _hg2_ok() -> bool:
+    """Hongguo 2 (engine RPC) có trên máy không — không spawn engine."""
+    try:
+        import agents.hongguo_rpc as rpc
+        return bool(rpc.helper_available())
+    except Exception as e:  # noqa: BLE001
+        print(f"[brain] dò Hongguo 2 lỗi: {e}", flush=True)
+        return False
+
 def _sidecar_url() -> str:
     from core.instance import sidecar_url  # V6 F4: sidecar của instance (v6: 8816), không 8802
     return sidecar_url()
@@ -221,7 +231,7 @@ def build_system_snapshot(work_root: Path, *, max_jobs: int = 25) -> dict[str, A
         "sidecar": _ping(_sidecar_url() + "/api/agent/status"),
         "llama_8083": _ping(_machine.llama_base_url() + "/models"),
         "chatgpt_3377": _ping(_machine.aurora_base_url() + "/models"),
-        "hongguo_8000": _ping(_machine.hongguo_base_url() + "/"),
+        "hongguo2": _hg2_ok(),
     }
 
     # active llama preset

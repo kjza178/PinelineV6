@@ -9,7 +9,7 @@ MẶC ĐỊNH = giá trị cứng cũ của máy gốc → máy hiện tại kh�
 Dịch vụ TUỲ CHỌN (thiếu thì tính năng đó báo lỗi rõ / bỏ qua, pipeline không sập):
   - llama-server + presets (đổi model GGUF bằng script)      → AUTO_SWITCH_PRESETS, MODEL_PRESETS_DIR...
   - Aurora / ChatGPT proxy (model `chatgpt/...`)             → AURORA_BASE_URL / CHATGPT_BASE_URL
-  - Hongguo Downloader (tải phim Hongguo)                    → HONGGUO_BASE_URL
+  - Hongguo 2 (tải phim — engine RPC, agents/hongguo_rpc)    → HG2_* / tự dò thư mục cài
   - 9router / cloud LLM (model `ollama/...-cloud`)           → CLOUD_LLM_BASE_URL
 
 Chỉ dùng stdlib (scripts/check_env.py import được khi chưa cài requirements).
@@ -40,7 +40,6 @@ MACHINE_KEYS: dict[str, tuple[str, str]] = {
     "AURORA_FALLBACK_URLS": ("http://192.168.31.247:5005/v1,http://192.168.31.244:5005/v1", "Aurora dự phòng (phân cách dấu phẩy). 'off' = không dùng"),
     "AGENT_BASE_URL": ("", "LLM cho agent chat/feeder; trống = LLM_BASE_URL"),
     "CLOUD_LLM_BASE_URL": ("", "Router cloud cho model ollama/...-cloud (9router — V6 KHÔNG dùng nữa; trống = tắt)"),
-    "HONGGUO_BASE_URL": ("http://127.0.0.1:8000", "Hongguo Downloader HTTP API — chỉ cần khi dùng tải Hongguo"),
     "MT_MODEL_DIR": (r"E:\models\mt", "Thư mục model MT zh→vi (HachimiMT ct2); MT_ZH_VI_LOCAL = trỏ thẳng 1 model"),
     "LIBRARY_DIR": (r"D:\Lib", "Thư viện phim tải về (Hongguo output / nguồn job)"),
     "YT_UPLOADER_DIR": (r"Z:\yt_uploader", "Thư mục tool yt_uploader (accounts, client_secret.json, queue_state.json)"),
@@ -213,10 +212,6 @@ def cloud_llm_base_url() -> str:
     return setting("CLOUD_LLM_BASE_URL").rstrip("/")
 
 
-def hongguo_base_url() -> str:
-    return setting("HONGGUO_BASE_URL").rstrip("/")
-
-
 def mt_model_dir() -> Path:
     return Path(setting("MT_MODEL_DIR"))
 
@@ -248,7 +243,6 @@ def summary() -> dict:
         "preset_switch": preset_switch_unavailable_reason() or "OK",
         "AURORA(bases)": ", ".join(aurora_base_urls()),
         "CLOUD_LLM_BASE_URL": cloud_llm_base_url(),
-        "HONGGUO_BASE_URL": hongguo_base_url(),
         "MT_MODEL_DIR": str(mt_model_dir()),
         "LIBRARY_DIR": str(library_dir()),
         "YT_UPLOADER_DIR": str(yt_uploader_dir()),

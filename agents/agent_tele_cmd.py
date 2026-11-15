@@ -1172,33 +1172,13 @@ class CtrlHandler(BaseHTTPRequestHandler):
             return
         if path in ("/meta/baike", "/api/meta/baike"):
             from urllib.parse import parse_qs, urlsplit
+            from services import ui_tools
             qs = {k: v[0] for k, v in parse_qs(urlsplit(self.path).query).items()}
-            q = (qs.get("q") or qs.get("title") or "").strip()
-            if not q:
-                self._json(400, {"ok": False, "error": "thiếu tên phim"})
-                return
             try:
-                import agents.hongguo_bridge as hg
-                info = hg.baike_deep(title=q)
-                intro_vi = ""
-                try:
-                    import engines.title_mt as tmt
-                    if info.get("intro"):
-                        tr = tmt.translate_titles([{"series_id": "intro", "title": info["intro"][:300]}])
-                        if tr.get("items"):
-                            intro_vi = tr["items"][0].get("title_vi", "")
-                except Exception:
-                    pass
-                self._json(200, {
-                    "ok": True,
-                    "title": info.get("title") or q,
-                    "tags": info.get("tags") or [],
-                    "intro": info.get("intro") or "",
-                    "intro_vi": intro_vi,
-                    "actors": info.get("actors") or [],
-                    "roles": info.get("roles") or [],
-                })
-            except Exception as e:
+                self._json(200, ui_tools.baike(qs.get("q") or qs.get("title") or ""))
+            except ValueError as e:
+                self._json(400, {"ok": False, "error": str(e)})
+            except Exception as e:  # noqa: BLE001
                 self._json(500, {"ok": False, "error": str(e)})
             return
         if path in ("/canva/status", "/api/canva/status"):
@@ -1826,66 +1806,13 @@ button{{background:#7d2ae8;color:#fff;border:none;padding:10px 20px;border-radiu
                 self._json(200, {"ok": True, "scanned": res})
             return
         if path in ("/meta/ai-image", "/api/meta/ai-image"):
-            import agents.meta_studio as meta_studio
-            import importlib
-            meta_studio = importlib.reload(meta_studio)
-            prompt = str(body.get("prompt") or "").strip()
-            job_id = str(body.get("job_id") or f"gen_{int(time.time())}").strip()
-            hook_1 = str(body.get("hook_1") or body.get("hook_text_1") or "").strip()
-            hook_2 = str(body.get("hook_2") or body.get("hook_text_2") or "").strip()
-            badge = str(body.get("badge") or body.get("badge_text") or "TRỌN BỘ THUYẾT MINH").strip()
-            sub = str(body.get("sub") or body.get("sub_text") or "").strip()
-            style = str(body.get("style") or "fire_gold").strip()
-            poster_name = str(body.get("poster_name") or "").strip()
-
-            if not prompt:
-                self._json(400, {"ok": False, "error": "Thiếu prompt"})
-                return
-            img_bytes = meta_studio.generate_ai_image(
-                prompt,
-                timeout=300,
-                job_id=job_id,
-                poster_name=poster_name,
-            )
-            if not img_bytes:
-                self._json(500, {"ok": False, "error": "Không sinh được ảnh (timeout/lỗi GPT local :3377 hoặc Aurora)"})
-                return
-
-            # 1. Lưu bản Raw AI chất lượng gốc
-            raw_ai_name = f"thumb_{job_id}_ai_raw.png"
-            raw_p = meta_studio.THUMB_DIR / raw_ai_name
-            raw_p.write_bytes(img_bytes)
-
-            # 2. Xử lý chuẩn 16:9 (1280x720) cho YouTube Master Thumbnail
-            # Aurora DALL-E 3 đã vẽ trực tiếp chữ thư pháp 3D lửa và hiệu ứng hoàng tráng.
-            # TUYỆT ĐỐI KHÔNG dùng Pillow phủ đen 58% hay đè font văn phòng lên làm nát artwork AI.
-            jpg_name = f"thumb_{job_id}.jpg"
+            from services import ui_tools
             try:
-                from PIL import Image
-                import io
-                im = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-                tw, th = 1280, 720
-                ratio = im.width / max(im.height, 1)
-                target_ratio = tw / th
-                if ratio > target_ratio:
-                    new_w = int(im.height * target_ratio)
-                    im = im.crop(((im.width - new_w) // 2, 0, (im.width + new_w) // 2, im.height))
-                elif ratio < target_ratio:
-                    new_h = int(im.width / target_ratio)
-                    im = im.crop((0, (im.height - new_h) // 2, im.width, (im.height + new_h) // 2))
-                im = im.resize((tw, th), Image.Resampling.LANCZOS)
-                im.save(meta_studio.THUMB_DIR / jpg_name, format="JPEG", quality=95, optimize=True)
-            except Exception as e_proc:
-                print(f"[meta] Lỗi resize ảnh AI: {e_proc}, ghi trực tiếp bytes", flush=True)
-                (meta_studio.THUMB_DIR / jpg_name).write_bytes(img_bytes)
-
-            self._json(200, {
-                "ok": True,
-                "filename": jpg_name,
-                "raw_ai_filename": raw_ai_name,
-                "url": f"/meta/thumbnail?file={jpg_name}",
-                "raw_url": f"/meta/thumbnail?file={raw_ai_name}",
-            })
+                self._json(200, ui_tools.ai_image(body if isinstance(body, dict) else {}))
+            except ValueError as e:
+                self._json(400, {"ok": False, "error": str(e)})
+            except Exception as e:  # noqa: BLE001
+                self._json(500, {"ok": False, "error": str(e)})
             return
         # Merge parts (job đã làm / split)
         try:

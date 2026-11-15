@@ -2,8 +2,7 @@
 
 2026-11-15 (chủ dự án): Studio (UI3, trước là index3.html) thành trang chính `index.html` ở `/`; UI0 cũ và UI4 bỏ;
 Hongguo 1 (hongguo.html) bỏ, thay bằng hongguo2. Đường cũ giữ được: /ui3, /index3.html, /studio → cùng trang `/`;
-/ui4, /index4.html → chuyển về `/`; /hongguo, /ui-hg → chuyển sang /hongguo2 (CHUYỂN HƯỚNG chứ không phục vụ tại
-chỗ: agents/hg_ui_ctx phân biệt Hongguo 1/2 theo referer «/hongguo» vs «/hongguo2»).
+/ui4, /index4.html → chuyển về `/`; /hongguo, /ui-hg → chuyển sang /hongguo2 (Hongguo 1 đã bỏ hẳn).
 /films|/film|/films/ui = films_ui.html.
 
 Tách từ server.py (đợt 7). Chỉ được nạp từ cuối server.py (sau khi mọi hàm/model lõi đã

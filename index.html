@@ -374,7 +374,7 @@
     <span style="flex:1"></span>
     <a href="/" style="padding:3px 10px;border-radius:999px;background:var(--ok);color:#0c1a0c;border-color:transparent;font-weight:650;text-decoration:none">UI3</a>
     <a href="/hongguo2" style="padding:3px 10px;border-radius:999px;border:1px solid var(--line2);color:var(--text2);text-decoration:none">HG</a>
-    <a href="/films/ui?tab=seasons" style="padding:3px 10px;border-radius:999px;border:1px solid var(--accent-line);color:var(--accent);text-decoration:none;font-weight:650" title="Films UI · Mùa mới">🎬 Phim</a>
+    <a href="/films/ui" style="padding:3px 10px;border-radius:999px;border:1px solid var(--accent-line);color:var(--accent);text-decoration:none;font-weight:650" title="Films UI · Mùa mới">🎬 Phim</a>
     <button type="button" id="btn-agent" onclick="toggleAgent()" title="Pineline V2 Agent" style="padding:3px 10px;border-radius:999px;border:1px solid var(--accent-line);background:var(--accent-dim);color:var(--accent);font-weight:650;cursor:pointer;font-family:inherit;font-size:12px">Agent</button>
   </div>
 
@@ -442,11 +442,11 @@
       <button type="button" class="side-add" onclick="showCompose()">+ Thêm video</button>
       <div class="side-row2">
         <a class="side-hg" href="/hongguo2">Hongguo</a>
-        <a class="side-hg" href="/films/ui?tab=seasons" title="Films UI · Mùa mới" style="border-color:var(--accent);color:var(--accent)">🎬 Phim</a>
+        <a class="side-hg" href="/films/ui" title="Trang Phim" style="border-color:var(--accent);color:var(--accent)">🎬 Phim</a>
         <button type="button" class="btn" title="Enqueue merge mọi series Hongguo chưa DONE" onclick="mergeAllSeries()">Merge all series</button>
       </div>
       <div class="ckbox" id="cookie-box"></div>
-      <div class="slabel" id="qty">Hàng chờ · <a href="/hongguo2" style="color:var(--accent);text-transform:none;letter-spacing:0;font-weight:600">HG</a>/<a href="/films/ui?tab=seasons" style="color:var(--accent);text-transform:none;letter-spacing:0;font-weight:600">Phim</a></div>
+      <div class="slabel" id="qty">Hàng chờ · <a href="/hongguo2" style="color:var(--accent);text-transform:none;letter-spacing:0;font-weight:600">HG</a>/<a href="/films/ui" style="color:var(--accent);text-transform:none;letter-spacing:0;font-weight:600">Phim</a></div>
       <div class="queue" id="list"></div>
       <div class="side-foot"><span class="dg"></span> GPU · gemma4 · chạy lần lượt</div>
     </aside>
@@ -2068,14 +2068,14 @@ async function flushBatchPush(){
   const patch=_batchPending; _batchPending={};
   if(!Object.keys(patch).length) return;
   try{
-    const r=await fetch('http://127.0.0.1:8802/config',{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({opts:patch,by:'ui3'})});
     const d=await r.json();
     if(!r.ok||!d.ok){ _btnFlash('btn-batchcfg-save','✗ '+(d.error||r.status)); return; }
     const ch=Object.entries(d.changed||{}).map(([k,v])=>`${k}=${v}`);
     if(ch.length) _btnFlash('btn-batchcfg-save','✓ Config batch: '+ch.join(', '));
     markPerJobDiff(d.opts||{});
-  }catch(e){ _btnFlash('btn-batchcfg-save','✗ Sidecar :8802 tắt — chưa đồng bộ'); }
+  }catch(e){ _btnFlash('btn-batchcfg-save','✗ Không lưu được cấu hình'); }
 }
 const BATCH_TO_AUTO={audio_mode:'auto-audio',orig_vol:'auto-ovol',translate_mode:'auto-tr-mode',review_backup:'auto-review-backup',ocr:'auto-ocr',
   fit:'auto-fit',resolution:'auto-res',zoom:'auto-zoom',motion:'auto-motion',lut:'auto-lut',
@@ -2089,7 +2089,7 @@ function _btnFlash(id, text){
 }
 async function loadBatchCfg(silent){
   try{
-    const d=await (await fetch('http://127.0.0.1:8802/config')).json();
+    const d=await (await fetch('/config')).json();
     const o=d.opts||{};
     const p=autoPrefLoad();
     for(const [k,id] of Object.entries(BATCH_TO_AUTO)){
@@ -2100,7 +2100,7 @@ async function loadBatchCfg(silent){
     autoPrefApply(); fillAutoFrames(); fillAutoLogos(); autoAudioChanged();
     markPerJobDiff(o);
     if(!silent) _btnFlash('btn-batchcfg-load','✓ Đã nạp');
-  }catch(e){ if(!silent) _btnFlash('btn-batchcfg-load','✗ Sidecar :8802 tắt'); }
+  }catch(e){ if(!silent) _btnFlash('btn-batchcfg-load','✗ Không đọc được cấu hình'); }
 }
 // Giọng/tốc độ/engine hiển thị theo job; viền vàng = khác config batch (queue sẽ dùng giá trị batch)
 function markPerJobDiff(o){
@@ -2121,14 +2121,14 @@ async function saveBatchCfg(){
     Object.assign(o,{voice:all.voice,speed:all.speed,tts_engine:all.tts_engine,asr_engine:all.asr_engine});
   }
   try{
-    const r=await fetch('http://127.0.0.1:8802/config',{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({opts:o,by:'ui3'})});
     const d=await r.json();
     if(!r.ok||!d.ok){ alert('Lưu config batch lỗi: '+(d.error||r.status)); return; }
     const ch=Object.entries(d.changed||{}).map(([k,v])=>`${k}=${v}`);
     _btnFlash('btn-batchcfg-save', ch.length?`✓ Đã lưu (${ch.length} thay đổi)`:'✓ Không đổi');
     const b=document.getElementById('btn-batchcfg-save'); if(b) b.title=ch.length?'Vừa đổi: '+ch.join(', '):'Config batch không đổi';
-  }catch(e){ _btnFlash('btn-batchcfg-save','✗ Sidecar :8802 tắt'); }
+  }catch(e){ _btnFlash('btn-batchcfg-save','✗ Không lưu được cấu hình'); }
 }
 function autoAudioChanged(){
   const m=(document.getElementById('auto-audio')||{}).value;
@@ -2931,7 +2931,7 @@ async function queueClearConfirm(){
 async function queueRunOpts(){
   clearTimeout(_batchTimer); await flushBatchPush();
   try{
-    const d=await (await fetch('http://127.0.0.1:8802/config')).json();
+    const d=await (await fetch('/config')).json();
     if(d&&d.opts) return {...d.opts, brand:(d.opts.brand_mode||'off')!=='off'};
   }catch(e){}
   if(!document.getElementById('auto-voice')){ alert('Sidecar :8802 tắt — mở 1 job để lấy cấu hình từ thanh 1-click, rồi bấm lại'); return null; }
@@ -2995,7 +2995,7 @@ async function runGroupQueue(gid, title){
 }
 
 async function stopJobQueue(){
-  try{ await fetch('http://127.0.0.1:8802/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}); }catch(e){}
+  try{ await fetch('/api/queue/jobs/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}); }catch(e){}
   await fetch('/api/queue/jobs/stop',{method:'POST'});
   void paintQueueStatus(); void refresh();
   try{ refreshAutopilotBtn(); }catch(e){}

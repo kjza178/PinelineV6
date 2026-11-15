@@ -25,8 +25,6 @@ os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS", "1")
 os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 # Hongguo 2.x: 1 helper Pineline (stdio) — giống WinUI giữ 1 engine; không đụng WinUI.exe.
 os.environ.setdefault("HG_HELPER_SINGLETON", "1")
-# Mặc định auto: Hongguo2 ép RPC qua header X-HG-UI:2; Hongguo1 dùng http_first (:8000 → RPC).
-os.environ.setdefault("HG_BACKEND", "auto")
 
 # Nạp config -> env TRƯỚC khi import llm/translate (chúng đọc env lúc import; tiến trình con kế thừa).
 import core.config as _config_boot  # noqa: E402
@@ -6531,7 +6529,7 @@ def delete_job(job_id: str):
     return {"deleted": job_id}
 
 
-# ===== Hongguo Downloader bridge (local :8000) =====
+# ===== Hongguo 2 bridge (engine RPC — agents/hongguo_bridge) =====
 
 
 import core.job_queue as job_queue
@@ -6741,37 +6739,21 @@ for _opt_router in ("routes_films", "routes_uploader_settings"):
 
 
 @app.middleware("http")
-async def _hg1_hg2_split(request, call_next):
-    """Tách hoàn toàn Hongguo1 / Hongguo2.
-
-    - `/api/hg2/*` → rewrite thành `/api/hg/*` (hoặc `/api/disk`) + ép RPC
-    - `/api/hg/*`  → 2026-11-15: KHÔNG ép HTTP :8000 nữa. Hongguo 1 (Downloader :8000) đã ngừng; trước đây mọi
-      `/api/hg/*` (trang Phim: Thư viện chưa làm / Mùa mới / gửi tải; Studio: thư viện, ghép; feeder tự thêm job
-      gọi `/api/hg/library`) bị ép sang :8000 → 502, cả tab hỏng. Nay theo cấu hình HG_BACKEND (mặc định auto =
-      Hongguo 2 nếu có engine, không thì :8000). Muốn ép Hongguo 1: HG_BACKEND=http.
-    """
-    import agents.hg_ui_ctx as ctx
+async def _hg2_alias(request, call_next):
+    """Trang Hongguo 2 gọi `/api/hg2/*` → cùng xử lý với `/api/hg/*` (`/api/hg2/disk` → `/api/disk`).
+    2026-11-15: Hongguo 1 (Downloader :8000) đã bỏ hẳn — mọi `/api/hg/*` dùng Hongguo 2 (engine RPC); trước đây
+    middleware ép `/api/hg/*` sang :8000 → trang Phim, Studio, feeder hỏng (502)."""
     path = request.scope.get("path") or ""
     if path == "/api/hg2/disk" or path.startswith("/api/hg2/disk/"):
-        request.state.hg_ui = "2"
-        ctx.force("rpc")
         new_path = "/api/disk" + path[len("/api/hg2/disk"):]
-        request.scope["path"] = new_path
-        request.scope["raw_path"] = new_path.encode("utf-8")
     elif path.startswith("/api/hg2/"):
-        request.state.hg_ui = "2"
-        ctx.force("rpc")
         new_path = "/api/hg/" + path[len("/api/hg2/"):]
-        request.scope["path"] = new_path
-        request.scope["raw_path"] = new_path.encode("utf-8")
     elif path == "/api/hg2":
-        request.state.hg_ui = "2"
-        ctx.force("rpc")
-        request.scope["path"] = "/api/hg"
-        request.scope["raw_path"] = b"/api/hg"
-    elif path.startswith("/api/hg/") or path == "/api/hg":
-        request.state.hg_ui = "auto"
-        ctx.backend_override.set(None)          # theo HG_BACKEND (hongguo_bridge._hg_backend_pref)
+        new_path = "/api/hg"
+    else:
+        return await call_next(request)
+    request.scope["path"] = new_path
+    request.scope["raw_path"] = new_path.encode("utf-8")
     return await call_next(request)
 
 

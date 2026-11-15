@@ -1,6 +1,7 @@
-"""hongguo_bridge.py — client mỏng gọi Hongguo Downloader local API (:8000).
+"""hongguo_bridge.py — cầu nối tới Hongguo 2 (engine WinUI 2.x, JSON-RPC qua agents/hongguo_rpc.py).
 
-App Hongguo phải đang chạy. Pineline chỉ proxy + queue merge tuần tự.
+2026-11-15: Hongguo 1 (Downloader HTTP :8000, API /dl/*) đã bỏ HẲN khỏi V6 — không còn nhánh HTTP, không còn chọn
+backend (HG_BACKEND). Pineline: tìm / tải / thư viện qua Hongguo 2 + hàng ghép (merge) tuần tự tại chỗ.
 
 Merge Hongguo gốc là -c copy (giữ nguyên bitstream) → series lẫn 1080/720
 sẽ đổi resolution giữa chừng. Pineline chuẩn hoá canvas khi phát hiện lệch.
@@ -25,40 +26,13 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable
 
-DEFAULT_BASE = _machine.hongguo_base_url()  # machine-config: HONGGUO_BASE_URL (mặc định :8000)
+DEFAULT_BASE = ""   # giữ tham số `base` cho chữ ký cũ (route / test); Hongguo 2 không dùng URL
 _TIMEOUT = 30
 _DEFAULT_QUALITIES = [
     {"quality": q, "plays": True, "uses": q, "bytesPerSecond": 0}
     for q in ("1080p", "720p", "540p", "480p", "360p")
 ]
 _SERIES_QUALITIES_FALLBACK = True
-
-
-def apply_request_backend(ui: str | None = None, referer: str | None = None) -> str | None:
-    """Gắn backend theo UI — ủy quyền `hg_ui_ctx` (module không reload)."""
-    import agents.hg_ui_ctx as ctx  # noqa: PLC0415
-    return ctx.apply(ui, referer)
-
-
-# Backend: rpc = Hongguo WinUI 2.x helper.jar (JSON-RPC stdio);
-# http = Downloader 1.x :8000; auto = ưu tiên rpc rồi fallback http;
-# http_first = ưu tiên :8000, chỉ RPC khi HTTP chết (dành cho /hongguo classic).
-def _hg_backend_pref() -> str:
-    try:
-        import agents.hg_ui_ctx as ctx  # noqa: PLC0415
-        ov = ctx.get()
-    except Exception:  # noqa: BLE001
-        ov = None
-    if ov in ("rpc", "http", "auto", "http_first"):
-        return ov
-    v = (os.environ.get("HG_BACKEND") or "").strip().lower()
-    if not v:
-        try:
-            import core.config as _cfg  # noqa: PLC0415
-            v = str(_cfg.get("HG_BACKEND", "") or "").strip().lower()
-        except Exception:  # noqa: BLE001
-            v = ""
-    return v if v in ("rpc", "http", "auto", "http_first") else "auto"
 
 
 def _rpc_mod():
@@ -97,69 +71,15 @@ def _rpc_mod():
     return rpc
 
 
-_rpc_choice: dict[str, Any] = {"at": 0.0, "use": None, "pref": ""}
-
-
-def _http_reachable(base: str = DEFAULT_BASE, timeout: float = 1.5) -> bool:
-    """Downloader 1.x :8000 còn sống? (status không cần token)."""
-    try:
-        import urllib.request
-        req = urllib.request.Request(
-            base.rstrip("/") + "/dl/status",
-            headers={"User-Agent": "Pineline-hg-probe"},
-            method="GET",
-        )
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return int(getattr(r, "status", 200) or 200) < 500
-    except Exception:  # noqa: BLE001
-        return False
-
-
 def _use_rpc() -> bool:
-    pref = _hg_backend_pref()
-    now = time.time()
-    if (
-        _rpc_choice.get("use") is not None
-        and _rpc_choice.get("pref") == pref
-        and now - float(_rpc_choice.get("at") or 0) < 15.0
-    ):
-        return bool(_rpc_choice["use"])
-    use = False
-    if pref == "http":
-        # Classic /hongguo — tuyệt đối không RPC (không license prove)
-        use = False
-    elif pref == "http_first":
-        # (legacy) ưu tiên :8000; chỉ RPC khi HTTP chết — không dùng cho classic nữa
-        if _http_reachable():
-            use = False
-        else:
-            rpc = _rpc_mod()
-            use = bool(rpc.helper_available())
-    else:
-        rpc = _rpc_mod()
-        if not rpc.helper_available():
-            if pref == "rpc":
-                raise RuntimeError(
-                    f"HG_BACKEND=rpc nhưng không thấy engine tại {rpc.engine_dir()}"
-                )
-            use = False
-        elif pref == "rpc":
-            use = True
-        else:
-            # auto: thử ensure nhanh
-            try:
-                rpc.ensure()
-                use = True
-            except Exception:  # noqa: BLE001
-                use = False
-    _rpc_choice.update({"at": now, "use": use, "pref": pref})
-    return use
+    """V6 chỉ dùng Hongguo 2 (engine RPC). Hongguo 1 (Downloader HTTP :8000, API /dl/*) đã bỏ hẳn 2026-11-15.
+    Giữ tên hàm cho các nhánh còn hỏi; luôn True, hoặc báo rõ khi máy chưa có Hongguo 2."""
+    rpc = _rpc_mod()
+    if not rpc.helper_available():
+        raise RuntimeError(f"Chưa có Hongguo 2 trên máy (không thấy engine tại {rpc.engine_dir()}) — cài / mở Hongguo 2")
+    return True
 
 
-# Hongguo Downloader (bản 1.x) gắn HG_UI_TOKEN khi chạy — API /dl/* (trừ status)
-# cần header x-hg-token hoặc cookie hg_ui_<port>. Pineline đọc token từ env
-# process Downloader (kể cả khi cửa sổ đang ẩn/tray).
-# Bản 2.x: xem hongguo_rpc.py (stdio JSON-RPC), không dùng token HTTP.
 _ui_token_cache: dict[str, Any] = {"token": None, "pid": None, "at": 0.0}
 _UI_TOKEN_TTL = 30.0
 
@@ -591,96 +511,69 @@ def lookup_series(series_id: str, base: str = DEFAULT_BASE) -> dict:
     sid = str(series_id or "").strip()
     if not sid:
         raise RuntimeError("thiếu series_id")
-    if _use_rpc():
-        data = _rpc_mod().series_detail(sid)
-        eps = data.get("episode_cnt")
-        out = {
-            "series_id": str(data.get("series_id") or sid),
-            "title": data.get("title") or "",
-            "episode_cnt": _normalize_episode_cnt(eps),
-            "cover": data.get("cover"),
-            "intro": data.get("intro") or "",
-            "complete": data.get("complete"),
-            "tags": data.get("tags") or [],
-            "cast": data.get("cast") or [],
-            "folderName": data.get("folderName") or "",
-            "stem": season_stem(data.get("title") or ""),
-            "core": franchise_core(data.get("title") or ""),
-            "backend": "rpc",
-        }
-        if isinstance(eps, list):
-            out["episodes"] = eps
-            # tổng duration để ước lượng dung lượng
-            try:
-                out["duration_sec"] = sum(int(e.get("durationSec") or 0) for e in eps if isinstance(e, dict))
-            except Exception:
-                pass
-        # Đính kèm seasons + qualities (UI 2.x Download-all) — cùng request, không cần route mới
-        rpc = _rpc_mod()
-        try:
-            if hasattr(rpc, "series_seasons"):
-                out["seasons"] = (rpc.series_seasons(sid) or {}).get("seasons") or []
-            else:
-                raw_s = rpc.call("series.seasons", {"id": sid}) or {}
-                out["seasons"] = [{
-                    "series_id": str(s.get("id") or ""),
-                    "title": s.get("title") or "",
-                    "season": s.get("season"),
-                    "episodes": s.get("episodes") or 0,
-                    "cover": s.get("cover") or "",
-                    "upcoming": bool(s.get("upcoming")),
-                } for s in (raw_s.get("seasons") or [])]
-        except Exception:
-            out["seasons"] = []
-        try:
-            if hasattr(rpc, "series_qualities"):
-                out["qualities"] = (rpc.series_qualities(sid) or {}).get("qualities") or []
-            else:
-                raw_q = rpc.call("series.qualities", {"id": sid}) or {}
-                out["qualities"] = [{
-                    "quality": q.get("quality") or q.get("uses") or "",
-                    "plays": bool(q.get("plays", True)),
-                    "uses": q.get("uses") or q.get("quality") or "",
-                    "bytesPerSecond": q.get("bytesPerSecond") or 0,
-                } for q in (raw_q.get("qualities") or [])]
-        except Exception:
-            out["qualities"] = list(_DEFAULT_QUALITIES)
-        if not out.get("qualities"):
-            out["qualities"] = list(_DEFAULT_QUALITIES)
-        return out
-    data = _req("GET", base, "/dl/episodes", query={"series_id": sid})
-    return {
+    data = _rpc_mod().series_detail(sid)
+    eps = data.get("episode_cnt")
+    out = {
         "series_id": str(data.get("series_id") or sid),
         "title": data.get("title") or "",
-        "episode_cnt": data.get("total"),
+        "episode_cnt": _normalize_episode_cnt(eps),
         "cover": data.get("cover"),
+        "intro": data.get("intro") or "",
+        "complete": data.get("complete"),
+        "tags": data.get("tags") or [],
+        "cast": data.get("cast") or [],
+        "folderName": data.get("folderName") or "",
         "stem": season_stem(data.get("title") or ""),
         "core": franchise_core(data.get("title") or ""),
-        "seasons": [],
-        "qualities": [],
+        "backend": "rpc",
     }
+    if isinstance(eps, list):
+        out["episodes"] = eps
+        # tổng duration để ước lượng dung lượng
+        try:
+            out["duration_sec"] = sum(int(e.get("durationSec") or 0) for e in eps if isinstance(e, dict))
+        except Exception:
+            pass
+    # Đính kèm seasons + qualities (UI 2.x Download-all) — cùng request, không cần route mới
+    rpc = _rpc_mod()
+    try:
+        if hasattr(rpc, "series_seasons"):
+            out["seasons"] = (rpc.series_seasons(sid) or {}).get("seasons") or []
+        else:
+            raw_s = rpc.call("series.seasons", {"id": sid}) or {}
+            out["seasons"] = [{
+                "series_id": str(s.get("id") or ""),
+                "title": s.get("title") or "",
+                "season": s.get("season"),
+                "episodes": s.get("episodes") or 0,
+                "cover": s.get("cover") or "",
+                "upcoming": bool(s.get("upcoming")),
+            } for s in (raw_s.get("seasons") or [])]
+    except Exception:
+        out["seasons"] = []
+    try:
+        if hasattr(rpc, "series_qualities"):
+            out["qualities"] = (rpc.series_qualities(sid) or {}).get("qualities") or []
+        else:
+            raw_q = rpc.call("series.qualities", {"id": sid}) or {}
+            out["qualities"] = [{
+                "quality": q.get("quality") or q.get("uses") or "",
+                "plays": bool(q.get("plays", True)),
+                "uses": q.get("uses") or q.get("quality") or "",
+                "bytesPerSecond": q.get("bytesPerSecond") or 0,
+            } for q in (raw_q.get("qualities") or [])]
+    except Exception:
+        out["qualities"] = list(_DEFAULT_QUALITIES)
+    if not out.get("qualities"):
+        out["qualities"] = list(_DEFAULT_QUALITIES)
+    return out
 
 
 def series_seasons(series_id: str, base: str = DEFAULT_BASE) -> dict:
     sid = str(series_id or "").strip()
     if not sid:
         raise RuntimeError("thiếu series_id")
-    if _use_rpc():
-        return _rpc_mod().series_seasons(sid)
-    # HTTP 1.x: không có seasons RPC — trả 1 mùa hiện tại
-    one = lookup_series(sid, base)
-    return {
-        "series_id": sid,
-        "seasons": [{
-            "series_id": sid,
-            "title": one.get("title") or "",
-            "season": 1,
-            "episodes": one.get("episode_cnt") or 0,
-            "cover": one.get("cover") or "",
-            "upcoming": False,
-        }],
-        "backend": "http",
-    }
+    return _rpc_mod().series_seasons(sid)
 
 
 def series_qualities(series_id: str, base: str = DEFAULT_BASE) -> dict:
@@ -688,24 +581,13 @@ def series_qualities(series_id: str, base: str = DEFAULT_BASE) -> dict:
     sid = str(series_id or "").strip()
     if not sid:
         raise RuntimeError("thiếu series_id")
-    if _use_rpc():
-        try:
-            out = _rpc_mod().series_qualities(sid) or {}
-            if out.get("qualities"):
-                return out
-        except Exception:  # noqa: BLE001
-            pass
-        return {
-            "series_id": sid,
-            "qualities": list(_DEFAULT_QUALITIES),
-            "backend": "rpc",
-            "fallback": True,
-        }
-    return {
-        "series_id": sid,
-        "qualities": list(_DEFAULT_QUALITIES),
-        "backend": "http",
-    }
+    try:
+        out = _rpc_mod().series_qualities(sid) or {}
+        if out.get("qualities"):
+            return out
+    except Exception as e:  # noqa: BLE001
+        print(f"[hongguo] series_qualities {sid}: {e} → dùng mặc định", flush=True)
+    return {"series_id": sid, "qualities": list(_DEFAULT_QUALITIES), "backend": "rpc", "fallback": True}
 
 
 def _normalize_episode_cnt(v) -> int | None:
@@ -746,7 +628,7 @@ def resolve_text(text: str, base: str = DEFAULT_BASE) -> dict:
         try:
             one = lookup_series(text, base)
             _cache_put(one)
-            return {"resolved": [one], "backend": "rpc" if _use_rpc() else "http"}
+            return {"resolved": [one], "backend": "rpc"}
         except Exception as e:  # noqa: BLE001
             return {"resolved": [], "error": str(e)}
     # URL / path chứa series_id → lookup thẳng (2.x links.resolve không hiểu mọi host)
@@ -756,7 +638,7 @@ def resolve_text(text: str, base: str = DEFAULT_BASE) -> dict:
         try:
             one = lookup_series(sid, base)
             _cache_put(one)
-            return {"resolved": [one], "backend": "rpc" if _use_rpc() else "http"}
+            return {"resolved": [one], "backend": "rpc"}
         except Exception as e:  # noqa: BLE001
             # fallback HTTP resolve / RPC links.resolve bên dưới
             err0 = str(e)
@@ -790,17 +672,7 @@ def resolve_text(text: str, base: str = DEFAULT_BASE) -> dict:
             return {"resolved": out, "backend": "rpc"}
         return {"resolved": [], "error": err0 or "links.resolve không ra series", "backend": "rpc",
                 "raw": {k: data.get(k) for k in ("found", "failed", "duplicates") if k in data}}
-    data = _req("POST", base, "/dl/resolve", payload={"text": text})
-    out = []
-    for r in list((data or {}).get("resolved") or []):
-        rr = dict(r)
-        rr["series_id"] = str(rr.get("series_id") or "")
-        rr["episode_cnt"] = _normalize_episode_cnt(rr.get("episode_cnt") or rr.get("total"))
-        rr["stem"] = season_stem(rr.get("title") or "")
-        rr["core"] = franchise_core(rr.get("title") or "")
-        _cache_put(rr)
-        out.append(rr)
-    return {"resolved": out}
+    return {"resolved": [], "error": err0 or "không nhận ra link / mã phim", "backend": "rpc"}
 
 
 def _cache_put(r: dict) -> None:
@@ -970,116 +842,6 @@ def _hongguo_pids() -> list[int]:
         return []
 
 
-def discover_ui_token(force: bool = False) -> str | None:
-    """Lấy HG_UI_TOKEN: env Pineline → cache → env process Downloader."""
-    now = time.time()
-    if not force and _ui_token_cache.get("token") and (
-            now - float(_ui_token_cache.get("at") or 0) < _UI_TOKEN_TTL):
-        return str(_ui_token_cache["token"])
-
-    tok = (os.environ.get("HG_UI_TOKEN") or "").strip()
-    if not tok:
-        try:
-            import core.config as _cfg
-            tok = str(_cfg.get("HG_UI_TOKEN", "") or "").strip()
-        except Exception:  # noqa: BLE001
-            tok = ""
-
-    if not tok and os.name == "nt":
-        for pid in _hongguo_pids():
-            try:
-                env = _read_process_env_win(pid)
-            except Exception:  # noqa: BLE001
-                continue
-            cand = (env.get("HG_UI_TOKEN") or env.get("ui_token") or "").strip()
-            if cand and re.fullmatch(r"[0-9a-fA-F]{16,}", cand):
-                tok = cand
-                _ui_token_cache["pid"] = pid
-                break
-
-    if tok:
-        _ui_token_cache["token"] = tok
-        _ui_token_cache["at"] = now
-    return tok or None
-
-
-def _auth_headers(base: str) -> dict[str, str]:
-    tok = discover_ui_token()
-    if not tok:
-        return {}
-    port = _base_port(base)
-    return {
-        "x-hg-token": tok,
-        "Cookie": f"hg_ui_{port}={tok}",
-    }
-
-
-def _is_ui_auth_error(detail: Any) -> bool:
-    if isinstance(detail, dict):
-        msg = str(detail.get("detail") or detail.get("error") or "")
-    else:
-        msg = str(detail or "")
-    low = msg.lower()
-    return "open the app window" in low or (
-        "unauthorized" in low and "hg" in low
-    ) or "x-hg-token" in low
-
-
-def _req(method: str, base: str, path: str, payload: dict | None = None,
-         query: dict | None = None, timeout: float = _TIMEOUT,
-         _retry_auth: bool = True) -> Any:
-    url = base.rstrip("/") + path
-    if query:
-        url += "?" + urllib.parse.urlencode(
-            {k: v for k, v in query.items() if v is not None}
-        )
-    data = None
-    headers = {"Accept": "application/json"}
-    headers.update(_auth_headers(base))
-    if payload is not None:
-        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        headers["Content-Type"] = "application/json"
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            raw = r.read().decode("utf-8", "replace")
-            return json.loads(raw) if raw else {}
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", "replace")
-        try:
-            detail = json.loads(body)
-        except Exception:  # noqa: BLE001
-            detail = {"error": body[:400] or str(e)}
-        # Token cũ / Downloader mới restart → đọc lại env process rồi thử 1 lần
-        if (
-            _retry_auth
-            and e.code == 403
-            and _is_ui_auth_error(detail)
-        ):
-            _ui_token_cache["token"] = None
-            _ui_token_cache["at"] = 0.0
-            if discover_ui_token(force=True):
-                return _req(
-                    method, base, path, payload=payload, query=query,
-                    timeout=timeout, _retry_auth=False,
-                )
-        if isinstance(detail, dict):
-            detail.setdefault("error", f"HTTP {e.code}")
-            detail["http_status"] = e.code
-            if _is_ui_auth_error(detail):
-                detail["hint"] = (
-                    "Hongguo Downloader đang chạy nhưng thiếu UI token. "
-                    "Mở cửa sổ app (không chỉ tray) hoặc restart Downloader."
-                )
-            raise RuntimeError(json.dumps(detail, ensure_ascii=False)) from e
-        raise RuntimeError(body[:400] or str(e)) from e
-    except urllib.error.URLError as e:
-        raise RuntimeError(
-            f"Không kết nối được Hongguo ({base}): {e.reason}. "
-            "Mở app Hongguo Downloader trước."
-        ) from e
-
-
 def _license_magic(cmd: str, payload: str = "") -> dict | None:
     """Hot-path license ops via search/resolve (works before :8801 reload of /api/hg/license/*).
 
@@ -1110,46 +872,10 @@ def _license_magic(cmd: str, payload: str = "") -> dict | None:
 
 def ping(base: str = DEFAULT_BASE) -> dict:
     try:
-        if _use_rpc():
-            return _rpc_mod().ping()
+        _use_rpc()
+        return _rpc_mod().ping()
     except Exception as e:  # noqa: BLE001
-        if _hg_backend_pref() == "rpc":
-            return {"ok": False, "backend": "rpc", "base": base, "error": str(e)}
-    try:
-        # status không cần token — dùng để biết process sống
-        st = _req("GET", base, "/dl/status", timeout=5)
-        try:
-            cfg = _req("GET", base, "/dl/config", timeout=5)
-        except Exception as e:  # noqa: BLE001
-            msg = str(e)
-            hint = ""
-            try:
-                d = json.loads(msg)
-                hint = str((d or {}).get("hint") or (d or {}).get("detail") or "")
-            except Exception:  # noqa: BLE001
-                hint = msg
-            return {
-                "ok": False,
-                "base": base,
-                "backend": "http",
-                "status_ok": True,
-                "running": bool((st or {}).get("running")),
-                "error": hint or msg,
-                "need_ui": "open the app" in hint.lower() or "unauthorized" in hint.lower(),
-                "has_token": bool(discover_ui_token()),
-            }
-        return {
-            "ok": True,
-            "base": base,
-            "backend": "http",
-            "output_dir": (cfg or {}).get("output_dir"),
-            "running": bool((st or {}).get("running")),
-            "mode": (st or {}).get("mode"),
-            "series_n": len((st or {}).get("series") or []),
-            "has_token": bool(discover_ui_token()),
-        }
-    except Exception as e:  # noqa: BLE001
-        return {"ok": False, "base": base, "backend": "http", "error": str(e)}
+        return {"ok": False, "backend": "rpc", "error": str(e)}
 
 
 def search(q: str, base: str = DEFAULT_BASE, expand: bool = True) -> dict:
@@ -1162,200 +888,61 @@ def search(q: str, base: str = DEFAULT_BASE, expand: bool = True) -> dict:
         mag = _license_magic(cmd, payload)
         if mag is not None:
             return {**mag, "magic": "license", "results": []}
-    if _use_rpc():
-        rpc = _rpc_mod()
-        out = rpc.search(q, page=0)
-        # Giữ enrich web/franchise như bản HTTP khi expand
-        if expand and out.get("results"):
-            by_id = {str(r.get("series_id")): dict(r) for r in out["results"] if r.get("series_id")}
-            for r in by_id.values():
-                r["stem"] = season_stem(r.get("title") or "")
-                r["core"] = franchise_core(r.get("title") or "")
-            try:
-                web_expand_into(by_id, q, workers=6)
-            except Exception:  # noqa: BLE001
-                pass
-            results = list(by_id.values())
-            q_core = franchise_core(q)
-            related = [r for r in results if q_core and q_core in (r.get("title") or "")]
-            groups: list[dict] = []
-            if related and q_core:
-                uniq = order_franchise_items(related)
-                groups.append({
-                    "stem": f"{q_core} · cùng thương hiệu (SS1→SS{len(uniq)})",
-                    "items": uniq,
-                    "n": len(uniq),
-                    "franchise": True,
-                })
-            out = {
-                **out,
-                "results": results,
-                "groups": groups,
-                "expand": True,
-                "core": q_core,
-                "queries": list(out.get("queries") or [q]),
-            }
-        return out
-
-    queries = expand_queries(q) if expand else [q]
-    st0 = season_stem(q)
-    if "之" in st0:
-        tail = st0.split("之", 1)[1].strip()
-        if tail and tail not in queries:
-            queries.append(tail)
-
-    by_id: dict[str, dict] = {}
-    used_q: list[str] = []
-    lock = threading.Lock()
-
-    def _ingest_one(qq: str) -> None:
+    rpc = _rpc_mod()
+    out = rpc.search(q, page=0)
+    # Giữ enrich web/franchise như bản HTTP khi expand
+    if expand and out.get("results"):
+        by_id = {str(r.get("series_id")): dict(r) for r in out["results"] if r.get("series_id")}
+        for r in by_id.values():
+            r["stem"] = season_stem(r.get("title") or "")
+            r["core"] = franchise_core(r.get("title") or "")
         try:
-            data = _req("GET", base, "/dl/search", query={"q": qq})
+            web_expand_into(by_id, q, workers=6)
         except Exception:  # noqa: BLE001
-            return
-        with lock:
-            if qq not in used_q:
-                used_q.append(qq)
-            for r in list((data or {}).get("results") or []):
-                sid = str(r.get("series_id") or "")
-                if not sid or sid in by_id:
-                    continue
-                r = dict(r)
-                r["stem"] = season_stem(r.get("title") or "")
-                r["core"] = franchise_core(r.get("title") or "")
-                r.setdefault("_from_q", qq)
-                by_id[sid] = r
-
-    def _run_many(qs: list[str], workers: int = 6) -> None:
-        qs = [x for x in qs if x]
-        if not qs:
-            return
-        with ThreadPoolExecutor(max_workers=min(workers, len(qs))) as ex:
-            futs = [ex.submit(_ingest_one, qq) for qq in qs]
-            for f in as_completed(futs):
-                try:
-                    f.result()
-                except Exception:  # noqa: BLE001
-                    pass
-
-    _run_many(queries)
-
-    if expand:
-        brands: set[str] = set()
-        q_core0 = franchise_core(q)
-        st_full = season_stem(q)
-        if q_core0:
-            brands.add(q_core0 + "灵界篇")
-            brands.add(q_core0 + "仙界篇")
-        if st_full:
-            brands.add(st_full)
-        with lock:
-            snapshot = list(by_id.values())
-        for r in snapshot:
-            t = r.get("title") or ""
-            for s in ("灵界篇", "仙界篇"):
-                if s in t:
-                    brands.add((r.get("core") or q_core0 or "") + s)
-            if q_core0 and q_core0 in t:
-                brands.add(season_stem(t))
-        # API chỉ dò vài mốc (chậm nếu full 1–20); phủ đủ nhờ web bên dưới
-        api_probes = ("一", "二", "三", "四", "五", "七", "八", "十", "十二", "十五")
-        with lock:
-            done = set(used_q)
-        extra = [
-            f"{b}第{n}季"
-            for b in brands if b
-            for n in api_probes
-            if f"{b}第{n}季" not in done
-        ]
-        _run_many(extra, workers=8)
-
-        # Web hongguoduanju.com — nguồn chính cho mùa cao / sót API (~5–15s)
-        web_expand_into(by_id, q, workers=6)
-
-        _fill_missing_from_cache(by_id, season_stem(q), base)
-        _fill_missing_from_cache(by_id, q_core0 or "", base)
-        for r in list(by_id.values()):
-            t = r.get("title") or ""
-            if q_core0 and q_core0 in t:
-                _fill_missing_from_cache(by_id, season_stem(t), base)
-
-    results = list(by_id.values())
-    q_core = franchise_core(q)
-
-    def _mainline(r: dict) -> bool:
-        t = r.get("title") or ""
-        if not q_core or q_core not in t:
-            return False
-        # bản AI/真人 tách riêng — chỉ hiện khi user gõ đúng
-        if ("真人" in t or "AI真人" in t) and ("真人" not in q and "AI" not in q.upper()):
-            return False
-        if ("杂灵根" in q) or ("BOSS" in q.upper()) or ("boss" in q.lower()):
-            return ("杂灵根" in t) or ("灵界篇" in t) or ("仙界篇" in t)
-        return True
-
-    related = [r for r in results if _mainline(r)]
-    groups: dict[str, list] = {}
-    for r in results:
-        groups.setdefault(r["stem"] or r.get("title") or "?", []).append(r)
-
-    out_groups: list[dict] = []
-    if expand and related and q_core:
-        uniq = order_franchise_items(related)
-        out_groups.append({
-            "stem": f"{q_core} · cùng thương hiệu (SS1→SS{len(uniq)})",
-            "items": uniq,
-            "n": len(uniq),
-            "franchise": True,
-        })
-    out_groups.extend(
-        {"stem": k, "items": v, "n": len(v)} for k, v in groups.items()
-    )
-    return {
-        "results": results,
-        "groups": out_groups,
-        "queries": used_q,
-        "expand": expand,
-        "core": q_core,
-    }
+            pass
+        results = list(by_id.values())
+        q_core = franchise_core(q)
+        related = [r for r in results if q_core and q_core in (r.get("title") or "")]
+        groups: list[dict] = []
+        if related and q_core:
+            uniq = order_franchise_items(related)
+            groups.append({
+                "stem": f"{q_core} · cùng thương hiệu (SS1→SS{len(uniq)})",
+                "items": uniq,
+                "n": len(uniq),
+                "franchise": True,
+            })
+        out = {
+            **out,
+            "results": results,
+            "groups": groups,
+            "expand": True,
+            "core": q_core,
+            "queries": list(out.get("queries") or [q]),
+        }
+    return out
 
 
 def status(base: str = DEFAULT_BASE) -> dict:
-    if _use_rpc():
-        return _rpc_mod().status()
-    return _req("GET", base, "/dl/status")
+    return _rpc_mod().status()
 
 
 def settings(base: str = DEFAULT_BASE) -> dict:
     """WinUI settings.get — saveFolder/quality/parallel…"""
-    if _use_rpc():
-        raw = _rpc_mod().settings_get() or {}
-        return {"ok": True, "settings": raw, "backend": "rpc"}
-    try:
-        raw = _req("GET", base, "/dl/settings") or {}
-        return {"ok": True, "settings": raw, "backend": "http"}
-    except Exception as e:  # noqa: BLE001
-        return {"ok": False, "error": str(e), "settings": {}}
+    raw = _rpc_mod().settings_get() or {}
+    return {"ok": True, "settings": raw, "backend": "rpc"}
 
 
 def settings_update(patch: dict | None = None, base: str = DEFAULT_BASE) -> dict:
     """WinUI settings.update — ghi patch vào helper (cùng store với app)."""
     patch = dict(patch or {})
-    if _use_rpc():
-        raw = _rpc_mod().settings_update(patch) or {}
-        return {"ok": True, "settings": raw, "backend": "rpc"}
-    try:
-        raw = _req("POST", base, "/dl/settings", json=patch) or {}
-        return {"ok": True, "settings": raw, "backend": "http"}
-    except Exception as e:  # noqa: BLE001
-        return {"ok": False, "error": str(e), "settings": {}}
+    raw = _rpc_mod().settings_update(patch) or {}
+    return {"ok": True, "settings": raw, "backend": "rpc"}
 
 
 def cancel(base: str = DEFAULT_BASE) -> dict:
     """Stop all active downloads."""
-    if _use_rpc():
-        return _rpc_mod().cancel()
-    return _req("POST", base, "/dl/cancel")
+    return _rpc_mod().cancel()
 
 
 def cancel_download(series_id: str, base: str = DEFAULT_BASE) -> dict:
@@ -1363,37 +950,25 @@ def cancel_download(series_id: str, base: str = DEFAULT_BASE) -> dict:
     sid = str(series_id or "").strip()
     if not sid:
         raise RuntimeError("series_id trống")
-    if _use_rpc():
-        return _rpc_mod().cancel_download(sid)
-    # HTTP 1.x: thử cancel theo series rồi fallback cancel all
-    try:
-        return _req("POST", base, "/dl/cancel", payload={"series_id": sid})
-    except Exception:  # noqa: BLE001
-        return _req("POST", base, "/dl/cancel")
+    return _rpc_mod().cancel_download(sid)
 
 
 def clear_finished(base: str = DEFAULT_BASE) -> dict:
-    if _use_rpc():
-        return _rpc_mod().clear_finished()
-    return _req("POST", base, "/dl/clear-finished")
+    return _rpc_mod().clear_finished()
 
 
 def remove_download(series_id: str, base: str = DEFAULT_BASE) -> dict:
     sid = str(series_id or "").strip()
     if not sid:
         raise RuntimeError("series_id trống")
-    if _use_rpc():
-        return _rpc_mod().remove_download(sid)
-    return _req("POST", base, "/dl/remove", payload={"series_id": sid})
+    return _rpc_mod().remove_download(sid)
 
 
 def retry_download(series_id: str, base: str = DEFAULT_BASE) -> dict:
     sid = str(series_id or "").strip()
     if not sid:
         raise RuntimeError("series_id trống")
-    if _use_rpc():
-        return _rpc_mod().retry_download(sid)
-    return _req("POST", base, "/dl/retry", payload={"series_id": sid})
+    return _rpc_mod().retry_download(sid)
 
 
 def open_folder(path: str | None = None, name: str | None = None) -> dict:
@@ -1431,14 +1006,7 @@ def submit(
     ids = [str(x).strip() for x in series_ids if str(x).strip()]
     if not ids:
         raise RuntimeError("series_ids trống")
-    if _use_rpc():
-        return _rpc_mod().submit(ids, scores=scores, quality=quality)
-    payload: dict = {"series_ids": ids}
-    if scores:
-        payload["scores"] = scores
-    if quality:
-        payload["quality"] = quality
-    return _req("POST", base, "/dl/submit", payload=payload)
+    return _rpc_mod().submit(ids, scores=scores, quality=quality)
 
 
 def library_update(base: str = DEFAULT_BASE, names: list[str] | None = None) -> dict:
@@ -1457,24 +1025,12 @@ def library_update(base: str = DEFAULT_BASE, names: list[str] | None = None) -> 
                 return refreshed
             except Exception:  # noqa: BLE001
                 raise e
-    payload = {}
-    if names:
-        payload["names"] = [str(x) for x in names if str(x).strip()]
-    return _req("POST", base, "/dl/library/update", payload=payload)
+    raise RuntimeError("Hongguo 2 chưa sẵn sàng")
 
 
 def library_update_info(base: str = DEFAULT_BASE) -> dict:
     """WinUI nút Update info — quét meta/poster, không tải mùa mới."""
-    if _use_rpc():
-        return _rpc_mod().library_update_info()
-    return _req("POST", base, "/dl/library/update-info")
-
-
-def seasons_decline(series_ids: list[str], base: str = DEFAULT_BASE) -> dict:
-    ids = [str(x).strip() for x in series_ids if str(x).strip()]
-    if not ids:
-        raise RuntimeError("series_ids trống")
-    return _req("POST", base, "/dl/library/seasons/decline", payload={"series_ids": ids})
+    return _rpc_mod().library_update_info()
 
 
 def _normalize_browse_items(items: list[dict]) -> list[dict]:
@@ -1687,7 +1243,7 @@ def feed_browse(
         "hasMore": bool(has_more) if results else False,
         "nextOffset": int(next_off),
         "select": sel,
-        "backend": "rpc" if _use_rpc() else "http",
+        "backend": "rpc",
     }
 
 
@@ -1847,9 +1403,7 @@ def rank_page(
     # nếu board chính là chart alias thì không dùng làm filter
     if (board or "").strip().lower() in _RANK_CHART_ALIAS:
         board_id = _resolve_rank_board("", category)
-    if not _use_rpc():
-        return {"results": [], "n": 0, "charts": [], "chart": chart_id, "board": board_id,
-                "source": "unavailable", "backend": "http"}
+    _use_rpc()
     raw = _rpc_mod().rank(chart=chart_id, board=board_id or None, offset=off, limit=size_n) or {}
     charts = _localize_rank_charts(raw.get("charts") or [])
     active = str(raw.get("chart") or chart_id)
@@ -1954,7 +1508,7 @@ def rank(category: str = "all", board: str = "recommend",
             "source": "rank_fallback",
             "warning": cat_out.get("error") or "catalog unavailable",
             "genres": genres(40),
-            "backend": "rpc" if _use_rpc() else "http",
+            "backend": "rpc",
         }
 
     # Ranking 2.x — rank.page charts/boards
@@ -1976,33 +1530,7 @@ def rank(category: str = "all", board: str = "recommend",
             offset=off,
             size=size_n,
         )
-    data = _req(
-        "GET", base, "/dl/rank",
-        query={
-            "category": cat,
-            "board": bd,
-            "offset": max(0, int(offset or 0)),
-            "size": max(1, min(200, int(size or 100))),
-        },
-    )
-    results: list[dict] = []
-    for r in list((data or {}).get("results") or []):
-        rr = dict(r)
-        sid = str(rr.get("series_id") or "")
-        if not sid:
-            continue
-        rr["series_id"] = sid
-        rr["stem"] = season_stem(rr.get("title") or "")
-        rr["core"] = franchise_core(rr.get("title") or "")
-        results.append(rr)
-    return {
-        "results": results,
-        "n": len(results),
-        "has_more": bool((data or {}).get("has_more")),
-        "next_offset": (data or {}).get("next_offset"),
-        "category": cat,
-        "board": bd,
-    }
+    raise RuntimeError("Hongguo 2 chưa sẵn sàng")
 
 
 def genres(limit: int = 25) -> list[str]:
@@ -2087,52 +1615,28 @@ def catalog(
 
 
 def rank_episodes(series_ids: list[str], base: str = DEFAULT_BASE) -> dict:
-    """Bổ sung số tập cho list rank (POST /dl/rank-episodes)."""
+    """Số tập cho list rank — Hongguo 2: hỏi chi tiết từng bộ (Hongguo 1 có /dl/rank-episodes, đã bỏ)."""
     ids = [str(x).strip() for x in (series_ids or []) if str(x).strip()]
-    if not ids:
-        return {"eps": {}}
-    data = _req("POST", base, "/dl/rank-episodes", payload={"series_ids": ids})
-    return data if isinstance(data, dict) else {"eps": {}}
+    eps: dict[str, int] = {}
+    for sid in ids[:60]:
+        try:
+            n = lookup_series(sid).get("episode_cnt")
+            if n:
+                eps[sid] = int(n)
+        except Exception as e:  # noqa: BLE001
+            print(f"[hongguo] rank_episodes {sid}: {e}", flush=True)
+    return {"eps": eps}
 
 
 def preview_series(series_id: str, ep: int = 1, fresh: bool = False,
                    base: str = DEFAULT_BASE, quality: str | None = None) -> dict:
-    """Xem thử 1 tập.
-
-    Ưu tiên HTTP Hongguo :8000 ``/dl/preview`` (CDN free). Nếu :8000 tắt /
-    backend RPC → ``playback.prepare`` (tải MP4 vào hongguo-player, stream qua
-    ``/api/hg/playback/stream?session=``).
-    """
+    """Xem thử 1 tập: Hongguo 2 ``playback.prepare`` (tải MP4 vào hongguo-player, stream qua
+    ``/api/hg/playback/stream?session=``)."""
     sid = str(series_id or "").strip()
     if not sid:
         return {"ok": False, "error": "thiếu series_id"}
     ep_n = max(1, int(ep or 1))
-    # 1) HTTP Downloader 1.x nếu còn sống
-    if not _use_rpc():
-        query: dict[str, Any] = {"series_id": sid, "ep": str(ep_n)}
-        if fresh:
-            query["fresh"] = "1"
-        try:
-            data = _req("GET", base, "/dl/preview", query=query)
-            if isinstance(data, dict) and (data.get("ok") or data.get("url")):
-                return data
-        except Exception as e:  # noqa: BLE001
-            http_err = str(e)
-        else:
-            http_err = "bad_response"
-    else:
-        http_err = "rpc_backend"
-        # vẫn thử :8000 nhanh nếu user mở song song
-        try:
-            query = {"series_id": sid, "ep": str(ep_n)}
-            if fresh:
-                query["fresh"] = "1"
-            data = _req("GET", base, "/dl/preview", query=query, timeout=3)
-            if isinstance(data, dict) and data.get("url"):
-                return data
-        except Exception:  # noqa: BLE001
-            pass
-
+    http_err = ""
     # 2) WinUI helper playback.prepare → file local
     rpc = None
     try:
@@ -2168,26 +1672,23 @@ def preview_series(series_id: str, ep: int = 1, fresh: bool = False,
             return {
                 "ok": False,
                 "error": str(e),
-                "http_error": http_err,
-                "hint": "Cần license prove (Settings) hoặc mở Hongguo :8000 cho /dl/preview",
+                "hint": "Cần license Hongguo 2 (trang Hongguo → Settings)",
             }
     return {
         "ok": False,
         "error": http_err or "preview_unavailable",
-        "hint": "Mở Hongguo Downloader :8000 hoặc bật HG_BACKEND=rpc + license",
+        "hint": "Chưa có Hongguo 2 trên máy",
     }
 
 
 def library(base: str = DEFAULT_BASE) -> dict:
-    if _use_rpc():
-        data = _rpc_mod().library()
-        try:
-            root = Path((_rpc_mod().settings_get() or {}).get("saveFolder") or "") or None
-        except Exception:  # noqa: BLE001
-            root = _machine.library_dir() if _machine.library_dir().is_dir() else None
-    else:
-        data = _req("GET", base, "/dl/library")
-        root = _output_dir(base)
+    _use_rpc()
+    data = _rpc_mod().library()
+    try:
+        root = Path((_rpc_mod().settings_get() or {}).get("saveFolder") or "") or None
+    except Exception as e:  # noqa: BLE001
+        print(f"[hongguo] đọc thư mục lưu của Hongguo 2 lỗi: {e} → LIBRARY_DIR", flush=True)
+        root = _machine.library_dir() if _machine.library_dir().is_dir() else None
     items = list((data or {}).get("items") or [])
     for it in items:
         name = it.get("name") or it.get("title") or ""
@@ -2210,22 +1711,17 @@ def library(base: str = DEFAULT_BASE) -> dict:
                         it["merged_file"] = None
     data["items"] = items
     data["done_n"] = sum(1 for x in items if x.get("done") or x.get("merged"))
-    data.setdefault("backend", "rpc" if _use_rpc() else "http")
+    data.setdefault("backend", "rpc")
     return data
 
 
-def _output_dir(base: str) -> Path | None:
-    if _use_rpc():
-        try:
-            p = (_rpc_mod().settings_get() or {}).get("saveFolder")
-            return Path(p) if p else None
-        except Exception:  # noqa: BLE001
-            return None
+def _output_dir(base: str = "") -> Path | None:
+    """Thư mục lưu phim của Hongguo 2 (settings.saveFolder)."""
     try:
-        cfg = _req("GET", base, "/dl/config", timeout=5)
-        p = (cfg or {}).get("output_dir")
+        p = (_rpc_mod().settings_get() or {}).get("saveFolder")
         return Path(p) if p else None
-    except Exception:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
+        print(f"[hongguo] đọc thư mục lưu của Hongguo 2 lỗi: {e}", flush=True)
         return None
 
 
@@ -2310,7 +1806,7 @@ def resolve_poster_path(name: str, base: str = DEFAULT_BASE) -> Path | None:
 
 
 def fetch_poster(name: str, base: str = DEFAULT_BASE) -> tuple[bytes, str]:
-    """Bytes poster: ưu tiên /dl/poster (auth), fallback file local."""
+    """Bytes poster từ thư mục bộ phim (Hongguo 2 lưu poster cạnh video)."""
     name = (name or "").strip()
     if not name:
         raise RuntimeError("thiếu name")
@@ -2319,23 +1815,6 @@ def fetch_poster(name: str, base: str = DEFAULT_BASE) -> tuple[bytes, str]:
         if is_junk_hg_name(name):
             raise FileNotFoundError("không có poster")
     except ImportError:
-        pass
-    # 1) API Downloader (có token)
-    try:
-        url = (
-            base.rstrip("/")
-            + "/dl/poster?name="
-            + urllib.parse.quote(name)
-        )
-        headers = {"Accept": "image/*,*/*"}
-        headers.update(_auth_headers(base))
-        req = urllib.request.Request(url, headers=headers, method="GET")
-        with urllib.request.urlopen(req, timeout=20) as r:
-            data = r.read()
-            ctype = r.headers.get("Content-Type") or "image/jpeg"
-        if data and len(data) > 32 and not ctype.startswith("application/json"):
-            return data, ctype
-    except Exception:  # noqa: BLE001
         pass
     # 2) File trong D:\Lib\<name>\
     p = resolve_poster_path(name, base)
@@ -2354,7 +1833,7 @@ _IMG_CACHE_TTL = 3600.0  # 1 giờ
 
 
 def fetch_img_proxy(url: str, base: str = DEFAULT_BASE) -> tuple[bytes, str]:
-    """Proxy ảnh cover: RPC ``covers.get`` → file local; HTTP :8000/img; fallback fetch trực tiếp."""
+    """Proxy ảnh cover: Hongguo 2 ``covers.get`` → file local; fallback fetch trực tiếp."""
     url = (url or "").strip()
     if not url:
         raise RuntimeError("thiếu url")
@@ -2372,7 +1851,7 @@ def fetch_img_proxy(url: str, base: str = DEFAULT_BASE) -> tuple[bytes, str]:
 
     is_hg_cdn = any(h in url.lower() for h in ("byteimg.com", "novel-pic", "fqnovel", "pstatp.com", "heic"))
     # 2.x RPC: helper tải/ký cover → path Roaming\HongguoDownloader\covers\…
-    if is_hg_cdn and _use_rpc():
+    if is_hg_cdn:
         try:
             rpc = _rpc_mod()
             out = rpc.call("covers.get", {"url": url}) or {}
@@ -2384,20 +1863,6 @@ def fetch_img_proxy(url: str, base: str = DEFAULT_BASE) -> tuple[bytes, str]:
                     ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
                     ".webp": "image/webp", ".gif": "image/gif", ".heic": "image/heic",
                 }.get(suf, "image/jpeg")
-                if data:
-                    return _store(data, ctype)
-        except Exception:
-            pass
-
-    if is_hg_cdn and str(base).startswith("http"):
-        try:
-            target = base.rstrip("/") + "/img?url=" + urllib.parse.quote(url, safe="")
-            headers = {"Accept": "image/*,*/*"}
-            headers.update(_auth_headers(base))
-            req = urllib.request.Request(target, headers=headers, method="GET")
-            with urllib.request.urlopen(req, timeout=10) as r:
-                data = r.read()
-                ctype = r.headers.get("Content-Type") or "image/jpeg"
                 if data:
                     return _store(data, ctype)
         except Exception:
@@ -2806,6 +2271,39 @@ def normalize_merged_file(
         return {"ok": False, "error": str(e)}
 
 
+def merge_series_copy(folder: Path, on_pct: Callable[[float], None] | None = None) -> dict[str, Any]:
+    """Gộp các tập mảnh (cùng độ phân giải) thành 1 file, giữ nguyên bitstream (ffmpeg concat -c copy).
+    Thay cho Hongguo 1 gộp hộ (/dl/library/merge). Tập lệch độ phân giải → merge_series_normalized."""
+    folder = Path(folder)
+    eps = [p for p in _list_episode_frags(folder) if _probe_wh(p)]
+    if len(eps) < 2:
+        return {"ok": False, "error": f"cần ≥2 tập đọc được (có {len(eps)})"}
+    out_name = f"{folder.name} (merged).mp4"
+    out_path = folder / out_name
+    tmp_root = Path(tempfile.mkdtemp(prefix="hg_copy_merge_"))
+    try:
+        list_txt = tmp_root / "list.txt"
+        with list_txt.open("w", encoding="utf-8") as f:
+            for p in eps:
+                f.write("file '" + p.as_posix().replace("'", "'\\''") + "'\n")
+        partial = folder / (out_name + ".tmp.mp4")
+        if on_pct:
+            on_pct(5.0)
+        cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(list_txt),
+               "-c", "copy", "-f", "mp4", "-movflags", "+faststart", str(partial)]
+        r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if r.returncode != 0 or not partial.exists():
+            return {"ok": False, "error": f"concat: {(r.stderr or r.stdout or '')[-300:] or r.returncode}"}
+        if out_path.exists():
+            out_path.unlink()
+        partial.replace(out_path)
+        if on_pct:
+            on_pct(100.0)
+        return {"ok": True, "merged_file": out_name, "path": str(out_path), "episodes": len(eps)}
+    finally:
+        shutil.rmtree(tmp_root, ignore_errors=True)
+
+
 def merge_series_normalized(
     folder: Path,
     on_pct: Callable[[float], None] | None = None,
@@ -2823,7 +2321,7 @@ def merge_series_normalized(
         return {"ok": False, "error": "need ≥2 episodes", **{k: info[k] for k in
                 ("mixed", "unique", "target") if k in info}}
     if not info.get("mixed"):
-        return {"ok": False, "skipped": True, "reason": "uniform — dùng Hongguo copy",
+        return {"ok": False, "skipped": True, "reason": "uniform — dùng merge_series_copy",
                 "unique": info.get("unique")}
     target = target_wh or info.get("target_wh") or MERGE_MIXED_CANVAS
     if info.get("target_wh") and info["target_wh"][1] > info["target_wh"][0]:
@@ -2935,20 +2433,12 @@ def mark_done(name: str, merged_file: str | None = None, removed: int = 0) -> No
         _save_merge_state()
 
 
-def merge_one(name: str, base: str = DEFAULT_BASE) -> dict:
-    name = (name or "").strip()
-    if not name:
-        raise RuntimeError("thiếu name")
-    return _req("POST", base, "/dl/library/merge", payload={"name": name})
-
-
-def merge_status(base: str = DEFAULT_BASE) -> dict:
-    return _req("GET", base, "/dl/library/merge-status")
-
-
 def open_library(name: str | None = None, base: str = DEFAULT_BASE) -> dict:
-    payload = {"name": name} if name else {}
-    return _req("POST", base, "/dl/library/open", payload=payload)
+    """Mở thư mục bộ phim trong thư viện Hongguo 2 (theo tên thư mục)."""
+    root = _output_dir(base)
+    if name and root and (root / name).is_dir():
+        return open_folder(path=str(root / name))
+    return open_folder(name=name)
 
 
 def _film_db():
@@ -3309,10 +2799,7 @@ def merge_resume(base: str | None = None) -> bool:
 
 
 def merge_queue_state(base: str = DEFAULT_BASE) -> dict:
-    try:
-        ms = merge_status(base)
-    except Exception as e:  # noqa: BLE001
-        ms = {"error": str(e)}
+    ms: dict = {}          # Hongguo 1 merge-status đã bỏ (gộp tại chỗ — xem _merge_phase)
     # review1: GET này (UI/feeder poll) từng tự chạy tiếp hàng gộp → lách cờ instance hg_merge_resume.
     if (os.getenv("PINELINE_FLAG_HG_MERGE_RESUME") or "1").strip().lower() in ("1", "true", "yes", "on"):
         try:
@@ -3520,88 +3007,20 @@ def _merge_worker(base: str) -> None:
                 _finish(name)
                 continue
 
-        # đợi nếu Hongguo đang merge cái khác
-        wait_err = None
-        while True:
-            if _merge_stop:
-                with _merge_lock:
-                    _merge_q.insert(0, name)
-                    _merge_cur = None
-                    _merge_phase.clear()
-                    _save_merge_state()
-                return
-            try:
-                ms = merge_status(base)
-            except Exception as e:  # noqa: BLE001
-                wait_err = str(e)
-                break
-            if not ms.get("running"):
-                break
-            if ms.get("name") == name and (
-                ms.get("done") or (ms.get("pct") or 0) >= 100
-            ):
-                break
-            _set_phase(name, f"chờ Hongguo gộp xong «{ms.get('name') or '?'}»")
-            time.sleep(2.5)
-        if wait_err:
-            _hist(name, "error", wait_err)
+        # Gộp TẠI CHỖ, giữ nguyên chất lượng (ffmpeg concat -c copy). Hongguo 1 từng gộp hộ qua /dl/library/merge —
+        # đã bỏ 2026-11-15 (Hongguo 2 không có API gộp).
+        if not (folder and folder.is_dir()):
+            _hist(name, "error", "không thấy thư mục bộ phim trong thư mục lưu của Hongguo 2")
             _finish(name)
             continue
-
-        # start merge (Hongguo lossless copy — chỉ khi mọi tập cùng res)
-        _set_phase(name, "Hongguo gộp", 0)
+        _set_phase(name, "gộp tập (giữ nguyên chất lượng)", 0)
         try:
-            r = merge_one(name, base)
-            if not r.get("ok") and r.get("busy"):
-                with _merge_lock:
-                    _merge_q.append(name)
-                    if _merge_cur == name:
-                        _merge_cur = None
-                    _save_merge_state()
-                time.sleep(3)
-                continue
-            if not r.get("ok"):
-                _hist(name, "error", r.get("error") or str(r))
-                _finish(name)
-                continue
+            cr0 = merge_series_copy(folder, on_pct=lambda p: _set_phase(name, "gộp tập (giữ nguyên chất lượng)", p))
         except Exception as e:  # noqa: BLE001
-            _hist(name, "error", str(e))
-            _finish(name)
-            continue
-
-        # poll tới xong
-        ok = False
-        err = ""
-        merged_file = None
-        seen_running = False
-        t_start = time.time()
-        for _ in range(3600):
-            if _merge_stop:
-                break
-            try:
-                ms = merge_status(base)
-            except Exception as e:  # noqa: BLE001
-                err = str(e)
-                break
-            same = ms.get("name") == name
-            if same and ms.get("file"):
-                merged_file = ms.get("file")
-            if ms.get("running") and same:
-                seen_running = True
-                _set_phase(name, "Hongguo gộp", ms.get("pct") or 0)
-            # done/pct của lần gộp TRƯỚC (series khác) vẫn còn trong status → chỉ tin khi đúng tên
-            if same and (ms.get("done") or (not ms.get("running") and (ms.get("pct") or 0) >= 99)):
-                ok = not bool(ms.get("error"))
-                err = ms.get("error") or ""
-                break
-            if seen_running and not ms.get("running"):
-                ok = not (same and ms.get("error"))
-                err = (ms.get("error") or "") if same else ""
-                break
-            if not seen_running and time.time() - t_start > 120:
-                err = "Hongguo không bắt đầu gộp sau 120s"
-                break
-            time.sleep(2.5)
+            cr0 = {"ok": False, "error": str(e)}
+        ok = bool(cr0.get("ok"))
+        err = str(cr0.get("error") or "")
+        merged_file = cr0.get("merged_file")
 
         removed = 0
         if ok and folder and folder.is_dir():
@@ -4101,12 +3520,8 @@ def _hongguo_match_version(
     want = _norm_title_key(title)
     candidates: list[dict] = []
     try:
-        data = _req("GET", base, "/dl/search", query={"q": title})
-        rows = []
-        if isinstance(data, dict):
-            rows = list(data.get("results") or [])
-        elif isinstance(data, list):
-            rows = data
+        data = _rpc_mod().search(title, page=0)
+        rows = list((data or {}).get("results") or [])
         for r in rows:
             if isinstance(r, dict):
                 candidates.append(r)

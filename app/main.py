@@ -418,6 +418,8 @@ def create_app(inst: Instance, *, legacy: bool = True):
     except RuntimeError as e:   # server.app đã chạy (vd test V5 dùng trước) → không thêm middleware được
         print(f"[v6] bỏ CORS middleware: {e}")
     app.include_router(_v6_router(inst))
+    from app.routes import ui_compat           # nút trang Phim / Studio trước đây chỉ sidecar có (2026-11-15)
+    app.include_router(ui_compat.router)
     _install_lifecycle(app, inst, rt, legacy=legacy)
 
     if UI_DIR.is_dir():

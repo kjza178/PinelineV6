@@ -108,9 +108,7 @@ small{color:#888}
     </nav>
     <div style="height:20px;width:1px;background:#333"></div>
     <div class="tabs">
-      <button id="t-lib" class="on" onclick="tab('lib')">Thư viện chưa làm</button>
-      <button id="t-seasons" onclick="tab('seasons')">🆕 Mùa mới</button>
-      <button id="t-done" onclick="tab('done')">Đã làm (Database)</button>
+      <button id="t-done" class="on" onclick="tab('done')">Đã làm (Database)</button>
       <button id="t-upload" onclick="tab('upload')" style="color:#f87171">📤 Đăng YouTube</button>
     </div>
   </div>
@@ -131,113 +129,7 @@ small{color:#888}
   </div>
 </div>
 <main>
-<section id="p-lib">
-  <div class="st" id="lib-st">Đang quét thư viện…</div>
-
-  <!-- Thanh Tiến Trình Trực Tiếp (Live Progress Banner) & Recheck 15 Phút -->
-  <div id="tc-live-banner" class="hide" style="background:#0a1526;border:1px solid #1e3a8a;border-radius:8px;padding:12px 16px;margin:8px 0 14px;box-shadow:0 4px 16px rgba(0,0,0,0.4)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span id="tc-banner-spinner" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#38bdf8;box-shadow:0 0 8px #38bdf8"></span>
-        <span style="font-weight:700;font-size:13.5px;color:#93c5fd" id="tc-banner-title">⚡ TIẾN TRÌNH TEST BẢN QUYỀN KÊNH PHỤ</span>
-        <span class="badge running" id="tc-banner-badge" style="font-size:10.5px">Đang chạy</span>
-      </div>
-      <div id="tc-banner-counts" style="font-size:12px;color:#94a3b8">...</div>
-    </div>
-    <!-- Thanh chạy tiến độ phần trăm % -->
-    <div style="background:#172554;border-radius:6px;height:8px;width:100%;overflow:hidden;margin-bottom:8px;border:1px solid #1e40af">
-      <div id="tc-banner-bar" style="height:100%;width:0%;background:linear-gradient(90deg, #38bdf8, #818cf8, #c084fc);transition:width 0.35s ease"></div>
-    </div>
-    <!-- Dòng bước thực hiện trực tiếp & nút hành động -->
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <div id="tc-banner-step" style="font-size:12.5px;font-weight:600;color:#f8fafc">
-        ✂️ Đang chuẩn bị...
-      </div>
-      <div id="tc-banner-actions" style="display:flex;gap:6px"></div>
-    </div>
-  </div>
-
-  <!-- Thanh tác vụ Hàng loạt khi tick chọn nhiều Series -->
-  <div id="lib-series-batch-bar" class="hide" style="background:#0c233c;border:1px solid #0284c7;border-radius:6px;padding:8px 14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-    <div style="font-size:13px;color:#bae6fd;display:flex;align-items:center;gap:8px">
-      <span>☑️ Đã chọn <b id="series-picked-count" style="color:#fff;font-size:14.5px">0</b> bộ phim (<b id="series-picked-seasons" style="color:#7dd3fc">0</b> mùa sẵn sàng)</span>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="b pri" style="background:#0284c7;border-color:#38bdf8;padding:5px 12px;font-weight:600" onclick="addCheckedSeries()">➕ Đẩy vào Hàng chờ Download / Xử lý</button>
-      <button class="b" style="padding:5px 10px;background:#3b2f14;border-color:#f59e0b;color:#fde68a" onclick="mergeCheckedSeasons()" title="Ghép các mùa need_merge đã tick / trong bộ đã chọn">🔗 Ghép mùa đã chọn</button>
-      <button class="b" style="padding:5px 10px;background:#24292f" onclick="priorityCheckedSeries()" title="Đánh dấu ưu tiên cho feeder tự động lấy trước">★ Đặt ưu tiên</button>
-      <button class="b danger" style="padding:5px 10px;background:#7f1d1d" onclick="skipCheckedSeries()" title="Bỏ qua các bộ đã chọn">🚫 Bỏ qua</button>
-      <button class="b sm" onclick="clearSeriesSelection()" style="background:#181818">✕ Bỏ chọn</button>
-    </div>
-  </div>
-
-  <div class="lib-toolbar" style="margin-bottom:12px;display:flex;flex-direction:column;gap:8px">
-    <div class="tb-row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 10px;background:#141a22;border:1px solid #243044;border-radius:8px">
-      <span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Hàng chờ</span>
-      <label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:#181818;padding:5px 10px;border-radius:4px;border:1px solid #38bdf8;font-size:12px;color:#7dd3fc;user-select:none" title="Tick chọn tất cả các bộ phim đang hiển thị">
-        <input type="checkbox" id="pick-all-series" onchange="togglePickAllSeries(this)">
-        <b>Chọn tất cả</b>
-      </label>
-      <button class="b pri" id="btn-add-checked" onclick="addCheckedUnified()" style="background:#0284c7;border-color:#38bdf8" title="Đẩy các bộ hoặc mùa đã tick vào hàng chờ xử lý">➕ Thêm đã tick</button>
-      <button class="b" id="btn-merge-all-lib" onclick="mergeAllNeedMerge()" style="background:#3b2f14;border-color:#f59e0b;color:#fde68a" title="Ghép tất cả mùa đang chờ ghép trong thư viện">🔗 Ghép tất cả chờ ghép</button>
-      <span style="flex:1"></span>
-      <input id="lib-q" placeholder="Lọc theo tên…" oninput="renderLib()" size="22" style="padding:6px 10px">
-      <label style="display:inline-flex;align-items:center;gap:5px;color:#94a3b8;font-size:12px;user-select:none"><input type="checkbox" id="show-skip" onchange="renderLib()"> hiện bộ đã bỏ</label>
-    </div>
-    <div class="tb-row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 10px;background:#1a1510;border:1px solid #3b2d18;border-radius:8px">
-      <span style="font-size:11px;color:#a16207;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Test YT</span>
-      <button class="b warning" onclick="startPinelineTestAllPrompt()" title="Quét ngầm toàn bộ phim chưa test trong D:/Lib">⚡ Test All thư viện</button>
-      <button class="b" onclick="testCheckedPrompt()" title="Chỉ test những mùa đã tick">⚡ Test đã tick</button>
-      <button class="b sm danger" id="btn-batch-stop" onclick="stopBatchTestPrompt()" title="Dừng Test All sau bộ hiện tại" style="display:none">⏹ Dừng test</button>
-      <div id="tc-status-wrap" style="display:inline-flex;align-items:center">
-        <button class="b" id="btn-test-channel-conn" style="border-color:#38bdf8;color:#38bdf8;background:#0c2d48" onclick="openTestChannelModal()">🔗 Kênh Test</button>
-        <div id="tc-connected-badge" class="hide" style="display:inline-flex;align-items:center;gap:6px;background:#064e3b;border:1px solid #10b981;border-radius:4px;padding:5px 9px;font-size:12px;color:#a7f3d0;cursor:pointer" onclick="openTestChannelModal()" title="Quản lý Projects / Quota">
-          <span>🟢 <b id="tc-name">Chưa kết nối</b></span>
-          <span style="font-size:10.5px;background:#047857;padding:2px 6px;border-radius:3px;color:#fff">Projects</span>
-          <button class="b sm" style="padding:1px 5px;font-size:10px;margin-left:4px" onclick="event.stopPropagation();disconnectTestChannel()" title="Huỷ liên kết">✕</button>
-        </div>
-      </div>
-    </div>
-    <div class="tb-row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 10px;background:#161616;border:1px solid #262626;border-radius:8px">
-      <span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Lọc</span>
-      <select id="lib-f-block" onchange="renderLib()" style="padding:6px 10px;border-radius:4px;background:#181818;border:1px solid #444;color:#eee">
-        <option value="">Bản quyền: Tất cả</option>
-        <option value="clean">🟢 Đã test: Sạch</option>
-        <option value="partially_blocked">⚠️ Đã test: Bị chặn 1 phần</option>
-        <option value="blocked">🔴 Đã test: Bị chặn</option>
-        <option value="claim">🟡 Đã test: Dính Claim</option>
-        <option value="testing">⏳ Đang test</option>
-        <option value="unknown">⚪ Chưa test</option>
-      </select>
-      <button class="b" style="border-color:#eab308;color:#fde047;background:#201c10" onclick="scanLibraryBlocks(true)" title="Đối chiếu block từ yt_uploader">🛡️ Đồng bộ Block</button>
-      <button class="b sm" style="border-color:#64748b;color:#cbd5e1" onclick="clearSamplesCachePrompt()" title="Xoá cache clip mẫu 90s">🧹 Dọn samples</button>
-    </div>
-  </div>
-  <div id="lib-list"></div>
-</section>
-
-<section id="p-seasons" class="hide">
-  <div class="st" id="sn-st">Quét watchlist / films.db — chỉ thông tin, không tải.</div>
-  <div class="acts" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-    <button class="b pri" id="sn-btn-discover" onclick="snDiscover()">🔎 Tìm mùa mới</button>
-    <button class="b" id="sn-btn-vi" onclick="snTranslateOnly()" title="Ưu tiên tên Việt từ Thư viện / films.db; thiếu mới dịch thô gtx (cùng Hongguo)">🇻🇳 Đồng bộ tên Việt</button>
-    <label style="display:inline-flex;align-items:center;gap:5px;color:#94a3b8;font-size:12px;user-select:none">
-      <input type="checkbox" id="sn-show-older" onchange="snRender()"> hiện mùa cũ (≤ max đã biết)
-    </label>
-    <label style="display:inline-flex;align-items:center;gap:5px;color:#94a3b8;font-size:12px;user-select:none">
-      <input type="checkbox" id="sn-show-related" checked onchange="snRender()"> cùng chuyện (related)
-    </label>
-    <input id="sn-q" placeholder="Lọc theo tên franchise…" size="28" oninput="snRender()" style="padding:6px 10px">
-    <span class="grow" style="flex:1"></span>
-    <a href="/hongguo2" class="b pri" style="text-decoration:none;font-size:12px" target="_blank" rel="noopener">Hongguo</a>
-    <a href="https://www.duanjubaike.net/" class="b" style="text-decoration:none;font-size:12px" target="_blank" rel="noopener" title="duanjubaike">Baike</a>
-    <button class="b sm" type="button" onclick="snOpenBaikeSearch()" title="Mở Baike với ô lọc hiện tại">🔍 Baike lọc</button>
-  </div>
-  <div id="sn-list"></div>
-  <div class="sn-empty" id="sn-empty">Chưa quét. Bấm <b>Tìm mùa mới</b> — dựa watchlist (xoá Lib vẫn nhớ meta). Chỉ <b>+ Thêm</b> mới đẩy vào hàng tải Hongguo.</div>
-</section>
-
-<section id="p-done" class="hide">
+<section id="p-done">
   <div class="st" id="st">…</div>
 
   <div id="alert-missing" class="alert-box hide">
@@ -1086,20 +978,17 @@ function toast(t){
   e._t=setTimeout(()=>e.style.display='none',6000);
 }
 
+// 2026-11-15: bỏ tab «Thư viện chưa làm» + «Mùa mới» (phụ thuộc Hongguo 1 — đã bỏ khỏi V6).
 function tab(n){
-  for(const k of ['lib','seasons','done','upload']){
+  if(n!=='upload') n='done';
+  for(const k of ['done','upload']){
     const btn = $('t-'+k);
     const pane = $('p-'+k);
     if(btn) btn.classList.toggle('on', k===n);
     if(pane) pane.classList.toggle('hide', k!==n);
   }
   if(n==='done') load();
-  else if(n==='upload') loadUploader();
-  else if(n==='seasons'){
-    if(!SN_DATA){ snLoadWatchlist(); snDiscover(); }
-    else snRender();
-  }
-  else loadLib();
+  else loadUploader();
 }
 
 /* ---- Mùa mới (watchlist discover, info-only) ---- */
@@ -1395,6 +1284,7 @@ async function snAdd(sid, btn){
 /* ---- Thư viện chưa làm ---- */
 let LIB=null;
 async function loadLib(){
+  if(!$('p-lib')) return;          // tab đã bỏ — các nút cũ gọi loadLib() thì bỏ qua
   $('lib-st').textContent='Đang quét thư viện…';
   try{ LIB=await (await fetch('/library')).json(); }catch(e){ $('lib-st').textContent='Không đọc được thư viện: '+e; return; }
   if(LIB.error){ $('lib-st').textContent='Lỗi: '+LIB.error; return; }
@@ -4161,16 +4051,7 @@ async function testTelegramMsg(){
 checkCanvaStatus();
 checkTestChannelStatus();
 const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('tab') === 'upload') {
-  tab('upload');
-} else if (urlParams.get('tab') === 'done') {
-  tab('done');
-} else if (urlParams.get('tab') === 'seasons') {
-  tab('seasons');
-} else {
-  loadLib();
-}
-startBatchProgressPolling();
+tab(urlParams.get('tab') === 'upload' ? 'upload' : 'done');
 
 /* ---- Tự động Đăng Video (Auto-Publish) & AI Master Prompt ---- */
 async function loadAutoPublishConfig(){

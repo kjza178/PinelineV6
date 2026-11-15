@@ -207,13 +207,15 @@ def check_cloud(m, offline: bool) -> None:
 
 
 def check_hongguo(m, offline: bool) -> None:
-    b = m.hongguo_base_url()
-    if offline:
-        row("Hongguo Downloader", OPT, f"{b} (offline) — chỉ cần khi tải Hongguo")
+    """Hongguo 2 (engine RPC). Hongguo 1 (Downloader :8000) đã bỏ khỏi V6 — 2026-11-15."""
+    try:
+        import agents.hongguo_rpc as rpc
+        ed = rpc.engine_dir()
+        ok = rpc.helper_available()
+    except Exception as e:  # noqa: BLE001
+        row("Hongguo 2", OPT, f"lỗi dò engine: {e}", "Chỉ cần khi tải phim Hongguo")
         return
-    ok, d = _http_get(b + "/", timeout=2.0)
-    row("Hongguo Downloader", OK if ok else OPT, f"{b} → {d}",
-        "" if ok else "Chỉ cần khi dùng tải Hongguo: mở Hongguo Downloader hoặc sửa HONGGUO_BASE_URL")
+    row("Hongguo 2", OK if ok else OPT, str(ed), "" if ok else "Chỉ cần khi tải phim Hongguo: cài / mở Hongguo 2")
 
 
 def _dir_row(item: str, p: Path | None, status_if_missing: str, fix: str, want_file: str = "") -> None:

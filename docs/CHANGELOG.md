@@ -1,6 +1,14 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **Bỏ hẳn Hongguo 1** (cần restart :8806) — `agents/hongguo_bridge.py` không còn nhánh HTTP :8000 (`_req`, token, `/dl/*`),
+  không còn chọn backend (`HG_BACKEND`, `agents/hg_ui_ctx.py` xoá, khoá máy `HONGGUO_BASE_URL` xoá); mọi `/api/hg/*` và
+  `/api/hg2/*` dùng Hongguo 2. Gộp tập: tại chỗ bằng ffmpeg `-c copy` (`merge_series_copy`) thay cho Hongguo 1 gộp hộ.
+  Agent Hongguo bật engine Hongguo 2 thay vì mở Downloader 1.x. `check_env` / Second Brain dò Hongguo 2.
+- **Trang Phim bỏ tab «Thư viện chưa làm» + «Mùa mới»** (phụ thuộc Hongguo 1; không quét thư viện trên ổ độc lập).
+- **Nút trang Phim / Studio trước chỉ sidecar có → server V6 phục vụ**: Tra Baike, Tạo ảnh AI, Lưu / nạp cấu hình batch
+  (`/config`), Dừng test kênh — `app/routes/ui_compat.py` (route mỏng) + `services/ui_tools.py` (sidecar dùng lại cùng
+  hàm). Studio: Dừng → `/api/queue/jobs/stop`.
 - **Sửa: mọi `/api/hg/*` bị ép sang Hongguo 1 (:8000, đã ngừng)** (cần restart :8806) — trang Phim «Thư viện chưa làm»,
   «Mùa mới», gửi tải; Studio thư viện / Merge; feeder tự thêm job đều 502. Nay theo `HG_BACKEND` (mặc định auto =
   Hongguo 2). Sơ đồ hoạt động toàn bộ UI: docs/design/2026-11-15-ui-map.md (`scripts/ui_map.py`).

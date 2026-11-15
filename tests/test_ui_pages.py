@@ -40,7 +40,7 @@ def test_studio_nav_has_no_ui0_ui4_and_points_to_hongguo2_and_local_films():
     s = (ROOT / "index.html").read_text(encoding="utf-8")
     assert ">UI0<" not in s and ">UI4" not in s and 'href="/ui4"' not in s
     assert 'href="/hongguo"' not in s and 'href="/hongguo2"' in s
-    assert "8802/films/ui" not in s and 'href="/films/ui?tab=seasons"' in s
+    assert "8802/films/ui" not in s and "/films/ui" in s
     assert not (ROOT / "index3.html").exists() and not (ROOT / "hongguo.html").exists()
 
 

@@ -919,20 +919,7 @@ def retry_download(series_id: str) -> dict:
 
 
 def _ensure_licensed_quiet() -> None:
-    # Classic /hongguo = Downloader :8000 — tuyệt đối không prove license
-    try:
-        import agents.hg_ui_ctx as _ctx  # noqa: PLC0415
-        if _ctx.is_classic() or _ctx.get() == "http":
-            raise HgRpcError(
-                "Hongguo classic dùng Downloader :8000 — không license RPC. "
-                "Mở app Hongguo Downloader (1.x) hoặc dùng /hongguo2.",
-                code=-32011,
-                data={"reason": "classic_no_license"},
-            )
-    except HgRpcError:
-        raise
-    except Exception:  # noqa: BLE001
-        pass
+    # 2026-11-15: không còn Hongguo 1 «classic» → không còn trường hợp cấm prove license
     try:
         import agents.hongguo_license_ensure as _lic  # noqa: PLC0415
 
