@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-UIS = ("index3.html", "index.html")
+UIS = ("index.html",)   # 2026-11-15: index3.html (Studio) đổi thành index.html
 
 
 def _script(name: str) -> str:

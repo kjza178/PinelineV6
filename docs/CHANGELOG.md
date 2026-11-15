@@ -1,6 +1,12 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **Trang UI gọn lại** (cần restart :8806; desktop build lại để nav mới) — theo chủ dự án:
+  Studio (UI3, `index3.html`) đổi tên thành `index.html` = trang chính `/`; UI0 cũ và UI4 bỏ; Hongguo 1 (`hongguo.html`)
+  bỏ, dùng Hongguo 2. Đường cũ không gãy: `/ui3` `/index3.html` `/studio` = `/`; `/ui4` → `/`; `/hongguo` `/ui-hg` →
+  `/hongguo2` (chuyển hướng, giữ query). Nút «Phim» trỏ `/films/ui` cùng máy chủ (trước trỏ sidecar :8802 → V6 tắt
+  sidecar nên trang Phim không mở). Thanh nav Studio: UI3 · HG · Phim · Agent.
+  Chưa: Hongguo 2 chưa đọc `?sid=&q=` (link «HG» từ trang Phim mở Hongguo 2 nhưng không tự tìm sẵn).
 - **Rà model theo khuyến nghị** (cần restart :8806 + build lại app):
   - Sửa: Agent / Agent dự phòng chọn Aurora (`chatgpt/…`) hoặc Ollama (`local/<tên>`) bị gửi nhầm tới llama :8083 →
     không chạy. Nay qua `engines.llm.chat` bằng giao thức JSON {tool,args}|{final}.

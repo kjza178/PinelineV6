@@ -1,4 +1,4 @@
-// static/live_sync.js — V6 F3: UI cũ (index3.html / index.html) HẾT polling 2 s.
+// static/live_sync.js — V6 F3: UI cũ (index.html = Studio, trước là index3.html) HẾT polling 2 s.
 // Một kết nối SSE /api/events (bus của state): snapshot / job.updated / job.removed → refresh() GỘP ~300 ms;
 // stage.progress / job.touched (tiến độ, ghi manifest liên tục) → gộp ~2 s (= nhịp poll cũ khi chạy, không
 // dồn /api/jobs nặng lên 3 lần/giây). Không bao giờ chạy chồng.

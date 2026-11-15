@@ -3,7 +3,7 @@
 // - Chờ cổng mở rồi chuyển cửa sổ sang http://127.0.0.1:<port><trang> (UI do FastAPI phục vụ, cùng origin → không CORS).
 //   <trang> mặc định /v6/ = UI desktop (desktop/ui): 1 kết nối SSE, không polling, có thao tác job + hàng chờ
 //   (2026-11-14). Đổi trang: env PINELINE_DESKTOP_PATH hoặc khoá "desktop_path" trong instances/<tên>.json
-//   (vd "/ui3" = Studio cũ).
+//   (vd "/" = Studio — UI3 cũ, nay là trang chính).
 // - Đóng app → kill backend VÀ MỌI tiến trình con của nó (render worker, ffmpeg, engine ASR/TTS) — R2.1.
 //   Chỉ backend do app tự spawn; backend đã chạy sẵn thì dùng lại, không kill.
 // - Backend chết trong lúc khởi động → báo ngay trên màn chờ kèm đường dẫn log (R2.2), không chờ hết 180 s.
@@ -214,7 +214,7 @@ fn main() {
                     }
                     std::thread::sleep(Duration::from_millis(400));
                 }
-                // Cùng cổng phục vụ UI desktop /v6/ lẫn các trang cũ (/ui3, /films, /hongguo) — mở trang đã chọn.
+                // Cùng cổng phục vụ UI desktop /v6/ lẫn các trang cũ (/ Studio, /films/ui, /hongguo2) — mở trang đã chọn.
                 if let Ok(url) = Url::parse(&format!("http://127.0.0.1:{port}{page}")) {
                     let _ = win.navigate(url);
                 }

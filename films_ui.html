@@ -103,8 +103,8 @@ small{color:#888}
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <nav style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap">
       <a href="http://127.0.0.1:8801/" class="b nav-link" style="text-decoration:none;border-color:#38bdf8;color:#38bdf8;background:#0c2d48;font-weight:600" title="Pineline Studio :8801">⬅ Studio</a>
-      <a href="http://127.0.0.1:8801/ui3" class="b nav-link" style="text-decoration:none" title="UI3 queue">UI3</a>
-      <a href="http://127.0.0.1:8801/hongguo" class="b nav-link" style="text-decoration:none" title="Hongguo tải phim">📥 Hongguo</a>
+      <a href="/" class="b nav-link" style="text-decoration:none" title="UI3 queue">UI3</a>
+      <a href="/hongguo2" class="b nav-link" style="text-decoration:none" title="Hongguo tải phim">📥 Hongguo</a>
     </nav>
     <div style="height:20px;width:1px;background:#333"></div>
     <div class="tabs">
@@ -229,7 +229,7 @@ small{color:#888}
     </label>
     <input id="sn-q" placeholder="Lọc theo tên franchise…" size="28" oninput="snRender()" style="padding:6px 10px">
     <span class="grow" style="flex:1"></span>
-    <a href="http://127.0.0.1:8801/hongguo" class="b pri" style="text-decoration:none;font-size:12px" target="_blank" rel="noopener">Hongguo</a>
+    <a href="/hongguo2" class="b pri" style="text-decoration:none;font-size:12px" target="_blank" rel="noopener">Hongguo</a>
     <a href="https://www.duanjubaike.net/" class="b" style="text-decoration:none;font-size:12px" target="_blank" rel="noopener" title="duanjubaike">Baike</a>
     <button class="b sm" type="button" onclick="snOpenBaikeSearch()" title="Mở Baike với ô lọc hiện tại">🔍 Baike lọc</button>
   </div>
@@ -1114,7 +1114,7 @@ function snHgUrl(sid, title){
   if(sid) p.set('sid', String(sid));
   if(title) p.set('q', String(title));
   const qs=p.toString();
-  return 'http://127.0.0.1:8801/hongguo'+(qs?('?'+qs):'');
+  return '/hongguo2'+(qs?('?'+qs):'');
 }
 function snBaikeUrl(sid, title){
   const t=String(title||'').trim();

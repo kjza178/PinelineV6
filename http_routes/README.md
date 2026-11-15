@@ -4,7 +4,7 @@
 
 | Module | Prefix / phạm vi |
 |---|---|
-| `routes_ui.py` | `/`, `/ui3`, `/hongguo`, … |
+| `routes_ui.py` | `/` (Studio = index.html), `/hongguo2`, `/films/ui`; `/ui3` `/studio` = `/`; `/ui4` → `/`; `/hongguo` → `/hongguo2` |
 | `routes_hg.py` | `/api/hg/*`, `/meta/*` |
 | `routes_agent.py` | `/api/agent/*` |
 | `routes_films.py` | `/films/*` |

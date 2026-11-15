@@ -20,7 +20,7 @@ Mục tiêu: thay V2/V4/V5 (**chưa cutover** — V2 vẫn là production). Thi�
 - Route mới đặt trong `app/` và phải mỏng: không logic pipeline, không side effect ở GET. (Hiện trạng: route vẫn ở
   `server.py` + `http_routes/`; còn `GET /api/voice-sample`, `GET /api/cookies` ghi đĩa — ROADMAP R5.3.)
 - UI không polling — mọi cập nhật qua `events.bus` → SSE `/api/events`. (Đạt: `desktop/ui`. Chưa: `films_ui.html`,
-  `hongguo*.html`, vài hẹn giờ trong `index3.html`.) UI desktop: để yên = 0 request.
+  `hongguo2.html`, vài hẹn giờ trong `index.html` (Studio, trước là index3.html).) UI desktop: để yên = 0 request.
 - Cổng/đường dẫn lấy từ `core.instance` (instances/*.json), không hardcode. (Còn: `FIRERED_ROOT` trong config trỏ cây V2 — G0.5.)
 - Render/mux chạy `workers/render_worker.py` (tiến trình con) khi instance bật `render_subprocess` (v6/test bật, **prod đang tắt**).
 - Cổng/thư mục phụ thuộc MÁY (llama, presets, Aurora, Hongguo, model MT, thư viện, yt_uploader) lấy từ `core/machine.py` (key config), không hardcode. Kiểm máy: `scripts/check_env.py`.

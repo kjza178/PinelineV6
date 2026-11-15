@@ -1,7 +1,7 @@
 """app/main.py — FastAPI app V6 (route mỏng; logic ở state/pipeline/services).
 
 F3 (tích hợp): MỘT tiến trình, MỘT cổng instance phục vụ:
-  - toàn bộ route V5 của `server.py` (legacy: /api/jobs, /api/queue/…, /, /ui3 = index3.html …);
+  - toàn bộ route V5 của `server.py` (legacy: /api/jobs, /api/queue/…, / = /ui3 = Studio (index.html) …);
   - route V6: /api/health, /api/events (SSE), /api/v6/jobs, /api/v6/jobs/{id} (chỉ đọc, KHÔNG side effect);
   - UI desktop mới ở /v6/ (desktop/ui) — Tauri mở /v6/.
 

@@ -1,7 +1,10 @@
-"""Trang UI: /, /ui3, /ui4, /hongguo, /hongguo2, /films/ui, /studio, /v5-map.
+"""Trang UI: /, /hongguo2, /films/ui, /v5-map (+ đường cũ chuyển hướng).
 
-/hongguo2 = skin WinUI 2.x (Browse/Ranking/New/Library).
-/films|/film|/films/ui = films_ui.html · /studio = index3 (Lồng tiếng Studio).
+2026-11-15 (chủ dự án): Studio (UI3, trước là index3.html) thành trang chính `index.html` ở `/`; UI0 cũ và UI4 bỏ;
+Hongguo 1 (hongguo.html) bỏ, thay bằng hongguo2. Đường cũ giữ được: /ui3, /index3.html, /studio → cùng trang `/`;
+/ui4, /index4.html → chuyển về `/`; /hongguo, /ui-hg → chuyển sang /hongguo2 (CHUYỂN HƯỚNG chứ không phục vụ tại
+chỗ: agents/hg_ui_ctx phân biệt Hongguo 1/2 theo referer «/hongguo» vs «/hongguo2»).
+/films|/film|/films/ui = films_ui.html.
 
 Tách từ server.py (đợt 7). Chỉ được nạp từ cuối server.py (sau khi mọi hàm/model lõi đã
 định nghĩa): truy cập server qua `S.<tên>` để patch `server.<tên>` trong test vẫn có tác dụng."""
@@ -71,22 +74,25 @@ def _html_file(name: str) -> HTMLResponse:
 @router.get("/ui3", response_class=HTMLResponse)
 @router.get("/index3.html", response_class=HTMLResponse)
 def ui3():
-    """UI C — Shell vs Data (khung tĩnh, chống giật innerHTML)."""
-    return _html_file("index3.html")
+    """Studio (UI3) — nay chính là trang `/` (index.html); giữ đường cũ cho dấu trang / desktop_path cũ."""
+    return index()
 
 
-@router.get("/ui4", response_class=HTMLResponse)
-@router.get("/index4.html", response_class=HTMLResponse)
+@router.get("/ui4")
+@router.get("/index4.html")
 def ui4():
-    """UI D — Full ops: preview + script grid + queue bảng %."""
-    return _html_file("index4.html")
+    """UI4 đã bỏ (2026-11-15) → về Studio."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/", status_code=307)
 
 
-@router.get("/hongguo", response_class=HTMLResponse)
-@router.get("/ui-hg", response_class=HTMLResponse)
-def ui_hongguo():
-    """UI riêng — điều khiển Hongguo Downloader (search/tải/merge)."""
-    return _html_file("hongguo.html")
+@router.get("/hongguo")
+@router.get("/ui-hg")
+def ui_hongguo(request: Request):
+    """Hongguo 1 đã bỏ (2026-11-15) → chuyển sang Hongguo 2 (giữ query)."""
+    from fastapi.responses import RedirectResponse
+    q = str(request.url.query or "")
+    return RedirectResponse("/hongguo2" + (f"?{q}" if q else ""), status_code=307)
 
 
 @router.get("/hongguo2", response_class=HTMLResponse)
@@ -131,8 +137,8 @@ def ui_films(request: Request):
 @router.get("/studio", response_class=HTMLResponse)
 @router.get("/studio/ui", response_class=HTMLResponse)
 def ui_studio():
-    """Lồng tiếng Studio — UI3 ops shell."""
-    return _html_file("index3.html")
+    """Lồng tiếng Studio — nay là trang `/`."""
+    return index()
 
 
 @router.get("/v5-map", response_class=HTMLResponse)
