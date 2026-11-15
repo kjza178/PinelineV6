@@ -1,6 +1,10 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **A11 bỏ NMT khi soát bằng DeepSeek/Alibaba** (cần restart :8806 + build lại app) — khoá `SIMPLE_DRAFT`
+  (auto | nmt | none). auto: model soát là `deepseek/…` `alibaba/…` → không chạy NMT, không nạp model lên GPU, AI dịch
+  thẳng từ câu Trung có plan; Aurora / local giữ NMT như cũ. Desktop «Cài đặt AI» → dòng «Soát / dịch» → «Bản nháp NMT».
+  Nháp có sẵn từ lần chạy trước không bị xoá.
 - **A8 soát theo ngữ cảnh cả phim** (cần restart :8806) — model DeepSeek/Alibaba: mọi lô soát và vá gửi CÙNG một phần
   đầu (plan đầy đủ + toàn bộ câu Trung, không có VI) → nhà cung cấp cache được, model thấy cả phim; lô 60 câu (ít lần
   gọi hơn). Model khác giữ y cách cũ (lô 30, ±4 câu). Khoá `SIMPLE_CONTEXT`, `SIMPLE_FULL_BATCH`, `SIMPLE_FULL_MAX_TOKENS`.

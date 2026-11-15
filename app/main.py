@@ -160,13 +160,14 @@ def _v6_router(inst: Instance) -> APIRouter:
 
     @r.post(V6_PREFIX + "/ai")
     def ai_set(body: dict):
-        """{"models": {id: model|""}, "plan_mode": "file|sample", "providers": {tên: {api_key, base_url, clear_key}},
+        """{"models": {id: model|""}, "plan_mode": "file|sample", "draft": "auto|nmt|none",
+        "providers": {tên: {api_key, base_url, clear_key}},
         "preset": "deepseek|alibaba|aurora|local"} — sai → 400 kèm lý do, không ghi gì."""
         from core import ai_models
         b = body if isinstance(body, dict) else {}
         try:
             out = ai_models.apply(b.get("models"), plan_mode=b.get("plan_mode"), providers_cfg=b.get("providers"),
-                                  preset=b.get("preset"))
+                                  preset=b.get("preset"), draft=b.get("draft"))
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
         if out.get("changed"):

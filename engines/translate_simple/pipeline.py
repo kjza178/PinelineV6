@@ -312,7 +312,8 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
     model = cfg.review_model(wd)
     try:
         # 2) plan ∥ NMT
-        plan, dinfo = stage_draft.run(store, segments, target, force=force, progress=prog)
+        plan, dinfo = stage_draft.run(store, segments, target, force=force, progress=prog,
+                                      draft=cfg.draft_mode(model))
         plan_bad = stage_draft.plan_failed(plan)
         if plan_bad:
             dinfo["plan_failed"] = plan_bad

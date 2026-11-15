@@ -281,12 +281,20 @@ def snapshot() -> dict:
         "local": {"llama": llama, "ollama": [f"local/{m}" for m in ollama]},
         "functions": funcs,
         "plan_mode": {"value": _get("PLAN_MODE") or "file", "effective": T.plan_mode_effective()},
+        "draft": _draft_state(),
         "presets": [{"id": k, "label": v["label"]} for k, v in PRESETS.items()],
     }
 
 
+def _draft_state() -> dict:
+    """Bản nháp NMT trước khi soát (SIMPLE_DRAFT): giá trị đặt + thực tế với model soát hiện tại."""
+    from engines.translate_simple import cfg as scfg
+    m = scfg.review_model(None)
+    return {"value": scfg.draft_setting(), "effective": scfg.draft_mode(m), "review_model": m}
+
+
 def apply(models: dict | None = None, *, plan_mode: str | None = None, providers_cfg: dict | None = None,
-          preset: str | None = None) -> dict:
+          preset: str | None = None, draft: str | None = None) -> dict:
     """Ghi lựa chọn vào pineline.config.json. models: {id chức năng: model | "" (= dùng dự phòng)}.
     providers_cfg: {tên: {"api_key": "...", "base_url": "..."}} — api_key rỗng/thiếu = giữ nguyên key cũ;
     "clear_key": True = xoá key. Lỗi → ValueError (không ghi gì)."""
@@ -318,6 +326,12 @@ def apply(models: dict | None = None, *, plan_mode: str | None = None, providers
             errors.append("PLAN_MODE: chọn file hoặc sample")
         else:
             updates["PLAN_MODE"] = pm
+    if draft is not None:
+        dm = str(draft).strip().lower()
+        if dm not in ("auto", "nmt", "none"):
+            errors.append("SIMPLE_DRAFT: chọn auto, nmt hoặc none")
+        else:
+            updates["SIMPLE_DRAFT"] = None if dm == "auto" else dm
     for name, pc in (providers_cfg or {}).items():
         try:
             p = _provider(name)

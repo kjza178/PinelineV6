@@ -9,6 +9,9 @@ NMT: mt_zh_vi.draft_rows cho câu chưa có vi (không manual). Vì chạy song 
 của tập này: flavor base/QT chọn theo glossary.json cũ hoặc bảng bộ (series) nếu có, không thì base
 (mặc định cho mixed/chưa rõ). SIMPLE_NMT_WAIT_PLAN=1 → NMT chờ plan (tuần tự, đúng flavor).
 NMT tắt / lỗi → nháp rỗng → review dịch mới các câu đó (cờ «dịch»).
+
+2026-11-15: draft="none" (SIMPLE_DRAFT; auto = none khi soát bằng deepseek/… alibaba/…) → KHÔNG chạy NMT, không nạp
+model lên GPU; chỉ lập plan, rồi AI dịch thẳng từ zh. Nháp đã có từ lần chạy trước vẫn giữ (không xoá).
 """
 from __future__ import annotations
 
@@ -161,9 +164,19 @@ def nmt_drafts(rows: list[dict], hint_plan: dict | None) -> dict[int, str]:
 
 
 def run(store: ScriptStore, segments: list[dict], target: str, *, force: bool = False,
-        progress=None) -> tuple[dict, dict]:
-    """Chạy plan ∥ NMT. Trả (plan, info). Ghi nháp NMT vào store (mt=1, trace 'nmt')."""
+        progress=None, draft: str = "nmt") -> tuple[dict, dict]:
+    """Chạy plan ∥ NMT. Trả (plan, info). Ghi nháp NMT vào store (mt=1, trace 'nmt').
+    draft="none": chỉ plan (không NMT) — info["draft"]="none"."""
     wd = store.work_dir
+    if draft == "none":
+        t0 = time.time()
+        plan = build_plan(wd, segments, target, force=force)
+        info = {"draft": "none", "t_plan": round(time.time() - t0, 2), "n_nmt": 0}
+        store.note("nmt", None, "bỏ NMT (SIMPLE_DRAFT=none / model API) — AI dịch thẳng từ zh")
+        print("[simple-nmt] bỏ NMT — AI dịch thẳng từ zh (có plan)", flush=True)
+        if progress:
+            progress("plan xong · không dùng NMT (AI dịch thẳng)")
+        return plan, info
     hint_plan = _load_json(wd / "glossary.json") if not force else None
     if not isinstance(hint_plan, dict):
         hint_plan = _series_plan(wd)

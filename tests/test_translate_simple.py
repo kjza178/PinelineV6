@@ -152,7 +152,8 @@ class FakeLLM:
         self.lock = threading.Lock()
 
     def __call__(self, messages, model=None, **kw):
-        system, user = messages[0]["content"], messages[1]["content"]
+        # chế độ cả phim (A8): [system, phần đầu cả phim, phần riêng của lô] → nối mọi message user
+        system, user = messages[0]["content"], "\n\n".join(m["content"] for m in messages[1:])
         items = _items(user)
         with self.lock:
             self.calls.append({"system": system, "user": user, "i": [x["i"] for x in items], "model": model})
@@ -750,3 +751,57 @@ def test_end_to_end_golden_window_echo(tmp_path, monkeypatch):
     assert m.get("unaligned", 0) <= 5, m
     print("[e2e-simple] metrics", json.dumps({k: m.get(k) for k in ("pron_acc", "idiom_acc", "chrF", "unaligned")},
                                               ensure_ascii=False))
+
+
+# ───────────── 2026-11-15: SIMPLE_DRAFT — bỏ NMT khi soát bằng DeepSeek / Alibaba ─────────────
+
+def test_draft_mode_auto_follows_review_provider(monkeypatch):
+    from engines.translate_simple import cfg as scfg
+    monkeypatch.delenv("SIMPLE_DRAFT", raising=False)
+    assert scfg.draft_mode("deepseek/deepseek-flash") == "none"
+    assert scfg.draft_mode("alibaba/qwen-flash") == "none"
+    for m in ("chatgpt/gpt-6", "local", "local/gemma4", None):
+        assert scfg.draft_mode(m) == "nmt"
+    monkeypatch.setenv("SIMPLE_DRAFT", "nmt")
+    assert scfg.draft_mode("deepseek/deepseek-flash") == "nmt"
+    monkeypatch.setenv("SIMPLE_DRAFT", "none")
+    assert scfg.draft_mode("chatgpt/gpt-6") == "none"
+    monkeypatch.setenv("SIMPLE_DRAFT", "linh tinh")
+    assert scfg.draft_setting() == "auto"
+
+
+def test_draft_none_skips_nmt_but_builds_plan(tmp_path, monkeypatch):
+    wd = _job(tmp_path, plan=None)
+
+    def boom(*a, **k):
+        raise AssertionError("NMT không được chạy khi draft=none")
+    _nmt(monkeypatch)
+    monkeypatch.setattr(mt_zh_vi, "draft_rows", boom)
+    monkeypatch.setattr(T, "build_plan", lambda segments, **kw: dict(PLAN))
+    st = ScriptStore(wd)
+    st.ensure_from_asr(SEGS)
+    plan, info = stage_draft.run(st, SEGS, "Tiếng Việt", draft="none")
+    assert plan["characters"] and info["draft"] == "none" and info["n_nmt"] == 0
+    assert all(not r["vi"] for r in st.rows)
+    assert json.loads((wd / "glossary.json").read_text(encoding="utf-8"))["characters"]
+
+
+def test_pipeline_with_deepseek_review_translates_directly(tmp_path, monkeypatch):
+    """Model soát deepseek/… → không NMT; mọi câu gửi «dich»=true, AI dịch thẳng; cổng done như thường."""
+    monkeypatch.setenv("SIMPLE_MODEL", "deepseek/deepseek-flash")
+    monkeypatch.delenv("SIMPLE_DRAFT", raising=False)
+    wd = _job(tmp_path)
+
+    def boom(*a, **k):
+        raise AssertionError("NMT không được chạy khi soát bằng DeepSeek")
+    _nmt(monkeypatch)
+    monkeypatch.setattr(mt_zh_vi, "draft_rows", boom)
+    fake = FakeLLM("good")
+    monkeypatch.setattr(llm, "chat", fake)
+    res = pipeline.run(wd, "Tiếng Việt")
+    assert res["status"] == "done", res["gate"]
+    assert res["draft"]["draft"] == "none"
+    rows = _read(wd)
+    assert rows[0]["vi"].startswith("Tô Tình, anh") and " em " in rows[0]["vi"]   # cặp Lâm→Tô anh/em từ plan
+    assert all(r["s_act"] == "new" for r in rows.values() if not r.get("junk"))           # không có nháp → dịch mới
+    assert all(c["model"] == "deepseek/deepseek-flash" for c in fake.calls)

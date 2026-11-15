@@ -664,6 +664,12 @@ function aiFuncRow(f) {
     input = `<span class="mut">${esc(f.fixed)}</span>`;
   } else {
     input = `<input class="ai-model" data-fn="${esc(f.id)}" list="dl-models" value="${esc(f.value)}" placeholder="${esc(f.effective || "để trống = dự phòng")}" spellcheck="false">`;
+    if (f.id === "review" && ai.draft) {
+      const d = ai.draft, L = { auto: "tự động (DeepSeek/Alibaba: không NMT · model khác: có NMT)", nmt: "luôn có NMT", none: "không NMT — AI dịch thẳng" };
+      input += `<label class="row small">Bản nháp NMT <select id="ai-draft">${["auto", "nmt", "none"].map((x) =>
+        `<option value="${x}"${d.value === x ? " selected" : ""}>${L[x]}</option>`).join("")}</select></label>`
+        + `<div class="mut small">thực tế với model soát hiện tại: ${d.effective === "none" ? "AI dịch thẳng từ câu Trung, không chạy NMT trên GPU" : "NMT dịch thô trên GPU rồi AI soát"}</div>`;
+    }
     if (f.id === "plan") {
       const pm = ai.plan_mode;
       input += `<label class="row small">Chế độ <select id="ai-plan-mode">${["file", "sample"].map((x) =>
@@ -727,6 +733,8 @@ function aiCollect() {
   if (Object.keys(providers).length) body.providers = providers;
   const pm = $("#ai-plan-mode");
   if (pm && pm.value !== ai.plan_mode.value) body.plan_mode = pm.value;
+  const dr = $("#ai-draft");
+  if (dr && ai.draft && dr.value !== ai.draft.value) body.draft = dr.value;
   return body;
 }
 
