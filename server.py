@@ -1830,19 +1830,26 @@ def _run_requested_review(wd: Path, target: str) -> dict | None:
         shutil.copyfile(wd / "script.json", pre)
     except Exception:  # noqa: BLE001
         pass
-    print(f"[auto] {wd.name}: Agent yêu cầu rà soát — tên → xưng hô → văn phong", flush=True)
+    simple = _translate_pipeline_simple(wd)
     res: dict = {}
+    if simple:
+        # 2026-11-15: luồng V6 KHÔNG chạy pass tên / pass xưng hô cũ (V2) — soát lại simple làm lại cả tên lẫn xưng
+        # hô theo plan + bộ kiểm + vá; chạy thêm 2 pass cũ trước đó vừa tốn token vừa là «nhiều cơ chế đá nhau».
+        print(f"[auto] {wd.name}: Agent yêu cầu rà soát — soát lại luồng V6 (plan + kiểm + vá)", flush=True)
+        res["names"] = res["pronouns"] = {"ok": True, "skipped": "luồng V6: soát lại simple xử lý tên + xưng hô"}
+    else:
+        print(f"[auto] {wd.name}: Agent yêu cầu rà soát — tên → xưng hô → văn phong", flush=True)
+        try:
+            res["names"] = run_name_pass(wd, model=rq.get("model"))
+        except Exception as e:  # noqa: BLE001
+            res["names"] = {"ok": False, "error": str(e)}
+        try:
+            from agents.agent_pronoun_pass import run_pronoun_pass
+            res["pronouns"] = run_pronoun_pass(wd, model=rq.get("model"))
+        except Exception as e:  # noqa: BLE001
+            res["pronouns"] = {"ok": False, "error": str(e)}
     try:
-        res["names"] = run_name_pass(wd, model=rq.get("model"))
-    except Exception as e:  # noqa: BLE001
-        res["names"] = {"ok": False, "error": str(e)}
-    try:
-        from agents.agent_pronoun_pass import run_pronoun_pass
-        res["pronouns"] = run_pronoun_pass(wd, model=rq.get("model"))
-    except Exception as e:  # noqa: BLE001
-        res["pronouns"] = {"ok": False, "error": str(e)}
-    try:
-        if _translate_pipeline_simple(wd):   # P6 (V2 F2): job simple → soát lại bằng luồng simple (rereview)
+        if simple:   # P6 (V2 F2): job simple → soát lại bằng luồng simple (rereview)
             _simple_translate_run(wd, target, rereview=True)
             res["style"] = {"ok": True, "pipeline": "simple"}
         else:
@@ -1865,7 +1872,8 @@ def _run_requested_review(wd: Path, target: str) -> dict | None:
     m.data["agent"] = agent
     tr = m.data.setdefault("stages", {}).setdefault("translate", {})
     nm = res.get("names") or {}
-    tr["cur_text"] = (f"Agent đã rà: sửa tên {nm.get('n_fixed', 0)}/{nm.get('n_issues', 0)} câu nghi sai · "
+    tr["cur_text"] = (f"Agent đã soát lại (luồng V6): {n_changed} câu đổi" if simple else
+                      f"Agent đã rà: sửa tên {nm.get('n_fixed', 0)}/{nm.get('n_issues', 0)} câu nghi sai · "
                       f"tổng {n_changed} câu đổi")
     js.persist(m)
     try:

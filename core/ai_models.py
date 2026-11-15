@@ -93,37 +93,43 @@ class AIFunction:
     enabled_key: str = ""            # khoá bật/tắt chức năng (nếu có) — chỉ để hiển thị
     fixed: str = ""                  # model cứng trong code (không chỉnh được)
     extra: dict = field(default_factory=dict)
+    legacy: bool = False             # KHÔNG dùng trong luồng V6 (luồng cũ / thử nghiệm đang tắt) — UI gấp lại
 
 
 FUNCTIONS: tuple[AIFunction, ...] = (
     AIFunction("review", "Soát & dịch chính", "Luồng dịch V6: AI dịch thẳng từ câu Trung theo plan (không NMT), "
                "DeepSeek/Alibaba thấy cả phim / chương, lô tự tính theo «Song song»; vá câu bị cờ "
                "(engines/translate_simple). Tốn token nhất.", "SIMPLE_MODEL", _eff_review,
-               "REVIEW_MODEL → TRANSLATE_MODEL"),
+               "REVIEW_MODEL → TRANSLATE_MODEL", group="Luồng dịch V6"),
     AIFunction("plan", "Lập bảng nhân vật / xưng hô", "Đầu bước dịch, 1 lần / tập: nhân vật, cặp xưng hô, thuật ngữ, cảnh "
                "(engines/translate.build_plan).", "PLAN_MODEL", _eff_plan, "LLM_MODEL",
-               extra={"mode_key": "PLAN_MODE"}),
-    AIFunction("name", "Pass sửa tên", "Sau dịch: sửa tên nhân vật sai / thiếu (agents/agent_name_pass; nút Soát lại).",
-               "NAME_MODEL", _eff_name, "CHATGPT_MODEL → REVIEW_MODEL → LLM_MODEL"),
-    AIFunction("pronoun", "Pass xưng hô", "Sau dịch: sửa câu lệch cặp xưng hô (agents/agent_pronoun_pass; nút Soát lại).",
-               "PRONOUN_MODEL", _eff_pronoun, "CHATGPT_MODEL → REVIEW_MODEL → LLM_MODEL"),
-    AIFunction("pair_fill", "Bổ sung cặp xưng hô thiếu", "Luồng simple, sau lượt soát đầu — chỉ khi bật SIMPLE_PAIR_FILL=1.",
-               "SIMPLE_PAIR_FILL_MODEL", _eff_pair_fill, "model Soát & dịch chính", enabled_key="SIMPLE_PAIR_FILL"),
-    AIFunction("translate", "Dịch phụ (luồng cũ, chữ trên hình, tiêu đề)", "Luồng dịch legacy, dịch chữ OCR trên hình, "
-               "dịch tiêu đề phim, phương án dịch thay thế, Context Studio.", "TRANSLATE_MODEL", _eff_translate,
-               "LLM_MODEL"),
+               extra={"mode_key": "PLAN_MODE"}, group="Luồng dịch V6"),
+    AIFunction("translate", "Dịch phụ (chữ trên hình, tiêu đề)", "Dịch chữ OCR trên hình, tiêu đề phim, Context Studio "
+               "(và luồng dịch cũ legacy). Câu ngắn, ít — model nhỏ / local được.", "TRANSLATE_MODEL", _eff_translate,
+               "LLM_MODEL", group="Dịch phụ"),
+    AIFunction("name", "Pass sửa tên (V2)", "Chỉ luồng cũ legacy: Agent «rà soát» chạy pass tên trước khi soát lại. "
+               "Luồng V6 không chạy (soát lại V6 tự xử lý tên theo plan).",
+               "NAME_MODEL", _eff_name, "CHATGPT_MODEL → REVIEW_MODEL → LLM_MODEL", legacy=True),
+    AIFunction("pronoun", "Pass xưng hô (V2)", "Chỉ luồng cũ legacy: Agent «rà soát» chạy pass xưng hô. Luồng V6 không "
+               "chạy (xưng hô do plan + bộ kiểm + vá).",
+               "PRONOUN_MODEL", _eff_pronoun, "CHATGPT_MODEL → REVIEW_MODEL → LLM_MODEL", legacy=True),
+    AIFunction("pair_fill", "Bổ sung cặp xưng hô thiếu (thử nghiệm)", "Luồng V6 — thử nghiệm ĐANG TẮT "
+               "(SIMPLE_PAIR_FILL=1 để bật): sau lượt soát đầu hỏi thêm cặp xưng hô còn thiếu trong plan.",
+               "SIMPLE_PAIR_FILL_MODEL", _eff_pair_fill, "model Soát & dịch chính", enabled_key="SIMPLE_PAIR_FILL",
+               legacy=True),
     AIFunction("legacy_review", "Soát (luồng cũ)", "Chỉ khi instance dùng translate_pipeline=legacy, và QA gate cũ.",
-               "REVIEW_MODEL", _eff_legacy_review, "TRANSLATE_MODEL"),
+               "REVIEW_MODEL", _eff_legacy_review, "TRANSLATE_MODEL", legacy=True),
     AIFunction("hang_fix", "Sửa job treo (QA)", "Agent sửa câu khiến job kẹt sau dịch (agents/agent_hang_fix).",
                "HANG_FIX_MODEL", _eff_hang_fix, "PRONOUN_MODEL → chatgpt/gpt-5-6-mini", group="Agent"),
     AIFunction("agent", "AI Agent (chat + Second Brain)", "Nút «Agent» trên desktop, Telegram, Second Brain tự xử lý. "
                "Cần model hỗ trợ gọi công cụ.", "AGENT_MODEL", _eff_agent, "LLM_MODEL", needs="tools", group="Agent"),
     AIFunction("agent_fallback", "AI Agent — model dự phòng", "Thử khi model Agent chính lỗi (timeout, 429, 5xx).",
                "AGENT_FALLBACK_MODEL", _eff_agent_fallback, "(không có)", needs="tools", group="Agent"),
-    AIFunction("pronoun_analyze", "Phân tích xưng hô cả phim", "Gửi CẢ file phụ đề lên để dựng bảng xưng hô — chỉ khi "
+    AIFunction("pronoun_analyze", "Phân tích xưng hô cả phim (thử nghiệm)", "Đang tắt. Gửi CẢ file phụ đề lên để dựng bảng xưng hô — chỉ khi "
                "bật SIMPLE_PRONOUN_ANALYZE=1. Chế độ file (mặc định) upload phụ đề → chỉ Aurora; "
                "PRONOUN_ANALYZE_MODE=full/fast quét theo lô → model nào cũng được.", "PRONOUN_ANALYZE_MODEL",
-               _eff_pronoun_analyze, "PRONOUN_MODEL", needs="aurora_file", enabled_key="SIMPLE_PRONOUN_ANALYZE"),
+               _eff_pronoun_analyze, "PRONOUN_MODEL", needs="aurora_file", enabled_key="SIMPLE_PRONOUN_ANALYZE",
+               legacy=True),
     AIFunction("meta", "Tiêu đề / mô tả YouTube", "Meta Studio khi đăng YouTube (agents/meta_studio).", "",
                lambda: "chatgpt/gpt-5-6", fixed="chatgpt/gpt-5-6 (Aurora, cố định trong code)", group="Đăng YouTube"),
     AIFunction("thumb", "Ảnh thumbnail", "Tạo ảnh bìa khi đăng YouTube (Aurora /v1/images).", "",
@@ -140,7 +146,7 @@ PRESETS: dict[str, dict] = {
     # Khuyến nghị 2026-11-15: DeepSeek làm việc nặng / chặn hàng chờ; Aurora plan (đọc cả tập qua file, tới khi xong
     # A7) + Agent dự phòng (khác nhà cung cấp); local cho việc nhỏ không tốn tiền (dịch chữ trên hình, sửa job treo).
     "recommended": {"label": "Khuyến nghị (DeepSeek + Aurora + local)", "plan_mode": "file", "provider": "deepseek",
-                    "provider_funcs": ("review", "name", "pronoun", "agent"),
+                    "provider_funcs": ("review", "agent"),
                     "models": {"plan": "chatgpt/gpt-5-6-mini", "agent_fallback": "chatgpt/gpt-5-6-mini",
                                "translate": "local", "hang_fix": "local", "pair_fill": ""}},
     "deepseek": {"label": "Tất cả DeepSeek", "plan_mode": "sample", "provider": "deepseek"},
@@ -283,7 +289,7 @@ def snapshot() -> dict:
         row = {"id": f.id, "label": f.label, "where": f.where, "group": f.group, "key": f.key,
                "value": set_val, "effective": eff, "provider": provider_of(eff),
                "source": (f.key if set_val else (f"dự phòng: {f.fallback}" if f.fallback else "mặc định")),
-               "needs": _needs(f), "fixed": f.fixed, "problem": check_model(f.id, eff) if (eff and not f.fixed) else ""}
+               "needs": _needs(f), "fixed": f.fixed, "legacy": f.legacy, "problem": check_model(f.id, eff) if (eff and not f.fixed) else ""}
         if f.enabled_key:
             row["enabled"] = _get(f.enabled_key).lower() in ("1", "true", "yes", "on")
             row["enabled_key"] = f.enabled_key

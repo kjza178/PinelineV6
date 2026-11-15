@@ -42,3 +42,24 @@ def test_studio_nav_has_no_ui0_ui4_and_points_to_hongguo2_and_local_films():
     assert 'href="/hongguo"' not in s and 'href="/hongguo2"' in s
     assert "8802/films/ui" not in s and 'href="/films/ui?tab=seasons"' in s
     assert not (ROOT / "index3.html").exists() and not (ROOT / "hongguo.html").exists()
+
+
+def test_ui_files_are_served_no_cache_but_api_untouched():
+    pytest.importorskip("fastapi")
+    from fastapi import FastAPI
+    from fastapi.responses import JSONResponse, PlainTextResponse
+    from fastapi.testclient import TestClient
+    from app.main import NoCacheUI
+    app = FastAPI()
+    app.add_middleware(NoCacheUI)
+
+    @app.get("/v6/app.js")
+    def js():
+        return PlainTextResponse("x", headers={"Cache-Control": "max-age=9999"})
+
+    @app.get("/api/v6/jobs")
+    def jobs():
+        return JSONResponse({"jobs": []})
+    c = TestClient(app)
+    assert c.get("/v6/app.js").headers["cache-control"] == "no-cache"
+    assert "cache-control" not in c.get("/api/v6/jobs").headers

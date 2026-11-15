@@ -664,8 +664,9 @@ def test_p6_requested_review_style_follows_job_pipeline(monkeypatch, tmp_path):
     server = pytest.importorskip("server")
     import agents.agent_name_pass as agent_name_pass
     import agents.agent_pronoun_pass as agent_pronoun_pass
-    monkeypatch.setattr(agent_name_pass, "run_name_pass", lambda *a, **k: {"ok": True})
-    monkeypatch.setattr(agent_pronoun_pass, "run_pronoun_pass", lambda *a, **k: {"ok": True})
+    passes = []
+    monkeypatch.setattr(agent_name_pass, "run_name_pass", lambda *a, **k: passes.append("name") or {"ok": True})
+    monkeypatch.setattr(agent_pronoun_pass, "run_pronoun_pass", lambda *a, **k: passes.append("pron") or {"ok": True})
     monkeypatch.setattr(server, "WORK_ROOT", tmp_path)
     calls = []
     monkeypatch.setattr(T, "run_review", lambda *a, **k: calls.append("old_review"))
@@ -675,11 +676,12 @@ def test_p6_requested_review_style_follows_job_pipeline(monkeypatch, tmp_path):
     wd = _job(tmp_path, script=rows, manifest=man)
     res = server._run_requested_review(wd, "Tiếng Việt")
     assert calls == [("simple", {"rereview": True})] and res["style"]["pipeline"] == "simple"
+    assert passes == [] and res["names"]["skipped"]          # 2026-11-15: V6 không chạy pass tên / xưng hô V2
     calls.clear()
     man = {"stages": {}, "translate_pipeline": "legacy", "agent": {"review_request": {"model": None}}}
     wd = _job(tmp_path, script=rows, manifest=man)
     server._run_requested_review(wd, "Tiếng Việt")
-    assert calls == ["old_review"]
+    assert calls == ["old_review"] and passes == ["name", "pron"]   # luồng cũ giữ nguyên
 
 
 # ───────────────────────── 8. đầu-cuối trên cửa sổ golden (LLM giả «echo NMT») ─────────────────────────

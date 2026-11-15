@@ -691,12 +691,16 @@ function aiProviderRow(p) {
 function paintAI() {
   $("#dl-models").innerHTML = aiModelOptions().map((m) => `<option value="${esc(m)}">`).join("");
   $("#ai-presets").innerHTML = ai.presets.map((p) => `<button type="button" class="btn sm" data-ai="preset" data-preset="${esc(p.id)}">${esc(p.label)}</button>`).join(" ");
-  const groups = [...new Set(ai.functions.map((f) => f.group))];
-  const funcs = groups.map((g) => `<tr class="grp"><td colspan="4">${esc(g)}</td></tr>` + ai.functions.filter((f) => f.group === g).map(aiFuncRow).join("")).join("");
+  const main = ai.functions.filter((f) => !f.legacy), old = ai.functions.filter((f) => f.legacy);
+  const groups = [...new Set(main.map((f) => f.group))];
+  const funcs = groups.map((g) => `<tr class="grp"><td colspan="4">${esc(g)}</td></tr>` + main.filter((f) => f.group === g).map(aiFuncRow).join("")).join("");
+  const oldRows = old.map(aiFuncRow).join("");
   const au = ai.aurora, lo = ai.local;
   $("#ai-body").innerHTML = `
     <h3>Model cho từng chức năng</h3>
     <table class="ai-tbl"><thead><tr><th>Chức năng · dùng ở đâu</th><th>Model</th><th>Đang dùng thực tế</th><th></th></tr></thead><tbody>${funcs}</tbody></table>
+    ${old.length ? `<details class="ai-old"><summary>Luồng cũ / thử nghiệm đang tắt — KHÔNG dùng trong luồng dịch V6 (${old.length})</summary>
+      <table class="ai-tbl"><tbody>${oldRows}</tbody></table></details>` : ""}
     <h3>Nhà cung cấp API</h3>
     <table class="ai-tbl"><thead><tr><th>Nhà cung cấp</th><th>API key</th><th>Địa chỉ · trần output</th><th></th></tr></thead><tbody>${ai.providers.map(aiProviderRow).join("")}</tbody></table>
     <p class="mut small">Aurora: ${au.configured ? esc(au.base_url) : "chưa cấu hình AURORA_BASE_URL / CHATGPT_BASE_URL"} ·

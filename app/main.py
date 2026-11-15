@@ -81,6 +81,36 @@ def _import_legacy(inst: Instance):
     return server
 
 
+_UI_PAGES = {"/", "/ui3", "/index3.html", "/studio", "/studio/ui", "/films/ui", "/film", "/hongguo2", "/v5-map", "/v6"}
+
+
+def _is_ui_path(path: str) -> bool:
+    return (path in _UI_PAGES or path.startswith("/v6/") or path.startswith("/static/")
+            or path.endswith((".html", ".js", ".css")))
+
+
+class NoCacheUI:
+    """fix 2026-11-15: file giao diện (desktop /v6/, Studio, trang Phim, Hongguo 2, /static) trả kèm
+    `Cache-Control: no-cache` — trước đây không có header nên WebView2 của app desktop / trình duyệt có thể dùng
+    app.js CŨ sau khi cập nhật code («desktop vẫn dính build cũ»). no-cache = vẫn lưu nhưng hỏi lại server mỗi lần
+    (ETag → 304, rẻ). ASGI thuần (không BaseHTTPMiddleware) nên không đụng luồng SSE /api/events."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http" or not _is_ui_path(scope.get("path") or ""):
+            return await self.app(scope, receive, send)
+
+        async def send_nc(msg):
+            if msg.get("type") == "http.response.start":
+                hs = [(k, v) for k, v in msg.get("headers") or [] if k.lower() != b"cache-control"]
+                hs.append((b"cache-control", b"no-cache"))
+                msg = {**msg, "headers": hs}
+            await send(msg)
+        return await self.app(scope, receive, send_nc)
+
+
 def _v6_router(inst: Instance) -> APIRouter:
     r = APIRouter()
 
@@ -363,6 +393,10 @@ def create_app(inst: Instance, *, legacy: bool = True):
 
     rt = Runtime(inst)
     app.state.runtime = rt
+    try:
+        app.add_middleware(NoCacheUI)
+    except RuntimeError as e:
+        print(f"[v6] bỏ NoCacheUI middleware: {e}")
     try:
         app.add_middleware(CORSMiddleware, allow_origins=["tauri://localhost", "http://tauri.localhost",
                                                           inst.base_url], allow_methods=["*"], allow_headers=["*"])

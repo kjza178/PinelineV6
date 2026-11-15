@@ -209,8 +209,9 @@ def test_preset_recommended_mixes_deepseek_aurora_local(conf, monkeypatch):
     monkeypatch.setattr(providers, "list_models", lambda p, **k: ["deepseek-v4-pro", "deepseek-flash"])
     ai_models.apply(preset="recommended")
     d = _file(conf)
-    for k in ("SIMPLE_MODEL", "NAME_MODEL", "PRONOUN_MODEL", "AGENT_MODEL"):
+    for k in ("SIMPLE_MODEL", "AGENT_MODEL"):
         assert d[k] == "deepseek/deepseek-flash", k
+    assert "NAME_MODEL" not in d and "PRONOUN_MODEL" not in d       # pass V2 — luồng V6 không dùng
     assert d["PLAN_MODEL"] == "chatgpt/gpt-5-6-mini" and d["PLAN_MODE"] == "file"
     assert d["AGENT_FALLBACK_MODEL"] == "chatgpt/gpt-5-6-mini"
     assert d["TRANSLATE_MODEL"] == "local" and d["HANG_FIX_MODEL"] == "local"
@@ -232,3 +233,10 @@ def test_plan_sample_fallback_uses_review_model_not_small_translate_model(conf, 
     monkeypatch.setattr(T, "chat", chat)
     data = T.build_plan([{"i": 0, "start": 0, "end": 1, "text": "你好"}], work_dir=None)
     assert seen == ["chatgpt/gpt-5-6-mini", "deepseek/deepseek-flash"] and data["characters"]
+
+
+def test_functions_not_used_by_v6_are_marked_legacy(conf):
+    rows = {f["id"]: f for f in ai_models.snapshot()["functions"]}
+    assert {i for i, f in rows.items() if f["legacy"]} == {"name", "pronoun", "pair_fill", "legacy_review",
+                                                           "pronoun_analyze"}
+    assert not rows["review"]["legacy"] and not rows["plan"]["legacy"] and not rows["agent"]["legacy"]

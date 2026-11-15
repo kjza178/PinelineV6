@@ -171,3 +171,6 @@ form.clone{border-top:1px solid var(--line);margin-top:14px}
 .small{font-size:12px}
 .ai-res.ok{color:var(--done)}
 .ai-res.err{color:#ff9d96}
+
+.ai-old{margin:8px 0 4px;opacity:.85}
+.ai-old summary{cursor:pointer;color:var(--muted, #9aa);padding:4px 0}

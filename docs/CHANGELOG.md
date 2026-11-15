@@ -1,6 +1,11 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **Cài đặt AI chỉ hiện chức năng luồng V6 dùng thật** — «Pass sửa tên», «Pass xưng hô» (cơ chế V2), «Bổ sung cặp xưng hô»,
+  «Phân tích xưng hô cả phim» (thử nghiệm đang tắt), «Soát luồng cũ» gấp vào mục «Luồng cũ / thử nghiệm». Agent «rà soát»
+  trên job V6 KHÔNG chạy pass tên / xưng hô cũ nữa (soát lại V6 tự xử lý theo plan + kiểm + vá).
+- **Sửa: desktop dính giao diện cũ sau khi cập nhật** — file giao diện trả kèm `Cache-Control: no-cache` (WebView2 / trình
+  duyệt hỏi lại server mỗi lần, có ETag nên rẻ).
 - **Trang UI gọn lại** (cần restart :8806; desktop build lại để nav mới) — theo chủ dự án:
   Studio (UI3, `index3.html`) đổi tên thành `index.html` = trang chính `/`; UI0 cũ và UI4 bỏ; Hongguo 1 (`hongguo.html`)
   bỏ, dùng Hongguo 2. Đường cũ không gãy: `/ui3` `/index3.html` `/studio` = `/`; `/ui4` → `/`; `/hongguo` `/ui-hg` →
