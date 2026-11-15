@@ -1,8 +1,9 @@
 """
-llm.py — Gọi LLM qua 9router API (tương thích chuẩn OpenAI).
+llm.py — Gọi LLM. Đường đi theo tiền tố model: deepseek/… alibaba/… (engines/providers), chatgpt/… aurora/… (Aurora),
+local/… (Ollama), llama/… hoặc "local" (llama-server :8083). V6 không còn dùng 9router.
 
 Cấu hình qua config.json / pineline.config.json (LLM_* / TRANSLATE_MODEL / REVIEW_MODEL: file config thắng env):
-    LLM_BASE_URL   mặc định http://192.168.31.247:20128/v1
+    LLM_BASE_URL   mặc định http://127.0.0.1:8083/v1 (llama-server local)
     LLM_API_KEY    (chỉ đặt trong pineline.config.json — không ghi key vào code/.bat)
     LLM_MODEL      ollama/gemma4:31b-cloud
     TRANSLATE_MODEL ollama/gemma4:31b-cloud
@@ -41,7 +42,7 @@ try:
 except Exception:  # noqa: BLE001
     pass
 
-BASE_URL = os.getenv("LLM_BASE_URL", "http://192.168.31.247:20128/v1").rstrip("/")
+BASE_URL = os.getenv("LLM_BASE_URL", "http://127.0.0.1:8083/v1").rstrip("/")   # V6: mặc định llama local
 API_KEY = os.getenv("LLM_API_KEY", "")
 MODEL = os.getenv("LLM_MODEL", "ollama/gemma4:31b-cloud")
 
@@ -144,7 +145,17 @@ def list_available_models() -> dict:
                 "label": f"{om} (Ollama)",
                 "source": "ollama",
             })
-    # 3. Model config
+    # 3. Nhà cung cấp API (engines/providers) — chỉ nhà đã có key
+    try:
+        from engines import providers as _providers
+        for p in _providers.all_providers():
+            if not p.configured():
+                continue
+            for pm in p.models:
+                out.append({"id": f"{p.name}/{pm}", "label": f"{pm} ({p.label})", "source": p.name})
+    except Exception as e:  # noqa: BLE001
+        print(f"[llm] liệt kê model nhà cung cấp lỗi: {e}", flush=True)
+    # 4. Model config
     if def_model and not any(x["id"] == def_model for x in out):
         out.append({
             "id": def_model,
@@ -632,6 +643,13 @@ def chat(
     base, key, default_model = _settings()
     llama_base = _llama_base()
     m = (model or default_model or "").strip()
+    # Nhà cung cấp API riêng (engines/providers): deepseek/…, alibaba/… (qwen/…) — mỗi nhà một module.
+    from engines import providers as _providers
+    hit = _providers.resolve(m)
+    if hit is not None:
+        prov, bare = hit
+        return _providers.chat_text(prov, bare, messages, temperature=temperature, max_tokens=max_tokens,
+                                    json_mode=json_mode, retries=retries, timeout=timeout)
     if is_local(m):
         m = m[len(LOCAL_PREFIX):]
         ensure_ollama_model(m)                    # chưa pull -> tự pull (lần đầu)
@@ -660,22 +678,18 @@ def chat(
     is_llama = False
     is_cloud = False
 
-    # ollama/*-cloud (vd gemma4:31b-cloud) → 9router, KHÔNG nuốt vào :8083 dù LLM_BASE=local
+    # ollama/*-cloud (vd gemma4:31b-cloud) → router cloud (9router — V6 KHÔNG còn dùng mặc định). Chỉ chạy khi
+    # cấu hình CLOUD_LLM_BASE_URL + CLOUD_LLM_API_KEY rõ ràng; không thì báo đổi model (không đoán địa chỉ LAN).
     ml = m.lower()
     if ml.startswith("ollama/") or "-cloud" in ml or ml.endswith(":cloud"):
         is_cloud = True
         cloud_base = (_cfg_get("CLOUD_LLM_BASE_URL") or "").strip().rstrip("/")
         cloud_key = (_cfg_get("CLOUD_LLM_API_KEY") or "").strip()
-        if not cloud_base:
-            cloud_base = _machine.cloud_llm_base_url()
-        if not cloud_key or cloud_key == "sk-local":
-            # fallback: LLM_* nếu đang trỏ 9router
-            if "20128" in (base or "") and key and key != "sk-local":
-                cloud_base, cloud_key = base, key
-            else:
-                raise LLMUnavailable(
-                    "REVIEW/cloud model cần CLOUD_LLM_API_KEY (9router) trong pineline.config.json"
-                )
+        if not cloud_base or not cloud_key or cloud_key == "sk-local":
+            raise LLMUnavailable(
+                f"Model «{m}» cần router cloud (9router) — V6 không dùng nữa. Đổi sang deepseek/deepseek-chat, "
+                "alibaba/qwen-plus, chatgpt/… (Aurora) hoặc model local trong Cài đặt AI."
+            )
         target_base, target_key = cloud_base, cloud_key
         print(f"[llm] cloud {m} via {target_base}", flush=True)
 

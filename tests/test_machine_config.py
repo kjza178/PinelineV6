@@ -43,7 +43,7 @@ def test_defaults_keep_old_values(cfg):
     assert machine.mt_model_dir() == Path(r"E:\models\mt")
     assert machine.library_dir() == Path(r"D:\Lib")
     assert machine.yt_uploader_dir() == Path(r"Z:\yt_uploader")
-    assert machine.cloud_llm_base_url() == "http://192.168.31.247:20128/v1"
+    assert machine.cloud_llm_base_url() == ""          # 2026-11-15: V6 bỏ 9router — mặc định tắt (chỉ bật khi cấu hình rõ)
     assert machine.aurora_base_urls() == [
         "http://127.0.0.1:3377/v1", "http://192.168.31.247:5005/v1", "http://192.168.31.244:5005/v1"]
     assert machine.flag("AUTO_SWITCH_PRESETS")

@@ -1769,6 +1769,15 @@ def _chat_turn_model(
     model: str,
     tool_choice: Any = "auto",
 ) -> dict:
+    # Nhà cung cấp API riêng (engines/providers): deepseek/…, alibaba/… — gọi qua module của nhà đó (có tools).
+    from engines import providers as _providers
+    hit = _providers.resolve(model)
+    if hit is not None:
+        prov, bare = hit
+        return _providers.chat_message(prov, bare, messages, temperature=0.2, max_tokens=2048,
+                                       tools=TOOLS if use_tools else None,
+                                       tool_choice=(tool_choice if tool_choice is not None else "auto") if use_tools else None,
+                                       retries=3, timeout=180)
     base, key, _ = _llm_cfg()
     url = f"{base}/chat/completions"
     enable_think = (os.getenv("LLM_ENABLE_THINKING") or "").strip() in ("1", "true", "yes")

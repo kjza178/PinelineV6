@@ -1,5 +1,12 @@
 # CHANGELOG — V6
 
+## 2026-11-15
+- **Nhà cung cấp AI qua API: DeepSeek + Alibaba (Qwen)** — `engines/providers/` (mỗi nhà một file, lõi chung `_openai.py`).
+  Dùng bằng tiền tố model: `deepseek/deepseek-chat`, `alibaba/qwen-plus`; key `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`.
+  Áp cho mọi chức năng gọi `llm.chat` và cho Agent (có gọi công cụ). **Bỏ 9router khỏi mặc định**: `LLM_BASE_URL` mặc định
+  llama local, model `ollama/…-cloud` chỉ chạy khi cấu hình rõ. Thiết kế + giới hạn: docs/design/2026-11-15-ai-providers.md.
+  Cần restart :8806; chủ dự án tự đổi các khoá trong `pineline.config.json` đang trỏ 9router.
+
 ## 2026-11-14
 - **Sửa theo review** (cần restart :8806) — docs/fixes/2026-11-14-review-fixes.md: films.db dùng chung không còn bị
   instance này đánh dấu / xoá job của instance khác (cột `work_root`); ghi nhật ký hàng chờ ra luồng riêng (không giữ

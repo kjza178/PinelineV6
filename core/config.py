@@ -55,6 +55,9 @@ LLM_FILE_FIRST_KEYS = frozenset({
     "LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "TRANSLATE_MODEL", "REVIEW_MODEL",
     "NAME_MODEL", "PRONOUN_MODEL", "CHATGPT_BASE_URL", "CHATGPT_MODEL", "CHATGPT_API_KEY",
     "AURORA_BASE_URL", "CLOUD_LLM_BASE_URL", "CLOUD_LLM_API_KEY", "PRONOUN_ANALYZE", "PRONOUN_ANALYZE_MODEL", "PRONOUN_ANALYZE_CHUNK",
+    # Nhà cung cấp API (engines/providers) — sửa file có hiệu lực ngay, env cũ của shell không đè
+    "DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL", "DASHSCOPE_API_KEY", "ALIBABA_API_KEY", "ALIBABA_BASE_URL",
+    "ALIBABA_ENABLE_THINKING", "SIMPLE_MODEL", "PLAN_MODEL", "AGENT_MODEL", "AGENT_FALLBACK_MODEL", "HANG_FIX_MODEL",
     # Fan-out REVIEW Aurora: sửa file có hiệu lực ngay (không cần restart)
     "REVIEW_PARALLEL", "REVIEW_PARALLEL_DEFAULT", "REVIEW_PARALLEL_MAX",
     "REVIEW_BACKUP", "REVIEW_PASS1_MAX_UPLOAD_BYTES", "REVIEW_PASS1_CHUNK_CUES",
@@ -128,9 +131,9 @@ def get(key: str, default: str | None = None) -> str | None:
 def llm_settings() -> dict:
     """LLM cho job (dịch/review) — đọc lúc gọi để sửa pineline.config.json có hiệu lực không cần restart."""
     return {
-        "base": (get("LLM_BASE_URL") or "http://192.168.31.247:20128/v1").rstrip("/"),
+        "base": (get("LLM_BASE_URL") or "http://127.0.0.1:8083/v1").rstrip("/"),   # V6: không còn 9router
         "key": get("LLM_API_KEY") or "",
-        "model": get("LLM_MODEL") or "ollama/gemma4:31b-cloud",
+        "model": get("LLM_MODEL") or "local",
         "translate_model": get("TRANSLATE_MODEL") or None,
         "review_model": get("REVIEW_MODEL") or None,
         "name_model": get("NAME_MODEL") or None,
@@ -159,7 +162,7 @@ def pass_llm_model(kind: str = "pronoun") -> str | None:
 def agent_llm() -> dict:
     """LLM cho agent chat / feeder: AGENT_* rồi LLM_* (cả hai file trước env)."""
     base = (get("AGENT_BASE_URL") or get("LLM_BASE_URL") or "http://127.0.0.1:8083/v1").rstrip("/")
-    model = get("AGENT_MODEL") or get("LLM_MODEL") or "ollama/gemma4:31b-cloud"
+    model = get("AGENT_MODEL") or get("LLM_MODEL") or "local"
     fb = (get("AGENT_FALLBACK_MODEL") or "").strip()
     return {
         "base": base,

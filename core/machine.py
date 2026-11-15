@@ -29,7 +29,7 @@ except ImportError:  # pragma: no cover - V4
 
 # Key máy → (mặc định, mô tả ngắn). Dùng cho config.example.json + doctor.
 MACHINE_KEYS: dict[str, tuple[str, str]] = {
-    "LLM_BASE_URL": ("http://192.168.31.247:20128/v1", "LLM chính (OpenAI-compatible) cho dịch/review: llama-server, 9router, Ollama /v1, OpenAI..."),
+    "LLM_BASE_URL": ("http://127.0.0.1:8083/v1", "LLM chính (OpenAI-compatible) cho dịch/review: llama-server, 9router, Ollama /v1, OpenAI..."),
     "LLAMA_BASE_URL": ("", "llama-server /v1 (GGUF local). Trống = LLM_BASE_URL nếu trỏ localhost, không thì http://127.0.0.1:8083/v1"),
     "AUTO_SWITCH_PRESETS": ("1", "1 = tự đổi preset llama (TRANSLATE_PRESET/REVIEW_PRESET) bằng script; 0 = không bao giờ đổi, dùng model đang chạy"),
     "MODEL_PRESETS_DIR": (r"E:\models\presets", "Thư mục presets llama.cpp (active.json, models.json, script khởi động). Không tồn tại = bỏ qua đổi preset"),
@@ -39,7 +39,7 @@ MACHINE_KEYS: dict[str, tuple[str, str]] = {
     "CHATGPT_BASE_URL": ("http://127.0.0.1:3377/v1", "Proxy ChatGPT local (plan/review/agent dùng model chatgpt/...)"),
     "AURORA_FALLBACK_URLS": ("http://192.168.31.247:5005/v1,http://192.168.31.244:5005/v1", "Aurora dự phòng (phân cách dấu phẩy). 'off' = không dùng"),
     "AGENT_BASE_URL": ("", "LLM cho agent chat/feeder; trống = LLM_BASE_URL"),
-    "CLOUD_LLM_BASE_URL": ("http://192.168.31.247:20128/v1", "9router cho model ollama/...-cloud (cần CLOUD_LLM_API_KEY)"),
+    "CLOUD_LLM_BASE_URL": ("", "Router cloud cho model ollama/...-cloud (9router — V6 KHÔNG dùng nữa; trống = tắt)"),
     "HONGGUO_BASE_URL": ("http://127.0.0.1:8000", "Hongguo Downloader HTTP API — chỉ cần khi dùng tải Hongguo"),
     "MT_MODEL_DIR": (r"E:\models\mt", "Thư mục model MT zh→vi (HachimiMT ct2); MT_ZH_VI_LOCAL = trỏ thẳng 1 model"),
     "LIBRARY_DIR": (r"D:\Lib", "Thư viện phim tải về (Hongguo output / nguồn job)"),

@@ -90,6 +90,14 @@ Ký hiệu: `[x]` xong và đã kiểm · `[~]` code xong ở cloud, **chờ ki�
 - [x] **R5.2** Thay đổi manifest từ tiến trình khác lên UI chậm tới 30 s → watcher theo dõi mọi job chưa xong (≤ 500), lên UI trong ~1 s.
 - [~] **R5.3** `GET /api/cookies` hết ghi đĩa. Còn `GET /api/voice-sample` (tạo file mẫu khi chưa có — đổi sang POST sẽ vỡ UI cũ, làm cùng D6).
 
+### G1.8 Nhà cung cấp AI (quyết định 2026-11-15: bỏ 9router; Aurora / local / API)
+- [x] **A1** `engines/providers/`: DeepSeek, Alibaba (Qwen) — tiền tố model, dùng cho `llm.chat` + Agent. Test bằng máy chủ giả.
+- [ ] **A2** Một nơi chọn model cho từng chức năng (`core/ai_models.py`) thay ~15 khoá rải rác; bỏ model cứng (Meta Studio, hang fix).
+- [ ] **A3** Màn hình «Cài đặt AI» trên desktop: nhà cung cấp (URL, key chỉ ghi, kiểm tra kết nối) + model cho từng chức năng + bộ cài sẵn.
+- [ ] **A4** Key ra file riêng không lên git (`pineline.secrets.json`); API cài đặt không trả key dạng chữ thường.
+- [ ] **A5** Sửa đọc cấu hình: OCR dịch chữ trên hình (đọc lúc import), Context Studio (chỉ đọc env).
+- [ ] **A6 (chủ)** Thử 1 lần với key DeepSeek / Alibaba thật; đo chất lượng bằng `scripts/golden_ab.py`.
+
 ## G2 — App desktop đủ chức năng
 
 **Mốc xong:** làm trọn một bộ phim (tạo job → sửa dịch → lồng tiếng → render → upload) không mở `/ui3`, `/films`, `/hongguo`.
@@ -145,3 +153,4 @@ Luật: UI desktop **không polling** — 1 kết nối SSE, chỉ gọi API khi
 | 2026-11-14 | R7.3 R7.4 R7.5 R5.2 R5.3 R3.1 R6.2 D3 R1.5 R4.5 | Đợt «fix all»: xem `docs/fixes/2026-11-14-queue-24x7.md` |
 | 2026-11-14 | D2 D4 D6 | Desktop có tab Bản dịch / Giọng đọc / Kết quả + Cài đặt chung |
 | 2026-11-14 | D2 D6 D7 D10 R2.3 + 2 bug | Desktop: câu Trung, giọng clone, thư viện phim, Agent, hỏi trước khi đóng · sửa /films hỏng, work root theo instance |
+| 2026-11-15 | A1 | DeepSeek + Alibaba qua engines/providers; bỏ 9router khỏi mặc định |
