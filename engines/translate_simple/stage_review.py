@@ -176,12 +176,13 @@ def _ctx_line(r: dict, key: str) -> str:
 def build_prompt(rows: list[dict], before: list[dict], after: list[dict], pv: PlanView, *,
                  repair_flags: dict[int, list[dict]] | None = None, film=None) -> tuple[str, str]:
     """(system, user) cho 1 lô. repair_flags → prompt vá (REPAIR_PROMPT + trường loi).
-    film (FilmContext): chế độ full — cả phim + plan đầy đủ đã ở phần đầu (call_llm(prefix=film.text)); ở đây chỉ còn
-    khối «trọng tâm của lô» (nhân vật / cặp / cảnh / thuật ngữ liên quan) để model chú ý đúng chỗ."""
+    film (film_context.Chapter): chế độ full / chương — cả phim (hoặc chương) + plan đã ở phần đầu
+    (call_llm(prefix=chapter.text)); ở đây chỉ còn khối «trọng tâm của lô» để model chú ý đúng chỗ."""
     focus = pv.block_for(rows, before + after)
     if film is not None:
         idx = [int(r["i"]) for r in rows if r.get("i") is not None]
-        head = (f"LÔ NÀY: câu {min(idx)}→{max(idx)} — hồ sơ phim và TOÀN BỘ PHIM ở tin nhắn trước." if idx else "")
+        where = getattr(film, "label", "TOÀN BỘ PHIM")
+        head = (f"LÔ NÀY: câu {min(idx)}→{max(idx)} — hồ sơ phim và {where} ở tin nhắn trước." if idx else "")
         focus = head + ("\nTRỌNG TÂM CỦA LÔ:\n" + focus if focus else "")
     parts = [focus]
     hints = lexicon.hints_for([r.get("zh") or "" for r in rows], pv.plan)
@@ -226,7 +227,7 @@ def call_llm(system: str, user: str, want: set[int], *, model: str | None, stop_
     def _once():
         out = chat(msgs,
                    model=model, temperature=cfg.temperature(), json_mode=True,
-                   max_tokens=cfg.max_tokens(), timeout=cfg.timeout())
+                   max_tokens=cfg.out_cap(model), timeout=cfg.timeout())
         res = parse_lines(out, want)
         if pair_sink is not None:
             pair_sink.extend(parse_new_pairs(out))
@@ -306,9 +307,12 @@ def run(store: ScriptStore, pv: PlanView, *, model: str | None, stop_check=None,
         from . import film_context
         film = film_context.for_stage(rows, pv, model, label="[simple-review]")
     if film is not None:            # chế độ window: thống kê y hệt trước (không thêm khoá)
-        stats["context"] = "full"
+        stats["context"] = film.mode
         stats["prefix_tokens"] = film.est_tokens
-    batch = int(batch) if batch else (cfg.full_batch() if film is not None else cfg.batch())
+        if film.mode == "chapters":
+            stats["chapters"] = len(film.chapters)
+    from . import film_context as _fc
+    batch = int(batch) if batch else _fc.lot_size(model, film)
     ctx, workers = cfg.ctx(), cfg.workers()
     lock = threading.Lock()
     done_pos: set[int] = set()      # vị trí câu đã được soát trong lượt gọi này
@@ -318,10 +322,11 @@ def run(store: ScriptStore, pv: PlanView, *, model: str | None, stop_check=None,
             raise RuntimeError("stopped by user")
         lot = [rows[p] for p in job["pos"]]
         want = {int(r["i"]) for r in lot}
-        system, user = build_prompt(lot, job["before"], job["after"], pv, film=film)
+        ch = job.get("ch")
+        system, user = build_prompt(lot, job["before"], job["after"], pv, film=ch)
         try:
             res = call_llm(system, user, want, model=model, stop_check=stop_check, label="[simple-review]",
-                           pair_sink=pair_sink, prefix=film.text if film is not None else None)
+                           pair_sink=pair_sink, prefix=ch.text if ch is not None else None)
         except Exception as e:  # noqa: BLE001
             if "stopped by user" in str(e).lower():
                 raise
@@ -336,37 +341,55 @@ def run(store: ScriptStore, pv: PlanView, *, model: str | None, stop_check=None,
             store.write()
         return n
 
-    jobs = make_jobs(rows, todo_idx, batch, ctx)
+    jobs = _fc.make_jobs(rows, todo_idx, batch, ctx, film)
     stats["lots"] = len(jobs)
     print(f"[simple-review] model={model} · {stats.get('context', 'window')} · {len(todo_idx)} câu · {len(jobs)} lô × ≤{batch} · "
           f"ctx ±{ctx} · "
           f"workers={min(workers, len(jobs))}", flush=True)
     failed: list[dict] = []
     done_n = 0
-    if workers <= 1 or len(jobs) <= 1:
-        for j in jobs:
-            n = _do(j, "review")
-            if n < 0:
-                failed.append(j)
-            done_n += 1
-            if progress:
-                progress(f"review lô {done_n}/{len(jobs)}")
-    else:
-        with ThreadPoolExecutor(max_workers=min(workers, len(jobs)), thread_name_prefix="simple-rv") as ex:
-            futs = {ex.submit(_do, j, "review"): j for j in jobs}
+
+    def _run(batch_jobs: list[dict]) -> None:
+        nonlocal done_n
+        if not batch_jobs:
+            return
+        if workers <= 1 or len(batch_jobs) <= 1:
+            for j in batch_jobs:
+                if _do(j, "review") < 0:
+                    failed.append(j)
+                done_n += 1
+                if progress:
+                    progress(f"review lô {done_n}/{len(jobs)}")
+            return
+        with ThreadPoolExecutor(max_workers=min(workers, len(batch_jobs)), thread_name_prefix="simple-rv") as ex:
+            futs = {ex.submit(_do, j, "review"): j for j in batch_jobs}
             for f in as_completed(futs):
-                n = f.result()
-                if n < 0:
+                if f.result() < 0:
                     failed.append(futs[f])
                 done_n += 1
                 if progress:
                     progress(f"review lô {done_n}/{len(jobs)}")
+
+    if film is not None and workers > 1 and len(jobs) > len(film.chapters):
+        # làm nóng cache: lô ĐẦU của mỗi chương chạy trước (phần đầu được nhà cung cấp lưu), rồi mới gửi đồng loạt
+        seen_ch: set[int] = set()
+        warm = []
+        for j in jobs:
+            if j["ch"].idx not in seen_ch:
+                seen_ch.add(j["ch"].idx)
+                warm.append(j)
+        print(f"[simple-review] làm nóng cache: {len(warm)} lô đầu chương trước, rồi {len(jobs) - len(warm)} lô "
+              f"song song", flush=True)
+        _run(warm)
+        _run([j for j in jobs if j not in warm])
+    else:
+        _run(jobs)
     # lượt thử lại: câu còn chưa rv (lô lỗi hoặc LLM bỏ sót) — lô ½, tuần tự
     stats["n_fail_lots"] = len(failed)
     left_idx = [p for p in todo_idx if p not in done_pos]
     if left_idx:
         small = max(4, batch // 2)
-        retry = make_jobs(rows, left_idx, small, ctx)
+        retry = _fc.make_jobs(rows, left_idx, small, ctx, film)
         print(f"[simple-review] thử lại {len(left_idx)} câu chưa soát được ({len(retry)} lô × ≤{small}, tuần tự)",
               flush=True)
         for j in retry:

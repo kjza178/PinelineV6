@@ -250,6 +250,8 @@ def snapshot() -> dict:
         k = p.key()
         provs.append({"name": p.name, "label": p.label, "base_url": p.base(), "default_base": p.default_base,
                       "base_key": p.base_keys[0], "key_key": p.key_keys[0], "has_key": bool(k),
+                      "max_tokens": p.out_cap(), "max_tokens_default": p.max_tokens_cap,
+                      "max_tokens_key": f"{p.name.upper()}_MAX_TOKENS",
                       "key_hint": _key_hint(k), "models": [f"{p.name}/{m}" for m in providers.cached_models(p)[1]],
                       "models_fetched_at": providers.cached_models(p)[0] or None})
     try:
@@ -335,6 +337,15 @@ def apply(models: dict | None = None, *, plan_mode: str | None = None, providers
                 errors.append(f"{p.label}: địa chỉ phải bắt đầu bằng http:// hoặc https://")
             else:
                 updates[p.base_keys[0]] = None if (not b or b == p.default_base.rstrip("/")) else b
+        if "max_tokens" in pc:
+            raw = str(pc.get("max_tokens") or "").strip()
+            mk = f"{p.name.upper()}_MAX_TOKENS"
+            if not raw:
+                updates[mk] = None
+            elif not raw.isdigit() or not (256 <= int(raw) <= 1_000_000):
+                errors.append(f"{p.label}: trần output phải là số từ 256 đến 1000000")
+            else:
+                updates[mk] = None if int(raw) == p.max_tokens_cap else raw
     if errors:
         raise ValueError("; ".join(errors))
     if updates:

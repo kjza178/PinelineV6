@@ -225,3 +225,13 @@ def test_missing_model_name_is_an_error_not_a_guess(fake):
         chat([{"role": "user", "content": "x"}], model="deepseek/")
     assert "chưa chọn tên model" in str(ei.value)
     assert not fake.calls                                                   # không gửi request với tên đoán
+
+
+def test_output_cap_configurable_per_provider(fake, monkeypatch):
+    chat([{"role": "user", "content": "x"}], model="deepseek/deepseek-flash", max_tokens=50000)
+    assert fake.calls[-1]["body"]["max_tokens"] == 8192                       # mặc định
+    monkeypatch.setenv("DEEPSEEK_MAX_TOKENS", "32768")
+    chat([{"role": "user", "content": "x"}], model="deepseek/deepseek-flash", max_tokens=50000)
+    assert fake.calls[-1]["body"]["max_tokens"] == 32768
+    monkeypatch.setenv("DEEPSEEK_MAX_TOKENS", "abc")
+    assert providers.resolve("deepseek/x")[0].out_cap() == 8192

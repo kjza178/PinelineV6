@@ -1,6 +1,11 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **A13 phim rất dài + giảm token** (cần restart :8806 + build lại app) — chế độ cả phim (DeepSeek/Alibaba):
+  phần đầu gọn (bỏ cột giây); phim có phần đầu > `SIMPLE_FULL_MAX_TOKENS` (mặc định 40 000, ~1 500–2 000 câu) → chia
+  CHƯƠNG, mỗi chương phần đầu riêng (plan lọc theo chương + câu của chương ± `SIMPLE_CHAPTER_MARGIN`=100 câu), lô không
+  vắt chương; lô đầu mỗi chương chạy trước để làm nóng cache rồi mới gửi đồng loạt; lô mặc định 80 câu, tự thu nhỏ cho
+  vừa trần output (~90 token/câu); trần output chỉnh theo nhà cung cấp trong «Cài đặt AI» (`DEEPSEEK_MAX_TOKENS`).
 - **A12 bảng nhân vật của bộ không bị ghi đè âm thầm** (cần restart :8806 + build lại app) — docs/fixes/2026-11-15-series-glossary-conflicts.md.
   Trước: mỗi lần lập plan tập mới, bảng THÔ của tập đó đè lên bảng bộ (tên, giới tính, xưng hô, thuật ngữ) → một tập
   AI đoán sai tên là mọi tập sau sai theo. Nay: khác bản đã chốt → giữ bản cũ, ghi xung đột; desktop nút «Xung đột tên».

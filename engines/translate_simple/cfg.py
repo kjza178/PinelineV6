@@ -8,8 +8,10 @@ Không sửa config.json. Khoá:
   SIMPLE_CTX               số câu ngữ cảnh chỉ đọc mỗi phía lô (4)
   SIMPLE_CONTEXT           A8: auto | full | window — full = mọi lô gửi CẢ PHIM + plan đầy đủ ở phần đầu cố định
                            (cache được); auto = full khi model là deepseek/… alibaba/… (film_context.py) (auto)
-  SIMPLE_FULL_BATCH        số câu / lô ở chế độ full (60)
-  SIMPLE_FULL_MAX_TOKENS   phần đầu cả phim ước lượng vượt ngưỡng → về window (100000)
+  SIMPLE_FULL_BATCH        số câu / lô ở chế độ full (80) — tự giảm cho vừa trần output (out_cap)
+  SIMPLE_FULL_MAX_TOKENS   trần phần đầu MỖI CHƯƠNG; cả phim vượt → chia chương (40000)
+  SIMPLE_CHAPTER_MARGIN    số câu ngữ cảnh hai bên mỗi chương (100)
+  SIMPLE_OUT_TOKENS_PER_LINE  ước lượng token output / câu để giới hạn cỡ lô (90)
   SIMPLE_WORKERS           số lô gọi song song (8)
   SIMPLE_REPAIR_ROUNDS     số lượt vá câu bị cờ (2, tối đa 2)
   SIMPLE_CONF_MIN          ngưỡng conf (độ chắc spk/to) để kiểm xưng hô (0.7)
@@ -180,11 +182,31 @@ def context_mode() -> str:
 
 
 def full_batch() -> int:
-    return _int("SIMPLE_FULL_BATCH", 60, 4, 150)
+    return _int("SIMPLE_FULL_BATCH", 80, 4, 300)
 
 
 def full_max_tokens() -> int:
-    return _int("SIMPLE_FULL_MAX_TOKENS", 100000, 2000, 2000000)
+    return _int("SIMPLE_FULL_MAX_TOKENS", 40000, 2000, 2000000)
+
+
+def chapter_margin() -> int:
+    return _int("SIMPLE_CHAPTER_MARGIN", 100, 0, 2000)
+
+
+def out_tokens_per_line() -> int:
+    return _int("SIMPLE_OUT_TOKENS_PER_LINE", 90, 20, 1000)
+
+
+def out_cap(model: str | None) -> int:
+    """Trần max_tokens output cho model: nhà cung cấp API → <TÊN>_MAX_TOKENS (engines/providers), khác → SIMPLE_MAX_TOKENS."""
+    try:
+        from engines import providers
+        hit = providers.resolve(model or "")
+        if hit is not None:
+            return hit[0].out_cap()
+    except Exception as e:  # noqa: BLE001
+        print(f"[simple] đọc trần output của {model!r} lỗi: {e}", flush=True)
+    return max_tokens()
 
 
 def ctx() -> int:

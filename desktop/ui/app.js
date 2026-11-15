@@ -681,7 +681,8 @@ function aiProviderRow(p) {
   return `<tr data-prov="${esc(p.name)}"><td><b>${esc(p.label)}</b><div class="mut small">${esc(p.key_key)}</div></td>`
     + `<td>${status}<input type="password" class="ai-key" placeholder="${p.has_key ? "Dán key mới để thay" : "Dán API key"}" autocomplete="off">`
     + `${p.has_key ? '<label class="row small"><input type="checkbox" class="ai-clear"> Xoá key</label>' : ""}</td>`
-    + `<td><input class="ai-base" value="${esc(p.base_url)}" placeholder="${esc(p.default_base)}" spellcheck="false"></td>`
+    + `<td><input class="ai-base" value="${esc(p.base_url)}" placeholder="${esc(p.default_base)}" spellcheck="false">`
+    + `<label class="row small" title="max_tokens tối đa mỗi lần gọi (${esc(p.max_tokens_key)}). Lô dịch tự thu nhỏ cho vừa (~90 token/câu). Chỉ nâng khi model hỗ trợ — quá trần model, nhà cung cấp trả lỗi 400.">Trần output <input class="ai-maxtok" inputmode="numeric" size="7" value="${esc(p.max_tokens)}" placeholder="${esc(p.max_tokens_default)}"> token</label></td>`
     + `<td><button type="button" class="btn sm" data-ai="models" title="Hỏi ${esc(p.label)} (GET /models) các model key này dùng được — cũng là cách kiểm tra key">Lấy danh sách model</button>`
     + `<div class="small ai-res ${p.models.length ? "mut" : ""}">${p.models.length ? `${p.models.length} model đã lấy` : ""}</div></td></tr>`;
 }
@@ -696,7 +697,7 @@ function paintAI() {
     <h3>Model cho từng chức năng</h3>
     <table class="ai-tbl"><thead><tr><th>Chức năng · dùng ở đâu</th><th>Model</th><th>Đang dùng thực tế</th><th></th></tr></thead><tbody>${funcs}</tbody></table>
     <h3>Nhà cung cấp API</h3>
-    <table class="ai-tbl"><thead><tr><th>Nhà cung cấp</th><th>API key</th><th>Địa chỉ</th><th></th></tr></thead><tbody>${ai.providers.map(aiProviderRow).join("")}</tbody></table>
+    <table class="ai-tbl"><thead><tr><th>Nhà cung cấp</th><th>API key</th><th>Địa chỉ · trần output</th><th></th></tr></thead><tbody>${ai.providers.map(aiProviderRow).join("")}</tbody></table>
     <p class="mut small">Aurora: ${au.configured ? esc(au.base_url) : "chưa cấu hình AURORA_BASE_URL / CHATGPT_BASE_URL"} ·
       llama :8083: ${lo.llama.length ? esc(lo.llama.join(", ")) : "không chạy"} · Ollama: ${lo.ollama.length ? esc(lo.ollama.join(", ")) : "không có"}</p>`;
 }
@@ -720,6 +721,8 @@ function aiCollect() {
     if (key) pc.api_key = key;
     if (tr.querySelector(".ai-clear")?.checked) pc.clear_key = true;
     if (base !== p.base_url) pc.base_url = base;
+    const mt = tr.querySelector(".ai-maxtok")?.value.trim() ?? "";
+    if (mt !== String(p.max_tokens)) pc.max_tokens = mt;
     if (Object.keys(pc).length) providers[p.name] = pc;
   }
   const body = {};

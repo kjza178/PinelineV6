@@ -18,7 +18,8 @@ PLAN = {"genre": "đô thị", "characters": [{"zh": "林凡", "vi": "Lâm Phàm
 
 @pytest.fixture
 def env(monkeypatch):
-    for k in ("SIMPLE_CONTEXT", "SIMPLE_FULL_BATCH", "SIMPLE_FULL_MAX_TOKENS", "SIMPLE_BATCH"):
+    for k in ("SIMPLE_CONTEXT", "SIMPLE_FULL_BATCH", "SIMPLE_FULL_MAX_TOKENS", "SIMPLE_BATCH", "SIMPLE_CHAPTER_MARGIN",
+              "SIMPLE_OUT_TOKENS_PER_LINE", "DEEPSEEK_MAX_TOKENS"):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setenv("SIMPLE_WORKERS", "1")
     monkeypatch.setattr("time.sleep", lambda s: None)
@@ -66,7 +67,7 @@ def fake(monkeypatch):
 def test_full_prefix_has_whole_film_and_full_plan_but_no_vi(tmp_path, env):
     st = _store(tmp_path)
     fc = film_context.build(st.rows, PlanView(PLAN))
-    assert fc.n_lines == 130 and "129 | 1.5 | 林凡说第129句" in fc.text
+    assert fc.n_lines == 130 and "\n129|林凡说第129句" in fc.text and "1.5" not in fc.text   # gọn: i|zh
     assert "Lâm Phàm → Tô Yên" in fc.text and "天宫 = Thiên Cung" in fc.text
     assert "nháp" not in fc.text                      # VI đổi liên tục → không nằm trong phần đầu (phá cache)
     st.rows[5]["vi"] = "đã đổi"
@@ -86,21 +87,90 @@ def test_auto_mode_uses_full_only_for_api_providers(tmp_path, env, monkeypatch):
     assert film_context.for_stage(st.rows, pv, "deepseek/deepseek-flash") is None
 
 
-def test_too_long_film_falls_back_to_window(tmp_path, env, monkeypatch):
-    st = _store(tmp_path, 400)
+def test_too_long_film_that_cannot_be_split_falls_back_to_window(tmp_path, env, monkeypatch):
+    st = _store(tmp_path, 300)                      # < 2 chương × 200 câu tối thiểu
     monkeypatch.setenv("SIMPLE_FULL_MAX_TOKENS", "2000")
     assert film_context.for_stage(st.rows, PlanView(PLAN), "deepseek/deepseek-flash") is None
+
+
+# ───────────── phim rất dài: chia chương ─────────────
+
+def _long(tmp_path, n=2400):
+    st = ScriptStore(tmp_path)
+    names = ["林凡", "苏烟", "王婆"]
+    st.rows = [{"i": i, "start": i, "end": i + 1.0, "zh": f"{names[i * 3 // n]}说了第{i}句很长很长的话", "vi": f"nháp {i}"}
+               for i in range(n)]
+    return st
+
+
+PLAN3 = {**PLAN, "characters": PLAN["characters"] + [{"zh": "王婆", "vi": "Vương Bà"}]}
+
+
+def test_long_film_is_split_into_chapters_under_cap(tmp_path, env, monkeypatch):
+    st = _long(tmp_path)
+    monkeypatch.setenv("SIMPLE_FULL_MAX_TOKENS", "12000")
+    fc = film_context.for_stage(st.rows, PlanView(PLAN3), "deepseek/deepseek-flash")
+    assert fc is not None and fc.mode == "chapters" and len(fc.chapters) >= 2
+    assert all(c.est_tokens <= 12000 for c in fc.chapters)
+    assert fc.chapters[0].lo == 0 and fc.chapters[-1].hi == 2400
+    assert all(a.hi == b.lo for a, b in zip(fc.chapters, fc.chapters[1:]))          # phủ kín, không chồng
+    first, last = fc.chapters[0].text, fc.chapters[-1].text
+    assert "ĐOẠN PHIM chương 1/" in first and "王婆 = Vương Bà" not in first           # plan lọc theo chương
+    assert "王婆 = Vương Bà" in last and "林凡 = Lâm Phàm" not in last
+    m = 100
+    assert f"\n{fc.chapters[1].lo - m}|" in fc.chapters[1].text                       # lề ngữ cảnh trước chương
+
+
+def test_chapter_mode_lots_never_cross_chapters_and_warm_cache_first(tmp_path, env, fake, monkeypatch):
+    st = _long(tmp_path, 1200)
+    monkeypatch.setenv("SIMPLE_FULL_MAX_TOKENS", "8000")
+    monkeypatch.setenv("SIMPLE_WORKERS", "4")
+    stats = stage_review.run(st, PlanView(PLAN3), model="deepseek/deepseek-flash")
+    assert stats["context"] == "chapters" and stats["chapters"] >= 2 and stats["n_left"] == 0
+    fc = film_context.for_stage(st.rows, PlanView(PLAN3), "deepseek/deepseek-flash")
+    for msgs in fake.calls:
+        ids = [x["i"] for x in json.loads(msgs[-1]["content"].split("DANH SÁCH (JSON):\n", 1)[1].split("\n\n", 1)[0])]
+        ch = fc.chapter_at(ids[0])
+        assert all(ch.lo <= i < ch.hi for i in ids)                                     # lô không vắt chương
+        assert msgs[1]["content"] == ch.text                                            # đúng phần đầu chương
+    n_ch = len(fc.chapters)
+    first_prefixes = [m[1]["content"] for m in fake.calls[:n_ch]]
+    assert len(set(first_prefixes)) == n_ch                                             # lô đầu mỗi chương chạy trước
+
+
+def test_lot_size_respects_output_cap(tmp_path, env, monkeypatch):
+    st = _store(tmp_path, 10)
+    fc = film_context.build(st.rows, PlanView(PLAN))
+    assert film_context.lot_size("deepseek/deepseek-flash", fc) == 80               # 8192 → vừa 80 câu
+    monkeypatch.setenv("SIMPLE_FULL_BATCH", "200")
+    assert film_context.lot_size("deepseek/deepseek-flash", fc) == (8192 - 600) // 90
+    monkeypatch.setenv("DEEPSEEK_MAX_TOKENS", "32768")
+    assert film_context.lot_size("deepseek/deepseek-flash", fc) == 200
+    assert film_context.lot_size("chatgpt/gpt-6", None) == 30                       # window: như cũ
+
+
+def test_output_cap_sent_to_provider(tmp_path, env, monkeypatch):
+    seen = {}
+    import engines.llm as llm
+
+    def chat(messages, model=None, max_tokens=None, **kw):
+        seen["max_tokens"] = max_tokens
+        return FakeChat()(messages, model=model)
+    monkeypatch.setattr(llm, "chat", chat)
+    monkeypatch.setenv("DEEPSEEK_MAX_TOKENS", "16384")
+    stage_review.run(_store(tmp_path, 5), PlanView(PLAN), model="deepseek/deepseek-flash")
+    assert seen["max_tokens"] == 16384
 
 
 def test_review_full_mode_same_prefix_every_lot_and_bigger_lots(tmp_path, env, fake):
     st = _store(tmp_path, 130)
     stats = stage_review.run(st, PlanView(PLAN), model="deepseek/deepseek-flash")
     assert stats["context"] == "full" and stats["n_left"] == 0 and stats["n_ok"] == 130
-    assert len(fake.calls) == 3                                    # 130 câu / lô 60 (cũ: 5 lô × 30)
+    assert len(fake.calls) == 2                                    # 130 câu / lô 80 (cũ: 5 lô × 30)
     prefixes = {c[1]["content"] for c in fake.calls}
     assert len(prefixes) == 1                                      # giống nhau từng byte → cache được
     assert [m["role"] for m in fake.calls[0]] == ["system", "user", "user"]
-    assert "TOÀN BỘ PHIM" in fake.calls[0][1]["content"] and "LÔ NÀY: câu 0→59" in fake.calls[0][2]["content"]
+    assert "TOÀN BỘ PHIM" in fake.calls[0][1]["content"] and "LÔ NÀY: câu 0→79" in fake.calls[0][2]["content"]
 
 
 def test_review_window_mode_unchanged_for_other_models(tmp_path, env, fake):

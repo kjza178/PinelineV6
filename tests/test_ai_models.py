@@ -12,7 +12,7 @@ from core import ai_models
 MODEL_KEYS = ("SIMPLE_MODEL", "REVIEW_MODEL", "TRANSLATE_MODEL", "LLM_MODEL", "PLAN_MODEL", "PLAN_MODE", "NAME_MODEL",
               "PRONOUN_MODEL", "CHATGPT_MODEL", "AGENT_MODEL", "AGENT_FALLBACK_MODEL", "HANG_FIX_MODEL",
               "SIMPLE_PAIR_FILL_MODEL", "PRONOUN_ANALYZE_MODEL", "PRONOUN_ANALYZE_MODE", "SIMPLE_DRAFT", "DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL",
-              "DASHSCOPE_API_KEY", "ALIBABA_API_KEY", "ALIBABA_BASE_URL")
+              "DASHSCOPE_API_KEY", "ALIBABA_API_KEY", "ALIBABA_BASE_URL", "DEEPSEEK_MAX_TOKENS", "ALIBABA_MAX_TOKENS")
 
 
 @pytest.fixture
@@ -178,3 +178,14 @@ def test_pronoun_analyze_needs_aurora_only_in_file_mode(conf):
     assert _file(conf)["PRONOUN_ANALYZE_MODEL"] == "deepseek/deepseek-flash"
     assert _row(ai_models.snapshot(), "pronoun_analyze")["needs"] == ""
 
+
+
+def test_provider_output_cap_saved_validated_and_reset(conf):
+    out = ai_models.apply(None, providers_cfg={"deepseek": {"max_tokens": "32768"}})
+    assert _file(conf)["DEEPSEEK_MAX_TOKENS"] == "32768"
+    assert next(p for p in out["providers"] if p["name"] == "deepseek")["max_tokens"] == 32768
+    for bad in ("abc", "100", "9999999"):
+        with pytest.raises(ValueError):
+            ai_models.apply(None, providers_cfg={"deepseek": {"max_tokens": bad}})
+    ai_models.apply(None, providers_cfg={"deepseek": {"max_tokens": ""}})            # trống = về mặc định
+    assert "DEEPSEEK_MAX_TOKENS" not in _file(conf)

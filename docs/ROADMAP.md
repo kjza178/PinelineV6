@@ -108,6 +108,10 @@ Ký hiệu: `[x]` xong và đã kiểm · `[~]` code xong ở cloud, **chờ ki�
 - [x] **A12** (C) Bảng nhân vật của bộ không bị tập mới âm thầm ghi đè: tên / giới tính / cặp xưng hô / thuật ngữ khoá
   khác bản đã chốt → giữ bản kho + ghi `data/series_glossary/<bộ>.conflicts.json`; desktop nút «Xung đột tên» (giữ /
   dùng bản mới / bỏ qua). Bảng do người duyệt (Context Studio) được ghi đè. Ghi kho atomic, lỗi films.db có log.
+- [x] **A13** (C) Giảm token + phim rất dài (9–12 giờ): phần đầu gọn «i|zh»; vượt `SIMPLE_FULL_MAX_TOKENS` (40k) → chia
+  CHƯƠNG (plan lọc theo chương + câu của chương ± 100 câu lề; lô không vắt chương); làm nóng cache (lô đầu mỗi chương
+  trước); lô `SIMPLE_FULL_BATCH`=80 tự thu nhỏ cho vừa trần output; trần output theo nhà cung cấp
+  (`DEEPSEEK_MAX_TOKENS` / `ALIBABA_MAX_TOKENS`, chỉnh trong «Cài đặt AI»).
 - [ ] **A6 (chủ)** Thử 1 lần với key DeepSeek / Alibaba thật; đo chất lượng bằng `scripts/golden_ab.py`.
 
 ## G2 — App desktop đủ chức năng
@@ -166,6 +170,7 @@ Luật: UI desktop **không polling** — 1 kết nối SSE, chỉ gọi API khi
 | 2026-11-14 | D2 D4 D6 | Desktop có tab Bản dịch / Giọng đọc / Kết quả + Cài đặt chung |
 | 2026-11-14 | D2 D6 D7 D10 R2.3 + 2 bug | Desktop: câu Trung, giọng clone, thư viện phim, Agent, hỏi trước khi đóng · sửa /films hỏng, work root theo instance |
 | 2026-11-15 | A1 | DeepSeek + Alibaba qua engines/providers; bỏ 9router khỏi mặc định |
+| 2026-11-15 | A13 | chia chương cho phim dài, làm nóng cache, lô 80, trần output cấu hình |
 | 2026-11-15 | A12 | xung đột bảng bộ: không ghi đè, người chọn trên desktop |
 | 2026-11-15 | A11 | luồng V6 bỏ hẳn NMT — AI dịch thẳng từ zh có plan |
 | 2026-11-15 | A8 A10 | soát ngữ cảnh cả phim (cache) + giữ nháp/đã sửa/lý do/lịch sử từng câu |

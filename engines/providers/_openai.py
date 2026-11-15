@@ -59,6 +59,17 @@ class Provider:
     def configured(self) -> bool:
         return bool(self.key())
 
+    def out_cap(self) -> int:
+        """Trần max_tokens output: <TÊN>_MAX_TOKENS trong cấu hình (vd DEEPSEEK_MAX_TOKENS=16384), mặc định
+        max_tokens_cap. Gửi quá trần model hỗ trợ → nhà cung cấp trả 400, nên chỉ nâng khi model cho phép."""
+        raw = _cfg(f"{self.name.upper()}_MAX_TOKENS")
+        try:
+            v = int(float(raw)) if raw else self.max_tokens_cap
+        except ValueError:
+            print(f"[{self.name}] {self.name.upper()}_MAX_TOKENS={raw!r} không phải số → {self.max_tokens_cap}", flush=True)
+            v = self.max_tokens_cap
+        return max(256, min(v, 1_000_000))
+
 
 def _error(provider: Provider, msg: str, cause: BaseException | None = None):
     from engines.llm import LLMUnavailable
@@ -107,7 +118,7 @@ def chat_message(
     payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
-        "max_tokens": max(1, min(int(max_tokens or provider.max_tokens_cap), provider.max_tokens_cap)),
+        "max_tokens": max(1, min(int(max_tokens or provider.out_cap()), provider.out_cap())),
         "stream": False,
     }
     if temperature is not None:
