@@ -210,6 +210,7 @@ def scan(lib: Path | None = None, fresh: bool = False) -> dict:
             state = "done" if _norm(f) in done else "ready"
         size = sum(x.stat().st_size for x in frags) if f is None else 0
         items.append(_item(p.name, title, f, state, series_id=sid, episodes=max(n, 1), folder=str(p),
+                           fragments=n if info.get("merged_file") else 0,
                            size=size, mtime=p.stat().st_mtime, merge_error=errs.get(p.name, ""),
                            in_hongguo=bool(hgi), has_poster=any((p / x).is_file() for x in POSTER_NAMES)))
     counts: dict[str, int] = {}
@@ -317,3 +318,108 @@ def _merge_worker() -> None:
                 _merge_err[name] = str(r.get("error") or "lỗi không rõ")
         _publish("disk_library.merge", {"name": name, "state": "done" if r.get("ok") else "error",
                                         "error": r.get("error") or "", "sec": round(time.time() - t0)})
+
+
+# ── Xoá phim khỏi thư viện / dọn tập lẻ ──
+
+def _jobs_using(folder: Path) -> list[str]:
+    """Job CHƯA xong mà nguồn nằm trong `folder` (job đọc thẳng file thư viện — server._place_source «direct»).
+    Xoá thư mục lúc này làm hỏng job → chặn."""
+    from core.instance import work_root_now
+    import core.job_queue as jq
+    wr = work_root_now(Path("work"))
+    key = _norm(folder)
+    out = []
+    if not wr.is_dir():
+        return out
+    for d in wr.iterdir():
+        mf = d / "manifest.json"
+        if not mf.is_file():
+            continue
+        try:
+            m = json.loads(mf.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            print(f"[disk_library] đọc {mf} lỗi: {e}", flush=True)
+            continue
+        op = _norm((m.get("request") or {}).get("orig_path") or "")
+        if op and (op == key or op.startswith(key + os.sep)):
+            try:
+                done = jq.is_wired_done(d)
+            except Exception as e:  # noqa: BLE001
+                print(f"[disk_library] is_wired_done({d.name}) lỗi: {e} → coi như chưa xong", flush=True)
+                done = False
+            if not done:
+                out.append(d.name)
+    return out
+
+
+def _refresh_hongguo() -> None:
+    _HG_CACHE["at"] = 0.0
+    try:
+        import agents.hongguo_bridge as hg
+        hg._use_rpc()
+        hg._rpc_mod().call("library.refresh", {}, timeout=15)
+    except Exception as e:  # noqa: BLE001
+        print(f"[disk_library] làm mới thư viện Hongguo 2 lỗi (bỏ qua): {e}", flush=True)
+
+
+def delete(names: list[str]) -> dict:
+    """Xoá HẲN thư mục phim (như «Xoá» của trang Phim cũ — agent_feeder delete_local). Chặn: tên ra ngoài thư viện,
+    bộ đang gộp, bộ còn job chưa xong đang đọc file trong đó."""
+    import shutil
+    import stat
+
+    import agents.hongguo_bridge as hg
+    lib = lib_dir()
+    deleted, errors, freed = [], [], 0
+    with _merge_lock:
+        busy = set(_merge_q) | ({_merge_cur} if _merge_cur else set())
+    for n in names or []:
+        n = str(n)
+        p = hg.safe_child(lib, n)
+        if not p or not p.exists():
+            errors.append(f"{n}: không có trong thư viện")
+            continue
+        if n in busy:
+            errors.append(f"{n}: đang gộp tập — chờ gộp xong")
+            continue
+        using = _jobs_using(p)
+        if using:
+            errors.append(f"{n}: job chưa xong đang dùng file này ({', '.join(using[:3])})")
+            continue
+        size = sum(f.stat().st_size for f in p.rglob("*") if f.is_file()) if p.is_dir() else p.stat().st_size
+
+        def _fix(func, fpath, _exc):
+            os.chmod(fpath, stat.S_IWRITE)
+            func(fpath)
+        try:
+            shutil.rmtree(p, onerror=_fix) if p.is_dir() else p.unlink()
+        except OSError as e:
+            print(f"[disk_library] xoá {p} lỗi: {e}", flush=True)
+        if p.exists():
+            errors.append(f"{n}: không xoá được (file đang bị chương trình khác mở?)")
+            continue
+        deleted.append(n)
+        freed += size
+    if deleted:
+        print(f"[disk_library] đã xoá {len(deleted)} phim, giải phóng {freed / 1e9:.1f} GB: {deleted}", flush=True)
+        _refresh_hongguo()
+    return {"ok": bool(deleted), "deleted": deleted, "errors": errors, "freed_bytes": freed}
+
+
+def cleanup(names: list[str]) -> dict:
+    """Dọn tập lẻ của bộ ĐÃ gộp (chỉ khi file gộp đủ nội dung) → thùng rác của thư viện (hongguo_bridge.cleanup_fragments)."""
+    import agents.hongguo_bridge as hg
+    lib = lib_dir()
+    done, errors = {}, []
+    for n in names or []:
+        p = hg.safe_child(lib, str(n))
+        if not p or not p.is_dir():
+            errors.append(f"{n}: không có trong thư viện")
+            continue
+        r = hg.cleanup_fragments(p)
+        if r.get("ok"):
+            done[str(n)] = int(r.get("removed") or 0)
+        else:
+            errors.append(f"{n}: {r.get('error')}")
+    return {"ok": bool(done), "cleaned": done, "errors": errors}

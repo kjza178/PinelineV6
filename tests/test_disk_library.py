@@ -102,3 +102,24 @@ def test_title_vi_from_cache_only(lib, monkeypatch):
     monkeypatch.setattr(tmt, "_load_cache", lambda: {"by_id": {}, "by_zh": {"仙界篇 第二季": {"zh": "仙界篇 第二季", "vi": "Tiên Giới Thiên 2"}}})
     by = {it["name"]: it for it in dl.scan()["items"]}
     assert by["BoB"]["title_vi"] == "Tiên Giới Thiên 2" and by["BoA"]["title_vi"] == ""
+
+
+def test_delete_removes_folder_but_blocks_unfinished_job(lib, tmp_path, monkeypatch):
+    monkeypatch.setattr(dl, "_refresh_hongguo", lambda: None)
+    work = Path(dl.os.environ["PINELINE_WORK_ROOT"])
+    (work / "job2").mkdir()
+    (work / "job2" / "manifest.json").write_text(
+        json.dumps({"request": {"orig_path": str(lib / "BoC" / "001.mp4")}, "stages": {}}), encoding="utf-8")
+    r = dl.delete(["BoA", "BoC", "../ngoai", "khong_co"])
+    assert r["deleted"] == ["BoA"] and not (lib / "BoA").exists() and r["freed_bytes"] == 30
+    assert (lib / "BoC").exists() and any("job2" in e for e in r["errors"])      # job chưa xong đang đọc file
+    assert len(r["errors"]) == 3
+
+
+def test_cleanup_only_after_merge(lib, monkeypatch):
+    import agents.hongguo_bridge as hg
+    monkeypatch.setattr(hg, "cleanup_fragments", lambda p: {"ok": True, "removed": 2} if p.name == "BoA" else
+                        {"ok": False, "error": "chưa có file merged"})
+    r = dl.cleanup(["BoA", "BoB"])
+    assert r["cleaned"] == {"BoA": 2} and "chưa có file merged" in r["errors"][0]
+    assert {it["name"]: it for it in dl.scan()["items"]}["BoA"]["fragments"] == 2

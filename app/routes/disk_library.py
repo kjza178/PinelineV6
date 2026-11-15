@@ -47,3 +47,17 @@ def disk_library_add(body: dict, request: Request):
 def disk_library_merge(body: dict):
     from services import disk_library
     return disk_library.merge(_names(body))
+
+
+@router.post("/api/v6/disk-library/delete")
+def disk_library_delete(body: dict):
+    """Xoá HẲN thư mục phim khỏi ổ (giao diện hỏi xác nhận trước)."""
+    from services import disk_library
+    return disk_library.delete(_names(body))
+
+
+@router.post("/api/v6/disk-library/cleanup")
+def disk_library_cleanup(body: dict):
+    """Dọn tập lẻ của bộ đã gộp → thùng rác thư viện."""
+    from services import disk_library
+    return disk_library.cleanup(_names(body))

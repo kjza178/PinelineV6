@@ -1217,10 +1217,10 @@ function paintDisk() {
   const q = $("#disk-q").value.trim().toLowerCase(), want = $("#disk-state").value;
   const rows = disk.items.filter((it) => (!q || (it.title + " " + it.name + " " + (it.title_vi || "")).toLowerCase().includes(q))
     && (!want || (want === "todo" ? it.state !== "done" : it.state === want)));
-  for (const n of [...diskPicked]) if (!disk.items.some((it) => it.name === n && (it.state === "ready" || it.state === "need_merge"))) diskPicked.delete(n);
+  for (const n of [...diskPicked]) if (!disk.items.some((it) => it.name === n && it.state !== "merging")) diskPicked.delete(n);
   $("#disk-grid").innerHTML = rows.length ? rows.map((it) => {
     const [t, cls] = DISK_ST[it.state] || [it.state, ""];
-    const pick = it.state === "ready" || it.state === "need_merge";
+    const pick = it.state !== "merging";
     const meta = [it.episodes > 1 ? `${it.episodes} tập` : "", fmtSize(it.size), it.mtime ? new Date(it.mtime * 1000).toLocaleDateString("vi-VN") : ""].filter(Boolean).join(" · ");
     const img = it.has_poster ? `<img loading="lazy" src="/api/v6/disk-library/poster?name=${encodeURIComponent(it.name)}" alt="">` : `<span class="noimg">${esc((it.title || "?").slice(0, 2))}</span>`;
     return `<article class="lib-card${diskPicked.has(it.name) ? " picked" : ""}${pick ? " can-pick" : ""}" data-name="${esc(it.name)}" title="${esc(it.path || it.folder || "")}">`
@@ -1228,7 +1228,9 @@ function paintDisk() {
       + `<div class="tt">${esc(it.title)}</div><div class="tvi">${esc(it.title_vi || "")}</div><div class="meta">${esc(meta)}</div>`
       + (it.merge_error ? `<div class="err small">Gộp lỗi: ${esc(it.merge_error)}</div>` : "")
       + `<div class="acts">${it.state === "ready" ? `<button class="btn sm primary" data-disk="add">Tạo job</button>` : ""}`
-      + `${it.state === "need_merge" ? `<button class="btn sm" data-disk="merge" title="Nối các tập thành 1 file (cùng độ phân giải: giữ nguyên chất lượng)">Gộp tập</button>` : ""}</div></article>`;
+      + `${it.state === "need_merge" ? `<button class="btn sm" data-disk="merge" title="Nối các tập thành 1 file (cùng độ phân giải: giữ nguyên chất lượng)">Gộp tập</button>` : ""}`
+      + `${it.fragments ? `<button class="btn sm ghost" data-disk="cleanup" title="Đã có file gộp: chuyển ${it.fragments} tập lẻ vào thùng rác của thư viện">Dọn tập lẻ</button>` : ""}`
+      + `${it.state !== "merging" ? `<button class="btn sm ghost danger" data-disk="delete" title="Xoá hẳn phim này khỏi ổ">Xoá</button>` : ""}</div></article>`;
   }).join("") : `<p class="note">${disk.items.length ? "Không có phim nào khớp bộ lọc." : "Thư viện chưa có phim nào."}</p>`;
   diskPickedPaint();
 }
@@ -1239,6 +1241,7 @@ function diskPickedPaint() {
   $("#disk-clear").hidden = !sel.length;
   $("#disk-add-sel").disabled = !nAdd; $("#disk-add-sel").textContent = nAdd ? `Tạo ${nAdd} job` : "Tạo job đã chọn";
   $("#disk-merge-sel").disabled = !nMerge; $("#disk-merge-sel").textContent = nMerge ? `Gộp tập ${nMerge} bộ` : "Gộp tập đã chọn";
+  $("#disk-del-sel").hidden = !sel.length; $("#disk-del-sel").textContent = `Xoá ${sel.length} phim`;
 }
 async function diskAdd(btn, names) {
   return act(btn, "", async () => {
@@ -1248,6 +1251,20 @@ async function diskAdd(btn, names) {
     try { r = await api("POST", "/api/v6/disk-library/add", { names }); } finally { diskPickedPaint(); }
     const n = (r.job_ids || []).length, errs = r.errors || [];
     say(n ? `Đã tạo ${n} job và xếp vào hàng chờ${errs.length ? ` · ${errs.length} lỗi: ${errs[0]}` : ""}` : `Không tạo được job: ${errs[0] || "lỗi không rõ"}`, n ? "" : "err");
+    names.forEach((x) => diskPicked.delete(x));
+    loadDisk();
+  });
+}
+async function diskDelete(btn, names) {
+  const items = (disk?.items || []).filter((it) => names.includes(it.name));
+  const gb = items.reduce((a, it) => a + (Number(it.size) || 0), 0);
+  const list = items.slice(0, 8).map((it) => "• " + (it.title_vi || it.title)).join("\n") + (items.length > 8 ? `\n… và ${items.length - 8} phim khác` : "");
+  if (!confirm(`XOÁ HẲN ${items.length} phim khỏi ổ${gb ? ` (khoảng ${fmtSize(gb)})` : ""}?\n\n${list}\n\nKhông khôi phục được. Job đã làm xong vẫn giữ nguyên.`)) return;
+  return act(btn, "", async () => {
+    const r = await api("POST", "/api/v6/disk-library/delete", { names });
+    const errs = r.errors || [];
+    say(r.deleted?.length ? `Đã xoá ${r.deleted.length} phim${r.freed_bytes ? `, giải phóng ${fmtSize(r.freed_bytes)}` : ""}${errs.length ? ` · ${errs.length} lỗi: ${errs[0]}` : ""}`
+      : `Không xoá được: ${errs[0] || "lỗi không rõ"}`, r.deleted?.length && !errs.length ? "" : "err");
     names.forEach((x) => diskPicked.delete(x));
     loadDisk();
   });
@@ -1264,13 +1281,24 @@ $("#disk-grid").addEventListener("click", (e) => {
   const card = e.target.closest(".lib-card[data-name]"); if (!card) return;
   const name = card.dataset.name;
   const b = e.target.closest("button[data-disk]");
-  if (b) { if (b.dataset.disk === "add") diskAdd(b, [name]); if (b.dataset.disk === "merge") diskMerge(b, [name]); return; }
+  if (b) {
+    if (b.dataset.disk === "add") diskAdd(b, [name]);
+    if (b.dataset.disk === "merge") diskMerge(b, [name]);
+    if (b.dataset.disk === "delete") diskDelete(b, [name]);
+    if (b.dataset.disk === "cleanup") act(b, "", async () => {
+      const r = await api("POST", "/api/v6/disk-library/cleanup", { names: [name] });
+      say(r.ok ? `Đã chuyển ${Object.values(r.cleaned).reduce((a, x) => a + x, 0)} tập lẻ vào thùng rác` : `Không dọn được: ${(r.errors || [])[0] || ""}`, r.ok ? "" : "err");
+      loadDisk();
+    });
+    return;
+  }
   if (!card.classList.contains("can-pick")) return;
   diskPicked.has(name) ? diskPicked.delete(name) : diskPicked.add(name);
   card.classList.toggle("picked", diskPicked.has(name));
   diskPickedPaint();
 });
 $("#disk-clear").addEventListener("click", () => { diskPicked.clear(); paintDisk(); });
+$("#disk-del-sel").addEventListener("click", (e) => diskDelete(e.currentTarget, [...diskPicked]));
 $("#disk-add-sel").addEventListener("click", (e) => {
   const names = (disk?.items || []).filter((it) => diskPicked.has(it.name) && it.state === "ready").map((it) => it.name);
   if (names.length > 1 && !confirm(`Tạo ${names.length} job và xếp vào hàng chờ?`)) return;
