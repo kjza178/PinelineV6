@@ -311,9 +311,8 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
     store.note("start", None, f"simple run force={force} rereview={rereview} n_asr={len(segments)}")
     model = cfg.review_model(wd)
     try:
-        # 2) plan ∥ NMT
-        plan, dinfo = stage_draft.run(store, segments, target, force=force, progress=prog,
-                                      draft=cfg.draft_mode(model))
+        # 2) plan (V6 không dịch thô NMT — AI dịch thẳng ở bước soát)
+        plan, dinfo = stage_draft.run(store, segments, target, force=force, progress=prog)
         plan_bad = stage_draft.plan_failed(plan)
         if plan_bad:
             dinfo["plan_failed"] = plan_bad

@@ -101,20 +101,34 @@ def fastclock(monkeypatch):
 
 
 def _nmt(monkeypatch, table=None, on=True, fail=False):
+    """V6 bỏ NMT (2026-11-15). Shim cho các kịch bản cũ cần «bản Việt có sẵn» trước khi soát (như job dịch dở /
+    dịch lại): sau bước plan, điền `table` vào câu chưa có vi, không manual, chưa rv — y như nháp NMT cũ.
+    Luồng V6 thật KHÔNG làm bước này. on=False / fail=True → không điền gì."""
     table = NMT if table is None else table
     seen = {}
+    orig = stage_draft.run
 
-    def draft(rows, *, text_key="text", plan=None):
-        seen["rows"] = [r["i"] for r in rows]
+    def run(store, segments, target, **kw):
+        plan, info = orig(store, segments, target, **kw)
+        todo = [r for r in store.rows if not r.get("manual") and not r.get("rv") and not (r.get("vi") or "").strip()]
+        seen["rows"] = [r["i"] for r in todo]
         seen["plan"] = plan
-        if fail:
-            raise RuntimeError("cuda OOM")
-        return {r["i"]: table.get(r["i"], "") for r in rows if table.get(r["i"])}
-    monkeypatch.setenv("MT_ZH_VI", "1" if on else "0")
-    monkeypatch.setattr(mt_zh_vi, "draft_rows", draft)
-    monkeypatch.setattr(mt_zh_vi, "resolve_model_id", lambda plan=None: "fake/base")
-    monkeypatch.setattr(mt_zh_vi, "unload", lambda: None)
+        if on and not fail:
+            for r in todo:
+                if table.get(r["i"]):
+                    r["vi"] = table[r["i"]]
+            store.write()
+        return plan, info
+    monkeypatch.setattr(stage_draft, "run", run)
     return seen
+
+
+def _seed(wd, table=None, segs=None):
+    """Bản Việt ĐÃ CÓ trước khi chạy (lần dịch trước) — thay cho «nháp NMT» cũ (V6 bỏ NMT 2026-11-15)."""
+    table = NMT if table is None else table
+    rows = [{"i": s["i"], "start": s["start"], "end": s["end"], "zh": s["text"], "vi": table.get(s["i"], "")}
+            for s in (segs or SEGS)]
+    (wd / "script.json").write_text(json.dumps(rows, ensure_ascii=False), encoding="utf-8")
 
 
 def _job(tmp_path, segs=None, plan=PLAN, script=None, manifest=None):
@@ -239,48 +253,11 @@ def test_store_post_split_not_remapped(tmp_path):
 
 # ───────────────────────── 2. plan ∥ NMT ─────────────────────────
 
-def test_plan_and_nmt_run_in_parallel(tmp_path, monkeypatch):
-    wd = _job(tmp_path, plan=None)
-    plan_started, nmt_started = threading.Event(), threading.Event()
-
-    def fake_plan(segments, **kw):
-        plan_started.set()
-        assert nmt_started.wait(5), "NMT không chạy song song với plan"
-        return dict(PLAN)
-
-    seen = _nmt(monkeypatch)
-    orig = mt_zh_vi.draft_rows
-
-    def nmt_wait(rows, **kw):
-        nmt_started.set()
-        assert plan_started.wait(5), "plan không chạy song song với NMT"
-        return orig(rows, **kw)
-    monkeypatch.setattr(mt_zh_vi, "draft_rows", nmt_wait)
-    monkeypatch.setattr(T, "build_plan", fake_plan)
-    st = ScriptStore(wd)
-    st.ensure_from_asr(SEGS)
-    plan, info = stage_draft.run(st, SEGS, "Tiếng Việt")
-    assert plan["characters"] and info["parallel"] and info["n_nmt"] == 4
-    assert seen["rows"] == [0, 1, 2, 3, 4]
-    assert json.loads((wd / "glossary.json").read_text(encoding="utf-8"))["characters"]
-    assert st.rows[0]["vi"] == NMT[0] and st.rows[0]["mt"] == 1 and st.rows[3]["vi"] == ""
-
-
-def test_nmt_off_or_error_gives_empty_drafts(tmp_path, monkeypatch):
-    for kw in ({"on": False}, {"fail": True}):
-        wd = _job(tmp_path)
-        _nmt(monkeypatch, **kw)
-        st = ScriptStore(wd)
-        st.ensure_from_asr(SEGS, force=True)
-        _plan, info = stage_draft.run(st, SEGS, "Tiếng Việt")
-        assert info["n_nmt"] == 0 and all(not r["vi"] for r in st.rows)
-
-
 # ───────────────────────── 3. review ─────────────────────────
 
 def test_review_applies_plan_pronouns_and_translates_empty(tmp_path, monkeypatch):
     wd = _job(tmp_path)
-    _nmt(monkeypatch)
+    _seed(wd)
     fake = FakeLLM("good")
     monkeypatch.setattr(llm, "chat", fake)
     res = pipeline.run(wd, "Tiếng Việt")
@@ -301,7 +278,7 @@ def test_review_applies_plan_pronouns_and_translates_empty(tmp_path, monkeypatch
     ready, why = T.translate_ready_for_tts(wd)
     assert ready, why
     steps = {t["step"] for t in _trace(wd)}
-    assert {"nmt", "review", "gate"} <= steps
+    assert {"start", "review", "gate"} <= steps
 
 
 def test_manual_row_never_changed(tmp_path, monkeypatch):
@@ -349,7 +326,7 @@ def test_parse_lines_unit():
 def test_partial_lines_only_returned_rows_rv(tmp_path, monkeypatch):
     monkeypatch.setenv("SIMPLE_UNREVIEWED_TOLERANCE", "0")   # 2026-11-13: tắt nhận-nháp để kiểm đúng rv/park
     wd = _job(tmp_path)
-    _nmt(monkeypatch)
+    _seed(wd)
     fake = FakeLLM(script=["skip_last", "skip_last", "skip_last", "skip_last"])
     monkeypatch.setattr(llm, "chat", fake)
     res = pipeline.run(wd, "Tiếng Việt")
@@ -491,7 +468,7 @@ def test_lexicon_seed_has_golden_idioms():
 def test_review_batches_and_context(tmp_path, monkeypatch):
     segs = [{"i": k, "start": float(k), "end": k + 1.0, "text": f"句子{k}。"} for k in range(70)]
     wd = _job(tmp_path, segs=segs)
-    _nmt(monkeypatch, table={k: f"Câu {k}." for k in range(70)})
+    _seed(wd, {k: f"Câu {k}." for k in range(70)}, segs)
     monkeypatch.setenv("SIMPLE_WORKERS", "4")
     fake = FakeLLM("echo")
     monkeypatch.setattr(llm, "chat", fake)
@@ -753,55 +730,23 @@ def test_end_to_end_golden_window_echo(tmp_path, monkeypatch):
                                               ensure_ascii=False))
 
 
-# ───────────── 2026-11-15: SIMPLE_DRAFT — bỏ NMT khi soát bằng DeepSeek / Alibaba ─────────────
 
-def test_draft_mode_auto_follows_review_provider(monkeypatch):
-    from engines.translate_simple import cfg as scfg
-    monkeypatch.delenv("SIMPLE_DRAFT", raising=False)
-    assert scfg.draft_mode("deepseek/deepseek-flash") == "none"
-    assert scfg.draft_mode("alibaba/qwen-flash") == "none"
-    for m in ("chatgpt/gpt-6", "local", "local/gemma4", None):
-        assert scfg.draft_mode(m) == "nmt"
-    monkeypatch.setenv("SIMPLE_DRAFT", "nmt")
-    assert scfg.draft_mode("deepseek/deepseek-flash") == "nmt"
-    monkeypatch.setenv("SIMPLE_DRAFT", "none")
-    assert scfg.draft_mode("chatgpt/gpt-6") == "none"
-    monkeypatch.setenv("SIMPLE_DRAFT", "linh tinh")
-    assert scfg.draft_setting() == "auto"
+# ───────────── 2026-11-15: V6 bỏ hẳn NMT — AI dịch thẳng từ zh ─────────────
 
-
-def test_draft_none_skips_nmt_but_builds_plan(tmp_path, monkeypatch):
-    wd = _job(tmp_path, plan=None)
-
-    def boom(*a, **k):
-        raise AssertionError("NMT không được chạy khi draft=none")
-    _nmt(monkeypatch)
-    monkeypatch.setattr(mt_zh_vi, "draft_rows", boom)
-    monkeypatch.setattr(T, "build_plan", lambda segments, **kw: dict(PLAN))
-    st = ScriptStore(wd)
-    st.ensure_from_asr(SEGS)
-    plan, info = stage_draft.run(st, SEGS, "Tiếng Việt", draft="none")
-    assert plan["characters"] and info["draft"] == "none" and info["n_nmt"] == 0
-    assert all(not r["vi"] for r in st.rows)
-    assert json.loads((wd / "glossary.json").read_text(encoding="utf-8"))["characters"]
-
-
-def test_pipeline_with_deepseek_review_translates_directly(tmp_path, monkeypatch):
-    """Model soát deepseek/… → không NMT; mọi câu gửi «dich»=true, AI dịch thẳng; cổng done như thường."""
-    monkeypatch.setenv("SIMPLE_MODEL", "deepseek/deepseek-flash")
-    monkeypatch.delenv("SIMPLE_DRAFT", raising=False)
+def test_v6_never_runs_nmt_even_when_enabled(tmp_path, monkeypatch):
+    """MT_ZH_VI=1 (máy có NMT) vẫn KHÔNG chạy NMT ở luồng V6; mọi câu AI dịch mới, cổng done."""
     wd = _job(tmp_path)
 
     def boom(*a, **k):
-        raise AssertionError("NMT không được chạy khi soát bằng DeepSeek")
-    _nmt(monkeypatch)
+        raise AssertionError("luồng V6 không được chạy NMT")
+    monkeypatch.setenv("MT_ZH_VI", "1")
     monkeypatch.setattr(mt_zh_vi, "draft_rows", boom)
+    monkeypatch.setattr(mt_zh_vi, "enabled", lambda: True)
     fake = FakeLLM("good")
     monkeypatch.setattr(llm, "chat", fake)
     res = pipeline.run(wd, "Tiếng Việt")
     assert res["status"] == "done", res["gate"]
-    assert res["draft"]["draft"] == "none"
     rows = _read(wd)
     assert rows[0]["vi"].startswith("Tô Tình, anh") and " em " in rows[0]["vi"]   # cặp Lâm→Tô anh/em từ plan
-    assert all(r["s_act"] == "new" for r in rows.values() if not r.get("junk"))           # không có nháp → dịch mới
-    assert all(c["model"] == "deepseek/deepseek-flash" for c in fake.calls)
+    assert all(r["s_act"] == "new" for r in rows.values() if not r.get("junk"))
+    assert not any(r.get("mt") for r in rows.values())

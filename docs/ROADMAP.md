@@ -102,9 +102,9 @@ Ký hiệu: `[x]` xong và đã kiểm · `[~]` code xong ở cloud, **chờ ki�
 - [ ] **A9** Lượt kiểm nhất quán cả phim bằng AI (bắt lệch KHÔNG có trong plan: cặp chưa ghi, thuật ngữ chưa ghi, văn phong).
 - [x] **A10** (C) Mỗi câu soát: `s_act` giữ nháp / máy đã sửa / dịch mới + `s_why` (lý do model trả); tab Bản dịch có
   nhãn, lọc «Máy đã sửa», nút «Lịch sử» (đọc trace.jsonl, `GET /api/v6/jobs/{id}/script/{i}/history`).
-- [x] **A11** (C) Bỏ NMT khi soát bằng DeepSeek/Alibaba: `SIMPLE_DRAFT=auto|nmt|none` (auto = none cho model API,
-  nmt cho Aurora/local); không nạp model NMT lên GPU, AI dịch thẳng từ zh có plan. Chọn được trong «Cài đặt AI».
-  Chờ: A/B DeepSeek có/không NMT trên ≥3 job (≥1 cổ trang) bằng `golden_ab`.
+- [x] **A11** (C) **Luồng V6 bỏ hẳn NMT** (quyết định chủ dự án 2026-11-15): bước 1 chỉ lập plan, AI dịch thẳng từ zh ở
+  bước soát (mọi model). Bản Việt đã có từ lần trước vẫn được soát như nháp. NMT (`engines/mt_zh_vi`) chỉ còn ở luồng
+  cũ `TRANSLATE_PIPELINE=legacy` (đường quay về). Chờ: so chất lượng job thật (đặc biệt phim cổ trang).
 - [ ] **A6 (chủ)** Thử 1 lần với key DeepSeek / Alibaba thật; đo chất lượng bằng `scripts/golden_ab.py`.
 
 ## G2 — App desktop đủ chức năng
@@ -163,6 +163,6 @@ Luật: UI desktop **không polling** — 1 kết nối SSE, chỉ gọi API khi
 | 2026-11-14 | D2 D4 D6 | Desktop có tab Bản dịch / Giọng đọc / Kết quả + Cài đặt chung |
 | 2026-11-14 | D2 D6 D7 D10 R2.3 + 2 bug | Desktop: câu Trung, giọng clone, thư viện phim, Agent, hỏi trước khi đóng · sửa /films hỏng, work root theo instance |
 | 2026-11-15 | A1 | DeepSeek + Alibaba qua engines/providers; bỏ 9router khỏi mặc định |
-| 2026-11-15 | A11 | bỏ NMT khi soát bằng DeepSeek/Alibaba (SIMPLE_DRAFT) |
+| 2026-11-15 | A11 | luồng V6 bỏ hẳn NMT — AI dịch thẳng từ zh có plan |
 | 2026-11-15 | A8 A10 | soát ngữ cảnh cả phim (cache) + giữ nháp/đã sửa/lý do/lịch sử từng câu |
 | 2026-11-15 | A2 A3 A5 | core/ai_models + /api/v6/ai + desktop «Cài đặt AI»; PLAN_MODEL ở chế độ sample; save_config |

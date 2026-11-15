@@ -178,14 +178,3 @@ def test_pronoun_analyze_needs_aurora_only_in_file_mode(conf):
     assert _file(conf)["PRONOUN_ANALYZE_MODEL"] == "deepseek/deepseek-flash"
     assert _row(ai_models.snapshot(), "pronoun_analyze")["needs"] == ""
 
-
-def test_draft_setting_saved_and_effective_follows_review_model(conf):
-    ai_models.apply({"review": "deepseek/deepseek-flash"})
-    d = ai_models.snapshot()["draft"]
-    assert d["value"] == "auto" and d["effective"] == "none"            # DeepSeek → AI dịch thẳng
-    out = ai_models.apply(draft="nmt")
-    assert _file(conf)["SIMPLE_DRAFT"] == "nmt" and out["draft"]["effective"] == "nmt"
-    ai_models.apply(draft="auto")
-    assert "SIMPLE_DRAFT" not in _file(conf)
-    with pytest.raises(ValueError):
-        ai_models.apply(draft="gpu")

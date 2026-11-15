@@ -20,11 +20,7 @@ Không sửa config.json. Khoá:
   SIMPLE_TEMPERATURE       (0.2)
   SIMPLE_PRONOUN_ANALYZE   1 = chạy pronoun_consistency.ensure_analyze_before_translate sau plan (0)
   SIMPLE_REQUIRE_PLAN      1 = lập plan hỏng (lỗi cloud / plan trống) → không soát, park để lần sau lập lại (1)
-  SIMPLE_DRAFT             2026-11-15: bản nháp trước khi soát — auto | nmt | none. none = KHÔNG chạy NMT (GPU),
-                           AI dịch thẳng từ zh (có plan). auto = none khi model soát là deepseek/… alibaba/…,
-                           nmt cho model khác (Aurora, local) — như trước (auto)
-  SIMPLE_NMT_WAIT_PLAN     1 = NMT chờ plan (chọn đúng flavor base/QT) thay vì song song (0)
-  SIMPLE_NMT_UNLOAD        1 = nhả model NMT sau khi nháp (1)
+  (2026-11-15: V6 bỏ hẳn NMT — các khoá SIMPLE_DRAFT / SIMPLE_NMT_WAIT_PLAN / SIMPLE_NMT_UNLOAD không còn dùng)
   SIMPLE_TRACE_MAX_MB      trace.jsonl vượt ngưỡng → xoay sang trace.1.jsonl (8; 0 = không xoay)
   SIMPLE_SUGGEST_PAIRS     1 = REVIEW được đề xuất cặp xưng hô thiếu → plan_suggestions.json (1)
 
@@ -257,32 +253,6 @@ def require_plan() -> bool:
     """R1.2: 1 (mặc định) = lập plan hỏng thì KHÔNG soát (park, lần sau lập lại) — không dịch cả phim thiếu bảng
     nhân vật / xưng hô. 0 = vẫn dịch với plan tạm (như trước), plan hỏng vẫn không được lưu."""
     return _flag("SIMPLE_REQUIRE_PLAN", "1")
-
-
-def draft_setting() -> str:
-    v = str(get("SIMPLE_DRAFT", "auto") or "auto").strip().lower()
-    return v if v in ("auto", "nmt", "none") else "auto"
-
-
-def draft_mode(model: str | None) -> str:
-    """«nmt» | «none» — bản nháp THỰC sẽ dùng với model soát này (SIMPLE_DRAFT=auto → none cho nhà cung cấp API)."""
-    v = draft_setting()
-    if v != "auto":
-        return v
-    try:
-        from engines import providers
-        return "none" if providers.resolve(model or "") is not None else "nmt"
-    except Exception as e:  # noqa: BLE001
-        print(f"[simple] không xác định nhà cung cấp của {model!r}: {e} → giữ NMT", flush=True)
-        return "nmt"
-
-
-def nmt_wait_plan() -> bool:
-    return _flag("SIMPLE_NMT_WAIT_PLAN", "0")
-
-
-def nmt_unload() -> bool:
-    return _flag("SIMPLE_NMT_UNLOAD", "1")
 
 
 def trace_max_bytes() -> int:

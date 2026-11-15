@@ -1,27 +1,22 @@
-"""Bước 2: Plan (cloud) ∥ NMT nháp (GPU) — chạy SONG SONG bằng 2 thread.
+"""Bước 1 của luồng dịch V6: lập PLAN (hồ sơ phim: nhân vật, xưng hô, cảnh, thuật ngữ).
 
-Plan: dùng lại glossary.json nếu có (trừ force — như run_translate cũ; context_pack.skip_plan
-luôn giữ), không thì translate.build_plan (PLAN_MODE=file → upload SRT; lỗi → sample), rồi
-series_glossary.apply + ensure_hard_terms (+ pronoun analyze nếu SIMPLE_PRONOUN_ANALYZE=1).
-Plan lỗi → plan rỗng (vẫn dịch, kém nhất quán) — y như luồng cũ.
+2026-11-15 (quyết định chủ dự án): luồng V6 BỎ HẲN NMT — không dịch thô trên GPU; AI dịch thẳng từ zh theo plan ở
+bước soát (stage_review). Câu đã có vi từ trước (lần chạy cũ / người sửa tay) vẫn giữ và được soát như bản nháp.
+NMT (engines/mt_zh_vi) chỉ còn ở luồng cũ TRANSLATE_PIPELINE=legacy (đường quay về).
 
-NMT: mt_zh_vi.draft_rows cho câu chưa có vi (không manual). Vì chạy song song nên NMT chưa có plan
-của tập này: flavor base/QT chọn theo glossary.json cũ hoặc bảng bộ (series) nếu có, không thì base
-(mặc định cho mixed/chưa rõ). SIMPLE_NMT_WAIT_PLAN=1 → NMT chờ plan (tuần tự, đúng flavor).
-NMT tắt / lỗi → nháp rỗng → review dịch mới các câu đó (cờ «dịch»).
-
-2026-11-15: draft="none" (SIMPLE_DRAFT; auto = none khi soát bằng deepseek/… alibaba/…) → KHÔNG chạy NMT, không nạp
-model lên GPU; chỉ lập plan, rồi AI dịch thẳng từ zh. Nháp đã có từ lần chạy trước vẫn giữ (không xoá).
+Plan: dùng lại glossary.json nếu có (trừ force — như run_translate cũ; context_pack.skip_plan luôn giữ), không thì
+translate.build_plan (PLAN_MODE=file → upload SRT; lỗi → sample), rồi series_glossary.apply + ensure_hard_terms
+(+ pronoun analyze nếu SIMPLE_PRONOUN_ANALYZE=1). Plan lỗi → đánh dấu plan_failed (R1.2), không lưu.
+(Tên file giữ «stage_draft» để không đổi import / test.)
 """
 from __future__ import annotations
 
 import json
 import time
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from . import cfg
-from .script_store import ScriptStore, has_cjk, is_manual
+from .script_store import ScriptStore
 
 
 def _load_json(p: Path):
@@ -135,92 +130,12 @@ def build_plan(work_dir: Path, segments: list[dict], target: str, *, force: bool
     return plan
 
 
-def nmt_drafts(rows: list[dict], hint_plan: dict | None) -> dict[int, str]:
-    """{i: nháp} — chỉ câu chưa có vi, không manual, chưa rv. NMT tắt/lỗi → {}."""
-    todo = [r for r in rows if not is_manual(r) and not r.get("rv") and not (r.get("vi") or "").strip()
-            and (r.get("zh") or "").strip()]
-    if not todo:
-        return {}
-    try:
-        import engines.mt_zh_vi as mt_zh_vi
-        if not mt_zh_vi.enabled():
-            print("[simple-nmt] MT_ZH_VI tắt → review dịch mới mọi câu", flush=True)
-            return {}
-        t0 = time.time()
-        out = mt_zh_vi.draft_rows([{"i": r["i"], "text": r.get("zh") or ""} for r in todo], plan=hint_plan)
-        out = {int(k): (v or "").strip() for k, v in (out or {}).items()
-               if (v or "").strip() and not has_cjk(v)}
-        print(f"[simple-nmt] nháp {len(out)}/{len(todo)} câu ({time.time() - t0:.1f}s, "
-              f"{mt_zh_vi.resolve_model_id(hint_plan)})", flush=True)
-        if cfg.nmt_unload():
-            try:
-                mt_zh_vi.unload()
-            except Exception:  # noqa: BLE001
-                pass
-        return out
-    except Exception as e:  # noqa: BLE001
-        print(f"[simple-nmt] lỗi ({e}) → nháp rỗng, review dịch mới", flush=True)
-        return {}
-
-
 def run(store: ScriptStore, segments: list[dict], target: str, *, force: bool = False,
-        progress=None, draft: str = "nmt") -> tuple[dict, dict]:
-    """Chạy plan ∥ NMT. Trả (plan, info). Ghi nháp NMT vào store (mt=1, trace 'nmt').
-    draft="none": chỉ plan (không NMT) — info["draft"]="none"."""
-    wd = store.work_dir
-    if draft == "none":
-        t0 = time.time()
-        plan = build_plan(wd, segments, target, force=force)
-        info = {"draft": "none", "t_plan": round(time.time() - t0, 2), "n_nmt": 0}
-        store.note("nmt", None, "bỏ NMT (SIMPLE_DRAFT=none / model API) — AI dịch thẳng từ zh")
-        print("[simple-nmt] bỏ NMT — AI dịch thẳng từ zh (có plan)", flush=True)
-        if progress:
-            progress("plan xong · không dùng NMT (AI dịch thẳng)")
-        return plan, info
-    hint_plan = _load_json(wd / "glossary.json") if not force else None
-    if not isinstance(hint_plan, dict):
-        hint_plan = _series_plan(wd)
-    rows_snapshot = [dict(r) for r in store.rows]
-    info: dict = {"parallel": not cfg.nmt_wait_plan()}
+        progress=None) -> tuple[dict, dict]:
+    """Lập plan. Trả (plan, info). Không dịch thô (V6 bỏ NMT)."""
     t0 = time.time()
-    if cfg.nmt_wait_plan():
-        plan = build_plan(wd, segments, target, force=force)
-        info["t_plan"] = round(time.time() - t0, 2)
-        drafts = nmt_drafts(rows_snapshot, plan)
-        info["t_nmt"] = round(time.time() - t0 - info["t_plan"], 2)
-    else:
-        marks: dict = {}
-
-        def _p():
-            marks["plan_start"] = time.time()
-            try:
-                return build_plan(wd, segments, target, force=force)
-            finally:
-                marks["plan_end"] = time.time()
-
-        def _n():
-            marks["nmt_start"] = time.time()
-            try:
-                return nmt_drafts(rows_snapshot, hint_plan)
-            finally:
-                marks["nmt_end"] = time.time()
-
-        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="simple-draft") as ex:
-            fp, fn = ex.submit(_p), ex.submit(_n)
-            plan = fp.result()
-            drafts = fn.result()
-        info.update({k: round(v - t0, 3) for k, v in marks.items()})
-    by_i = store.by_i()
-    n = 0
-    for i, vi in drafts.items():
-        r = by_i.get(i)
-        if r is None or is_manual(r) or (r.get("vi") or "").strip():
-            continue
-        if store.set_vi(r, vi, "nmt", "nháp NMT"):
-            r["mt"] = 1
-            n += 1
-    store.write()
-    info["n_nmt"] = n
+    plan = build_plan(store.work_dir, segments, target, force=force)
+    info = {"t_plan": round(time.time() - t0, 2)}
     if progress:
-        progress(f"plan ∥ NMT xong · nháp {n} câu")
+        progress("plan xong")
     return plan, info

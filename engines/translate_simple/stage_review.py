@@ -30,8 +30,8 @@ class BadOutput(ValueError):
 SYSTEM_PROMPT = (
     "Bạn là biên tập viên lồng tiếng phim Trung → Việt. Với MỖI câu trong DANH SÁCH, trả bản tiếng Việt CUỐI "
     "CÙNG để đọc lồng tiếng.\n"
-    "Mỗi câu có: i; zh = câu gốc (ASR, có thể nghe nhầm chữ đồng âm); nhap = bản nháp máy NMT (có thể sai nghĩa, "
-    "sai xưng hô; rỗng = chưa có); sec = thời lượng (giây); dich=true = câu CHƯA có bản dịch, phải dịch mới từ zh; "
+    "Mỗi câu có: i; zh = câu gốc (ASR, có thể nghe nhầm chữ đồng âm); nhap = bản tiếng Việt đang có (lần dịch "
+    "trước, có thể sai nghĩa / sai xưng hô; rỗng = chưa có); sec = thời lượng (giây); dich=true = câu CHƯA có bản dịch, phải dịch mới từ zh; "
     "khoa=true = câu người đã sửa tay → trả y nguyên nhap.\n"
     "Làm trong MỘT lượt, theo thứ tự ưu tiên:\n"
     "1. NGHĨA: sửa chỗ nháp sai nghĩa so với zh (đảo chủ ngữ, hiểu ngược, dịch từng chữ vô nghĩa). Nháp đã đúng "
