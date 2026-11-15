@@ -783,6 +783,42 @@ async function aiAction(btn) {
   }
 }
 
+// ───────────── Xung đột bảng nhân vật của bộ (engines/series_glossary) ─────────────
+let conf = [];
+async function loadConflicts() {
+  try {
+    const d = await api("GET", "/api/v6/series/conflicts");
+    conf = d.items || [];
+  } catch (e) { conf = []; console.warn("xung đột bảng bộ:", e.message); }
+  $("#btn-conf").hidden = !conf.length;
+  $("#conf-n").textContent = conf.length ? String(conf.length) : "";
+  if ($("#dlg-conf").open) paintConflicts();
+}
+function fmtVal(v) { return Array.isArray(v) ? v.join(" / ") : String(v ?? ""); }
+function paintConflicts() {
+  $("#conf-rows").innerHTML = conf.length ? conf.map((c) => `<tr>
+    <td>${esc(c.core)}</td>
+    <td><span class="tag mut">${esc(c.kind_vi)}</span> <b>${esc(c.key)}</b><div class="mut small">${esc(c.field_vi)}</div></td>
+    <td><b>${esc(fmtVal(c.stored))}</b></td>
+    <td>${esc(fmtVal(c.suggested))}${c.count > 1 ? ` <span class="mut small">×${esc(c.count)}</span>` : ""}</td>
+    <td class="small">${esc((c.episodes || []).slice(-3).join(", "))}</td>
+    <td class="nowrap"><button class="btn sm" data-cf="keep" data-core="${esc(c.core)}" data-id="${esc(c.id)}">Giữ</button>
+      <button class="btn sm primary" data-cf="use_new" data-core="${esc(c.core)}" data-id="${esc(c.id)}">Dùng bản mới</button>
+      <button class="btn sm ghost" data-cf="skip" data-core="${esc(c.core)}" data-id="${esc(c.id)}">Bỏ qua</button></td></tr>`).join("")
+    : '<tr><td colspan="6" class="mut">Không còn xung đột nào.</td></tr>';
+}
+$("#btn-conf").addEventListener("click", () => { paintConflicts(); $("#dlg-conf").showModal(); });
+$("#conf-close").addEventListener("click", () => $("#dlg-conf").close());
+$("#conf-rows").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-cf]");
+  if (!b) return;
+  const msg = { keep: "Đã giữ bản đang dùng", use_new: "Đã dùng bản mới cho các tập sau", skip: "Đã bỏ qua" }[b.dataset.cf];
+  act(b, msg, async () => {
+    await api("POST", "/api/v6/series/conflicts/resolve", { core: b.dataset.core, id: b.dataset.id, action: b.dataset.cf });
+    await loadConflicts();
+  });
+});
+
 // ───────────── Thư viện phim + đăng YouTube (D7) ─────────────
 const FILM_ST = { done: "xong", uploaded: "đã đăng", uploading: "đang đăng", running: "đang làm", failed: "lỗi", pending: "chờ" };
 function fmtDur(sec) { const t = Number(sec) || 0; if (!t) return ""; const h = Math.floor(t / 3600), m = Math.round((t % 3600) / 60); return h ? `${h} giờ ${m} phút` : `${m} phút`; }
@@ -875,6 +911,7 @@ function connect() {
     for (const j of JSON.parse(e.data).jobs) jobs.set(j.job_id, j);
     fullRedraw = true; schedule();
     refreshQueue();                           // 1 lần mỗi lần (nối / nối lại)
+    loadConflicts();                          // 1 lần mỗi lần nối; sau đó chỉ theo sự kiện series.conflict
     if (selected) { if (jobs.has(selected)) loadDetail(selected); else select(null); }
   });
   es.addEventListener("job.updated", (e) => upsert(JSON.parse(e.data)));
@@ -888,6 +925,7 @@ function connect() {
     refreshQueueSoon();
     try { const t = JSON.parse(e.data).text; if (t && /TẠM DỪNG|nhường ghế/.test(t)) say(t, "err"); } catch (_) { /* event không có text */ }
   });
+  es.addEventListener("series.conflict", () => loadConflicts());
   es.addEventListener("job.touched", (e) => { if (JSON.parse(e.data).job_id === selected) refreshDetailSoon(); });
   es.addEventListener("stage.progress", (e) => {
     const d = JSON.parse(e.data), j = jobs.get(d.job_id);

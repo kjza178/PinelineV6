@@ -14,6 +14,7 @@
   <button id="btn-new" class="btn primary">+ Thêm job</button>
   <button id="btn-cfg" class="btn" title="Cấu hình mặc định cho mọi job: giọng, tốc độ, âm nền, render…">Cài đặt</button>
   <button id="btn-ai" class="btn" title="Chọn model AI cho từng chức năng (dịch, soát, Agent…) và nhà cung cấp">Cài đặt AI</button>
+  <button id="btn-conf" class="btn warn" hidden title="Tập mới đề xuất tên / xưng hô khác với bảng nhân vật đã chốt của bộ — chọn giữ hay dùng bản mới">Xung đột tên <b id="conf-n"></b></button>
   <button id="btn-films" class="btn" title="Thư viện phim đã làm + đăng YouTube">Thư viện phim</button>
   <button id="btn-agent" class="btn" title="Hỏi / ra lệnh cho AI Agent về các job">Agent</button>
   <input id="q" placeholder="Lọc job…">
@@ -111,6 +112,13 @@
     <div class="actions"><label class="row mut"><input type="checkbox" id="agent-mutate"> Cho phép Agent thao tác (xếp hàng / dừng job)</label><span class="grow"></span>
       <button type="submit" class="btn primary" id="agent-send">Gửi</button></div>
   </form>
+</dialog>
+
+<dialog id="dlg-conf">
+  <div class="dlg-head"><h2>Xung đột bảng nhân vật của bộ</h2><span class="grow"></span><button type="button" class="btn" id="conf-close">Đóng</button></div>
+  <p class="hint">Bảng nhân vật / xưng hô / thuật ngữ của cả bộ KHÔNG bị tập mới âm thầm ghi đè. Khi AI ở một tập đề xuất khác bản đã chốt,
+    hệ thống giữ bản đã chốt và ghi lại ở đây. «Dùng bản mới» = các tập SAU dùng bản mới (tập đã dịch không tự đổi).</p>
+  <div class="logwrap tall"><table><thead><tr><th>Bộ</th><th>Mục</th><th>Đang dùng</th><th>Đề xuất</th><th>Từ tập</th><th></th></tr></thead><tbody id="conf-rows"></tbody></table></div>
 </dialog>
 
 <dialog id="dlg-log">

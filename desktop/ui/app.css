@@ -29,6 +29,8 @@ header nav a:hover{text-decoration:underline}
 .btn.primary{background:#234a8f;border-color:#2f5fb3}
 .btn.primary:hover:not(:disabled){background:#2a57a6}
 .btn.danger{background:#4a1c1a;border-color:#6e2a26}
+.btn.warn{background:#3a2e12;border-color:#6b5420;color:var(--held)}
+.nowrap{white-space:nowrap}
 .btn.danger:hover:not(:disabled){background:#5a2320}
 .btn.ghost{background:transparent}
 .btn.sm{padding:2px 8px;font-size:12px}

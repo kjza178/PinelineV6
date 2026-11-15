@@ -219,6 +219,27 @@ def _v6_router(inst: Instance) -> APIRouter:
                     continue
         return {"rows": out, "exists": True, "wav": sorted(wav)}
 
+    # ── Xung đột bảng nhân vật của bộ (engines/series_glossary): tập mới khác quyết định đã chốt → người chọn ──
+    @r.get(V6_PREFIX + "/series/conflicts")
+    def series_conflicts(status: str = "open"):
+        import engines.series_glossary as sgl
+        items = sgl.list_conflicts(None if status == "all" else status)
+        return {"items": items[:500], "n": len(items)}
+
+    @r.post(V6_PREFIX + "/series/conflicts/resolve")
+    def series_conflict_resolve(body: dict):
+        import engines.series_glossary as sgl
+        b = body if isinstance(body, dict) else {}
+        try:
+            out = sgl.resolve_conflict(str(b.get("core") or ""), str(b.get("id") or ""), str(b.get("action") or ""))
+        except KeyError as e:
+            raise HTTPException(404, str(e).strip("'\"")) from e
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        n_open = len(sgl.list_conflicts("open"))
+        bus.publish("series.conflict", {"core": b.get("core"), "n_open": n_open})
+        return {**out, "n_open": n_open}
+
     # ── A10: lịch sử sửa 1 câu (trace.jsonl của luồng simple; chỉ đọc) ──
     @r.get(V6_PREFIX + "/jobs/{job_id}/script/{i}/history")
     def job_line_history(job_id: str, i: int, limit: int = 50):

@@ -1,6 +1,9 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **A12 bảng nhân vật của bộ không bị ghi đè âm thầm** (cần restart :8806 + build lại app) — docs/fixes/2026-11-15-series-glossary-conflicts.md.
+  Trước: mỗi lần lập plan tập mới, bảng THÔ của tập đó đè lên bảng bộ (tên, giới tính, xưng hô, thuật ngữ) → một tập
+  AI đoán sai tên là mọi tập sau sai theo. Nay: khác bản đã chốt → giữ bản cũ, ghi xung đột; desktop nút «Xung đột tên».
 - **A11 luồng dịch V6 bỏ hẳn NMT** (cần restart :8806 + build lại app) — bước 1 chỉ lập plan; AI (DeepSeek, Aurora…)
   dịch thẳng từ câu Trung ở bước soát, có plan + ngữ cảnh. Không còn nạp model NMT lên GPU ở luồng V6 (kể cả khi
   `MT_ZH_VI=1`). Bản Việt có sẵn từ lần chạy trước vẫn giữ và được soát. Luồng cũ `TRANSLATE_PIPELINE=legacy` giữ NMT.
