@@ -1,6 +1,7 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- Phim chờ làm: chọn **kiểu xem Lưới / Danh sách** (danh sách = bảng có ảnh nhỏ, ô chọn + «chọn tất cả»); app nhớ lựa chọn.
 - Phim chờ làm: nút **Xoá** (từng phim hoặc chọn nhiều) — xoá HẲN thư mục phim khỏi ổ sau khi hỏi xác nhận (kèm dung
   lượng), như «Xoá» trang Phim cũ; chặn khi bộ đang gộp hoặc còn job chưa xong đang đọc file trong đó; xoá xong làm mới
   thư viện Hongguo 2. Nút **Dọn tập lẻ** cho bộ đã gộp (chỉ khi file gộp đủ nội dung, chuyển vào thùng rác thư viện).

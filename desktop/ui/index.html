@@ -88,6 +88,7 @@
       </header>
       <div class="toolbar">
         <label class="search"><svg><use href="#i-search"/></svg><input id="disk-q" placeholder="Tìm theo tên phim (Trung / Việt)…"></label>
+        <div class="seg" id="disk-view" role="radiogroup" aria-label="Kiểu xem"><label><input type="radio" name="disk-view" value="grid" checked>Lưới</label><label><input type="radio" name="disk-view" value="list">Danh sách</label></div>
         <select id="disk-state" aria-label="Lọc trạng thái"><option value="todo">Chưa làm</option><option value="ready">Sẵn sàng tạo job</option><option value="need_merge">Cần gộp tập</option><option value="done">Đã làm</option><option value="">Tất cả</option></select>
         <span class="grow"></span>
         <span id="disk-picked" class="sub"></span>
