@@ -81,15 +81,32 @@
       <header class="page-head">
         <div><h1>Thư viện phim</h1><p id="films-stats" class="sub"></p></div>
         <span class="grow"></span>
+        <a class="btn ghost" id="films-csv" href="/films.csv" download title="Tải danh sách đang lọc ra file CSV (mở bằng Excel)">Tải CSV</a>
+        <button type="button" class="btn ghost" id="films-purge" title="Xoá khỏi thư viện các phim mà thư mục job không còn trên ổ" hidden>Dọn phim mất thư mục</button>
         <button type="button" class="btn" id="films-sync" title="Đọc lại mọi job để cập nhật thư viện">Đồng bộ</button>
       </header>
+      <div class="card pub-bar">
+        <div class="pub-l">
+          <b>Đăng YouTube</b>
+          <label class="switch"><input type="checkbox" id="pub-auto"><span></span>Tự đăng khi render xong</label>
+          <label class="inline">Chế độ <select id="films-privacy"><option value="unlisted">Không công khai</option><option value="private">Riêng tư</option><option value="public">Công khai</option></select></label>
+          <label class="inline">Hẹn giờ <select id="pub-sched"><option value="0">Đăng ngay</option><option value="1">Sau 1 giờ</option><option value="2">Sau 2 giờ</option><option value="3">Sau 3 giờ</option><option value="6">Sau 6 giờ</option><option value="12">Sau 12 giờ</option><option value="24">Sau 1 ngày</option></select></label>
+          <span id="pub-note" class="mut small"></span>
+        </div>
+        <div class="pub-r">
+          <button type="button" class="btn sm ghost" id="pub-skip" title="Bỏ qua video đang tải lên YouTube (file lỗi / quá dài)">Bỏ qua video đang đăng</button>
+          <button type="button" class="btn sm" id="pub-scan" title="Đăng mọi phim đã xong mà chưa có trên YouTube">Đăng tất cả phim chưa đăng</button>
+          <button type="button" class="btn sm" id="films-check-all" title="Kiểm lại tình trạng bản quyền (chặn / claim) của mọi video đã đăng">Kiểm bản quyền tất cả</button>
+        </div>
+      </div>
       <div class="toolbar">
         <label class="search"><svg><use href="#i-search"/></svg><input id="films-q" placeholder="Tìm theo tên phim / mã job…"></label>
-        <select id="films-status" aria-label="Lọc trạng thái"><option value="">Mọi trạng thái</option><option value="done">Xong, chưa đăng</option><option value="uploaded">Đã đăng</option><option value="uploading">Đang đăng</option><option value="running">Đang làm</option><option value="failed">Lỗi</option></select>
-        <span class="grow"></span>
-        <label class="inline">Khi đăng YouTube: <select id="films-privacy"><option value="unlisted">Không công khai</option><option value="private">Riêng tư</option><option value="public">Công khai</option></select></label>
+        <select id="films-status" aria-label="Lọc trạng thái"><option value="">Mọi trạng thái</option><option value="pending">Chờ</option><option value="running">Đang làm</option><option value="not_uploaded">Xong, chưa đăng</option><option value="uploaded">Đã đăng</option><option value="failed">Lỗi</option></select>
+        <select id="films-block" aria-label="Lọc bản quyền"><option value="">Bản quyền: tất cả</option><option value="clean">Sạch</option><option value="has_block">Bị chặn / claim</option><option value="partially_blocked">Chặn một phần</option><option value="unknown">Chưa kiểm</option></select>
+        <label class="check"><input type="checkbox" id="films-hide-gone"> Ẩn phim mất thư mục</label>
       </div>
-      <div class="card scroll"><table class="data"><thead><tr><th>Phim</th><th>Trạng thái</th><th>Thời lượng</th><th>Xong lúc</th><th>YouTube</th><th></th></tr></thead><tbody id="films-rows"></tbody></table></div>
+      <div class="card scroll"><table class="data"><thead><tr><th>Phim</th><th>Trạng thái</th><th>Thời lượng</th><th>Xong lúc</th><th>YouTube</th><th>Bản quyền</th><th></th></tr></thead><tbody id="films-rows"></tbody></table></div>
+      <p class="sub small films-foot">Gộp job, metadata / thumbnail, hàng chờ upload, kênh test: còn ở <a href="/films/ui" target="_blank" rel="noopener">trang Đăng YouTube (cũ) ↗</a> — sẽ chuyển dần vào đây.</p>
     </section>
 
     <!-- ───────── Trợ lý AI ───────── -->
@@ -131,10 +148,18 @@
           <button class="set-it" data-pane="audio">Âm thanh</button>
           <button class="set-it" data-pane="video">Hình ảnh</button>
           <button class="set-it" data-pane="brand">Thương hiệu</button>
+          <button class="set-it" data-pane="paths">Thư mục</button>
           <button class="set-it" data-pane="advanced">Nâng cao</button>
         </nav>
         <div class="set-body">
           <div class="pane" data-pane="ai" id="ai-simple"></div>
+          <div class="pane" data-pane="paths" hidden>
+            <h2>Thư mục</h2><p class="sub">Thư mục trên máy này. Lưu vào pineline.config.json, có hiệu lực ngay.</p>
+            <form id="form-paths"><div id="paths-body"></div>
+              <p id="paths-err" class="err" hidden></p>
+              <div class="save-bar"><span class="grow"></span><button type="submit" class="btn primary" id="paths-ok">Lưu thư mục</button></div>
+            </form>
+          </div>
           <div class="pane" data-pane="advanced" hidden>
             <h2>Nâng cao</h2><p class="sub">Chọn AI riêng cho từng việc, địa chỉ API và các tuỳ chọn ít dùng.</p>
             <div class="callout warn"><b>Dành cho lúc cần chỉnh sâu.</b> Thông thường chỉ cần mục «AI dịch». Sửa ở đây có thể làm job chạy sai model.</div>

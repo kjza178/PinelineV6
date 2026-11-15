@@ -772,10 +772,35 @@ function showPane(id) {
   const hasCfg = !!document.querySelector(`#cfg-body .pane[data-pane="${id}"]`);
   $("#form-cfg").hidden = !hasCfg;
 }
+// ── Cài đặt → Thư mục (core/machine.PATH_KEYS, /api/v6/paths) ──
+const PATH_LABEL = { LIBRARY_DIR: ["Thư viện phim", "Nơi Hongguo 2 lưu phim tải về / phim nguồn trên ổ."],
+  YT_UPLOADER_DIR: ["Công cụ đăng YouTube (yt_uploader)", "Thư mục có accounts, client_secret.json, queue_state.json."],
+  LIB_SAMPLE_DIR: ["Mẫu cắt thử bản quyền", "Để trống = mặc định."] };
+async function paintPaths() {
+  const d = await api("GET", "/api/v6/paths");
+  const rows = Object.entries(d.paths).map(([k, p]) => {
+    const [t, h] = PATH_LABEL[k] || [k, p.desc];
+    const warn = p.value && !p.exists ? `<span class="err small">Không thấy thư mục này trên máy</span>` : "";
+    return `<div class="field"><div class="lbl"><b>${esc(t)}</b><span>${esc(h)}</span>${warn}</div><div class="ctl"><input name="${esc(k)}" value="${esc(p.value)}" placeholder="${esc(p.default)}" data-orig="${esc(p.value)}"></div></div>`;
+  }).join("");
+  $("#paths-body").innerHTML = `<div class="sec"><h3>Thư mục dùng chung</h3>${rows}</div>`
+    + `<div class="sec"><h3>Thư mục job</h3><div class="field"><div class="lbl"><b>Thư mục làm việc</b><span>Mỗi job một thư mục con. Đặt theo bản chạy (instances/&lt;tên&gt;.json → work_root), không sửa ở đây.</span></div><div class="ctl"><code>${esc(d.work_root)}</code></div></div></div>`;
+}
+$("#form-paths").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const paths = {};
+  $("#form-paths").querySelectorAll("input[data-orig]").forEach((i) => { if (i.value.trim() !== i.dataset.orig) paths[i.name] = i.value.trim(); });
+  if (!Object.keys(paths).length) return say("Không có gì thay đổi");
+  const err = $("#paths-err"); err.hidden = true;
+  try { await api("POST", "/api/v6/paths", { paths }); await paintPaths(); say("Đã lưu thư mục"); }
+  catch (e) { err.textContent = e.message; err.hidden = false; }
+});
+
 async function openSettings() {
   const [c, a] = await Promise.all([api("GET", "/api/v6/config"), api("GET", "/api/v6/ai"), loadVoices().catch(() => null)]);
   cfg = c; ai = a;
   paintCfg(); paintAI(); paintAISimple();
+  paintPaths().catch((e) => { $("#paths-body").innerHTML = `<p class="err">Không đọc được thư mục: ${esc(e.message)}</p>`; });
 }
 
 // ───────────── Cài đặt AI: model cho từng chức năng + nhà cung cấp (core/ai_models.py) ─────────────
@@ -1069,36 +1094,77 @@ $("#conf-rows").addEventListener("click", (e) => {
 const FILM_ST = { done: "xong", uploaded: "đã đăng", uploading: "đang đăng", running: "đang làm", failed: "lỗi", pending: "chờ" };
 function fmtDur(sec) { const t = Number(sec) || 0; if (!t) return ""; const h = Math.floor(t / 3600), m = Math.round((t % 3600) / 60); return h ? `${h} giờ ${m} phút` : `${m} phút`; }
 
+const BLOCK_ST = { clean: ["Sạch", "ok"], partially_blocked: ["Chặn một phần", "warn"], blocked: ["Bị chặn", "bad"], claim: ["Claim", "warn"], private: ["Riêng tư", ""], unknown: ["Chưa kiểm", ""] };
+
+function filmsQuery() {
+  return new URLSearchParams({ q: $("#films-q").value.trim(), status: $("#films-status").value, block_status: $("#films-block").value,
+    work_exists: $("#films-hide-gone").checked ? "1" : "", limit: "500" });
+}
 async function loadFilms() {
-  const q = new URLSearchParams({ q: $("#films-q").value.trim(), status: $("#films-status").value, limit: "500" });
+  const q = filmsQuery();
+  $("#films-csv").href = "/films.csv?" + q;
   const body = $("#films-rows");
   let d;
   try { d = await api("GET", "/films?" + q); } catch (e) {
-    body.innerHTML = `<tr><td colspan="6" class="note">Không đọc được thư viện: ${esc(e.message)}${/404/.test(e.message) ? " — instance này chưa bật router «films» (instances/*.json → routers)" : ""}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="7" class="note">Không đọc được thư viện: ${esc(e.message)}${/404/.test(e.message) ? " — instance này chưa bật router «films» (instances/*.json → routers)" : ""}</td></tr>`;
     return;
   }
-  const st = d.stats || {};
-  $("#films-stats").textContent = [st.total != null ? `${st.total} phim` : "", st.uploaded != null ? `${st.uploaded} đã đăng` : "", st.done_7d != null ? `${st.done_7d} xong trong 7 ngày` : "", st.done_hours ? `${st.done_hours} giờ phim` : ""].filter(Boolean).join(" · ");
+  const st = d.stats || {}, gone = Number(st.work_missing) || 0;
+  $("#films-stats").textContent = [st.total != null ? `${st.total} phim` : "", st.uploaded != null ? `${st.uploaded} đã đăng` : "",
+    st.done_7d != null ? `${st.done_7d} xong trong 7 ngày` : "", st.done_hours ? `${st.done_hours} giờ phim` : "", gone ? `${gone} mất thư mục` : ""].filter(Boolean).join(" · ");
+  const purge = $("#films-purge"); purge.hidden = !gone; purge.textContent = `Dọn ${gone} phim mất thư mục`;
   const rows = d.films || [];
   body.innerHTML = rows.length ? rows.map((f) => {
     const title = f.title_vi || f.title || f.job_id;
     const yt = f.yt_url ? `<a href="${esc(f.yt_url)}" target="_blank" rel="noopener">mở</a>` : "";
     const canUp = !f.yt_url && f.status === "done" && f.work_exists !== 0;
+    const [bt, bc] = f.yt_url ? (BLOCK_ST[f.block_status || "unknown"] || [f.block_status, ""]) : ["", ""];
+    const block = bt ? `<span class="tag ${bc}" title="${esc(f.block_reason || "")}${f.checked_at ? ` · kiểm lúc ${esc(String(f.checked_at).slice(0, 16).replace("T", " "))}` : ""}">${esc(bt)}</span>` : "";
     return `<tr data-id="${esc(f.job_id)}"><td title="${esc(f.job_id)}"><b style="font-weight:500">${esc(title)}</b></td><td><span class="b ${esc(f.status)}">${esc(FILM_ST[f.status] || f.status || "")}</span></td>`
-      + `<td>${esc(fmtDur(f.duration_sec))}</td><td>${esc(String(f.finished_at || "").slice(0, 16).replace("T", " "))}</td><td>${yt}</td>`
+      + `<td>${esc(fmtDur(f.duration_sec))}</td><td>${esc(String(f.finished_at || "").slice(0, 16).replace("T", " "))}</td><td>${yt}</td><td>${block}</td>`
       + `<td class="acts">${canUp ? `<button class="btn sm primary" data-film="upload">Đăng YouTube</button>` : ""}`
+      + `${f.yt_url ? `<button class="btn sm ghost" data-film="check" title="Kiểm lại bản quyền video này trên YouTube">Kiểm</button>` : ""}`
       + `${jobs.has(f.job_id) ? `<button class="btn sm" data-film="open">Mở job</button>` : ""}`
       + `${f.work_exists === 0 ? `<span class="mut small" title="Thư mục job không còn trên ổ (đã xoá hoặc thuộc máy / instance khác)">mất thư mục</span>` : ""}`
       // chỉ dòng KHÔNG còn là job trong hàng (routes_films /films/delete còn gỡ job khỏi hàng chờ)
       + `${jobs.has(f.job_id) ? "" : `<button class="btn sm ghost" data-film="delete" title="Xoá dòng này khỏi thư viện (không xoá file trên ổ)">Xoá</button>`}</td></tr>`;
-  }).join("") : '<tr><td colspan="6" class="note">Không có phim nào khớp.</td></tr>';
+  }).join("") : '<tr><td colspan="7" class="note">Không có phim nào khớp.</td></tr>';
 }
 const loadFilmsSoon = debounce(loadFilms, 300);
+
+// ── Đăng YouTube: cấu hình tự đăng (agents/auto_publisher, /api/auto-publish/config) ──
+let pubCfg = null;
+async function loadPubCfg() {
+  try {
+    const r = await api("GET", "/api/auto-publish/config");
+    pubCfg = r.config || r;
+
+    $("#films-privacy").value = pubCfg.privacy || "unlisted";
+    $("#pub-sched").value = String(Math.round(Number(pubCfg.schedule_hours) || 0));
+    const off = r.instance_on === false;
+    $("#pub-auto").checked = !off && !!pubCfg.enabled;      // bản này tắt tự đăng → công tắc tắt + khoá, không giả «bật»
+    $("#pub-auto").disabled = off;
+    $("#pub-note").textContent = off ? "Tự đăng đang tắt cho bản này (instances/<tên>.json → auto_publish). Vẫn đăng tay được." : "";
+  } catch (e) { $("#pub-note").textContent = "Không đọc được cấu hình đăng: " + e.message; }
+}
+async function savePubCfg() {
+  const body = { ...(pubCfg || {}), enabled: $("#pub-auto").disabled ? !!pubCfg?.enabled : $("#pub-auto").checked, privacy: $("#films-privacy").value, schedule_hours: Number($("#pub-sched").value) || 0 };
+  try { const r = await api("POST", "/api/auto-publish/config", body); pubCfg = r.config || body; say("Đã lưu cấu hình đăng YouTube"); }
+  catch (e) { say("Lưu cấu hình đăng lỗi: " + e.message, "err"); loadPubCfg(); }
+}
 
 async function filmAction(btn) {
   const tr = btn.closest("tr[data-id]"), id = tr?.dataset.id;
   if (!id) return;
   if (btn.dataset.film === "open") { showView("jobs"); selected = null; select(id); return; }
+  if (btn.dataset.film === "check") {
+    return act(btn, "", async () => {
+      const r = await api("POST", "/films/check-block", { job_id: id });
+      const x = (r.results || [])[0] || {};
+      say(`Bản quyền: ${(BLOCK_ST[x.status] || [x.status || "?"])[0]}${x.reason ? " — " + x.reason : ""}`, x.status === "blocked" ? "err" : "");
+      loadFilms();
+    });
+  }
   if (btn.dataset.film === "delete") {
     if (!confirm(`Xoá «${tr.cells[0].textContent}» khỏi thư viện?\n\nChỉ xoá dòng trong thư viện, không xoá thư mục job / video trên ổ.`)) return;
     return act(btn, "Đã xoá khỏi thư viện", async () => { await api("POST", "/films/delete", { job_ids: [id], delete_work: false }); loadFilms(); });
@@ -1112,7 +1178,7 @@ async function filmAction(btn) {
       btn.textContent = "Đang chuẩn bị đăng…";
       say("Đang chuẩn bị metadata / thumbnail rồi đăng — có thể mất vài phút, đừng tắt app");
       let r;
-      try { r = await api("POST", "/api/auto-publish/trigger", { job_id: id, privacy: priv.value }); } finally { btn.textContent = "Đăng YouTube"; }
+      try { r = await api("POST", "/api/auto-publish/trigger", { job_id: id, privacy: priv.value, schedule_hours: Number($("#pub-sched").value) || 0 }); } finally { btn.textContent = "Đăng YouTube"; }
       say(r.queued || r.enqueued ? "Đã xếp vào hàng đăng YouTube (đang có video khác đăng)" : (r.yt_url ? "Đã đăng: " + r.yt_url : "Đã gửi lệnh đăng YouTube"));
       loadFilms();
     });
@@ -1244,7 +1310,7 @@ function showView(v) {
   curView = v;
   document.querySelectorAll(".nav-it").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
   document.querySelectorAll(".view").forEach((s) => { s.hidden = s.id !== "view-" + v; });
-  if (v === "films") syncFilms(false).then(loadFilms);
+  if (v === "films") { syncFilms(false).then(loadFilms); loadPubCfg(); }
   if (v === "settings") act(null, "", openSettings);
   if (v === "agent") $("#agent-msg").focus();
 }
@@ -1281,13 +1347,30 @@ const FILM_SYNC_MS = 120000;
 let filmSyncedAt = 0;
 async function syncFilms(force) {
   if (!force && Date.now() - filmSyncedAt < FILM_SYNC_MS) return;
-  $("#films-rows").innerHTML = '<tr><td colspan="6" class="note">Đang đồng bộ thư viện…</td></tr>';
+  $("#films-rows").innerHTML = '<tr><td colspan="7" class="note">Đang đồng bộ thư viện…</td></tr>';
   try { await api("POST", "/films/sync"); filmSyncedAt = Date.now(); }
   catch (e) { say("Không đồng bộ được thư viện: " + e.message, "err"); }
 }
 $("#films-sync").addEventListener("click", (e) => act(e.currentTarget, "Đã đồng bộ thư viện", async () => { await syncFilms(true); await loadFilms(); }));
 $("#films-q").addEventListener("input", loadFilmsSoon);
 $("#films-status").addEventListener("change", loadFilms);
+$("#films-block").addEventListener("change", loadFilms);
+$("#films-hide-gone").addEventListener("change", loadFilms);
+["#pub-auto", "#films-privacy", "#pub-sched"].forEach((sel) => $(sel).addEventListener("change", savePubCfg));
+$("#pub-skip").addEventListener("click", (e) => {
+  if (!confirm("Bỏ qua video đang tải lên YouTube?")) return;
+  act(e.currentTarget, "Đã bỏ qua video đang đăng", () => api("POST", "/api/uploader/skip-current"));
+});
+$("#pub-scan").addEventListener("click", (e) => {
+  const label = $("#films-privacy").options[$("#films-privacy").selectedIndex].text;
+  if (!confirm(`Đăng MỌI phim đã xong mà chưa có trên YouTube, chế độ «${label}»?\n\nVideo sẽ được gửi lên kênh YouTube đã cấu hình.`)) return;
+  act(e.currentTarget, "Đã bắt đầu đăng các phim chưa đăng", async () => { await api("POST", "/api/auto-publish/scan"); loadFilms(); });
+});
+$("#films-check-all").addEventListener("click", (e) => act(e.currentTarget, "Đã kiểm bản quyền xong", async () => { await api("POST", "/films/check-block-all"); loadFilms(); }));
+$("#films-purge").addEventListener("click", (e) => {
+  if (!confirm("Xoá khỏi thư viện mọi phim mà thư mục job không còn trên ổ?\n\nChỉ xoá dòng trong thư viện (file trên ổ vốn đã không còn).")) return;
+  act(e.currentTarget, "", async () => { const r = await api("POST", "/films/purge-missing", {}); say(`Đã dọn ${r.count || 0} phim`); loadFilms(); });
+});
 $("#films-rows").addEventListener("click", (e) => { const b = e.target.closest("button[data-film]"); if (b) filmAction(b); });
 $("#agent-clear").addEventListener("click", () => {
   agentHistory = []; $("#agent-log").querySelectorAll(".msg").forEach((m) => m.remove());

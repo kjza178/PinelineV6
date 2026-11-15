@@ -304,3 +304,10 @@ dialog .scroll{max-height:62vh;margin-top:10px}
 .row-ctl{display:flex;gap:8px;align-items:center}
 .row-ctl select{flex:1;min-width:0}
 td.acts .mut.small{margin-right:6px}
+.tag.bad{background:var(--err-weak);color:var(--err)}
+.pub-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;margin-bottom:12px}
+.pub-l,.pub-r{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.pub-r{gap:8px}
+.check{color:var(--muted);font-size:13px;white-space:nowrap}
+.films-foot{margin-top:10px}
+a.btn{text-decoration:none}

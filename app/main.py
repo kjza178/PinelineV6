@@ -204,6 +204,23 @@ def _v6_router(inst: Instance) -> APIRouter:
             bus.publish("config.changed", {"changed": changed})
         return {"ok": True, **out, "levels_changed": lv["changed"], **bc.meta()}
 
+    # ── Thư mục máy (thư viện phim, yt_uploader…) — core/machine.PATH_KEYS ──
+    @r.get(V6_PREFIX + "/paths")
+    def paths_get():
+        from core import machine
+        return {"paths": machine.paths_snapshot(), "work_root": str(inst.work_root)}
+
+    @r.post(V6_PREFIX + "/paths")
+    def paths_set(body: dict):
+        from core import machine
+        try:
+            changed = machine.save_paths((body or {}).get("paths") or {})
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        if changed:
+            bus.publish("config.changed", {"changed": changed})
+        return {"ok": True, "changed": changed, "paths": machine.paths_snapshot()}
+
     # ── Cài đặt AI: chức năng nào dùng model nào (core/ai_models.py) ──
     @r.get(V6_PREFIX + "/ai")
     def ai_get():

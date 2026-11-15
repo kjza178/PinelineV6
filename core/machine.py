@@ -247,3 +247,30 @@ def summary() -> dict:
         "LIBRARY_DIR": str(library_dir()),
         "YT_UPLOADER_DIR": str(yt_uploader_dir()),
     }
+
+
+# ── Thư mục máy sửa được từ giao diện (Cài đặt → Thư mục, /api/v6/paths) ──
+# 2026-11-15: thay tab «Thư Viện & Ổ Đĩa» trong hộp «Cài Đặt Hệ Thống V4» của trang Phim cũ (hộp đó còn ghi đè khoá AI).
+PATH_KEYS = ("LIBRARY_DIR", "YT_UPLOADER_DIR", "LIB_SAMPLE_DIR")
+
+
+def paths_snapshot() -> dict:
+    out = {}
+    for k in PATH_KEYS:
+        default, desc = MACHINE_KEYS[k]
+        v = setting(k, default)
+        out[k] = {"value": v, "default": default, "desc": desc, "exists": bool(v) and Path(v).is_dir()}
+    return out
+
+
+def save_paths(patch: dict) -> list[str]:
+    """{khoá: đường dẫn | ""}. "" = về mặc định. Khoá ngoài PATH_KEYS → ValueError, không ghi gì."""
+    if not isinstance(patch, dict):
+        raise ValueError("paths phải là object")
+    bad = [k for k in patch if k not in PATH_KEYS]
+    if bad:
+        raise ValueError(f"khoá thư mục lạ: {', '.join(bad)}")
+    clean = {k: (str(v).strip().strip('"') if v is not None else "") for k, v in patch.items()}
+    if clean:
+        _config.save_config(clean)
+    return sorted(clean)

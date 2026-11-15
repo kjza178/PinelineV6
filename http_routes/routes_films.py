@@ -53,8 +53,8 @@ def list_films(
 ):
     try:
         film_db.sync_uploads()
-    except Exception:
-        pass
+    except Exception as e:  # noqa: BLE001
+        print(f"[films] sync_uploads lỗi (vẫn trả danh sách): {e}", flush=True)
 
     rows = film_db.query(
         q=q,
@@ -65,6 +65,7 @@ def list_films(
         block_status=block_status,
     )
     return {
+        "ok": True,   # trang Phim cũ (films_ui.html) đòi d.ok — thiếu → «Lỗi: Không đọc được dữ liệu» (fix 2026-11-15)
         "total": len(rows),
         "stats": film_db.stats(),
         "films": rows,

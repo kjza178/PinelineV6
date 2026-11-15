@@ -1,6 +1,13 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **Thư viện phim gom về giao diện chính (`/v6/`)**: thêm thanh «Đăng YouTube» (tự đăng khi render xong — công tắc khoá
+  và ghi rõ khi instance tắt `auto_publish`; chế độ; hẹn giờ; đăng tất cả phim chưa đăng; bỏ qua video đang đăng), cột +
+  bộ lọc «Bản quyền», nút «Kiểm» từng video / «Kiểm bản quyền tất cả», «Dọn phim mất thư mục», «Ẩn phim mất thư mục»,
+  «Tải CSV». Cài đặt có mục mới **«Thư mục»** (thư viện phim, yt_uploader, mẫu cắt thử — `/api/v6/paths`, core/machine).
+- Trang Phim cũ (`/films/ui`): **gỡ hộp «Cài Đặt Hệ Thống V4»** (ghi đè khoá AI / model của /v6/; thư mục → /v6/ Cài
+  đặt → Thư mục); nút Cài đặt dẫn về /v6/; sửa «Lỗi: Không đọc được dữ liệu» (`GET /films` thiếu `ok`). Trang này chỉ
+  còn giữ công cụ chưa chuyển: gộp job, metadata / thumbnail, hàng chờ upload, kênh test.
 - **Cài đặt → Âm thanh sửa sai khoá**: thanh «Âm lượng giọng Việt» trước gắn vào `voice_vol` — render dùng khoá này cho
   GIỌNG TRUNG nền (chỉ chế độ «Nhạc gốc + giọng Trung nhỏ»), kéo không đổi gì giọng Việt. Nay: «Giọng Việt» =
   `RENDER_DUB_VOL` (mặc định 125%), «Nhạc nền thư viện» = `RENDER_BGM_VOL`, «Nhạc kho» / «Tiếng động gốc» (sfx_lib),

@@ -475,8 +475,14 @@ def uploader_save_settings(payload: Dict[str, Any] = Body(...)):
 @router.get("/api/auto-publish/config")
 @router.get("/auto-publish/config")
 def auto_publish_get_config():
+    import os
+
     import agents.auto_publisher as auto_publisher
-    return {"ok": True, "config": auto_publisher.load_config()}
+    # instance_on: cờ instance auto_publish (PINELINE_FLAG_AUTO_PUBLISH). Tắt → server KHÔNG tự đăng sau render dù
+    # config.enabled bật (server.py: _instance_flag("auto_publish")) — giao diện phải nói rõ, không để công tắc «chết».
+    flag = os.getenv("PINELINE_FLAG_AUTO_PUBLISH")
+    on = True if flag is None else flag.strip().lower() in ("1", "true", "yes", "on")
+    return {"ok": True, "config": auto_publisher.load_config(), "instance_on": on}
 
 
 @router.post("/api/auto-publish/config")
