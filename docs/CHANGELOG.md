@@ -1,6 +1,10 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **A14 song song theo nhà cung cấp + cỡ lô tự tính** (cần restart :8806 + build lại app) — DeepSeek/Alibaba gửi
+  32 lô cùng lúc (chỉnh «Song song» ở dòng nhà cung cấp trong «Cài đặt AI»; Aurora/local vẫn 8). Cỡ lô = số câu ÷ số
+  request song song (40–200 câu, không vượt «Trần output») → cả phim xong trong ~1 đợt. Lô 200 câu cần trần output
+  ~18 000 token: đặt «Trần output» DeepSeek ≥ 20 000 nếu model hỗ trợ (mặc định 8 192 → lô tối đa 84 câu).
 - **A13 phim rất dài + giảm token** (cần restart :8806 + build lại app) — chế độ cả phim (DeepSeek/Alibaba):
   phần đầu gọn (bỏ cột giây); phim có phần đầu > `SIMPLE_FULL_MAX_TOKENS` (mặc định 40 000, ~1 500–2 000 câu) → chia
   CHƯƠNG, mỗi chương phần đầu riêng (plan lọc theo chương + câu của chương ± `SIMPLE_CHAPTER_MARGIN`=100 câu), lô không

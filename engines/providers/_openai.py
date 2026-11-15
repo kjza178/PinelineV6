@@ -40,6 +40,7 @@ class Provider:
     key_keys: tuple[str, ...]                   # khoá cấu hình API key
     default_model: str = ""                     # KHÔNG ghi cứng tên model (nhà cung cấp đổi/khai tử tên) — rỗng = bắt chọn
     max_tokens_cap: int = 8192                  # trần max_tokens của nhà cung cấp
+    default_concurrency: int = 32               # số request song song mặc định (<TÊN>_CONCURRENCY để đổi)
     adjust: Callable[[dict, str], None] | None = field(default=None, compare=False)   # chỉnh payload riêng
 
     def base(self) -> str:
@@ -58,6 +59,17 @@ class Provider:
 
     def configured(self) -> bool:
         return bool(self.key())
+
+    def concurrency(self) -> int:
+        """Số request gửi cùng lúc tới nhà cung cấp (luồng dịch simple): <TÊN>_CONCURRENCY, mặc định 32."""
+        raw = _cfg(f"{self.name.upper()}_CONCURRENCY")
+        try:
+            v = int(float(raw)) if raw else self.default_concurrency
+        except ValueError:
+            print(f"[{self.name}] {self.name.upper()}_CONCURRENCY={raw!r} không phải số → {self.default_concurrency}",
+                  flush=True)
+            v = self.default_concurrency
+        return max(1, min(v, 512))
 
     def out_cap(self) -> int:
         """Trần max_tokens output: <TÊN>_MAX_TOKENS trong cấu hình (vd DEEPSEEK_MAX_TOKENS=16384), mặc định

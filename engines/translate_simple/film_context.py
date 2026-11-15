@@ -248,11 +248,20 @@ def make_jobs(rows: list[dict], todo_idx: list[int], batch: int, ctx: int, film:
     return jobs
 
 
-def lot_size(model: str | None, film: FilmContext | None) -> int:
-    """Cỡ lô: chế độ full/chương = SIMPLE_FULL_BATCH nhưng không vượt trần output của model
-    (≈ SIMPLE_OUT_TOKENS_PER_LINE token / câu + 600 dự phòng) — lô quá to sẽ bị cắt cụt."""
+def lot_size(model: str | None, film: FilmContext | None, n_todo: int = 0) -> int:
+    """Cỡ lô ở chế độ full / chương — mục tiêu: mọi lô chạy trong MỘT đợt song song.
+      ép SIMPLE_FULL_BATCH  → dùng giá trị đó
+      tự tính (mặc định)    → ceil(số câu cần làm ÷ số request song song), kẹp [SIMPLE_LOT_MIN, SIMPLE_LOT_MAX]
+    Luôn ≤ trần output của model (≈ SIMPLE_OUT_TOKENS_PER_LINE token / câu + 600 dự phòng) — lô quá to bị cắt cụt.
+    Chế độ window (film=None) → SIMPLE_BATCH như cũ."""
     if film is None:
         return cfg.batch()
     cap = cfg.out_cap(model)
     fit = max(10, (cap - 600) // max(20, cfg.out_tokens_per_line()))
-    return max(4, min(cfg.full_batch(), fit))
+    forced = cfg.full_batch()
+    if forced is not None:
+        want = forced
+    else:
+        w = max(1, cfg.workers_for(model))
+        want = max(cfg.lot_min(), min(cfg.lot_max(), math.ceil(max(1, n_todo) / w)))
+    return max(4, min(want, fit))

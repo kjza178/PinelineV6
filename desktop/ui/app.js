@@ -682,7 +682,8 @@ function aiProviderRow(p) {
     + `<td>${status}<input type="password" class="ai-key" placeholder="${p.has_key ? "Dán key mới để thay" : "Dán API key"}" autocomplete="off">`
     + `${p.has_key ? '<label class="row small"><input type="checkbox" class="ai-clear"> Xoá key</label>' : ""}</td>`
     + `<td><input class="ai-base" value="${esc(p.base_url)}" placeholder="${esc(p.default_base)}" spellcheck="false">`
-    + `<label class="row small" title="max_tokens tối đa mỗi lần gọi (${esc(p.max_tokens_key)}). Lô dịch tự thu nhỏ cho vừa (~90 token/câu). Chỉ nâng khi model hỗ trợ — quá trần model, nhà cung cấp trả lỗi 400.">Trần output <input class="ai-maxtok" inputmode="numeric" size="7" value="${esc(p.max_tokens)}" placeholder="${esc(p.max_tokens_default)}"> token</label></td>`
+    + `<label class="row small" title="max_tokens tối đa mỗi lần gọi (${esc(p.max_tokens_key)}). Lô dịch tự thu nhỏ cho vừa (~90 token/câu). Chỉ nâng khi model hỗ trợ — quá trần model, nhà cung cấp trả lỗi 400.">Trần output <input class="ai-maxtok" inputmode="numeric" size="7" value="${esc(p.max_tokens)}" placeholder="${esc(p.max_tokens_default)}"> token</label>`
+    + `<label class="row small" title="Số lô dịch gửi CÙNG LÚC (${esc(p.concurrency_key)}). Cỡ lô tự tính = số câu ÷ số này (40–200 câu, không vượt trần output) để cả phim xong trong ~1 đợt.">Song song <input class="ai-conc" inputmode="numeric" size="4" value="${esc(p.concurrency)}" placeholder="${esc(p.concurrency_default)}"> request</label></td>`
     + `<td><button type="button" class="btn sm" data-ai="models" title="Hỏi ${esc(p.label)} (GET /models) các model key này dùng được — cũng là cách kiểm tra key">Lấy danh sách model</button>`
     + `<div class="small ai-res ${p.models.length ? "mut" : ""}">${p.models.length ? `${p.models.length} model đã lấy` : ""}</div></td></tr>`;
 }
@@ -723,6 +724,8 @@ function aiCollect() {
     if (base !== p.base_url) pc.base_url = base;
     const mt = tr.querySelector(".ai-maxtok")?.value.trim() ?? "";
     if (mt !== String(p.max_tokens)) pc.max_tokens = mt;
+    const cc = tr.querySelector(".ai-conc")?.value.trim() ?? "";
+    if (cc !== String(p.concurrency)) pc.concurrency = cc;
     if (Object.keys(pc).length) providers[p.name] = pc;
   }
   const body = {};

@@ -252,6 +252,8 @@ def snapshot() -> dict:
                       "base_key": p.base_keys[0], "key_key": p.key_keys[0], "has_key": bool(k),
                       "max_tokens": p.out_cap(), "max_tokens_default": p.max_tokens_cap,
                       "max_tokens_key": f"{p.name.upper()}_MAX_TOKENS",
+                      "concurrency": p.concurrency(), "concurrency_default": p.default_concurrency,
+                      "concurrency_key": f"{p.name.upper()}_CONCURRENCY",
                       "key_hint": _key_hint(k), "models": [f"{p.name}/{m}" for m in providers.cached_models(p)[1]],
                       "models_fetched_at": providers.cached_models(p)[0] or None})
     try:
@@ -346,6 +348,15 @@ def apply(models: dict | None = None, *, plan_mode: str | None = None, providers
                 errors.append(f"{p.label}: trần output phải là số từ 256 đến 1000000")
             else:
                 updates[mk] = None if int(raw) == p.max_tokens_cap else raw
+        if "concurrency" in pc:
+            raw = str(pc.get("concurrency") or "").strip()
+            ck = f"{p.name.upper()}_CONCURRENCY"
+            if not raw:
+                updates[ck] = None
+            elif not raw.isdigit() or not (1 <= int(raw) <= 512):
+                errors.append(f"{p.label}: số request song song phải từ 1 đến 512")
+            else:
+                updates[ck] = None if int(raw) == p.default_concurrency else raw
     if errors:
         raise ValueError("; ".join(errors))
     if updates:

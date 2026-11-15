@@ -19,9 +19,12 @@ PLAN = {"genre": "đô thị", "characters": [{"zh": "林凡", "vi": "Lâm Phàm
 @pytest.fixture
 def env(monkeypatch):
     for k in ("SIMPLE_CONTEXT", "SIMPLE_FULL_BATCH", "SIMPLE_FULL_MAX_TOKENS", "SIMPLE_BATCH", "SIMPLE_CHAPTER_MARGIN",
-              "SIMPLE_OUT_TOKENS_PER_LINE", "DEEPSEEK_MAX_TOKENS"):
+              "SIMPLE_OUT_TOKENS_PER_LINE", "DEEPSEEK_MAX_TOKENS", "DEEPSEEK_CONCURRENCY", "ALIBABA_CONCURRENCY",
+              "SIMPLE_LOT_MIN", "SIMPLE_LOT_MAX"):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setenv("SIMPLE_WORKERS", "1")
+    monkeypatch.setenv("DEEPSEEK_CONCURRENCY", "1")         # thứ tự gọi xác định trong test
+    monkeypatch.setenv("ALIBABA_CONCURRENCY", "1")
     monkeypatch.setattr("time.sleep", lambda s: None)
 
 
@@ -124,7 +127,7 @@ def test_long_film_is_split_into_chapters_under_cap(tmp_path, env, monkeypatch):
 def test_chapter_mode_lots_never_cross_chapters_and_warm_cache_first(tmp_path, env, fake, monkeypatch):
     st = _long(tmp_path, 1200)
     monkeypatch.setenv("SIMPLE_FULL_MAX_TOKENS", "8000")
-    monkeypatch.setenv("SIMPLE_WORKERS", "4")
+    monkeypatch.setenv("DEEPSEEK_CONCURRENCY", "4")
     stats = stage_review.run(st, PlanView(PLAN3), model="deepseek/deepseek-flash")
     assert stats["context"] == "chapters" and stats["chapters"] >= 2 and stats["n_left"] == 0
     fc = film_context.for_stage(st.rows, PlanView(PLAN3), "deepseek/deepseek-flash")
@@ -138,15 +141,51 @@ def test_chapter_mode_lots_never_cross_chapters_and_warm_cache_first(tmp_path, e
     assert len(set(first_prefixes)) == n_ch                                             # lô đầu mỗi chương chạy trước
 
 
-def test_lot_size_respects_output_cap(tmp_path, env, monkeypatch):
-    st = _store(tmp_path, 10)
-    fc = film_context.build(st.rows, PlanView(PLAN))
-    assert film_context.lot_size("deepseek/deepseek-flash", fc) == 80               # 8192 → vừa 80 câu
-    monkeypatch.setenv("SIMPLE_FULL_BATCH", "200")
-    assert film_context.lot_size("deepseek/deepseek-flash", fc) == (8192 - 600) // 90
+def test_lot_size_auto_from_concurrency_and_output_cap(tmp_path, env, monkeypatch):
+    fc = film_context.build(_store(tmp_path, 10).rows, PlanView(PLAN))
+    ds = "deepseek/deepseek-flash"
+    monkeypatch.setenv("DEEPSEEK_CONCURRENCY", "32")
     monkeypatch.setenv("DEEPSEEK_MAX_TOKENS", "32768")
-    assert film_context.lot_size("deepseek/deepseek-flash", fc) == 200
-    assert film_context.lot_size("chatgpt/gpt-6", None) == 30                       # window: như cũ
+    assert film_context.lot_size(ds, fc, 1500) == 47              # 1500 ÷ 32 → mọi lô trong 1 đợt
+    assert film_context.lot_size(ds, fc, 10000) == 200            # kẹp trần 200 câu
+    assert film_context.lot_size(ds, fc, 300) == 40               # kẹp sàn 40 câu
+    monkeypatch.delenv("DEEPSEEK_MAX_TOKENS")
+    assert film_context.lot_size(ds, fc, 10000) == (8192 - 600) // 90   # trần output 8192 → 84 câu
+    monkeypatch.setenv("SIMPLE_FULL_BATCH", "60")
+    assert film_context.lot_size(ds, fc, 10000) == 60             # ép cỡ lô
+    assert film_context.lot_size("chatgpt/gpt-6", None, 10000) == 30   # window: như cũ
+
+
+def test_workers_follow_provider_concurrency(env, monkeypatch):
+    from engines.translate_simple import cfg as scfg
+    monkeypatch.delenv("DEEPSEEK_CONCURRENCY")
+    assert scfg.workers_for("deepseek/deepseek-flash") == 32
+    monkeypatch.setenv("DEEPSEEK_CONCURRENCY", "200")
+    assert scfg.workers_for("deepseek/deepseek-flash") == 200
+    assert scfg.workers_for("chatgpt/gpt-6") == 1                 # SIMPLE_WORKERS (fixture = 1)
+
+
+def test_parallel_lots_actually_run_concurrently(tmp_path, env, monkeypatch):
+    import threading
+    import engines.llm as llm
+    monkeypatch.setenv("DEEPSEEK_CONCURRENCY", "8")
+    live = {"now": 0, "max": 0}
+    lk = threading.Lock()
+    base = FakeChat()
+
+    def chat(messages, model=None, **kw):
+        with lk:
+            live["now"] += 1
+            live["max"] = max(live["max"], live["now"])
+        threading.Event().wait(0.05)          # time.sleep bị fixture thay bằng no-op
+        try:
+            return base(messages, model=model)
+        finally:
+            with lk:
+                live["now"] -= 1
+    monkeypatch.setattr(llm, "chat", chat)
+    stats = stage_review.run(_store(tmp_path, 400), PlanView(PLAN), model="deepseek/deepseek-flash")
+    assert stats["n_left"] == 0 and stats["lots"] == 8 and live["max"] >= 4     # 400 ÷ 8 = 50 câu/lô, chạy cùng lúc
 
 
 def test_output_cap_sent_to_provider(tmp_path, env, monkeypatch):
@@ -166,11 +205,11 @@ def test_review_full_mode_same_prefix_every_lot_and_bigger_lots(tmp_path, env, f
     st = _store(tmp_path, 130)
     stats = stage_review.run(st, PlanView(PLAN), model="deepseek/deepseek-flash")
     assert stats["context"] == "full" and stats["n_left"] == 0 and stats["n_ok"] == 130
-    assert len(fake.calls) == 2                                    # 130 câu / lô 80 (cũ: 5 lô × 30)
+    assert len(fake.calls) == 2                                    # 130 câu, 1 luồng → lô to nhất vừa trần output (84)
     prefixes = {c[1]["content"] for c in fake.calls}
     assert len(prefixes) == 1                                      # giống nhau từng byte → cache được
     assert [m["role"] for m in fake.calls[0]] == ["system", "user", "user"]
-    assert "TOÀN BỘ PHIM" in fake.calls[0][1]["content"] and "LÔ NÀY: câu 0→79" in fake.calls[0][2]["content"]
+    assert "TOÀN BỘ PHIM" in fake.calls[0][1]["content"] and "LÔ NÀY: câu 0→83" in fake.calls[0][2]["content"]
 
 
 def test_review_window_mode_unchanged_for_other_models(tmp_path, env, fake):

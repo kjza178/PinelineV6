@@ -12,7 +12,8 @@ from core import ai_models
 MODEL_KEYS = ("SIMPLE_MODEL", "REVIEW_MODEL", "TRANSLATE_MODEL", "LLM_MODEL", "PLAN_MODEL", "PLAN_MODE", "NAME_MODEL",
               "PRONOUN_MODEL", "CHATGPT_MODEL", "AGENT_MODEL", "AGENT_FALLBACK_MODEL", "HANG_FIX_MODEL",
               "SIMPLE_PAIR_FILL_MODEL", "PRONOUN_ANALYZE_MODEL", "PRONOUN_ANALYZE_MODE", "SIMPLE_DRAFT", "DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL",
-              "DASHSCOPE_API_KEY", "ALIBABA_API_KEY", "ALIBABA_BASE_URL", "DEEPSEEK_MAX_TOKENS", "ALIBABA_MAX_TOKENS")
+              "DASHSCOPE_API_KEY", "ALIBABA_API_KEY", "ALIBABA_BASE_URL", "DEEPSEEK_MAX_TOKENS", "ALIBABA_MAX_TOKENS",
+              "DEEPSEEK_CONCURRENCY", "ALIBABA_CONCURRENCY")
 
 
 @pytest.fixture
@@ -189,3 +190,15 @@ def test_provider_output_cap_saved_validated_and_reset(conf):
             ai_models.apply(None, providers_cfg={"deepseek": {"max_tokens": bad}})
     ai_models.apply(None, providers_cfg={"deepseek": {"max_tokens": ""}})            # trống = về mặc định
     assert "DEEPSEEK_MAX_TOKENS" not in _file(conf)
+
+
+def test_provider_concurrency_saved_validated_and_reset(conf):
+    out = ai_models.apply(None, providers_cfg={"deepseek": {"concurrency": "100"}})
+    assert _file(conf)["DEEPSEEK_CONCURRENCY"] == "100"
+    assert next(p for p in out["providers"] if p["name"] == "deepseek")["concurrency"] == 100
+    for bad in ("0", "abc", "999"):
+        with pytest.raises(ValueError):
+            ai_models.apply(None, providers_cfg={"deepseek": {"concurrency": bad}})
+    ai_models.apply(None, providers_cfg={"deepseek": {"concurrency": ""}})
+    assert "DEEPSEEK_CONCURRENCY" not in _file(conf)
+    assert next(p for p in ai_models.snapshot()["providers"] if p["name"] == "deepseek")["concurrency"] == 32

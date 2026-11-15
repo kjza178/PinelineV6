@@ -312,8 +312,8 @@ def run(store: ScriptStore, pv: PlanView, *, model: str | None, stop_check=None,
         if film.mode == "chapters":
             stats["chapters"] = len(film.chapters)
     from . import film_context as _fc
-    batch = int(batch) if batch else _fc.lot_size(model, film)
-    ctx, workers = cfg.ctx(), cfg.workers()
+    batch = int(batch) if batch else _fc.lot_size(model, film, len(todo_idx))
+    ctx, workers = cfg.ctx(), cfg.workers_for(model)
     lock = threading.Lock()
     done_pos: set[int] = set()      # vị trí câu đã được soát trong lượt gọi này
 

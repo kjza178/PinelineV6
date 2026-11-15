@@ -24,7 +24,7 @@ def run(store: ScriptStore, pv: PlanView, flags: dict[int, list[dict]], *, model
         from . import film_context          # A8: cùng phần đầu cả phim với bước soát → trúng cache
         film = film_context.for_stage(rows, pv, model, label="[simple-repair]")
     from . import film_context as _fc
-    lot_size = _fc.lot_size(model, film)
+    lot_size = _fc.lot_size(model, film, len(flags))
     for rnd in range(1, rounds + 1):
         if not flags:
             break

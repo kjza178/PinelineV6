@@ -8,11 +8,13 @@ Không sửa config.json. Khoá:
   SIMPLE_CTX               số câu ngữ cảnh chỉ đọc mỗi phía lô (4)
   SIMPLE_CONTEXT           A8: auto | full | window — full = mọi lô gửi CẢ PHIM + plan đầy đủ ở phần đầu cố định
                            (cache được); auto = full khi model là deepseek/… alibaba/… (film_context.py) (auto)
-  SIMPLE_FULL_BATCH        số câu / lô ở chế độ full (80) — tự giảm cho vừa trần output (out_cap)
+  SIMPLE_FULL_BATCH        ép cỡ lô ở chế độ full (trống = TỰ TÍNH: số câu ÷ số request song song, kẹp
+                           SIMPLE_LOT_MIN..SIMPLE_LOT_MAX = 40..200) — luôn ≤ trần output (out_cap)
   SIMPLE_FULL_MAX_TOKENS   trần phần đầu MỖI CHƯƠNG; cả phim vượt → chia chương (40000)
   SIMPLE_CHAPTER_MARGIN    số câu ngữ cảnh hai bên mỗi chương (100)
   SIMPLE_OUT_TOKENS_PER_LINE  ước lượng token output / câu để giới hạn cỡ lô (90)
-  SIMPLE_WORKERS           số lô gọi song song (8)
+  SIMPLE_WORKERS           số lô gọi song song cho model KHÔNG phải nhà cung cấp API (Aurora, local) (8).
+                           deepseek/… alibaba/… dùng <TÊN>_CONCURRENCY (mặc định 32) — workers_for(model)
   SIMPLE_REPAIR_ROUNDS     số lượt vá câu bị cờ (2, tối đa 2)
   SIMPLE_CONF_MIN          ngưỡng conf (độ chắc spk/to) để kiểm xưng hô (0.7)
   SIMPLE_GATE_FLAG_RATIO   tỉ lệ câu còn cờ tối đa để qua cổng (0.03)
@@ -181,8 +183,16 @@ def context_mode() -> str:
     return v if v in ("auto", "full", "window") else "auto"
 
 
-def full_batch() -> int:
-    return _int("SIMPLE_FULL_BATCH", 80, 4, 300)
+def full_batch() -> int | None:
+    """Cỡ lô ép ở chế độ full; None = tự tính theo số request song song (film_context.lot_size)."""
+    raw = str(get("SIMPLE_FULL_BATCH", "") or "").strip()
+    if not raw:
+        return None
+    try:
+        return max(4, min(int(float(raw)), 2000))
+    except ValueError:
+        print(f"[simple] SIMPLE_FULL_BATCH={raw!r} không phải số → tự tính", flush=True)
+        return None
 
 
 def full_max_tokens() -> int:
@@ -214,7 +224,27 @@ def ctx() -> int:
 
 
 def workers() -> int:
-    return _int("SIMPLE_WORKERS", 8, 1, 32)
+    return _int("SIMPLE_WORKERS", 8, 1, 512)
+
+
+def workers_for(model: str | None) -> int:
+    """Số lô gọi cùng lúc: nhà cung cấp API → <TÊN>_CONCURRENCY (mặc định 32); model khác → SIMPLE_WORKERS (8)."""
+    try:
+        from engines import providers
+        hit = providers.resolve(model or "")
+        if hit is not None:
+            return hit[0].concurrency()
+    except Exception as e:  # noqa: BLE001
+        print(f"[simple] đọc số request song song của {model!r} lỗi: {e}", flush=True)
+    return workers()
+
+
+def lot_min() -> int:
+    return _int("SIMPLE_LOT_MIN", 40, 4, 1000)
+
+
+def lot_max() -> int:
+    return _int("SIMPLE_LOT_MAX", 200, 4, 2000)
 
 
 def repair_rounds() -> int:
