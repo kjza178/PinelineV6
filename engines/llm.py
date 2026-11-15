@@ -145,13 +145,14 @@ def list_available_models() -> dict:
                 "label": f"{om} (Ollama)",
                 "source": "ollama",
             })
-    # 3. Nhà cung cấp API (engines/providers) — chỉ nhà đã có key
+    # 3. Nhà cung cấp API (engines/providers) — chỉ nhà đã có key, tên lấy lần gần nhất từ GET /models
+    #    (không gọi mạng ở đây; danh sách nạp bằng nút «Lấy danh sách model» trong Cài đặt AI)
     try:
         from engines import providers as _providers
         for p in _providers.all_providers():
             if not p.configured():
                 continue
-            for pm in p.models:
+            for pm in _providers.cached_models(p)[1]:
                 out.append({"id": f"{p.name}/{pm}", "label": f"{pm} ({p.label})", "source": p.name})
     except Exception as e:  # noqa: BLE001
         print(f"[llm] liệt kê model nhà cung cấp lỗi: {e}", flush=True)
@@ -687,8 +688,8 @@ def chat(
         cloud_key = (_cfg_get("CLOUD_LLM_API_KEY") or "").strip()
         if not cloud_base or not cloud_key or cloud_key == "sk-local":
             raise LLMUnavailable(
-                f"Model «{m}» cần router cloud (9router) — V6 không dùng nữa. Đổi sang deepseek/deepseek-chat, "
-                "alibaba/qwen-plus, chatgpt/… (Aurora) hoặc model local trong Cài đặt AI."
+                f"Model «{m}» cần router cloud (9router) — V6 không dùng nữa. Đổi sang deepseek/…, "
+                "alibaba/… (tên lấy bằng «Lấy danh sách model»), chatgpt/… (Aurora) hoặc model local trong Cài đặt AI."
             )
         target_base, target_key = cloud_base, cloud_key
         print(f"[llm] cloud {m} via {target_base}", flush=True)

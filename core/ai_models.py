@@ -131,22 +131,56 @@ FUNCTIONS: tuple[AIFunction, ...] = (
 BY_ID = {f.id: f for f in FUNCTIONS}
 
 # Bộ cài sẵn: id chức năng → model. Chức năng không có trong bộ thì giữ nguyên.
+# DeepSeek / Alibaba: KHÔNG ghi cứng tên model (nhà cung cấp đổi / khai tử tên — vd deepseek-chat ngừng 24/07/2026).
+# Lúc áp, hỏi GET /models bằng key đã lưu rồi chọn bản «flash» (providers.pick_model) cho mọi chức năng.
+_PRESET_FUNCS = ("review", "plan", "name", "pronoun", "pair_fill", "translate", "legacy_review", "hang_fix", "agent")
 PRESETS: dict[str, dict] = {
-    "deepseek": {"label": "Tất cả DeepSeek", "plan_mode": "sample",
-                 "models": {k: "deepseek/deepseek-chat" for k in ("review", "plan", "name", "pronoun", "pair_fill",
-                                                                 "translate", "legacy_review", "hang_fix", "agent")}},
-    "alibaba": {"label": "Tất cả Alibaba (Qwen)", "plan_mode": "sample",
-                "models": {k: "alibaba/qwen-plus" for k in ("review", "plan", "name", "pronoun", "pair_fill",
-                                                           "translate", "legacy_review", "hang_fix", "agent")}},
+    "deepseek": {"label": "Tất cả DeepSeek", "plan_mode": "sample", "provider": "deepseek"},
+    "alibaba": {"label": "Tất cả Alibaba (Qwen)", "plan_mode": "sample", "provider": "alibaba"},
     "aurora": {"label": "Aurora (ChatGPT)", "plan_mode": "file",
                "models": {"review": "chatgpt/gpt-6", "plan": "chatgpt/gpt-5-6-mini", "name": "chatgpt/gpt-5-6-mini",
                           "pronoun": "chatgpt/gpt-5-6-mini", "pair_fill": "chatgpt/gpt-5-6-mini",
                           "translate": "chatgpt/gpt-5-6-mini", "legacy_review": "chatgpt/gpt-6",
                           "hang_fix": "chatgpt/gpt-5-6-mini", "agent": "chatgpt/gpt-5-6-mini"}},
     "local": {"label": "Chỉ AI local (llama :8083)", "plan_mode": "sample",
-              "models": {k: "local" for k in ("review", "plan", "name", "pronoun", "pair_fill", "translate",
-                                              "legacy_review", "hang_fix", "agent")}},
+              "models": {k: "local" for k in _PRESET_FUNCS}},
 }
+
+
+def _provider(name: str):
+    from engines import providers
+    hit = providers.resolve(f"{(name or '').strip()}/x")
+    if hit is None:
+        raise ValueError(f"không có nhà cung cấp «{name}»")
+    return hit[0]
+
+
+def fetch_models(name: str, *, api_key: str | None = None, base_url: str | None = None) -> dict:
+    """Danh sách model THẬT của nhà cung cấp (GET /models bằng key đã lưu, hoặc key/URL vừa gõ chưa lưu).
+    → {provider, models: ["deepseek/<id>"…], suggested, fetched_at}. Lỗi mạng/key → ValueError (thông báo rõ)."""
+    from engines import providers
+    from engines.llm import LLMUnavailable
+    p = _provider(name)
+    b = (base_url or "").strip().rstrip("/")
+    if b and not re.match(r"^https?://", b):
+        raise ValueError(f"{p.label}: địa chỉ phải bắt đầu bằng http:// hoặc https://")
+    try:
+        ids = providers.list_models(p, api_key=api_key, base_url=b or None)
+    except LLMUnavailable as e:
+        raise ValueError(str(e)) from e
+    pick = providers.pick_model(ids)
+    return {"provider": p.name, "label": p.label, "models": [f"{p.name}/{m}" for m in ids],
+            "suggested": f"{p.name}/{pick}" if pick else "", "fetched_at": time.time()}
+
+
+def _preset_models(pr: dict) -> dict:
+    if "models" in pr:
+        return dict(pr["models"])
+    res = fetch_models(pr["provider"])                 # ValueError nếu chưa có key / lỗi mạng
+    if not res["suggested"]:
+        raise ValueError(f"{res['label']}: không tìm thấy model dịch được trong danh sách ({len(res['models'])} model)"
+                         " — chọn tay ở từng chức năng")
+    return {k: res["suggested"] for k in _PRESET_FUNCS}
 
 
 def provider_of(model: str) -> str:
@@ -179,6 +213,10 @@ def check_model(fid: str, model: str) -> str:
         return ""                                         # để trống = dùng chuỗi dự phòng
     if m.lower().startswith("ollama/") or "-cloud" in m.lower():
         return "V6 không dùng 9router (ollama/…-cloud) — chọn deepseek/…, alibaba/…, chatgpt/… hoặc local"
+    from engines import providers
+    hit = providers.resolve(m)
+    if hit and not hit[1]:
+        return f"thiếu tên model sau «{hit[0].name}/» — bấm «Lấy danh sách model» ở dòng {hit[0].label}"
     if not MODEL_RE.match(m) and not re.match(r"^[\w.:\-]+$", m):
         return "tên model không hợp lệ"
     if f.needs == "aurora_file" and not m.lower().startswith(AURORA_PREFIXES):
@@ -199,7 +237,8 @@ def snapshot() -> dict:
         k = p.key()
         provs.append({"name": p.name, "label": p.label, "base_url": p.base(), "default_base": p.default_base,
                       "base_key": p.base_keys[0], "key_key": p.key_keys[0], "has_key": bool(k),
-                      "key_hint": _key_hint(k), "models": [f"{p.name}/{m}" for m in p.models]})
+                      "key_hint": _key_hint(k), "models": [f"{p.name}/{m}" for m in providers.cached_models(p)[1]],
+                      "models_fetched_at": providers.cached_models(p)[0] or None})
     try:
         from engines.llm import get_llama_models, get_ollama_models
         llama, ollama = get_llama_models(), get_ollama_models()
@@ -245,7 +284,7 @@ def apply(models: dict | None = None, *, plan_mode: str | None = None, providers
         pr = PRESETS.get(preset)
         if pr is None:
             raise ValueError(f"không có bộ cài sẵn «{preset}»")
-        models = {**pr["models"], **models}
+        models = {**_preset_models(pr), **models}
         plan_mode = plan_mode or pr["plan_mode"]
     updates: dict = {}
     errors = []
@@ -267,11 +306,11 @@ def apply(models: dict | None = None, *, plan_mode: str | None = None, providers
         else:
             updates["PLAN_MODE"] = pm
     for name, pc in (providers_cfg or {}).items():
-        hit = providers.resolve(f"{name}/x")
-        if hit is None:
-            errors.append(f"không có nhà cung cấp «{name}»")
+        try:
+            p = _provider(name)
+        except ValueError as e:
+            errors.append(str(e))
             continue
-        p = hit[0]
         pc = pc or {}
         if pc.get("clear_key"):
             updates[p.key_keys[0]] = None

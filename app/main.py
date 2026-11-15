@@ -173,6 +173,18 @@ def _v6_router(inst: Instance) -> APIRouter:
             bus.publish("config.changed", {"changed": out["changed"]})
         return out
 
+    @r.post(V6_PREFIX + "/ai/models")
+    def ai_models_list(body: dict):
+        """Danh sách model THẬT của nhà cung cấp (gọi GET /models ra ngoài — nên là POST, chỉ khi người dùng bấm).
+        body: {provider, api_key?, base_url?} — key/URL gửi kèm chỉ dùng để hỏi, KHÔNG lưu."""
+        from core import ai_models
+        b = body or {}
+        try:
+            return ai_models.fetch_models(str(b.get("provider") or ""), api_key=b.get("api_key") or None,
+                                          base_url=b.get("base_url") or None)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+
     @r.post(V6_PREFIX + "/ai/test")
     def ai_test(body: dict):
         from core import ai_models

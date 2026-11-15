@@ -8,18 +8,30 @@ _2026-11-15. Quyết định chủ dự án: V6 bỏ 9router; AI dùng Aurora, A
 
 | Tiền tố | Đi tới | Khoá cần có |
 |---|---|---|
-| `deepseek/deepseek-chat` | DeepSeek | `DEEPSEEK_API_KEY` (+ `DEEPSEEK_BASE_URL`, mặc định `https://api.deepseek.com`) |
-| `alibaba/qwen-plus` (hoặc `qwen/…`) | Alibaba Model Studio (DashScope, chế độ OpenAI) | `DASHSCOPE_API_KEY` (+ `ALIBABA_BASE_URL`, mặc định máy chủ quốc tế) |
+| `deepseek/<tên model>` | DeepSeek | `DEEPSEEK_API_KEY` (+ `DEEPSEEK_BASE_URL`, mặc định `https://api.deepseek.com`) |
+| `alibaba/<tên model>` (hoặc `qwen/…`) | Alibaba Model Studio (DashScope, chế độ OpenAI) | `DASHSCOPE_API_KEY` (+ `ALIBABA_BASE_URL`, mặc định máy chủ quốc tế) |
 | `chatgpt/…`, `aurora/…` | Aurora | như cũ |
 | `local`, `llama/…` | llama-server :8083 | — |
 | `local/<tên>` | Ollama | — |
+
+## Tên model: không ghi cứng (sửa 2026-11-15)
+Nhà cung cấp đổi và khai tử tên model — DeepSeek thông báo `deepseek-chat` / `deepseek-reasoner` ngừng hẳn sau
+24/07/2026. Vì vậy code **không có tên model mặc định** cho DeepSeek/Alibaba:
+- Tên lấy từ nhà cung cấp: `providers.list_models(p)` gọi `GET {base}/models` bằng key (chuẩn OpenAI).
+  Desktop «Cài đặt AI» → dòng nhà cung cấp → nút **«Lấy danh sách model»** (`POST /api/v6/ai/models`; key vừa dán chưa
+  lưu cũng hỏi được, không bị lưu). Danh sách nạp vào ô gợi ý của mọi chức năng; nhớ trong bộ nhớ server tới khi restart.
+- Bộ cài sẵn «DeepSeek» / «Alibaba»: hỏi `/models` bằng key ĐÃ LƯU rồi `providers.pick_model()` chọn: bỏ model ảnh /
+  âm thanh / embedding / coder / suy luận (reasoner, thinking); ưu tiên «flash» > «plus» > «chat» > «turbo» > «max» >
+  «pro»; bản không ngày trước bản snapshot có ngày. Chưa có key / lỗi mạng → báo lỗi, không ghi gì.
+- `deepseek/` thiếu tên → từ chối khi lưu và báo «chưa chọn tên model» khi gọi (không đoán tên).
 
 ## Cấu trúc
 
 ```
 engines/providers/
-  _openai.py    lõi chung: lấy key/URL lúc gọi, gửi chat/completions, thử lại 429/5xx/mất mạng, báo lỗi rõ
-  deepseek.py   khai báo Provider DeepSeek (+ bỏ temperature cho deepseek-reasoner)
+  _openai.py    lõi chung: lấy key/URL lúc gọi, gửi chat/completions, thử lại 429/5xx/mất mạng, báo lỗi rõ;
+                list_models (GET /models), pick_model (chọn bản «flash»)
+  deepseek.py   khai báo Provider DeepSeek (+ bỏ temperature cho model suy luận: tên có reasoner/thinking)
   alibaba.py    khai báo Provider Alibaba (+ enable_thinking=false, ALIBABA_ENABLE_THINKING=1 để bật)
   __init__.py   resolve("deepseek/…") → (Provider, model); đăng ký nhà cung cấp
 ```
@@ -42,6 +54,8 @@ Lỗi: luôn `LLMUnavailable`, giữ `requests.HTTPError` ở `__cause__` → `c
 - Meta Studio (tiêu đề / mô tả YouTube — cứng `gpt-5-6`) và ảnh thumbnail (`gpt-image-2`).
 
 ## Chưa kiểm
+- `GET /models` thật của DeepSeek và DashScope (chế độ tương thích OpenAI): định dạng `{"data":[{"id":…}]}` theo chuẩn
+  OpenAI; kiểm bằng máy chủ giả. Thử 1 lần bằng nút «Lấy danh sách model» với key thật.
 - Gọi API thật (cloud không có key): kiểm bằng máy chủ giả `tests/test_providers.py`.
 - Tham số `enable_thinking` của DashScope: theo tài liệu chế độ tương thích OpenAI; cần thử 1 lần với key thật.
 - Chất lượng dịch / xưng hô của DeepSeek, Qwen so với GPT: đo bằng `scripts/golden_ab.py` trước khi dùng cho hàng chờ.

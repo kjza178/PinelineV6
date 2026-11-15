@@ -1,4 +1,5 @@
-"""Alibaba Cloud Model Studio (DashScope, chế độ tương thích OpenAI) — model Qwen: `alibaba/qwen-plus`, `alibaba/qwen-max`…
+"""Alibaba Cloud Model Studio (DashScope, chế độ tương thích OpenAI) — model Qwen: `alibaba/<tên model>`.
+Tên đang có lấy từ `GET /models` (nút «Lấy danh sách model» trong Cài đặt AI) — không ghi cứng.
 
 Cấu hình (env > pineline.config.json):
   DASHSCOPE_API_KEY   bắt buộc (nhận cả ALIBABA_API_KEY)
@@ -22,8 +23,6 @@ PROVIDER = Provider(
     default_base="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
     base_keys=("ALIBABA_BASE_URL",),
     key_keys=("DASHSCOPE_API_KEY", "ALIBABA_API_KEY"),
-    default_model="qwen-plus",
-    models=("qwen-plus", "qwen-max", "qwen-flash", "qwen-turbo"),
     max_tokens_cap=8192,
     adjust=_adjust,
 )

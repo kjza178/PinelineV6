@@ -1,7 +1,10 @@
 """Nhà cung cấp LLM qua API — mỗi nhà cung cấp một file, phần còn lại chỉ gọi theo tên model.
 
-    model = "deepseek/deepseek-chat"  →  engines.providers.deepseek
-    model = "alibaba/qwen-plus"       →  engines.providers.alibaba  (nhận cả tiền tố "qwen/")
+    model = "deepseek/<tên>"  →  engines.providers.deepseek
+    model = "alibaba/<tên>"   →  engines.providers.alibaba  (nhận cả tiền tố "qwen/")
+
+Tên model KHÔNG ghi cứng — lấy từ nhà cung cấp: `list_models(provider)` (GET /models), `pick_model(ids)` chọn bản
+«flash» cho dịch/soát.
 
 `engines.llm.chat()` và Agent (`agents.agent_core`) hỏi `resolve(model)` trước mọi đường khác. Thêm nhà cung cấp mới =
 thêm một file khai báo `PROVIDER = Provider(...)` rồi đăng ký vào `_REGISTRY` dưới đây.
@@ -11,7 +14,7 @@ thêm một file khai báo `PROVIDER = Provider(...)` rồi đăng ký vào `_RE
 from __future__ import annotations
 
 from . import alibaba, deepseek
-from ._openai import Provider, chat_message, chat_text
+from ._openai import Provider, cached_models, chat_message, chat_text, list_models, pick_model
 
 _REGISTRY: dict[str, Provider] = {
     "deepseek": deepseek.PROVIDER,
@@ -29,7 +32,7 @@ def resolve(model: str | None) -> tuple[Provider, str] | None:
     p = _REGISTRY.get(prefix.strip().lower())
     if p is None:
         return None
-    return p, (rest.strip() or p.default_model)
+    return p, rest.strip()
 
 
 def all_providers() -> list[Provider]:
@@ -41,4 +44,5 @@ def all_providers() -> list[Provider]:
     return out
 
 
-__all__ = ["Provider", "resolve", "all_providers", "chat_message", "chat_text"]
+__all__ = ["Provider", "resolve", "all_providers", "chat_message", "chat_text", "list_models", "cached_models",
+           "pick_model"]

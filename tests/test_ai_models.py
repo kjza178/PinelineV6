@@ -47,22 +47,22 @@ def test_snapshot_reports_real_effective_model_and_source(conf):
 
 
 def test_apply_writes_keys_and_effective_follows(conf):
-    out = ai_models.apply({"review": "deepseek/deepseek-chat", "agent": "alibaba/qwen-plus"}, plan_mode="sample")
+    out = ai_models.apply({"review": "deepseek/deepseek-flash", "agent": "alibaba/qwen-plus"}, plan_mode="sample")
     assert set(out["changed"]) == {"SIMPLE_MODEL", "AGENT_MODEL", "PLAN_MODE"}
     d = _file(conf)
-    assert d["SIMPLE_MODEL"] == "deepseek/deepseek-chat" and d["AGENT_MODEL"] == "alibaba/qwen-plus"
+    assert d["SIMPLE_MODEL"] == "deepseek/deepseek-flash" and d["AGENT_MODEL"] == "alibaba/qwen-plus"
     assert d["OTHER_KEY"] == "giữ nguyên" and d["REVIEW_MODEL"] == "chatgpt/gpt-6"     # khoá khác không mất
     # code chạy job đọc đúng giá trị mới (cùng hàm mà job dùng)
     from engines.translate_simple import cfg as scfg
     from core.config import agent_llm
-    assert scfg.review_model(None) == "deepseek/deepseek-chat"
+    assert scfg.review_model(None) == "deepseek/deepseek-flash"
     assert agent_llm()["model"] == "alibaba/qwen-plus"
     r = _row(out, "review")
     assert r["provider"] == "DeepSeek" and r["source"] == "SIMPLE_MODEL"
 
 
 def test_empty_value_removes_key_and_falls_back(conf):
-    ai_models.apply({"review": "deepseek/deepseek-chat"})
+    ai_models.apply({"review": "deepseek/deepseek-flash"})
     ai_models.apply({"review": ""})
     assert "SIMPLE_MODEL" not in _file(conf)
     assert _row(ai_models.snapshot(), "review")["effective"] == "chatgpt/gpt-6"
@@ -71,8 +71,8 @@ def test_empty_value_removes_key_and_falls_back(conf):
 def test_invalid_choices_are_rejected_and_nothing_is_written(conf):
     before = conf.read_text(encoding="utf-8")
     for models in ({"review": "ollama/gemma4:31b-cloud"},            # 9router: V6 bỏ
-                   {"pronoun_analyze": "deepseek/deepseek-chat"},     # cần upload file → chỉ Aurora
-                   {"meta": "deepseek/deepseek-chat"},                # cố định trong code
+                   {"pronoun_analyze": "deepseek/deepseek-flash"},     # cần upload file → chỉ Aurora
+                   {"meta": "deepseek/deepseek-flash"},                # cố định trong code
                    {"khong_co": "local"}):
         with pytest.raises(ValueError):
             ai_models.apply(models)
@@ -96,27 +96,33 @@ def test_provider_key_is_stored_but_never_returned_in_full(conf):
     assert "DEEPSEEK_API_KEY" not in _file(conf)
 
 
-def test_preset_deepseek_sets_every_editable_function(conf):
+def test_preset_deepseek_sets_every_editable_function(conf, monkeypatch):
+    """Bộ cài sẵn KHÔNG ghi cứng tên model: hỏi GET /models rồi chọn bản «flash»."""
+    from engines import providers
+    seen = []
+    monkeypatch.setattr(providers, "list_models",
+                        lambda p, **k: seen.append(p.name) or ["deepseek-v4-pro", "deepseek-flash", "deepseek-reasoner"])
     out = ai_models.apply(preset="deepseek")
+    assert seen == ["deepseek"]
     d = _file(conf)
     for k in ("SIMPLE_MODEL", "PLAN_MODEL", "NAME_MODEL", "PRONOUN_MODEL", "AGENT_MODEL", "HANG_FIX_MODEL", "TRANSLATE_MODEL"):
-        assert d[k] == "deepseek/deepseek-chat", k
+        assert d[k] == "deepseek/deepseek-flash", k
     assert d["PLAN_MODE"] == "sample"
     for f in out["functions"]:
         if f["id"] in ("review", "plan", "name", "pronoun", "agent", "hang_fix", "translate"):
-            assert f["effective"] == "deepseek/deepseek-chat", f["id"]
+            assert f["effective"] == "deepseek/deepseek-flash", f["id"]
 
 
 def test_plan_uses_plan_model_in_sample_mode(conf, monkeypatch):
     """fix 2026-11-15: chế độ sample trước đây bỏ qua PLAN_MODEL (dùng LLM_MODEL)."""
     import engines.translate as T
-    ai_models.apply({"plan": "deepseek/deepseek-chat"}, plan_mode="file")
-    assert T.plan_model() == "deepseek/deepseek-chat"
+    ai_models.apply({"plan": "deepseek/deepseek-flash"}, plan_mode="file")
+    assert T.plan_model() == "deepseek/deepseek-flash"
     assert T.plan_mode_effective() == "sample"            # model không phải Aurora → không thử upload file
     seen = []
     monkeypatch.setattr(T, "chat", lambda msgs, model=None, **k: seen.append(model) or '{"characters":[{"zh":"林","vi":"Lâm"}]}')
     T.build_plan([{"i": 0, "start": 0, "end": 1, "text": "你好"}], work_dir=None)
-    assert seen and seen[0] == "deepseek/deepseek-chat"
+    assert seen and seen[0] == "deepseek/deepseek-flash"
 
 
 def test_save_config_fixes_legacy_settings_page(conf):
@@ -129,6 +135,35 @@ def test_save_config_fixes_legacy_settings_page(conf):
 def test_test_model_reports_error_without_raising(conf, monkeypatch):
     monkeypatch.setenv("DEEPSEEK_BASE_URL", "http://127.0.0.1:9/v1")
     monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-x")
-    r = ai_models.test_model("deepseek/deepseek-chat", timeout=2)
+    r = ai_models.test_model("deepseek/deepseek-flash", timeout=2)
     assert r["ok"] is False and r["error"] and r["provider"] == "DeepSeek"
     assert ai_models.test_model("")["ok"] is False
+
+
+def test_preset_without_key_fails_clearly_and_writes_nothing(conf):
+    before = conf.read_text(encoding="utf-8")
+    with pytest.raises(ValueError) as ei:
+        ai_models.apply(preset="alibaba")
+    assert "chưa có API key" in str(ei.value)
+    assert conf.read_text(encoding="utf-8") == before
+
+
+def test_fetch_models_returns_prefixed_ids_and_suggestion(conf, monkeypatch):
+    from engines import providers
+    got = {}
+    monkeypatch.setattr(providers, "list_models",
+                        lambda p, **k: got.update(k) or ["qwen-max", "qwen-flash", "qwen-vl-plus"])
+    r = ai_models.fetch_models("alibaba", api_key="sk-chua-luu")
+    assert r["models"] == ["alibaba/qwen-max", "alibaba/qwen-flash", "alibaba/qwen-vl-plus"]
+    assert r["suggested"] == "alibaba/qwen-flash" and got["api_key"] == "sk-chua-luu"
+    assert "DASHSCOPE_API_KEY" not in _file(conf)                    # key gửi kèm để hỏi KHÔNG bị lưu
+    with pytest.raises(ValueError):
+        ai_models.fetch_models("khong_co")
+    with pytest.raises(ValueError):
+        ai_models.fetch_models("deepseek", base_url="ftp://x")
+
+
+def test_model_without_name_after_prefix_is_rejected(conf):
+    with pytest.raises(ValueError) as ei:
+        ai_models.apply({"review": "deepseek/"})
+    assert "thiếu tên model" in str(ei.value)

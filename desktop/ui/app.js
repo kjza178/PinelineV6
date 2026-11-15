@@ -656,7 +656,8 @@ function aiProviderRow(p) {
     + `<td>${status}<input type="password" class="ai-key" placeholder="${p.has_key ? "Dán key mới để thay" : "Dán API key"}" autocomplete="off">`
     + `${p.has_key ? '<label class="row small"><input type="checkbox" class="ai-clear"> Xoá key</label>' : ""}</td>`
     + `<td><input class="ai-base" value="${esc(p.base_url)}" placeholder="${esc(p.default_base)}" spellcheck="false"></td>`
-    + `<td><button type="button" class="btn sm" data-ai="test" data-model="${esc(p.models[0] || "")}">Thử</button><div class="small ai-res"></div></td></tr>`;
+    + `<td><button type="button" class="btn sm" data-ai="models" title="Hỏi ${esc(p.label)} (GET /models) các model key này dùng được — cũng là cách kiểm tra key">Lấy danh sách model</button>`
+    + `<div class="small ai-res ${p.models.length ? "mut" : ""}">${p.models.length ? `${p.models.length} model đã lấy` : ""}</div></td></tr>`;
 }
 
 function paintAI() {
@@ -719,8 +720,28 @@ async function saveAI(ev) {
 async function aiAction(btn) {
   if (btn.dataset.ai === "preset") {
     const label = btn.textContent;
-    if (!confirm(`Áp dụng bộ «${label}» cho mọi chức năng chỉnh được?\n(Lưu ngay vào cấu hình; vẫn sửa lại từng dòng được.)`)) return;
+    const prov = { deepseek: "DeepSeek", alibaba: "Alibaba" }[btn.dataset.preset];
+    const note = prov ? `\nTên model lấy từ danh sách thật của ${prov} (ưu tiên bản «flash») — cần LƯU key trước.` : "";
+    if (!confirm(`Áp dụng bộ «${label}» cho mọi chức năng chỉnh được?\n(Lưu ngay vào cấu hình; vẫn sửa lại từng dòng được.)${note}`)) return;
     return act(btn, `Đã áp dụng «${label}»`, async () => { ai = await api("POST", "/api/v6/ai", { preset: btn.dataset.preset }); paintAI(); });
+  }
+  if (btn.dataset.ai === "models") {
+    const tr = btn.closest("tr"), res = tr.querySelector(".ai-res");
+    const p = ai.providers.find((x) => x.name === tr.dataset.prov);
+    const body = { provider: p.name };
+    const key = tr.querySelector(".ai-key").value.trim(), base = tr.querySelector(".ai-base").value.trim();
+    if (key) body.api_key = key;                  // key vừa dán, chưa lưu: chỉ dùng để hỏi, không ghi
+    if (base && base !== p.base_url) body.base_url = base;
+    res.textContent = "đang hỏi…"; res.className = "small ai-res mut"; btn.disabled = true;
+    try {
+      const r = await api("POST", "/api/v6/ai/models", body);
+      p.models = r.models;
+      $("#dl-models").innerHTML = aiModelOptions().map((m) => `<option value="${esc(m)}">`).join("");
+      res.innerHTML = `OK · ${r.models.length} model${r.suggested ? ` · gợi ý dịch/soát: <b>${esc(r.suggested)}</b>` : ""}`
+        + `<details class="small"><summary>xem</summary>${r.models.map(esc).join("<br>")}</details>`;
+      res.className = "small ai-res ok";
+    } catch (e) { res.textContent = "Lỗi: " + e.message; res.className = "small ai-res err"; } finally { btn.disabled = false; }
+    return;
   }
   if (btn.dataset.ai === "test") {
     const tr = btn.closest("tr"), res = tr.querySelector(".ai-res");

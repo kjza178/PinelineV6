@@ -1,6 +1,10 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **Không ghi cứng tên model DeepSeek/Alibaba** (cần restart :8806 + build lại app) — `deepseek-chat` /
+  `deepseek-reasoner` đã bị DeepSeek khai tử (sau 24/07/2026) mà bộ cài sẵn đang dùng. Nay: nút «Lấy danh sách model»
+  ở dòng nhà cung cấp (GET /models bằng key, nạp vào ô gợi ý); bộ cài sẵn DeepSeek/Alibaba hỏi danh sách thật rồi chọn
+  bản «flash»; `deepseek/` thiếu tên bị từ chối. API `POST /api/v6/ai/models`. docs/design/2026-11-15-ai-providers.md.
 - **Cài đặt AI trên desktop** (cần restart :8806 + build lại app) — nút «Cài đặt AI»: bảng từng chức năng (soát/dịch simple,
   plan nhân vật, tên, đại từ, ghép cặp, dịch V5, Agent + dự phòng, hang fix, phân tích đại từ, meta, thumbnail) → khoá cấu hình
   → model ĐANG DÙNG thật + nguồn; nút «Thử»; bộ cài sẵn DeepSeek/Alibaba/Aurora/Local; nhà cung cấp (URL, key chỉ ghi, hiện
@@ -10,7 +14,7 @@
   `core.config.save_config` không tồn tại (trang cài đặt cũ `/api/settings` lỗi khi lưu); OCR dịch chữ trên hình và Context
   Studio đọc model lúc import / chỉ env → đọc cấu hình lúc gọi; hang fix hết model cứng.
 - **Nhà cung cấp AI qua API: DeepSeek + Alibaba (Qwen)** — `engines/providers/` (mỗi nhà một file, lõi chung `_openai.py`).
-  Dùng bằng tiền tố model: `deepseek/deepseek-chat`, `alibaba/qwen-plus`; key `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`.
+  Dùng bằng tiền tố model: `deepseek/<tên>`, `alibaba/<tên>`; key `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`.
   Áp cho mọi chức năng gọi `llm.chat` và cho Agent (có gọi công cụ). **Bỏ 9router khỏi mặc định**: `LLM_BASE_URL` mặc định
   llama local, model `ollama/…-cloud` chỉ chạy khi cấu hình rõ. Thiết kế + giới hạn: docs/design/2026-11-15-ai-providers.md.
   Cần restart :8806; chủ dự án tự đổi các khoá trong `pineline.config.json` đang trỏ 9router.

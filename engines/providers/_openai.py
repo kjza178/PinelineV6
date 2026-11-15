@@ -9,6 +9,7 @@ Lỗi trả ra đều là `engines.llm.LLMUnavailable` (cùng loại các đư�
 """
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -37,8 +38,7 @@ class Provider:
     default_base: str
     base_keys: tuple[str, ...]                  # khoá cấu hình URL (khoá đầu có giá trị thắng)
     key_keys: tuple[str, ...]                   # khoá cấu hình API key
-    default_model: str
-    models: tuple[str, ...] = ()                # gợi ý cho màn hình Cài đặt
+    default_model: str = ""                     # KHÔNG ghi cứng tên model (nhà cung cấp đổi/khai tử tên) — rỗng = bắt chọn
     max_tokens_cap: int = 8192                  # trần max_tokens của nhà cung cấp
     adjust: Callable[[dict, str], None] | None = field(default=None, compare=False)   # chỉnh payload riêng
 
@@ -99,6 +99,9 @@ def chat_message(
     if not key:
         raise _error(provider, f"chưa có API key — điền {provider.key_keys[0]} trong Cài đặt AI / pineline.config.json")
     model = (model or provider.default_model).strip()
+    if not model:
+        raise _error(provider, f"chưa chọn tên model — ghi «{provider.name}/<tên>» (bấm «Lấy danh sách model» trong "
+                               "Cài đặt AI để xem tên đang có)")
     if json_mode:
         messages = _ensure_json_word(messages)
     payload: dict[str, Any] = {
@@ -157,3 +160,70 @@ def chat_text(provider: Provider, model: str, messages: list[dict], **kw) -> str
     msg = chat_message(provider, model, messages, **kw)
     content = str(msg.get("content") or "").strip()
     return content or str(msg.get("reasoning_content") or "").strip()
+
+
+# ── Danh sách model thật của nhà cung cấp (GET {base}/models) ──
+_MODELS_CACHE: dict[str, tuple[float, list[str]]] = {}       # tên nhà cung cấp → (lúc lấy, [id])
+
+
+def list_models(provider: Provider, *, api_key: str | None = None, base_url: str | None = None,
+                timeout: int = 20) -> list[str]:
+    """Hỏi nhà cung cấp danh sách model key này dùng được (API chuẩn OpenAI `GET /models`).
+    api_key / base_url: dùng tạm (chưa lưu) — vd người dùng vừa gõ key trong Cài đặt AI. Lỗi → LLMUnavailable."""
+    key = (api_key or "").strip() or provider.key()
+    if not key:
+        raise _error(provider, f"chưa có API key — điền {provider.key_keys[0]} rồi bấm lại")
+    base = ((base_url or "").strip() or provider.base()).rstrip("/")
+    url = f"{base}/models"
+    try:
+        r = requests.get(url, headers={"Authorization": f"Bearer {key}"}, timeout=timeout)
+    except (requests.Timeout, requests.ConnectionError) as e:
+        raise _error(provider, f"không kết nối được {url}: {e}", e) from e
+    if r.status_code != 200:
+        hint = {401: "sai API key", 403: "key không có quyền", 404: "sai địa chỉ (base URL)"}.get(r.status_code, "")
+        http = requests.HTTPError(f"{r.status_code} {r.text[:300]}", response=r)
+        raise _error(provider, f"HTTP {r.status_code}{' — ' + hint if hint else ''}: {r.text[:300]}", http)
+    try:
+        data = r.json()
+    except ValueError as e:
+        raise _error(provider, f"phản hồi /models không phải JSON: {r.text[:200]}", e) from e
+    items = data.get("data") if isinstance(data, dict) else data
+    ids = sorted({str(x.get("id") if isinstance(x, dict) else x).strip() for x in (items or [])} - {"", "None"})
+    if not ids:
+        raise _error(provider, f"/models trả danh sách rỗng: {r.text[:200]}")
+    if not api_key and not base_url:          # chỉ nhớ danh sách của key/URL ĐÃ LƯU
+        _MODELS_CACHE[provider.name] = (time.time(), ids)
+    return ids
+
+
+def cached_models(provider: Provider) -> tuple[float, list[str]]:
+    """(lúc lấy, [id]) lần gần nhất `list_models` thành công cho key đã lưu; chưa lấy → (0, [])."""
+    return _MODELS_CACHE.get(provider.name, (0.0, []))
+
+
+# Từ khoá loại model KHÔNG dùng để dịch/soát chữ (ảnh, âm thanh, embedding, suy luận chậm…).
+_SKIP_WORDS = ("embed", "rerank", "audio", "tts", "asr", "speech", "image", "vision", "-vl", "vl-", "ocr", "omni",
+               "realtime", "math", "coder", "reasoner", "thinking", "-r1", "moderation", "translate", "mt-", "deep-research")
+# Ưu tiên: bản nhanh rẻ cho dịch/soát hàng loạt.
+_PREFER = ("flash", "plus", "chat", "turbo", "max", "pro")
+
+
+def pick_model(ids: list[str]) -> str:
+    """Chọn model cho dịch/soát từ danh sách thật: ưu tiên «flash»; bỏ model ảnh/âm thanh/suy luận; bản có ngày
+    (snapshot) xếp sau bản không ngày. Không có gì hợp → chuỗi rỗng."""
+    def _skip(m: str) -> bool:
+        ml = m.lower()
+        return any(w in ml for w in _SKIP_WORDS)
+
+    cand = [m for m in ids if not _skip(m)]
+    if not cand:
+        return ""
+
+    def _rank(m: str):
+        ml = m.lower()
+        pref = next((i for i, w in enumerate(_PREFER) if w in ml), len(_PREFER))
+        dated = bool(re.search(r"\d{4}-?\d{2}-?\d{2}|-\d{4}$", ml))
+        latest = 0 if "latest" in ml else 1
+        return (pref, dated, latest, len(ml), ml)
+
+    return sorted(cand, key=_rank)[0]
