@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import queue as queue_mod
 import re
 import sys
 import threading
@@ -252,6 +253,7 @@ def _reset_for_tests(load_disk: bool = False) -> None:
         _needs_human_hook = None
         _save_failed = 0
         set_stop_hook(None)
+    _history_flush()        # mục của test trước không lọt sang thư mục của test sau
     if load_disk:
         _load()
 
@@ -411,10 +413,45 @@ def _load() -> None:
 
 
 def _hist_push(job_id: str, status: str, detail: str = "") -> None:
+    """Gọi khi đang giữ _lock → chỉ thao tác bộ nhớ; ghi file + đọc tiêu đề job do luồng `queue-history` làm
+    (fix 2026-11-14 review: trước ghi đĩa ngay trong khoá — đĩa chậm/bị khoá làm mọi API hàng chờ chờ theo)."""
     rec = {"job_id": job_id, "status": status, "detail": detail, "ts": time.time()}
     _hist.append(rec)
     del _hist[:-20]
-    _history_append(rec)
+    _history_enqueue(rec)
+
+
+_hist_q: "queue_mod.Queue[dict]" = None  # type: ignore[assignment]   # tạo lười trong _history_enqueue
+_hist_writer: threading.Thread | None = None
+_hist_writer_lock = threading.Lock()
+
+
+def _history_enqueue(rec: dict) -> None:
+    global _hist_q, _hist_writer
+    with _hist_writer_lock:
+        if _hist_q is None:
+            _hist_q = queue_mod.Queue()
+        if _hist_writer is None or not _hist_writer.is_alive():
+            _hist_writer = threading.Thread(target=_history_writer_loop, name="queue-history", daemon=True)
+            _hist_writer.start()
+    _hist_q.put(rec)
+
+
+def _history_writer_loop() -> None:
+    while True:
+        rec = _hist_q.get()
+        try:
+            _history_append(rec)
+        finally:
+            _hist_q.task_done()
+
+
+def _history_flush(timeout: float = 3.0) -> None:
+    """Chờ luồng ghi xong các mục đang chờ (đọc nhật ký ngay sau khi job kết thúc vẫn thấy mục mới)."""
+    q = _hist_q
+    t0 = time.time()
+    while q is not None and q.unfinished_tasks and time.time() - t0 < timeout:
+        time.sleep(0.01)
 
 
 def _history_path() -> Path:
@@ -428,16 +465,13 @@ def _history_append(rec: dict) -> None:
         p = _history_path()
         p.parent.mkdir(parents=True, exist_ok=True)
         try:
-            if p.stat().st_size > _HISTORY_MAX_BYTES:
+            if p.is_file() and p.stat().st_size > _HISTORY_MAX_BYTES:
                 os.replace(p, p.with_name(p.name + ".1"))
-        except OSError:
-            pass
+        except OSError as e:
+            print(f"[queue] không xoay được nhật ký hàng chờ ({e}) — ghi tiếp vào file hiện tại", flush=True)
         line = dict(rec)
         line["at"] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(rec.get("ts") or time.time()))
-        try:
-            line["title"] = get_job_info(str(rec.get("job_id") or "")).get("title")
-        except Exception:  # noqa: BLE001
-            pass
+        line["title"] = get_job_info(str(rec.get("job_id") or "")).get("title")   # tự xử lý lỗi (trả job_id)
         with p.open("a", encoding="utf-8") as f:
             f.write(json.dumps(line, ensure_ascii=False) + "\n")
     except Exception as e:  # noqa: BLE001
@@ -447,6 +481,7 @@ def _history_append(rec: dict) -> None:
 def queue_history(limit: int = 100) -> list[dict]:
     """Các mục mới nhất của nhật ký hàng chờ (mới → cũ), đọc từ file (cả file đã xoay nếu cần)."""
     limit = max(1, min(int(limit or 100), 2000))
+    _history_flush()
     out: list[dict] = []
     for p in (_history_path(), _history_path().with_name(_HISTORY_NAME + ".1")):
         if len(out) >= limit:
@@ -860,6 +895,7 @@ def _worker_loop_inner() -> None:
                     with _lock:
                         if job_id in _q:
                             _q.remove(job_id)
+                        _opts_by_job.pop(job_id, None)
                         _current = None
                         _hist_push(job_id, "sidelined", f"HOLD cần người quá {int(limit)} s — nhường ghế cho job kế")
                         _save()

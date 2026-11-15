@@ -1,6 +1,10 @@
 # CHANGELOG — V6
 
 ## 2026-11-14
+- **Sửa theo review** (cần restart :8806) — docs/fixes/2026-11-14-review-fixes.md: films.db dùng chung không còn bị
+  instance này đánh dấu / xoá job của instance khác (cột `work_root`); ghi nhật ký hàng chờ ra luồng riêng (không giữ
+  khoá); Thư viện phim chỉ đồng bộ khi cũ > 2 phút + nút «Đồng bộ»; feeder tính đường dẫn trạng thái lúc gọi; bỏ nuốt lỗi
+  im lặng; `/api/health` dùng helper dung lượng có sẵn. Test không còn ghi vào `data/films.db` thật.
 - **Desktop đợt 2** (cần restart :8806 + build lại app): sửa câu Trung (✎ trong tab Bản dịch); tab Giọng đọc có «Nghe mẫu»
   và «Thêm giọng clone» (upload file mẫu); nút **Thư viện phim** (đồng bộ, tìm/lọc, mở job, «Đăng YouTube» có hỏi + chọn chế độ);
   nút **Agent** (chat, mặc định chỉ đọc); app Tauri hỏi xác nhận khi đóng lúc còn job chạy (hộp thoại Windows, crate `rfd`).

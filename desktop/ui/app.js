@@ -778,13 +778,21 @@ $("#btn-q-resume").addEventListener("click", (e) => act(e.currentTarget, "Đã c
 $("#btn-q-log").addEventListener("click", (e) => act(e.currentTarget, "", showQueueLog));
 $("#log-close").addEventListener("click", () => $("#dlg-log").close());
 $("#btn-cfg").addEventListener("click", (e) => act(e.currentTarget, "", openSettings));
+// Đồng bộ films.db = đọc lại MỌI manifest → chỉ làm khi lần trước đã cũ (FILM_SYNC_MS) hoặc người dùng bấm «Đồng bộ».
+const FILM_SYNC_MS = 120000;
+let filmSyncedAt = 0;
+async function syncFilms(force) {
+  if (!force && Date.now() - filmSyncedAt < FILM_SYNC_MS) return;
+  $("#films-rows").innerHTML = '<tr><td colspan="6" class="note">Đang đồng bộ thư viện…</td></tr>';
+  try { await api("POST", "/films/sync"); filmSyncedAt = Date.now(); }
+  catch (e) { say("Không đồng bộ được thư viện: " + e.message, "err"); }
+}
 $("#btn-films").addEventListener("click", async () => {
   $("#dlg-films").showModal();
-  $("#films-rows").innerHTML = '<tr><td colspan="6" class="note">Đang đồng bộ thư viện…</td></tr>';
-  // Đồng bộ films.db từ manifest các job trước khi xem (instance tắt vòng nền `feeder` thì DB không tự cập nhật).
-  try { await api("POST", "/films/sync"); } catch (e) { say("Không đồng bộ được thư viện: " + e.message, "err"); }
+  await syncFilms(false);
   loadFilms();
 });
+$("#films-sync").addEventListener("click", (e) => act(e.currentTarget, "Đã đồng bộ thư viện", async () => { await syncFilms(true); await loadFilms(); }));
 $("#films-close").addEventListener("click", () => $("#dlg-films").close());
 $("#films-q").addEventListener("input", loadFilmsSoon);
 $("#films-status").addEventListener("change", loadFilms);

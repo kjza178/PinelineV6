@@ -39,15 +39,12 @@ _VERSIONS: dict | None = None
 
 
 def _disk_free(path) -> dict | None:
-    """Dung lượng ổ chứa `path` (đi ngược lên thư mục cha gần nhất đang tồn tại). Lỗi → None."""
-    import shutil
+    """Dung lượng trống ổ chứa `path` — dùng engines.split_parts.free_bytes (đã tự lần lên thư mục cha có thật)."""
     try:
-        p = Path(path).resolve()
-        while not p.exists() and p != p.parent:
-            p = p.parent
-        u = shutil.disk_usage(p)
-        return {"path": str(path), "free_gb": round(u.free / 1e9, 1), "total_gb": round(u.total / 1e9, 1)}
-    except OSError:
+        from engines.split_parts import free_bytes
+        return {"path": str(path), "free_gb": round(free_bytes(path) / 1e9, 1)}
+    except Exception as e:  # noqa: BLE001
+        print(f"[health] không đọc được dung lượng ổ {path}: {e}", flush=True)
         return None
 
 
@@ -63,7 +60,8 @@ def _versions() -> dict:
                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             first = (r.stdout or "").splitlines()[0] if r.returncode == 0 and r.stdout else ""
             ff = first.replace("ffmpeg version", "").strip().split(" ")[0] or None
-        except (OSError, subprocess.SubprocessError):
+        except (OSError, subprocess.SubprocessError) as e:
+            print(f"[health] không chạy được `ffmpeg -version`: {e}", flush=True)
             ff = None
         _VERSIONS = {"python": platform.python_version(), "ffmpeg": ff, "os": platform.platform()}
     return _VERSIONS

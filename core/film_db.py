@@ -121,6 +121,28 @@ def _work() -> Path:
         return WORK
     from core.instance import work_root_now
     return work_root_now(WORK)
+
+
+def _root_key(path: Path | None = None) -> str:
+    """Khoá so sánh thư mục work (tuyệt đối, chuẩn hoá hoa/thường + dấu gạch) — cột films.work_root."""
+    p = Path(path) if path is not None else _work()
+    try:
+        p = p.resolve()
+    except OSError:
+        p = p.absolute()
+    return os.path.normcase(str(p)).replace("\\", "/").rstrip("/")
+
+
+def _owns(row: dict, key: str | None = None) -> bool:
+    """Dòng `row` thuộc work root của instance ĐANG CHẠY?
+
+    fix 2026-11-14 (review): films.db dùng chung giữa các instance (prod :8801, v6 :8806 …) nhưng mỗi instance quét
+    work root riêng → trước đây sync của instance A đánh work_exists=0 MỌI job của instance B («thư mục đã xoá»),
+    purge-missing của A xoá luôn lịch sử của B. Mỗi dòng ghi work_root lúc sync; chỉ instance sở hữu được đánh
+    dấu mất / xoá. Dòng cũ chưa có work_root (trước bản này mọi instance quét ROOT/work) → thuộc ROOT/work."""
+    key = key or _root_key()
+    owner = str(row.get("work_root") or "").strip() or _root_key(_DEFAULT_WORK)
+    return owner == key
 DB_PATH = Path(os.getenv("FILM_DB") or ROOT / "data" / "films.db")
 YT_DIR = _machine.yt_uploader_dir()
 YT_HISTORY = YT_DIR / "upload_history.jsonl"
@@ -256,6 +278,12 @@ def connect() -> sqlite3.Connection:
         con.execute("CREATE INDEX IF NOT EXISTS films_block ON films(block_status)")
     except Exception:
         pass
+    # fix 2026-11-14: work root sở hữu từng dòng (films.db dùng chung giữa các instance) — xem _owns()
+    try:
+        if "work_root" not in {r["name"] for r in con.execute("PRAGMA table_info(films)").fetchall()}:
+            con.execute("ALTER TABLE films ADD COLUMN work_root TEXT")
+    except sqlite3.Error as e:
+        print(f"[film_db] không thêm được cột work_root: {e}", flush=True)
     return con
 
 
@@ -360,6 +388,7 @@ def row_from_manifest(job_id: str, m: dict) -> dict:
         "audio_mode": opts.get("audio_mode"),
         "opts_json": json.dumps(opts, ensure_ascii=False) if opts else None,
         "created_at": m.get("created_at"), "finished_at": _to_iso(mux.get("finished_at")) if status in ("done", "uploaded", "uploading") else None,
+        "work_root": _root_key(),
     }
 
 
@@ -367,7 +396,7 @@ def row_from_manifest(job_id: str, m: dict) -> dict:
 
 _SYNC_COLS = ("title", "title_vi", "series", "season", "group_id", "group_title", "hg_name", "source_path",
               "source_key", "status", "stage", "duration_sec", "width", "height", "output_path", "output_bytes",
-              "voice", "tts_engine", "audio_mode", "opts_json", "created_at", "finished_at")
+              "voice", "tts_engine", "audio_mode", "opts_json", "created_at", "finished_at", "work_root")
 
 
 def sync_one(job_id: str) -> dict | None:
@@ -423,6 +452,7 @@ def sync(hg_library: list[dict] | None = None) -> dict:
             except Exception:  # noqa: BLE001
                 continue
     live = {r["job_id"] for r in rows}
+    key = _root_key()
     new, changed = [], []
     now = _utc()
     with _lock, connect() as con:
@@ -453,7 +483,7 @@ def sync(hg_library: list[dict] | None = None) -> dict:
                             (now, r["job_id"], "status", f"{prev.get('status')} → {r['status']} ({r['stage']})"))
                 changed.append(r["job_id"])
         for jid, prev in old.items():
-            if jid not in live and prev.get("work_exists"):
+            if jid not in live and prev.get("work_exists") and _owns(prev, key):   # job của instance khác: không đụng
                 con.execute("UPDATE films SET work_exists=0, updated_at=? WHERE job_id=?", (now, jid))
                 con.execute("INSERT INTO events(ts, job_id, kind, detail) VALUES (?,?,?,?)",
                             (now, jid, "work_removed", "thư mục job đã xoá — giữ lịch sử"))
@@ -683,10 +713,12 @@ def delete_films(job_ids: list[str], delete_work: bool = True) -> dict:
 def purge_missing(only_pending_failed: bool = False) -> dict:
     """Xoá toàn bộ hoặc các job chưa hoàn thành mà thư mục work đã bị xoá (work_exists = 0)."""
     with _lock, connect() as con:
-        sql = "SELECT job_id FROM films WHERE work_exists = 0"
+        sql = "SELECT job_id, work_root FROM films WHERE work_exists = 0"
         if only_pending_failed:
             sql += " AND status IN ('pending', 'failed')"
-        target_ids = [r[0] for r in con.execute(sql).fetchall()]
+        key = _root_key()
+        # chỉ xoá lịch sử job thuộc work root của instance này (fix 2026-11-14 — films.db dùng chung)
+        target_ids = [r[0] for r in con.execute(sql).fetchall() if _owns(dict(r), key)]
         if not target_ids:
             return {"ok": True, "count": 0, "ids": []}
         placeholders = ",".join("?" * len(target_ids))

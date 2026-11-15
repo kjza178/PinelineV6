@@ -42,6 +42,15 @@ def _work() -> Path:
     from core.instance import work_root_now
     return work_root_now(WORK)
 STATE_PATH = _work() / "logs" / "feeder_state.json"
+_DEFAULT_STATE_PATH = STATE_PATH
+
+
+def _state_path() -> Path:
+    """fix 2026-11-14 (review): tính LÚC GỌI — sidecar import module trước khi áp instance, STATE_PATH lúc import trỏ
+    ROOT/work. STATE_PATH bị đặt riêng (test) → giữ."""
+    if STATE_PATH != _DEFAULT_STATE_PATH:
+        return STATE_PATH
+    return _work() / "logs" / "feeder_state.json"
 
 SOURCES = ("lib_merged", "auto_merge", "hongguo")
 DEFAULT_SPEC: dict[str, Any] = {
@@ -76,9 +85,9 @@ def _today() -> str:
 
 def load_state() -> dict:
     st: dict[str, Any] = {}
-    if STATE_PATH.is_file():
+    if _state_path().is_file():
         try:
-            st = json.loads(STATE_PATH.read_text(encoding="utf-8"))
+            st = json.loads(_state_path().read_text(encoding="utf-8"))
         except Exception:  # noqa: BLE001
             st = {}
     st.setdefault("enabled", False)
@@ -94,9 +103,9 @@ def load_state() -> dict:
 
 
 def save_state(st: dict) -> None:
-    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _state_path().parent.mkdir(parents=True, exist_ok=True)
     st["fed"] = st.get("fed", [])[-50:]
-    STATE_PATH.write_text(json.dumps(st, ensure_ascii=False, indent=2), encoding="utf-8")
+    _state_path().write_text(json.dumps(st, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def normalize_spec(d: dict) -> dict:

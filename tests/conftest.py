@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -6,6 +7,12 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+# films.db của phiên test: đặt TRƯỚC khi module nào import core.film_db (vd `import server` lúc thu thập test mở DB
+# ngay) — fixture _isolate_film_db bên dưới chạy quá muộn cho các lần mở lúc import. fix 2026-11-14.
+if not os.environ.get("FILM_DB"):
+    import tempfile
+    os.environ["FILM_DB"] = str(Path(tempfile.mkdtemp(prefix="pineline_test_db_")) / "films.db")
 
 
 @pytest.fixture

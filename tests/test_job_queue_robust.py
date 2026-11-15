@@ -257,6 +257,7 @@ def test_history_rotates_when_large(root, monkeypatch):
     monkeypatch.setattr(jq, "_HISTORY_MAX_BYTES", 200)
     for n in range(12):
         jq._hist_push("A", "done", "x" * 40)
+        jq._history_flush()                        # ghi file chạy ở luồng riêng
     assert (root / (jq._HISTORY_NAME + ".1")).is_file()
     n_main = len((root / jq._HISTORY_NAME).read_text(encoding="utf-8").splitlines())
     assert len(jq.queue_history(100)) > n_main      # đọc cả file đã xoay, không chỉ file hiện tại
@@ -322,3 +323,23 @@ def test_lone_held_job_is_not_sidelined(root, monkeypatch):
     assert _wait(lambda: ran == ["A"])
     time.sleep(1.3)
     assert jq.queue_state()["queue"] == ["A"] and jq.queue_state()["current"] == "A"
+
+
+def test_history_write_does_not_block_queue_lock(root, monkeypatch):
+    """review 2026-11-14: ghi nhật ký (đĩa chậm) không được giữ _lock — API hàng chờ vẫn trả lời ngay."""
+    import threading
+    gate = threading.Event()
+    real = jq._history_append
+
+    def slow(rec):
+        gate.wait(5)
+        real(rec)
+    monkeypatch.setattr(jq, "_history_append", slow)
+    jq.set_runner(lambda jid, o: ("done", ""))
+    jq.queue_add(["A"], opts={})
+    assert _wait(lambda: not jq.queue_state()["worker"])          # worker xong dù nhật ký còn đang «ghi»
+    t0 = time.time()
+    jq.queue_state()
+    assert time.time() - t0 < 0.5
+    gate.set()
+    assert [x["job_id"] for x in jq.queue_history(5)] == ["A"]    # rồi vẫn ghi đủ
