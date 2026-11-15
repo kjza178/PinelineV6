@@ -560,6 +560,19 @@ def _plan_mode() -> str:
     return (_cfg_get("PLAN_MODE", "file") or "file").strip().lower()
 
 
+def plan_model() -> str:
+    """Model lập plan (PLAN_MODEL). fix 2026-11-15: chế độ sample trước đây bỏ qua PLAN_MODEL (dùng LLM_MODEL)."""
+    return (_cfg_get("PLAN_MODEL") or _cfg_get("LLM_MODEL") or "chatgpt/gpt-5-6-mini").strip()
+
+
+def plan_mode_effective() -> str:
+    """Chế độ lập plan thực chạy: «file» cần upload → chỉ Aurora (chatgpt/… aurora/…); model khác → «sample»."""
+    mode = _plan_mode()
+    if mode in ("file", "upload", "srt") and not plan_model().lower().startswith(("chatgpt/", "aurora/")):
+        return "sample"
+    return "file" if mode in ("file", "upload", "srt") else "sample"
+
+
 def _plan_json_schema(target: str) -> str:
     return f"""Trả JSON đúng cấu trúc:
 {{
@@ -832,7 +845,7 @@ def _build_plan_sample(
         + _plan_json_schema(target)
     )
 
-    primary_model = model or _cfg_get("LLM_MODEL") or None
+    primary_model = model or plan_model() or None
     fallback_model = _tmodel() or primary_model or "local"
     data: dict = {}
     print(f"[plan] sample-mode model={primary_model or 'default'}…", flush=True)
@@ -883,9 +896,9 @@ def build_plan(
     work_dir: str | Path | None = None,
 ) -> dict:
     """Lập glossary: mặc định upload full ZH SRT (PLAN_MODE=file); fallback sample."""
-    mode = _plan_mode()
+    mode = plan_mode_effective()      # model không phải Aurora → bỏ qua file-mode (không gọi thử vô ích)
     data: dict = {}
-    if mode in ("file", "upload", "srt") and work_dir:
+    if mode == "file" and work_dir:
         try:
             data = _build_plan_from_file(
                 Path(work_dir), segments, target, model, name_hints, series_plan,

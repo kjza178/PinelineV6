@@ -615,6 +615,127 @@ async function saveSettings(ev) {
   } finally { ok.disabled = false; }
 }
 
+// ───────────── Cài đặt AI: model cho từng chức năng + nhà cung cấp (core/ai_models.py) ─────────────
+let ai = null;          // snapshot GET /api/v6/ai
+const NEEDS_VI = { tools: "cần model gọi được công cụ", aurora_file: "cần upload file — chỉ Aurora", aurora_image: "tạo ảnh — chỉ Aurora" };
+
+function aiModelOptions() {
+  const set = new Set(["chatgpt/gpt-6", "chatgpt/gpt-5-6-mini", "local"]);
+  for (const p of ai.providers) p.models.forEach((m) => set.add(m));
+  ai.local.llama.forEach((m) => set.add("llama/" + m));
+  ai.local.ollama.forEach((m) => set.add(m));
+  for (const f of ai.functions) if (f.value) set.add(f.value);
+  return [...set];
+}
+
+function aiFuncRow(f) {
+  const eff = f.effective ? `<b>${esc(f.effective)}</b> <span class="mut">· ${esc(f.provider || "")}</span>` : '<span class="mut">(không có)</span>';
+  const src = `<div class="mut small">${esc(f.source)}${f.enabled === false ? ` · chức năng đang tắt (${esc(f.enabled_key)})` : ""}</div>`;
+  const warn = f.problem ? `<div class="err small">⚠ ${esc(f.problem)}</div>` : "";
+  const needs = f.needs ? `<div class="mut small">${esc(NEEDS_VI[f.needs] || f.needs)}</div>` : "";
+  let input;
+  if (f.fixed) {
+    input = `<span class="mut">${esc(f.fixed)}</span>`;
+  } else {
+    input = `<input class="ai-model" data-fn="${esc(f.id)}" list="dl-models" value="${esc(f.value)}" placeholder="${esc(f.effective || "để trống = dự phòng")}" spellcheck="false">`;
+    if (f.id === "plan") {
+      const pm = ai.plan_mode;
+      input += `<label class="row small">Chế độ <select id="ai-plan-mode">${["file", "sample"].map((x) =>
+        `<option value="${x}"${pm.value === x ? " selected" : ""}>${x === "file" ? "file (gửi cả phụ đề — chỉ Aurora)" : "sample (gửi mẫu đầu/giữa/cuối)"}</option>`).join("")}</select></label>`
+        + (pm.effective !== pm.value ? `<div class="mut small">đang chạy thực tế: ${esc(pm.effective)} (model không phải Aurora)</div>` : "");
+    }
+  }
+  return `<tr data-fn="${esc(f.id)}"><td><b>${esc(f.label)}</b><div class="mut small">${esc(f.where)}</div></td>`
+    + `<td>${input}</td><td>${eff}${src}${needs}${warn}</td>`
+    + `<td>${f.fixed ? "" : `<button type="button" class="btn sm" data-ai="test" data-fn="${esc(f.id)}">Thử</button><div class="small ai-res"></div>`}</td></tr>`;
+}
+
+function aiProviderRow(p) {
+  const status = p.has_key ? `<span class="tag ok">đã có key ${esc(p.key_hint)}</span>` : '<span class="tag warn">chưa có key</span>';
+  return `<tr data-prov="${esc(p.name)}"><td><b>${esc(p.label)}</b><div class="mut small">${esc(p.key_key)}</div></td>`
+    + `<td>${status}<input type="password" class="ai-key" placeholder="${p.has_key ? "Dán key mới để thay" : "Dán API key"}" autocomplete="off">`
+    + `${p.has_key ? '<label class="row small"><input type="checkbox" class="ai-clear"> Xoá key</label>' : ""}</td>`
+    + `<td><input class="ai-base" value="${esc(p.base_url)}" placeholder="${esc(p.default_base)}" spellcheck="false"></td>`
+    + `<td><button type="button" class="btn sm" data-ai="test" data-model="${esc(p.models[0] || "")}">Thử</button><div class="small ai-res"></div></td></tr>`;
+}
+
+function paintAI() {
+  $("#dl-models").innerHTML = aiModelOptions().map((m) => `<option value="${esc(m)}">`).join("");
+  $("#ai-presets").innerHTML = ai.presets.map((p) => `<button type="button" class="btn sm" data-ai="preset" data-preset="${esc(p.id)}">${esc(p.label)}</button>`).join(" ");
+  const groups = [...new Set(ai.functions.map((f) => f.group))];
+  const funcs = groups.map((g) => `<tr class="grp"><td colspan="4">${esc(g)}</td></tr>` + ai.functions.filter((f) => f.group === g).map(aiFuncRow).join("")).join("");
+  const au = ai.aurora, lo = ai.local;
+  $("#ai-body").innerHTML = `
+    <h3>Model cho từng chức năng</h3>
+    <table class="ai-tbl"><thead><tr><th>Chức năng · dùng ở đâu</th><th>Model</th><th>Đang dùng thực tế</th><th></th></tr></thead><tbody>${funcs}</tbody></table>
+    <h3>Nhà cung cấp API</h3>
+    <table class="ai-tbl"><thead><tr><th>Nhà cung cấp</th><th>API key</th><th>Địa chỉ</th><th></th></tr></thead><tbody>${ai.providers.map(aiProviderRow).join("")}</tbody></table>
+    <p class="mut small">Aurora: ${au.configured ? esc(au.base_url) : "chưa cấu hình AURORA_BASE_URL / CHATGPT_BASE_URL"} ·
+      llama :8083: ${lo.llama.length ? esc(lo.llama.join(", ")) : "không chạy"} · Ollama: ${lo.ollama.length ? esc(lo.ollama.join(", ")) : "không có"}</p>`;
+}
+
+async function openAI() {
+  ai = await api("GET", "/api/v6/ai");
+  paintAI();
+  $("#ai-err").hidden = true;
+  $("#dlg-ai").showModal();
+}
+
+function aiCollect() {
+  const models = {}, providers = {};
+  for (const inp of document.querySelectorAll("#ai-body .ai-model")) {
+    const f = ai.functions.find((x) => x.id === inp.dataset.fn);
+    if (f && inp.value.trim() !== (f.value || "")) models[f.id] = inp.value.trim();
+  }
+  for (const tr of document.querySelectorAll("#ai-body tr[data-prov]")) {
+    const p = ai.providers.find((x) => x.name === tr.dataset.prov), pc = {};
+    const key = tr.querySelector(".ai-key").value.trim(), base = tr.querySelector(".ai-base").value.trim();
+    if (key) pc.api_key = key;
+    if (tr.querySelector(".ai-clear")?.checked) pc.clear_key = true;
+    if (base !== p.base_url) pc.base_url = base;
+    if (Object.keys(pc).length) providers[p.name] = pc;
+  }
+  const body = {};
+  if (Object.keys(models).length) body.models = models;
+  if (Object.keys(providers).length) body.providers = providers;
+  const pm = $("#ai-plan-mode");
+  if (pm && pm.value !== ai.plan_mode.value) body.plan_mode = pm.value;
+  return body;
+}
+
+async function saveAI(ev) {
+  ev.preventDefault();
+  const body = aiCollect();
+  if (!Object.keys(body).length) { $("#dlg-ai").close(); return; }
+  const ok = $("#ai-ok"); ok.disabled = true;
+  try {
+    ai = await api("POST", "/api/v6/ai", body);
+    paintAI();
+    $("#ai-err").hidden = true;
+    say(`Đã lưu ${ai.changed.length} thay đổi — có hiệu lực ở lần gọi AI kế tiếp`);
+  } catch (e) { $("#ai-err").textContent = e.message; $("#ai-err").hidden = false; } finally { ok.disabled = false; }
+}
+
+async function aiAction(btn) {
+  if (btn.dataset.ai === "preset") {
+    const label = btn.textContent;
+    if (!confirm(`Áp dụng bộ «${label}» cho mọi chức năng chỉnh được?\n(Lưu ngay vào cấu hình; vẫn sửa lại từng dòng được.)`)) return;
+    return act(btn, `Đã áp dụng «${label}»`, async () => { ai = await api("POST", "/api/v6/ai", { preset: btn.dataset.preset }); paintAI(); });
+  }
+  if (btn.dataset.ai === "test") {
+    const tr = btn.closest("tr"), res = tr.querySelector(".ai-res");
+    let model = btn.dataset.model;
+    if (!model) { const f = ai.functions.find((x) => x.id === btn.dataset.fn); model = tr.querySelector(".ai-model")?.value.trim() || f?.effective; }
+    if (tr.dataset.prov && tr.querySelector(".ai-key").value.trim()) { res.textContent = "Lưu key trước rồi thử"; res.className = "small ai-res err"; return; }
+    res.textContent = "đang thử…"; res.className = "small ai-res mut"; btn.disabled = true;
+    try {
+      const r = await api("POST", "/api/v6/ai/test", { model });
+      res.textContent = r.ok ? `OK · ${r.ms} ms` : `Lỗi: ${r.error || "?"}`;
+      res.className = "small ai-res " + (r.ok ? "ok" : "err");
+    } catch (e) { res.textContent = "Lỗi: " + e.message; res.className = "small ai-res err"; } finally { btn.disabled = false; }
+  }
+}
+
 // ───────────── Thư viện phim + đăng YouTube (D7) ─────────────
 const FILM_ST = { done: "xong", uploaded: "đã đăng", uploading: "đang đăng", running: "đang làm", failed: "lỗi", pending: "chờ" };
 function fmtDur(sec) { const t = Number(sec) || 0; if (!t) return ""; const h = Math.floor(t / 3600), m = Math.round((t % 3600) / 60); return h ? `${h} giờ ${m} phút` : `${m} phút`; }
@@ -778,6 +899,10 @@ $("#btn-q-resume").addEventListener("click", (e) => act(e.currentTarget, "Đã c
 $("#btn-q-log").addEventListener("click", (e) => act(e.currentTarget, "", showQueueLog));
 $("#log-close").addEventListener("click", () => $("#dlg-log").close());
 $("#btn-cfg").addEventListener("click", (e) => act(e.currentTarget, "", openSettings));
+$("#btn-ai").addEventListener("click", (e) => act(e.currentTarget, "", openAI));
+$("#ai-cancel").addEventListener("click", () => $("#dlg-ai").close());
+$("#form-ai").addEventListener("submit", saveAI);
+$("#dlg-ai").addEventListener("click", (e) => { const b = e.target.closest("button[data-ai]"); if (b) aiAction(b); });
 // Đồng bộ films.db = đọc lại MỌI manifest → chỉ làm khi lần trước đã cũ (FILM_SYNC_MS) hoặc người dùng bấm «Đồng bộ».
 const FILM_SYNC_MS = 120000;
 let filmSyncedAt = 0;

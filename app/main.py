@@ -152,6 +152,32 @@ def _v6_router(inst: Instance) -> APIRouter:
             bus.publish("config.changed", {"changed": sorted(out["changed"])})
         return {"ok": True, **out, **bc.meta()}
 
+    # ── Cài đặt AI: chức năng nào dùng model nào (core/ai_models.py) ──
+    @r.get(V6_PREFIX + "/ai")
+    def ai_get():
+        from core import ai_models
+        return ai_models.snapshot()
+
+    @r.post(V6_PREFIX + "/ai")
+    def ai_set(body: dict):
+        """{"models": {id: model|""}, "plan_mode": "file|sample", "providers": {tên: {api_key, base_url, clear_key}},
+        "preset": "deepseek|alibaba|aurora|local"} — sai → 400 kèm lý do, không ghi gì."""
+        from core import ai_models
+        b = body if isinstance(body, dict) else {}
+        try:
+            out = ai_models.apply(b.get("models"), plan_mode=b.get("plan_mode"), providers_cfg=b.get("providers"),
+                                  preset=b.get("preset"))
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        if out.get("changed"):
+            bus.publish("config.changed", {"changed": out["changed"]})
+        return out
+
+    @r.post(V6_PREFIX + "/ai/test")
+    def ai_test(body: dict):
+        from core import ai_models
+        return ai_models.test_model(str((body or {}).get("model") or ""))
+
     # ── D2: bản dịch của 1 job (chỉ đọc; sửa câu qua POST /api/jobs/{id}/script-line) ──
     @r.get(V6_PREFIX + "/jobs/{job_id}/script")
     def job_script(job_id: str):

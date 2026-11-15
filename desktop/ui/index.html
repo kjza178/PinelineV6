@@ -13,6 +13,7 @@
   <span id="conn" class="conn off">mất kết nối</span>
   <button id="btn-new" class="btn primary">+ Thêm job</button>
   <button id="btn-cfg" class="btn" title="Cấu hình mặc định cho mọi job: giọng, tốc độ, âm nền, render…">Cài đặt</button>
+  <button id="btn-ai" class="btn" title="Chọn model AI cho từng chức năng (dịch, soát, Agent…) và nhà cung cấp">Cài đặt AI</button>
   <button id="btn-films" class="btn" title="Thư viện phim đã làm + đăng YouTube">Thư viện phim</button>
   <button id="btn-agent" class="btn" title="Hỏi / ra lệnh cho AI Agent về các job">Agent</button>
   <input id="q" placeholder="Lọc job…">
@@ -71,6 +72,23 @@
       <button type="submit" class="btn primary" id="cfg-ok">Lưu</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="dlg-ai">
+  <form method="dialog" id="form-ai">
+    <div class="dlg-head"><h2>Cài đặt AI</h2><span class="grow"></span>
+      <span class="mut">Bộ cài sẵn:</span><span id="ai-presets"></span></div>
+    <p class="hint">Mỗi chức năng dùng một model. Để trống = dùng model dự phòng (cột «Đang dùng» cho biết thực tế sẽ chạy model nào).
+      Tiền tố: <code>deepseek/…</code> · <code>alibaba/…</code> · <code>chatgpt/…</code> (Aurora) · <code>local</code> (llama :8083) · <code>local/&lt;tên&gt;</code> (Ollama).
+      Lưu là có hiệu lực ở lần gọi kế tiếp, không cần khởi động lại.</p>
+    <div id="ai-body" class="ai"></div>
+    <p id="ai-err" class="err" hidden></p>
+    <div class="actions">
+      <button type="button" class="btn" id="ai-cancel">Đóng</button>
+      <button type="submit" class="btn primary" id="ai-ok">Lưu</button>
+    </div>
+  </form>
+  <datalist id="dl-models"></datalist>
 </dialog>
 
 <dialog id="dlg-films">

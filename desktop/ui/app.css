@@ -149,3 +149,19 @@ form.clone{border-top:1px solid var(--line);margin-top:14px}
 .msg-meta{font-size:11px;color:var(--mut);margin-top:4px}
 #agent-msg{width:100%;resize:vertical;background:var(--bg3);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:7px 9px;font:inherit}
 #dlg-agent .actions{display:flex;align-items:center;gap:8px;margin-top:8px}
+
+/* ── Cài đặt AI ── */
+#dlg-ai{width:min(1180px,96vw)}
+#dlg-ai .ai{max-height:66vh;overflow:auto}
+#dlg-ai h3{font-size:14px;margin:14px 0 6px}
+#dlg-ai code{background:var(--bg3);padding:0 4px;border-radius:4px}
+.ai-tbl{width:100%;border-collapse:collapse}
+.ai-tbl td{vertical-align:top;white-space:normal;padding:7px 8px}
+.ai-tbl td:first-child{width:34%}
+.ai-tbl tr.grp td{color:var(--mut);text-transform:uppercase;font-size:11px;letter-spacing:.05em;padding-top:12px}
+.ai-tbl input,.ai-tbl select{width:100%;background:var(--bg3);border:1px solid var(--line);color:var(--fg);padding:5px 8px;border-radius:6px;font:inherit;margin-top:3px}
+.ai-tbl label.row{display:flex;gap:6px;align-items:center;margin-top:4px}
+.ai-tbl label.row select{width:auto}
+.small{font-size:12px}
+.ai-res.ok{color:var(--done)}
+.ai-res.err{color:#ff9d96}

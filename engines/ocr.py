@@ -244,7 +244,8 @@ def run_ocr(work_dir: str | Path, dur: float | None = None, stride: int = 1,
 def _translate_entries(entries: list[dict], model: str | None) -> None:
     """Dịch danh sách chữ trên hình sang tiếng Việt (1 lời gọi LLM)."""
     from engines.llm import chat, parse_json
-    from engines.translate import MODEL as DEFAULT_MODEL
+    from engines.translate import _tmodel     # fix 2026-11-15: đọc TRANSLATE_MODEL lúc gọi (trước: lúc import)
+    DEFAULT_MODEL = _tmodel()
     payload = [{"i": i, "zh": e["zh"]} for i, e in enumerate(entries)]
     sys = ("Dịch các CỤM CHỮ TRÊN HÌNH (tên nhân vật, địa danh, chú thích) sang tiếng Việt, "
            "ngắn gọn, giữ tên riêng theo Hán-Việt. CHỈ trả JSON {\"items\":[{\"i\":<int>,\"vi\":\"...\"}]}.")

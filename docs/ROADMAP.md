@@ -92,10 +92,10 @@ Ký hiệu: `[x]` xong và đã kiểm · `[~]` code xong ở cloud, **chờ ki�
 
 ### G1.8 Nhà cung cấp AI (quyết định 2026-11-15: bỏ 9router; Aurora / local / API)
 - [x] **A1** `engines/providers/`: DeepSeek, Alibaba (Qwen) — tiền tố model, dùng cho `llm.chat` + Agent. Test bằng máy chủ giả.
-- [ ] **A2** Một nơi chọn model cho từng chức năng (`core/ai_models.py`) thay ~15 khoá rải rác; bỏ model cứng (Meta Studio, hang fix).
-- [ ] **A3** Màn hình «Cài đặt AI» trên desktop: nhà cung cấp (URL, key chỉ ghi, kiểm tra kết nối) + model cho từng chức năng + bộ cài sẵn.
-- [ ] **A4** Key ra file riêng không lên git (`pineline.secrets.json`); API cài đặt không trả key dạng chữ thường.
-- [ ] **A5** Sửa đọc cấu hình: OCR dịch chữ trên hình (đọc lúc import), Context Studio (chỉ đọc env).
+- [x] **A2** Một nơi chọn model cho từng chức năng (`core/ai_models.py`): bảng chức năng → khoá → model thực dùng (tính bằng chính hàm job gọi). Hang fix hết cứng. Còn cứng: Meta Studio (`chatgpt/gpt-5-6`), thumbnail (`gpt-image-2`) — chỉ Aurora.
+- [x] **A3** (C) Màn hình «Cài đặt AI» trên desktop: nhà cung cấp (URL, key chỉ ghi, kiểm tra kết nối) + model cho từng chức năng + bộ cài sẵn.
+- [ ] **A4** (hoãn — user quyết bỏ qua 2026-11-15) Key ra file riêng không lên git (`pineline.secrets.json`); API cài đặt không trả key dạng chữ thường.
+- [x] **A5** Sửa đọc cấu hình: OCR dịch chữ trên hình (đọc lúc import), Context Studio (chỉ đọc env).
 - [ ] **A6 (chủ)** Thử 1 lần với key DeepSeek / Alibaba thật; đo chất lượng bằng `scripts/golden_ab.py`.
 
 ## G2 — App desktop đủ chức năng
@@ -154,3 +154,4 @@ Luật: UI desktop **không polling** — 1 kết nối SSE, chỉ gọi API khi
 | 2026-11-14 | D2 D4 D6 | Desktop có tab Bản dịch / Giọng đọc / Kết quả + Cài đặt chung |
 | 2026-11-14 | D2 D6 D7 D10 R2.3 + 2 bug | Desktop: câu Trung, giọng clone, thư viện phim, Agent, hỏi trước khi đóng · sửa /films hỏng, work root theo instance |
 | 2026-11-15 | A1 | DeepSeek + Alibaba qua engines/providers; bỏ 9router khỏi mặc định |
+| 2026-11-15 | A2 A3 A5 | core/ai_models + /api/v6/ai + desktop «Cài đặt AI»; PLAN_MODEL ở chế độ sample; save_config |

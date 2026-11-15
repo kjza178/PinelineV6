@@ -128,6 +128,31 @@ def get(key: str, default: str | None = None) -> str | None:
     return default
 
 
+def save_config(updates: dict) -> dict:
+    """Ghi các khoá vào pineline.config.json (giữ nguyên khoá khác) rồi nạp lại. Giá trị None / "" = XOÁ khoá
+    (về mặc định / chuỗi dự phòng). Ghi atomic. Trả cấu hình mới.
+
+    fix 2026-11-15: http_routes/routes_uploader_settings gọi hàm này nhưng nó chưa từng tồn tại (V4/V5/V6) → lưu
+    cài đặt ở trang cũ luôn lỗi 500."""
+    from core.fileio import atomic_write_json
+    _load_cfg(force=True)
+    data = dict(_CFG) if isinstance(_CFG, dict) else {}
+    for k, v in (updates or {}).items():
+        k = str(k).strip()
+        if not k:
+            continue
+        if v is None or (isinstance(v, str) and not v.strip()):
+            data.pop(k, None)
+            os.environ.pop(k, None)      # inject_env có thể đã chép giá trị cũ vào env lúc khởi động
+        else:
+            data[k] = v.strip() if isinstance(v, str) else v
+            if k in os.environ:          # env cũ không được đè giá trị vừa lưu
+                os.environ[k] = str(data[k])
+    atomic_write_json(_cfg_file, data, fsync=True)
+    _load_cfg(force=True)
+    return dict(_CFG)
+
+
 def llm_settings() -> dict:
     """LLM cho job (dịch/review) — đọc lúc gọi để sửa pineline.config.json có hiệu lực không cần restart."""
     return {
