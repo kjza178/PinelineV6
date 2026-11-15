@@ -1,6 +1,11 @@
 # CHANGELOG — V6
 
 ## 2026-11-15
+- **Hongguo 2 không còn giới hạn số phim** (cần restart :8806; trang /hongguo2 tải lại):
+  - Sửa: Browse MẤT phim giữa các trang — engine trả ~20 thẻ/lần, code gom cho đủ 24 rồi CẮT phần thừa nhưng vị trí trang
+    sau đã nằm sau phần bị cắt (mỗi trang mất ~15 phim). Nay trả hết thẻ đã gom.
+  - Ranking: bỏ trần 100; phân trang bằng rank.more (bộ nhớ đệm theo bảng); nút «Xem thêm».
+  - New: nút «Xem thêm» (trước chỉ 48 phim).
 - **Bỏ hẳn Hongguo 1** (cần restart :8806) — `agents/hongguo_bridge.py` không còn nhánh HTTP :8000 (`_req`, token, `/dl/*`),
   không còn chọn backend (`HG_BACKEND`, `agents/hg_ui_ctx.py` xoá, khoá máy `HONGGUO_BASE_URL` xoá); mọi `/api/hg/*` và
   `/api/hg2/*` dùng Hongguo 2. Gộp tập: tại chỗ bằng ffmpeg `-c copy` (`merge_series_copy`) thay cho Hongguo 1 gộp hộ.

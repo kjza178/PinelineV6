@@ -1230,7 +1230,7 @@ def feed_browse(
                 results = []
     facets = _localize_feed_rows(rows) if rows else []
     # nếu RPC không trả rows (panel=false) — giữ facets rỗng; UI dùng cache
-    sliced = results[:size_n]
+    sliced = results          # fix 2026-11-15: không cắt — nextOffset của engine đã nằm sau mọi thẻ đã gom
     if next_off is None:
         next_off = off + len(sliced)
     return {
@@ -1395,8 +1395,8 @@ def rank_page(
     size: int = 48,
 ) -> dict:
     """Hongguo 2.x Ranking = rank.page (charts + boards)."""
-    # WinUI/user: ranking tối đa 100
-    size_n = max(1, min(100, int(size or 100)))
+    # 2026-11-15: bỏ trần 100 — trang tiếp theo qua offset (rpc.rank gom tiếp rank.more)
+    size_n = max(1, min(500, int(size or 100)))
     off = max(0, int(offset or 0))
     chart_id = _resolve_rank_chart(chart, board)
     board_id = _resolve_rank_board(board, category)
@@ -1419,6 +1419,7 @@ def rank_page(
         "chart_label": (cur or {}).get("label") or active,
         "desc": (cur or {}).get("desc_en") or (cur or {}).get("desc") or "",
         "hasMore": bool(raw.get("hasMore")),
+        "nextOffset": int(raw.get("nextOffset") or (off + len(results))),
         "source": "rank",
         "backend": "rpc",
     }

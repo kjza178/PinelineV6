@@ -517,6 +517,7 @@ body.light .detail-tags span{color:var(--text);background:rgba(0,0,0,.06);border
       <div class="tabs" id="rankTabs"></div>
       <p class="sub" id="rankHint">Updated · leaderboards</p>
       <div class="grid" id="rankGrid"></div>
+      <div style="text-align:center;margin:18px 0"><button class="btn secondary hidden" id="rankMore">Xem thêm</button></div>
     </section>
 
     <section id="view-new" class="hidden">
@@ -528,6 +529,7 @@ body.light .detail-tags span{color:var(--text);background:rgba(0,0,0,.06);border
         <div class="chips" id="newDays"></div>
       </div>
       <div class="grid" id="newGrid"></div>
+      <div style="text-align:center;margin:18px 0"><button class="btn secondary hidden" id="newMore">Xem thêm</button></div>
     </section>
 
     <section id="view-link" class="hidden">
@@ -1559,8 +1561,49 @@ function ensureBrowseScroll(){
   }
 }
 
+// 2026-11-15: Ranking / New có «Xem thêm» (trước: cứng top 100 / 48 phim, không có trang sau).
+async function loadRankMore(){
+  const b = $('rankMore'); b.disabled = true; b.textContent = 'Đang tải…';
+  try{
+    const qs = new URLSearchParams({chart: state.rankChart || 'ranklist_hot_sc', board: state.rankBoard || '',
+      size: '100', offset: String(state.rankNext || 0)});
+    const d = await jget(`/api/hg2/rank?${qs.toString()}`);
+    const start = state.rankNext || 0;
+    const results = (d.results || []).map(it => ({...it, episode_cnt: it.episode_cnt ?? it.episodes}));
+    const wrap = document.createElement('div');
+    wrap.innerHTML = results.map((it,i)=>cardHTML(it,{rank:start+i+1, heat:true})).join('');
+    [...wrap.children].forEach(n => $('rankGrid').appendChild(n));
+    bindCards($('rankGrid')); applyTitleVi($('rankGrid'));
+    state.rankNext = d.nextOffset != null ? Number(d.nextOffset) : start + results.length;
+    b.classList.toggle('hidden', !(d.hasMore && results.length));
+    $('rankHint').textContent = $('rankHint').textContent.replace(/ · top \d+$/, '') + ` · top ${state.rankNext}`;
+  }catch(e){ toast(e.message || 'Không tải thêm được'); }
+  finally{ b.disabled = false; b.textContent = 'Xem thêm'; }
+}
+async function loadNewMore(){
+  const b = $('newMore'); b.disabled = true; b.textContent = 'Đang tải…';
+  try{
+    const days = state.newDays || 7;
+    const qs = new URLSearchParams({size: '48', panel: '0', offset: String(state.newNext || 0),
+      online_time: `days_${days}`, sort: 'online_time'});
+    if(state.newSession) qs.set('session_id', state.newSession);
+    const d = await jget(`/api/hg2/feed?${qs.toString()}`);
+    const seen = new Set([...$('newGrid').querySelectorAll('[data-sid]')].map(n => n.dataset.sid));
+    const results = (d.results || []).map(it => ({...it, episode_cnt: it.episode_cnt ?? it.episodes}))
+      .filter(it => !seen.has(String(it.series_id || it.id || '')));
+    const wrap = document.createElement('div');
+    wrap.innerHTML = results.map(cardHTML).join('');
+    [...wrap.children].forEach(n => $('newGrid').appendChild(n));
+    bindCards($('newGrid')); applyTitleVi($('newGrid'));
+    if(d.sessionId) state.newSession = d.sessionId;
+    state.newNext = d.nextOffset != null ? Number(d.nextOffset) : (state.newNext || 0) + (d.results || []).length;
+    b.classList.toggle('hidden', !(d.hasMore && (d.results || []).length));
+  }catch(e){ toast(e.message || 'Không tải thêm được'); }
+  finally{ b.disabled = false; b.textContent = 'Xem thêm'; }
+}
 async function loadRank(){
   $('rankGrid').innerHTML = '<p class="muted">Loading…</p>';
+  $('rankMore').classList.add('hidden');
   try{
     const qs = new URLSearchParams({
       chart: state.rankChart || 'ranklist_hot_sc',
@@ -1580,8 +1623,9 @@ async function loadRank(){
       episode_cnt: it.episode_cnt ?? it.episodes,
     }));
     const hint = d.desc || (currentRankChart()||{}).desc_en || '';
-    const cap = results.length >= 100 ? '100' : String(results.length);
-    $('rankHint').textContent = (hint || 'Leaderboards') + ` · top ${cap}`;
+    state.rankNext = d.nextOffset != null ? Number(d.nextOffset) : results.length;
+    $('rankHint').textContent = (hint || 'Leaderboards') + ` · top ${results.length}`;
+    $('rankMore').classList.toggle('hidden', !d.hasMore);
     $('rankGrid').innerHTML = results.map((it,i)=>cardHTML(it,{rank:i+1, heat:true})).join('')
       || '<p class="muted">Nothing ranked. This board has no dramas right now.</p>';
     bindCards($('rankGrid'));
@@ -1593,6 +1637,7 @@ async function loadRank(){
 
 async function loadNew(){
   $('newGrid').innerHTML = '<p class="muted">Loading…</p>';
+  $('newMore').classList.add('hidden'); state.newNext = 0; state.newSession = '';
   renderNewChrome();
   try{
     const days = state.newDays || 7;
@@ -1608,6 +1653,9 @@ async function loadNew(){
       ...it,
       episode_cnt: it.episode_cnt ?? it.episodes,
     }));
+    if(d.sessionId) state.newSession = d.sessionId;
+    state.newNext = d.nextOffset != null ? Number(d.nextOffset) : results.length;
+    $('newMore').classList.toggle('hidden', !d.hasMore);
     if(results.length){
       $('newGrid').innerHTML = results.map(cardHTML).join('');
       bindCards($('newGrid'));
@@ -2418,6 +2466,8 @@ refreshDisk();
 loadHgSettings().catch(()=>{});
 loadLibrary().catch(()=>{});
 setNav('browse');
+$('rankMore').onclick = loadRankMore;
+$('newMore').onclick = loadNewMore;
 </script>
 </body>
 </html>

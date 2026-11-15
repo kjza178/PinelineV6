@@ -463,14 +463,44 @@ def search(q: str, *, page: int = 0) -> dict:
     }
 
 
+_RANK_CACHE: dict[tuple, dict] = {}     # (chart, board, category) → {"cards": [...], "has_more": bool, "params": {...}}
+
+
 def rank(*, chart: str | None = None, board: str | None = None,
          category: str | None = None, offset: int = 0, limit: int = 100) -> dict:
-    """rank.page + rank.more đến tối đa ``limit`` (mặc định 100).
+    """Bảng xếp hạng: rank.page + rank.more. Helper chỉ trả ~5–10 thẻ / lần và ``offset`` của rank.page không
+    phân trang → gom tuần tự bằng rank.more.
 
-    Helper chỉ trả ~5–10 card/lần; ``offset`` trên rank.page không paginate —
-    phải gọi ``rank.more`` tuần tự.
-    """
-    want = max(1, min(100, int(limit or 100)))
+    fix 2026-11-15: trước đây cứng tối đa 100 phim, không có trang sau. Nay offset=0 → lấy lại từ đầu; offset>0 → gom
+    TIẾP từ bộ nhớ đệm của bảng đó (rank.more là tuần tự trong engine) tới khi đủ offset+limit hoặc hết."""
+    want = max(1, min(500, int(limit or 100)))
+    off = max(0, int(offset or 0))
+    key = (chart or "", board or "", category or "")
+    cached = _RANK_CACHE.get(key)
+    if off > 0 and cached:
+        cards, has_more, more_params = cached["cards"], cached["has_more"], cached["params"]
+        seen = {str(c.get("id") or "") for c in cards}
+        guard = 0
+        while has_more and len(cards) < off + want and guard < (want // 4 + 20):
+            guard += 1
+            try:
+                more = call("rank.more", more_params, timeout=30) or {}
+            except HgRpcError:
+                break
+            batch = list(more.get("cards") or [])
+            has_more = bool(more.get("hasMore"))
+            fresh = [c for c in batch if str(c.get("id") or "") and str(c.get("id")) not in seen]
+            if not fresh:
+                break
+            for c in fresh:
+                seen.add(str(c.get("id")))
+                cards.append(c)
+        cached.update(cards=cards, has_more=has_more)
+        page = cards[off:off + want]
+        return {"results": [_card_to_result(c) for c in page], "charts": cached.get("charts"),
+                "chart": cached.get("chart"), "board": cached.get("board"),
+                "hasMore": has_more or len(cards) > off + want, "nextOffset": off + len(page),
+                "n": len(page), "backend": "rpc"}
     params: dict[str, Any] = {}
     if chart:
         params["chart"] = chart
@@ -501,7 +531,7 @@ def rank(*, chart: str | None = None, board: str | None = None,
         more_params["board"] = board
     # gom thêm qua rank.more
     guard = 0
-    while has_more and len(ordered) < want and guard < 40:
+    while has_more and len(ordered) < want and guard < (want // 4 + 20):
         guard += 1
         try:
             more = call("rank.more", more_params, timeout=30) or {}
@@ -520,14 +550,17 @@ def rank(*, chart: str | None = None, board: str | None = None,
             if len(ordered) >= want:
                 break
         has_more = bool(more.get("hasMore"))
-    ordered = ordered[:want]
-    results = [_card_to_result(c) for c in ordered]
+    _RANK_CACHE[key] = {"cards": ordered, "has_more": has_more, "params": more_params,
+                        "charts": raw.get("charts"), "chart": raw.get("chart"), "board": raw.get("board")}
+    page = ordered[:want]
+    results = [_card_to_result(c) for c in page]
     return {
         "results": results,
         "charts": raw.get("charts"),
         "chart": raw.get("chart"),
         "board": raw.get("board"),
-        "hasMore": has_more and len(results) >= want,
+        "nextOffset": len(page),
+        "hasMore": has_more or len(ordered) > want,
         "n": len(results),
         "backend": "rpc",
     }
@@ -617,10 +650,11 @@ def feed(
         if len(ordered) == before:
             break
 
-    ordered = ordered[:want]
+    # fix 2026-11-15: KHÔNG cắt ordered[:want] — nextOffset đã nằm SAU mọi thẻ đã gom, cắt là mất phim
+    # (mỗi trang mất ~15 phim). Trả hết thẻ đã gom; hasMore theo engine.
     return {
         "results": [_card_to_result(c) for c in ordered],
-        "hasMore": has_more and len(ordered) >= want,
+        "hasMore": has_more,
         "nextOffset": int(next_off or (off0 + len(ordered))),
         "rows": rows,
         "sessionId": session,
