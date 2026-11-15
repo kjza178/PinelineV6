@@ -96,7 +96,8 @@ class AIFunction:
 
 
 FUNCTIONS: tuple[AIFunction, ...] = (
-    AIFunction("review", "Soát & dịch chính", "Luồng dịch simple: soát từng lô ~30 câu, dịch câu trống, vá câu bị cờ "
+    AIFunction("review", "Soát & dịch chính", "Luồng dịch V6: AI dịch thẳng từ câu Trung theo plan (không NMT), "
+               "DeepSeek/Alibaba thấy cả phim / chương, lô tự tính theo «Song song»; vá câu bị cờ "
                "(engines/translate_simple). Tốn token nhất.", "SIMPLE_MODEL", _eff_review,
                "REVIEW_MODEL → TRANSLATE_MODEL"),
     AIFunction("plan", "Lập bảng nhân vật / xưng hô", "Đầu bước dịch, 1 lần / tập: nhân vật, cặp xưng hô, thuật ngữ, cảnh "
