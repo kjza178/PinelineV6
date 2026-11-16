@@ -174,11 +174,23 @@
           <button class="set-it" data-pane="audio">Âm thanh</button>
           <button class="set-it" data-pane="video">Hình ảnh</button>
           <button class="set-it" data-pane="brand">Thương hiệu</button>
+          <button class="set-it" data-pane="bili">Bilibili</button>
           <button class="set-it" data-pane="paths">Thư mục</button>
           <button class="set-it" data-pane="advanced">Nâng cao</button>
         </nav>
         <div class="set-body">
           <div class="pane" data-pane="ai" id="ai-simple"></div>
+          <div class="pane" data-pane="bili" hidden>
+            <h2>Bilibili</h2><p class="sub">Cookie đăng nhập để tải chất lượng cao (1080P / 4K, video cần đăng nhập). Chỉ lưu trên máy này (thư mục cookies), không lên git.</p>
+            <div class="sec"><h3>Trạng thái</h3><div id="bili-st" class="sub">Đang kiểm…</div></div>
+            <div class="sec"><h3>Dán cookie</h3>
+              <p class="sub">Trình duyệt đã đăng nhập bilibili.com → tiện ích Cookie-Editor → Export (JSON) → dán vào đây. Hoặc chuỗi <code>SESSDATA=…; bili_jct=…; DedeUserID=…</code>.</p>
+              <textarea id="bili-cookie" rows="5" placeholder='[{"name":"SESSDATA","value":"…"}, …]   hoặc   SESSDATA=…; bili_jct=…'></textarea>
+              <p id="bili-err" class="err" hidden></p>
+              <div class="save-bar"><button type="button" class="btn ghost danger" id="bili-clear">Xoá cookie</button><span class="grow"></span>
+                <button type="button" class="btn" id="bili-check">Kiểm tra lại</button><button type="button" class="btn primary" id="bili-save">Lưu cookie</button></div>
+            </div>
+          </div>
           <div class="pane" data-pane="paths" hidden>
             <h2>Thư mục</h2><p class="sub">Thư mục trên máy này. Lưu vào pineline.config.json, có hiệu lực ngay.</p>
             <form id="form-paths"><div id="paths-body"></div>
@@ -213,17 +225,25 @@
 <div id="msg" role="status" hidden></div>
 <datalist id="dl-models"></datalist>
 
-<dialog id="dlg-new">
+<dialog id="dlg-new" class="wide">
   <form method="dialog" id="form-new">
-    <h2>Thêm job</h2>
-    <p class="sub">Link video / playlist, hoặc đường dẫn file / thư mục trên máy.</p>
-    <input id="new-src" autocomplete="off" placeholder="https://…   hoặc   D:\phim\tap01.mp4" required>
-    <label class="check"><input type="checkbox" id="new-move"> Chuyển file vào thư mục job thay vì chép (chỉ với file trên máy)</label>
-    <p id="new-err" class="err" hidden></p>
-    <div class="actions">
-      <button type="button" class="btn ghost" id="new-cancel">Huỷ</button>
-      <button type="submit" class="btn primary" id="new-ok">Tạo job</button>
+    <div class="dlg-head"><h2>Thêm job</h2><span class="grow"></span><button type="button" class="btn ghost" id="new-cancel">Đóng</button></div>
+    <div class="seg new-tabs" role="tablist"><label><input type="radio" name="new-tab" value="link" checked>Link</label><label><input type="radio" name="new-tab" value="local">File trên máy</label></div>
+    <div id="new-link">
+      <p class="sub">Bilibili (video, video nhiều tập, hợp tập, series, link b23.tv), Douyin… Dán link rồi «Kiểm tra» để xem và chọn tập.</p>
+      <div class="row new-row"><input id="new-src" autocomplete="off" placeholder="https://www.bilibili.com/video/BV…">
+        <button type="submit" class="btn primary" id="new-ok">Kiểm tra</button></div>
     </div>
+    <div id="new-local" hidden>
+      <p class="sub">Chọn video hoặc cả thư mục (mỗi thư mục thành một nhóm, mỗi video một job). Có thể dán đường dẫn.</p>
+      <div class="row new-row"><button type="button" class="btn" id="new-pick-files">Chọn file video…</button><button type="button" class="btn" id="new-pick-dirs">Chọn thư mục…</button>
+        <input id="new-path" autocomplete="off" placeholder="hoặc dán đường dẫn: D:\phim\tap01.mp4"><button type="button" class="btn" id="new-path-add">Thêm</button></div>
+      <div id="new-picked"></div>
+      <label class="check"><input type="checkbox" id="new-move"> Chuyển file vào thư mục job thay vì chép (tiết kiệm ổ, file gốc biến mất)</label>
+      <div class="actions"><span class="grow"></span><button type="button" class="btn primary" id="new-local-ok" disabled>Tạo job</button></div>
+    </div>
+    <p id="new-err" class="err" hidden></p>
+    <div id="new-prev" hidden></div>
   </form>
 </dialog>
 

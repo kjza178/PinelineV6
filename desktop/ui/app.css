@@ -344,3 +344,19 @@ a.btn{text-decoration:none}
 .use.orphan{grid-template-columns:1fr}
 .use.orphan .row{gap:6px;flex-wrap:wrap}
 .use.orphan .row input[data-o="text"]{flex:1;min-width:160px}
+/* Thêm job: xem trước link */
+.new-row{gap:8px}
+.new-row input{flex:1}
+#new-prev{display:flex;flex-direction:column;gap:10px}
+.new-head{display:flex;gap:12px;align-items:flex-start}
+.new-head img{width:120px;aspect-ratio:16/10;object-fit:cover;border-radius:8px;background:var(--panel-2)}
+.new-head b{display:block;margin-bottom:4px}
+.new-parts{max-height:46vh}
+.new-parts td:first-child{width:28px}
+.new-parts .eps td:nth-child(2){width:36px;color:var(--muted)}
+.new-parts .eps td:last-child{width:70px;color:var(--muted);text-align:right}
+.new-parts td.mono{text-align:left}
+#bili-cookie{width:100%;font-family:ui-monospace,monospace;font-size:12px}
+.new-tabs{align-self:flex-start;margin-bottom:4px}
+td.mono{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all}
+.new-ck textarea{width:100%;font-family:ui-monospace,monospace;font-size:12px}

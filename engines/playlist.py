@@ -68,6 +68,11 @@ def expand_meta(
     """
     url = normalize_url(url)
     platform = detect_platform(url)
+    if platform == "bilibili":                 # 2026-11-16: API Bilibili (multi-P / hợp tập / series đủ tên, đủ tập)
+        try:
+            return bili_expand(url)
+        except Exception as e:  # noqa: BLE001
+            print(f"[expand] Bilibili API lỗi: {e} → thử yt-dlp", flush=True)
 
     opts: dict = {
         "quiet": True,
@@ -106,6 +111,16 @@ def expand_meta(
             seen.add(u)
             parts.append({"url": u, "title": e.get("title")})
     return {"title": gtitle, "parts": parts}
+
+
+def bili_expand(url: str) -> dict:
+    """{title, kind, parts:[{url, title, duration}]} qua engines.bili.api (cookie cookies/bilibili_cookies.*)."""
+    import requests
+
+    from engines.bili import api as bapi
+    from engines.bili import cookies as bck
+    r = bapi.expand(url, requests.Session(), bapi.headers(bck.header()))
+    return {"title": r.get("title"), "kind": r.get("kind"), "pic": r.get("pic", ""), "parts": r.get("parts") or []}
 
 
 def expand(

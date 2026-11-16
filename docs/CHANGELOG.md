@@ -1,6 +1,17 @@
 # CHANGELOG — V6
 
 ## 2026-11-16
+- **Tải Bilibili bằng bộ tải gốc** (`engines/bili`, chuyển từ «bilibili_downloader» của chủ dự án) thay yt-dlp: ký WBI →
+  playurl DASH → bỏ MCDN / Akamai, đổi host sang cụm UPOS, đo tốc độ chọn node → tải đa luồng theo Range, mỗi đoạn thử các
+  mirror, **tải tiếp được** khi dừng / lỗi (`*.parts.json`), link CDN hết hạn thì xin link mới → ffmpeg ghép `-c copy`.
+  Chọn luồng: cao nhất ≤ trần (DOWNLOAD_MAX_HEIGHT / phim dài tự hạ như cũ), ưu tiên AVC (HEVC nếu DOWNLOAD_PREFER_HEVC),
+  không lấy AV1; tiếng bitrate cao nhất. Lỗi → tự rơi về yt-dlp; tắt hẳn: `BILI_NATIVE=0`. Bóc multi-P / hợp tập / series
+  bằng API (đủ tên tập). Cookie Bilibili: `cookies/bilibili_cookies.txt` (Netscape — yt-dlp dùng chung).
+- **Hộp «Thêm job» làm lại**: thẻ **Link** — dán link → «Kiểm tra» → xem tên, loại (video / nhiều tập / hợp tập / series),
+  danh sách tập + thời lượng, tập nào đã có job, trạng thái đăng nhập Bilibili (dán cookie ngay trong hộp) → chọn tập →
+  «Tạo N job» (nhiều tập gom nhóm). Thẻ **File trên máy** — «Chọn file video…» (hộp chọn của Windows, chọn nhiều),
+  «Chọn thư mục…», dán đường dẫn. Cài đặt → **Bilibili**: dán / kiểm / xoá cookie (hiện tên tài khoản, VIP).
+  `services/add_jobs.py`, `app/routes/add_jobs.py`, `tools/pick_files_dialog.py`.
 - **ASR FireRed lỗi trên máy mới** («firered_asr.py lỗi (mã 1)» không rõ vì sao): (1) lỗi engine nay kèm lý do thật
   (dòng `XxxError: …` cuối trong log con — `server._engine_reason`; tiền tố «… lỗi (mã N)» giữ nguyên); (2) Cài đặt →
   Giọng đọc: chọn «FireRed ASR» mà máy chưa cài → cảnh báo đỏ ngay dưới ô (`/api/v6/config` → `asr_status`,

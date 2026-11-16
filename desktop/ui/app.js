@@ -569,22 +569,140 @@ async function detailAction(btn) {
 // ───────────── thêm job ─────────────
 function isLocalPath(s) { return /^[a-zA-Z]:[\\/]/.test(s) || s.startsWith("\\\\") || s.startsWith("/") || s.startsWith("~"); }
 
+// Link → «Kiểm tra» (services/add_jobs.inspect: Bilibili qua API gốc) → chọn tập → «Tạo N job» (/api/v6/jobs/from-link).
+// Đường dẫn trên máy → tạo luôn như cũ.
+let newPrev = null;
+const KIND_VI = { video: "Video", multi_p: "Video nhiều tập (P1, P2…)", collection: "Hợp tập", series: "Series", playlist: "Danh sách" };
+function fmtSec(t) { t = Number(t) || 0; const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = Math.floor(t % 60); return h ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`; }
+function newReset() { newPrev = null; $("#new-prev").hidden = true; $("#new-prev").innerHTML = ""; $("#new-ok").textContent = "Kiểm tra"; }
+function newPaint() {
+  const d = newPrev, box = $("#new-prev");
+  const ck = d.cookie;
+  const cookieLine = d.platform !== "bilibili" ? "" : ck?.login?.is_login
+    ? `<span class="tag ok">Đăng nhập: ${esc(ck.login.uname)}${ck.login.vip ? " · " + esc(ck.login.vip) : ""}</span>`
+    : `<span class="tag warn" title="${esc(ck?.error || "")}">${ck?.has_cookie ? "Cookie Bilibili hết hạn" : "Chưa đăng nhập Bilibili"} — chất lượng bị giới hạn (thường ≤480P/720P)</span>
+      <details class="more new-ck"><summary>Dán cookie Bilibili</summary><div class="inner">
+        <p class="sub">Trình duyệt đã đăng nhập bilibili.com → Cookie-Editor → Export JSON → dán. Hoặc <code>SESSDATA=…; bili_jct=…</code>. Lưu trên máy (thư mục cookies).</p>
+        <textarea id="new-ck" rows="3" placeholder='[{"name":"SESSDATA","value":"…"}, …]'></textarea>
+        <div class="actions"><span id="new-ck-err" class="err small grow"></span><button type="button" class="btn sm primary" id="new-ck-save">Lưu cookie & kiểm tra lại link</button></div></div></details>`;
+  const rows = d.parts.map((p, i) => `<tr><td><input type="checkbox" data-part="${i}"${p.exists ? " disabled" : " checked"}></td>`
+    + `<td>${i + 1}</td><td>${esc(p.title || p.url)}${p.exists ? ' <span class="tag mut">đã có job</span>' : ""}</td><td>${p.duration ? esc(fmtSec(p.duration)) : ""}</td></tr>`).join("");
+  box.innerHTML = `<div class="new-head">${d.pic ? `<img src="${esc(d.pic)}" referrerpolicy="no-referrer" alt="">` : ""}<div>
+      <b>${esc(d.title || "")}</b>
+      <div class="sub">${esc(KIND_VI[d.kind] || d.kind)} · ${d.parts.length} tập${d.total_sec ? ` · ${esc(fmtSec(d.total_sec))}` : ""} · tải bằng ${esc(d.downloader)}</div>
+      <div>${cookieLine}</div></div></div>
+    ${d.parts.length > 1 ? `<div class="row"><label class="check"><input type="checkbox" id="new-all" checked> Chọn tất cả</label><span class="grow"></span><span class="sub" id="new-cnt"></span></div>` : ""}
+    <div class="scroll new-parts"><table class="data eps"><tbody>${rows}</tbody></table></div>
+    <div class="actions"><span class="sub grow">Mỗi tập là một job; nhiều tập được gom thành một nhóm trong hàng chờ.</span><button type="button" class="btn primary" id="new-create">Tạo job</button></div>`;
+  box.hidden = false;
+  newCount();
+}
+function newSel() { return [...document.querySelectorAll("#new-prev input[data-part]:checked")].map((c) => newPrev.parts[+c.dataset.part]); }
+function newCount() {
+  const n = newSel().length, b = $("#new-create");
+  if (b) { b.disabled = !n; b.textContent = n ? `Tạo ${n} job` : "Chưa chọn tập nào"; }
+  if ($("#new-cnt")) $("#new-cnt").textContent = `Đã chọn ${n}/${newPrev.parts.length}`;
+}
 async function createJob(ev) {
   ev.preventDefault();
   const src = $("#new-src").value.trim(), errEl = $("#new-err"), ok = $("#new-ok");
   if (!src) return;
-  errEl.hidden = true; ok.disabled = true; ok.textContent = "Đang tạo…";
+  errEl.hidden = true; ok.disabled = true;
   try {
-    const r = isLocalPath(src)
-      ? await api("POST", "/api/jobs/local-path", { path: src, move: $("#new-move").checked })
-      : await api("POST", "/api/jobs", { url: src });
-    const n = r?.count ?? (r?.job_ids || []).length ?? 1;
-    $("#dlg-new").close(); $("#new-src").value = "";
-    say(n > 1 ? `Đã tạo ${n} job` : "Đã tạo job");
+    if (isLocalPath(src)) { newTab("local"); newAddPaths([src]); $("#new-src").value = ""; return; }
+    ok.textContent = "Đang đọc link…";
+    newPrev = await api("POST", "/api/v6/source/inspect", { url: src });
+    newPaint();
   } catch (e) {
     errEl.textContent = e.message; errEl.hidden = false;
-  } finally { ok.disabled = false; ok.textContent = "Tạo job"; }
+  } finally { ok.disabled = false; ok.textContent = "Kiểm tra"; }
 }
+async function newCreate(btn) {
+  const parts = newSel(); if (!parts.length) return;
+  return act(btn, "", async () => {
+    btn.textContent = "Đang tạo…";
+    const r = await api("POST", "/api/v6/jobs/from-link", { url: newPrev.url, parts: parts.map((p) => ({ url: p.url, title: p.title })), group_title: newPrev.title });
+    $("#dlg-new").close(); $("#new-src").value = ""; newReset();
+    say(`Đã tạo ${r.count} job${r.skipped?.length ? ` · bỏ qua ${r.skipped.length} tập đã có` : ""}`);
+  });
+}
+$("#new-src").addEventListener("input", newReset);
+
+// ── File trên máy: chọn file / thư mục (hộp chọn của Windows qua server) → /api/jobs/local-batch ──
+let newPaths = [];
+function newTab(t) {
+  document.querySelectorAll('input[name="new-tab"]').forEach((r) => { r.checked = r.value === t; });
+  $("#new-link").hidden = t !== "link"; $("#new-local").hidden = t !== "local";
+  $("#new-prev").hidden = t !== "link" || !newPrev; $("#new-err").hidden = true;
+}
+function newAddPaths(ps) { for (const p of ps) if (p && !newPaths.includes(p)) newPaths.push(p); newPaintPaths(); }
+function newPaintPaths() {
+  $("#new-picked").innerHTML = newPaths.length ? `<div class="scroll new-parts"><table class="data"><tbody>${newPaths.map((p, i) =>
+    `<tr><td>${/\.[a-z0-9]{2,4}$/i.test(p) ? "🎬" : "📁"}</td><td class="mono">${esc(p)}</td><td><button type="button" class="btn sm ghost" data-rm="${i}">Bỏ</button></td></tr>`).join("")}</tbody></table></div>` : '<p class="note">Chưa chọn gì.</p>';
+  const b = $("#new-local-ok"); b.disabled = !newPaths.length; b.textContent = newPaths.length ? `Tạo job từ ${newPaths.length} mục` : "Tạo job";
+}
+document.querySelectorAll('input[name="new-tab"]').forEach((r) => r.addEventListener("change", () => newTab(r.value)));
+$("#new-pick-files").addEventListener("click", (e) => act(e.currentTarget, "", async () => {
+  e.currentTarget.textContent = "Đang mở hộp chọn…";
+  try { const r = await api("POST", "/api/v6/fs/pick-files", {}); newAddPaths(r.paths || []); } finally { $("#new-pick-files").textContent = "Chọn file video…"; }
+}));
+$("#new-pick-dirs").addEventListener("click", (e) => act(e.currentTarget, "", async () => {
+  e.currentTarget.textContent = "Đang mở hộp chọn…";
+  try { const r = await api("POST", "/api/fs/pick-dirs"); newAddPaths(r.paths || []); } finally { $("#new-pick-dirs").textContent = "Chọn thư mục…"; }
+}));
+$("#new-path-add").addEventListener("click", () => { const v = $("#new-path").value.trim().replace(/^"|"$/g, ""); if (v) { newAddPaths([v]); $("#new-path").value = ""; } });
+$("#new-path").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("#new-path-add").click(); } });
+$("#new-picked").addEventListener("click", (e) => { const b = e.target.closest("button[data-rm]"); if (b) { newPaths.splice(+b.dataset.rm, 1); newPaintPaths(); } });
+$("#new-local-ok").addEventListener("click", (e) => {
+  const err = $("#new-err"); err.hidden = true;
+  act(e.currentTarget, "", async () => {
+    e.currentTarget.textContent = "Đang tạo job (chép / đọc file)…";
+    try {
+      const r = await api("POST", "/api/jobs/local-batch", { paths: newPaths, move: $("#new-move").checked });
+      const n = (r.job_ids || []).length, errs = r.errors || [];
+      if (!n) throw new Error(errs[0] || "không tạo được job nào");
+      $("#dlg-new").close(); newPaths = []; newPaintPaths();
+      say(`Đã tạo ${n} job${errs.length ? ` · ${errs.length} lỗi: ${errs[0]}` : ""}`, errs.length ? "err" : "");
+    } catch (er) { err.textContent = er.message; err.hidden = false; throw er; } finally { newPaintPaths(); }
+  });
+});
+$("#new-prev").addEventListener("change", (e) => {
+  if (e.target.id === "new-all") document.querySelectorAll("#new-prev input[data-part]:not(:disabled)").forEach((c) => { c.checked = e.target.checked; });
+  newCount();
+});
+$("#new-prev").addEventListener("click", (e) => {
+  const b = e.target.closest("#new-create"); if (b) return newCreate(b);
+  const ckb = e.target.closest("#new-ck-save");
+  if (ckb) return act(ckb, "Đã lưu cookie Bilibili", async () => {
+    $("#new-ck-err").textContent = "";
+    try { await api("POST", "/api/v6/bili/cookie", { cookie: $("#new-ck").value }); }
+    catch (er) { $("#new-ck-err").textContent = er.message; throw er; }
+    newPrev = await api("POST", "/api/v6/source/inspect", { url: newPrev.url }); newPaint();
+  });
+});
+
+// ───────────── Cài đặt → Bilibili: cookie (engines/bili/cookies) ─────────────
+async function paintBili(check = true) {
+  const st = $("#bili-st");
+  st.textContent = "Đang kiểm…";
+  try {
+    const d = await api("GET", "/api/v6/bili/cookie?check=" + (check ? 1 : 0));
+    const lg = d.login;
+    st.innerHTML = !d.has_cookie ? '<span class="tag warn">Chưa có cookie</span> — tải ở chế độ khách (thường tối đa 480P/720P).'
+      : lg?.is_login ? `<span class="tag ok">Đã đăng nhập</span> ${esc(lg.uname)}${lg.vip ? ` · <b>${esc(lg.vip)}</b>` : " · tài khoản thường (≤1080P)"} <span class="mut small">· file ${esc(d.file)}</span>`
+      : `<span class="tag bad">Cookie hết hạn / không hợp lệ</span>${d.error ? ` <span class="mut small">${esc(d.error)}</span>` : ""} — dán cookie mới.`;
+  } catch (e) { st.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+}
+$("#bili-save").addEventListener("click", (e) => {
+  const err = $("#bili-err"); err.hidden = true;
+  act(e.currentTarget, "Đã lưu cookie Bilibili", async () => {
+    try { await api("POST", "/api/v6/bili/cookie", { cookie: $("#bili-cookie").value }); }
+    catch (er) { err.textContent = er.message; err.hidden = false; throw er; }
+    $("#bili-cookie").value = ""; await paintBili();
+  });
+});
+$("#bili-check").addEventListener("click", (e) => act(e.currentTarget, "", () => paintBili(true)));
+$("#bili-clear").addEventListener("click", (e) => { if (confirm("Xoá cookie Bilibili trên máy này?")) act(e.currentTarget, "Đã xoá cookie", async () => { await api("POST", "/api/v6/bili/cookie", { clear: true }); await paintBili(false); }); });
 
 // ───────────── Cài đặt: cấu hình chung cho mọi job (core/batch_config) ─────────────
 // Mỗi khoá cấu hình có NHÃN + MỘT DÒNG GIẢI THÍCH bằng lời thường + kiểu điều khiển hợp lý (thanh trượt, lựa chọn có mô tả,
@@ -852,6 +970,7 @@ async function saveSettings(ev) {
 let curPane = "ai";
 function showPane(id) {
   curPane = id;
+  if (id === "bili") paintBili();
   document.querySelectorAll(".set-it").forEach((b) => b.classList.toggle("on", b.dataset.pane === id));
   document.querySelectorAll(".set-body .pane").forEach((p) => { p.hidden = p.dataset.pane !== id; });
   const hasCfg = !!document.querySelector(`#cfg-body .pane[data-pane="${id}"]`);
@@ -1848,7 +1967,7 @@ $("#agent-clear").addEventListener("click", () => {
 $("#agent-log").addEventListener("click", (e) => { const c = e.target.closest(".chip[data-ask]"); if (c) { $("#agent-msg").value = c.dataset.ask; $("#form-agent").requestSubmit(); } });
 $("#form-agent").addEventListener("submit", agentSend);
 $("#agent-msg").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $("#form-agent").requestSubmit(); } });
-function openNew() { $("#new-err").hidden = true; $("#dlg-new").showModal(); $("#new-src").focus(); }
+function openNew() { $("#new-err").hidden = true; newReset(); newPaintPaths(); newTab("link"); $("#dlg-new").showModal(); $("#new-src").focus(); }
 $("#btn-new").addEventListener("click", openNew);
 document.querySelector('[data-open="new"]').addEventListener("click", openNew);
 $("#new-cancel").addEventListener("click", () => $("#dlg-new").close());

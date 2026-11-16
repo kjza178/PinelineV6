@@ -472,6 +472,8 @@ def create_app(inst: Instance, *, legacy: bool = True):
     app.include_router(ui_compat.router)
     from app.routes import disk_library         # «Phim trên ổ»: quét LIBRARY_DIR thẳng (2026-11-15)
     app.include_router(disk_library.router)
+    from app.routes import add_jobs as _add_jobs   # «Thêm job» xem trước + cookie Bilibili (2026-11-16)
+    app.include_router(_add_jobs.router)
     _install_lifecycle(app, inst, rt, legacy=legacy)
 
     if UI_DIR.is_dir():

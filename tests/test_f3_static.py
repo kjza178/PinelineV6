@@ -171,6 +171,7 @@ def test_tauri_opens_v6_ui():
     assert '"/v6/".to_string()' in rs and "PINELINE_DESKTOP_PATH" in rs and '"desktop_path"' in rs
     # UI desktop phải có thao tác (không chỉ bảng xem) và chỉ gọi API khi có việc — không vòng hẹn giờ.
     js = (ROOT / "desktop" / "ui" / "app.js").read_text(encoding="utf-8")
-    for needle in ('"/api/queue/jobs"', '"/api/jobs/local-path"', "/api/agent/resume/", "/stop`", '"DELETE"'):
+    # 2026-11-16: hộp Thêm job tạo job từ file / thư mục trên máy qua /api/jobs/local-batch (thay local-path)
+    for needle in ('"/api/queue/jobs"', '"/api/jobs/local-batch"', "/api/agent/resume/", "/stop`", '"DELETE"'):
         assert needle in js, f"UI desktop thiếu thao tác {needle}"
     assert 'new EventSource("/api/events")' in js and "setInterval" not in js
