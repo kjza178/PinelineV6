@@ -1,6 +1,9 @@
 # CHANGELOG — V6
 
 ## 2026-11-16
+- **FireRed nhanh hơn** (thay vì TensorRT-LLM — xem lý do trong phiên): tắt LID mặc định (nhận dạng ngôn ngữ từng câu,
+  model 3,3 GB, kết quả không dùng; bật lại `FIRERED_LID=1`), ASR theo lô trên GPU `FIRERED_ASR_BATCH` (mặc định 4; trước
+  1 câu / lượt), dấu câu theo lô `FIRERED_PUNC_BATCH` (16). Hết VRAM → tự giảm lô một nửa rồi chạy lại đoạn đó.
 - Sửa (vá vendor FireRed): chạy BF16 (`FIRERED_USE_HALF`, mặc định bật) → `torchaudio.forced_align` báo «log_probs must be
   float64, float32 or float16» mỗi câu → mất mốc thời gian TỪNG CHỮ (FireRed chia đều trong câu; mốc câu từ VAD vẫn đúng).
   `vendor/FireRedASR2S/.../fireredasr_aed.py` ép `.float()` trước forced_align.

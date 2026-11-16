@@ -81,3 +81,28 @@ def test_vendor_forced_align_casts_bf16_to_float32():
     src = (Path(__file__).resolve().parents[1] / "vendor" / "FireRedASR2S" / "fireredasr2s" / "fireredasr2" / "models"
            / "fireredasr_aed.py").read_text(encoding="utf-8")
     assert "n_ctc_logits.float().unsqueeze(0)" in src
+
+
+def test_firered_speed_defaults(monkeypatch):
+    """2026-11-16: tắt LID (không dùng kết quả, model 3,3 GB) + ASR theo lô trên GPU + dấu câu theo lô; hết VRAM → giảm lô."""
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[1] / "engines" / "asr" / "firered_asr.py").read_text(encoding="utf-8")
+    assert '_cfg_flag("FIRERED_LID", False)' in src and "asr_batch_size=asr_bs" in src and "punc_batch_size=punc_bs" in src
+    assert "transcribe_sliced(_process," in src and "out of memory" in src
+    import importlib
+    import sys
+    import types
+    # nạp module không cần torch / FireRed: chỉ kiểm hàm đọc cấu hình
+    for m in ("engines.asr.asr", "engines.asr.fun_asr_nano", "engines.subs", "engines.vram"):
+        if m not in sys.modules:
+            try:
+                importlib.import_module(m)
+            except Exception:  # noqa: BLE001
+                return                                  # môi trường thiếu thư viện nặng → đủ với kiểm tĩnh ở trên
+    fa = importlib.import_module("engines.asr.firered_asr")
+    monkeypatch.setenv("FIRERED_ASR_BATCH", "99")
+    assert fa._cfg_int("FIRERED_ASR_BATCH", 4, 1, 32) == 32
+    monkeypatch.setenv("FIRERED_ASR_BATCH", "abc")
+    assert fa._cfg_int("FIRERED_ASR_BATCH", 4, 1, 32) == 4
+    monkeypatch.setenv("FIRERED_LID", "1")
+    assert fa._cfg_flag("FIRERED_LID", False) is True
