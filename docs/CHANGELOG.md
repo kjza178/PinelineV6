@@ -1,6 +1,12 @@
 # CHANGELOG — V6
 
 ## 2026-11-16
+- **ASR FireRed lỗi trên máy mới** («firered_asr.py lỗi (mã 1)» không rõ vì sao): (1) lỗi engine nay kèm lý do thật
+  (dòng `XxxError: …` cuối trong log con — `server._engine_reason`; tiền tố «… lỗi (mã N)» giữ nguyên); (2) Cài đặt →
+  Giọng đọc: chọn «FireRed ASR» mà máy chưa cài → cảnh báo đỏ ngay dưới ô (`/api/v6/config` → `asr_status`,
+  `core.machine.firered_status`); (3) đường dẫn FireRed một nguồn `core.machine.firered_paths` — chưa đặt FIRERED_MODELS
+  thì tìm cả `D:\AI_CACHE\firered` (chỗ script cài tải về); `scripts/install_firered_asr.bat` ghi FIRERED_ROOT /
+  FIRERED_MODELS vào config (trước chỉ in ra, còn in sai «Z:/Pineline/…»); `check_env` dùng cùng hàm kiểm.
 - Giọng đọc: file ghi âm chép tay vào `voices/clone_refs|f5_refs|vieneu_bac` mà chưa có tên trong danh sách (vd V7.wav
   từ máy cũ) → Cài đặt → Giọng đọc báo «N file giọng chưa có trong danh sách», đặt tên + lời mẫu → «Thêm» (không chép /
   đổi file). `/api/v6/voices/register`.

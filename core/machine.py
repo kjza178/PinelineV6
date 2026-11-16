@@ -274,3 +274,37 @@ def save_paths(patch: dict) -> list[str]:
     if clean:
         _config.save_config(clean)
     return sorted(clean)
+
+
+# ── FireRedASR2S (ASR «FireRed») — một nguồn đường dẫn cho engines/asr/firered_asr + Cài đặt + check_env ──
+DEFAULT_FIRERED_MODELS = r"D:\AI_CACHE\firered"      # nơi scripts/download_firered_models.py tải về khi chưa đặt
+FIRERED_MODEL_DIRS = ("FireRedASR2-AED", "FireRedVAD", "FireRedLID", "FireRedPunc")
+
+
+def firered_paths() -> tuple[Path, Path]:
+    """(mã nguồn FireRedASR2S, thư mục model). Env > pineline.config.json > mặc định.
+    Model chưa đặt: <root>/pretrained_models nếu có, không thì D:\\AI_CACHE\\firered (chỗ script cài tải về —
+    fix 2026-11-16: script cài tải về đó nhưng không ghi FIRERED_MODELS → ASR báo thiếu model)."""
+    root = Path(os.getenv("FIRERED_ROOT") or setting("FIRERED_ROOT", "") or
+                str(Path(__file__).resolve().parents[1] / "vendor" / "FireRedASR2S"))
+    m = os.getenv("FIRERED_MODELS") or setting("FIRERED_MODELS", "")
+    if m:
+        return root, Path(m)
+    pre = root / "pretrained_models"
+    if (pre / FIRERED_MODEL_DIRS[0]).exists() or not Path(DEFAULT_FIRERED_MODELS).is_dir():
+        return root, pre
+    return root, Path(DEFAULT_FIRERED_MODELS)
+
+
+def firered_status() -> dict:
+    """{ok, why, root, models} — dùng cho Cài đặt (cảnh báo trước khi chạy) và thông báo lỗi."""
+    root, models = firered_paths()
+    if not (root / "fireredasr2s").is_dir():
+        return {"ok": False, "root": str(root), "models": str(models),
+                "why": f"chưa cài mã nguồn FireRedASR2S ở {root} — chạy scripts\\install_firered_asr.bat"
+                       + (" (FIRERED_ROOT đang trỏ máy khác?)" if setting("FIRERED_ROOT", "") else "")}
+    miss = [d for d in FIRERED_MODEL_DIRS if not (models / d).exists()]
+    if miss:
+        return {"ok": False, "root": str(root), "models": str(models),
+                "why": f"thiếu model {', '.join(miss)} trong {models} — chạy scripts\\install_firered_asr.bat"}
+    return {"ok": True, "root": str(root), "models": str(models), "why": ""}

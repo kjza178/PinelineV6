@@ -258,12 +258,16 @@ def check_dirs(m) -> None:
     mt_local = m.setting("MT_ZH_VI_LOCAL", "")
     _dir_row("MT model (MT_MODEL_DIR)", Path(mt_local) if mt_local else m.mt_model_dir(), WARN if mt_on else OPT,
              "Chép thư mục model MT (HachimiMT ct2) hoặc để tự tải từ HuggingFace lần đầu; sửa MT_MODEL_DIR/MT_ZH_VI_LOCAL")
-    fr = m.setting("FIRERED_ROOT", "")
-    _dir_row("FIRERED_ROOT", Path(fr) if fr else ROOT / "vendor" / "FireRedASR2S", OPT,
-             "Chỉ cần khi dùng ASR FireRed: chép FireRedASR2S, sửa FIRERED_ROOT")
-    fm = m.setting("FIRERED_MODELS", "")
-    if fm:
-        _dir_row("FIRERED_MODELS", Path(fm), OPT, "python scripts/download_firered_models.py hoặc chép tay")
+    # FireRed: cùng hàm với engine + Cài đặt (core.machine.firered_status); bắt buộc khi Cài đặt chọn ASR FireRed
+    try:
+        import core.batch_config as _bc
+        fr_used = str(_bc.load().get("asr_engine") or "") == "firered_asr"
+    except Exception:  # noqa: BLE001
+        fr_used = False
+    fs = m.firered_status()
+    row("ASR FireRed", OK if fs["ok"] else (MISS if fr_used else OPT),
+        f"{fs['root']} · model {fs['models']}" if fs["ok"] else fs["why"],
+        "" if fs["ok"] else "scripts\\install_firered_asr.bat — hoặc Cài đặt → Giọng đọc → Nhận dạng tiếng Trung chọn «Nano + căn thời gian»")
     vp = m.setting("VIENEU_PY", "")
     if vp:
         _dir_row("VIENEU_PY", Path(vp), MISS, "python install.py --gpu (tạo vieneu_env) hoặc sửa VIENEU_PY")

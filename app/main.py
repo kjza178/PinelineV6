@@ -180,7 +180,16 @@ def _v6_router(inst: Instance) -> APIRouter:
         import core.batch_config as bc
         from core import audio_levels
         return {"opts": bc.load(), "defaults": bc.DEFAULTS, "choices": {k: list(v) for k, v in bc.CHOICES.items()},
-                "labels": bc.LABELS, "levels": audio_levels.snapshot(), **bc.meta()}
+                "labels": bc.LABELS, "levels": audio_levels.snapshot(), "asr_status": _asr_status(), **bc.meta()}
+
+    def _asr_status() -> dict:
+        """Engine ASR nào chạy được trên máy này (chọn engine chưa cài → job lỗi «… lỗi (mã 1)»)."""
+        from core import machine
+        try:
+            return {"firered_asr": machine.firered_status()}
+        except Exception as e:  # noqa: BLE001
+            print(f"[v6] kiểm FireRed lỗi: {e}", flush=True)
+            return {}
 
     @r.post(V6_PREFIX + "/config")
     def config_set(body: dict):

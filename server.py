@@ -698,7 +698,24 @@ def _run_engine(script: str, work_dir: Path, *args: str) -> None:
         if jid in _STOP_JOBS:
             raise _Stopped(jid)
         _save_engine_tail(Path(work_dir), script_name, proc.returncode, list(_tail))
-        raise RuntimeError(f"{script} lỗi (mã {proc.returncode})")
+        why = _engine_reason(list(_tail))
+        # giữ tiền tố «<script> lỗi (mã N)» (agent_brain_notify.short_error / phân loại lỗi cũ dựa vào nó)
+        raise RuntimeError(f"{script} lỗi (mã {proc.returncode})" + (f": {why}" if why else ""))
+
+
+def _engine_reason(lines: list[str]) -> str:
+    """Dòng lỗi có nghĩa nhất trong đuôi log engine (fix 2026-11-16: UI chỉ thấy «firered_asr.py lỗi (mã 1)», không biết
+    vì sao). Ưu tiên dòng `XxxError: …` cuối cùng (traceback Python), không thì dòng chữ cuối."""
+    import re as _re
+    for ln in reversed(lines):
+        t = ln.strip()
+        if _re.match(r"^[\w.]*(Error|Exception|Interrupt)\b.*:", t):
+            return t[:300]
+    for ln in reversed(lines):
+        t = ln.strip()
+        if t and not t.startswith(("File \"", "^", "~")):
+            return t[:300]
+    return ""
 
 
 _ENGINE_TAIL_LINES = 40

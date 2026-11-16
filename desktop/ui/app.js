@@ -637,6 +637,15 @@ const CFG_PANES = [
 ];
 let cfg = null;
 
+// ── ASR: cảnh báo khi engine đang chọn chưa cài trên máy (vd FireRed) — trước chỉ biết khi job lỗi «mã 1» ──
+function paintAsrWarn() {
+  const sel = $("#form-cfg")?.elements.asr_engine; if (!sel) return;
+  let w = sel.parentElement.querySelector(".asr-warn");
+  if (!w) { w = document.createElement("div"); w.className = "asr-warn err small"; sel.parentElement.appendChild(w); }
+  const st = (cfg.asr_status || {})[sel.value];
+  w.textContent = st && !st.ok ? `Chưa dùng được trên máy này: ${st.why}` : "";
+  w.hidden = !w.textContent;
+}
 // ── Giọng clone: danh sách + thiếu file mẫu + tạo giọng mới (services/voices, /api/clone-voice) ──
 async function paintVoicesSec() {
   const sec = $("#voices-sec"); if (!sec) return;
@@ -799,6 +808,7 @@ function paintCfg() {
   $("#cfg-meta").textContent = cfg.updated_at ? `Áp dụng cho job chạy sau khi lưu · sửa lần cuối ${String(cfg.updated_at).replace("T", " ").slice(0, 16)}${cfg.updated_by ? ` (${cfg.updated_by})` : ""}` : "Áp dụng cho job chạy sau khi lưu.";
   $("#cfg-bar").hidden = true; $("#cfg-err").hidden = true;
   syncAudioRows();
+  paintAsrWarn();
   paintVoicesSec();
   showPane(curPane);
 }
@@ -819,6 +829,7 @@ function onCfgInput(e) {
   if (t.type === "range") t.nextElementSibling.textContent = (FIELDS[t.name]?.fmt || pctFmt)(t.value);
   if (t.type === "checkbox" && t.closest(".switch")) t.parentElement.lastChild.textContent = t.checked ? "Bật" : "Tắt";
   if (t.name === "audio_mode") syncAudioRows();
+  if (t.name === "asr_engine") paintAsrWarn();
   $("#cfg-bar").hidden = !(Object.keys(cfgPatch()).length || Object.keys(levelsPatch()).length);
 }
 async function saveSettings(ev) {

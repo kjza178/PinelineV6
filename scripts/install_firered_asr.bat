@@ -23,9 +23,10 @@ echo [3/3] Download models vao %MODELS% ...
 set FIRERED_MODELS=%MODELS%
 python scripts\download_firered_models.py
 
+echo [4/4] Ghi FIRERED_ROOT / FIRERED_MODELS vao pineline.config.json...
+python -c "from core.config import save_config; save_config({'FIRERED_ROOT': r'%ROOT%', 'FIRERED_MODELS': r'%MODELS%'})"
 echo.
-echo OK. Pineline config:
-echo   FIRERED_ROOT   = Z:/Pineline/vendor/FireRedASR2S
-echo   FIRERED_MODELS = %MODELS:\=/%
-echo Chon engine firered_asr trong UI de thu.
+echo OK. FIRERED_ROOT   = %ROOT%
+echo     FIRERED_MODELS = %MODELS%
+echo Kiem tra: python scripts\check_env.py  ^|  Cai dat - Giong doc - Nhan dang tieng Trung: FireRed ASR
 endlocal

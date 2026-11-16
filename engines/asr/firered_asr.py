@@ -51,11 +51,9 @@ MODEL_ID = "FireRedASR2-AED"
 
 
 def _roots() -> tuple[Path, Path]:
-    root = Path(os.getenv("FIRERED_ROOT") or cfg("FIRERED_ROOT", "") or
-                str(Path(__file__).resolve().parents[2] / "vendor" / "FireRedASR2S"))
-    models = Path(os.getenv("FIRERED_MODELS") or cfg("FIRERED_MODELS", "") or
-                  str(root / "pretrained_models"))
-    return root, models
+    """Một nguồn với Cài đặt / check_env: core.machine.firered_paths (env > config > vendor/, D:/AI_CACHE/firered)."""
+    from core.machine import firered_paths
+    return firered_paths()
 
 
 def _ensure_firered_importable(root: Path) -> None:
