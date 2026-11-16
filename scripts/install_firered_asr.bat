@@ -3,6 +3,7 @@ REM Cai FireRedASR2S + tai model AED/VAD/LID/Punc ve D:\AI_CACHE\firered
 REM KHONG pip install requirements.txt full (torch cu118 pin) — dung torch Pineline hien co.
 setlocal
 cd /d "%~dp0.."
+call scripts\pick_python.bat
 
 set ROOT=%CD%\vendor\FireRedASR2S
 set MODELS=D:\AI_CACHE\firered
@@ -16,15 +17,15 @@ if not exist "%ROOT%" (
 )
 
 echo [2/3] pip deps (khong pin torch)...
-python -m pip install "cn2an" "kaldiio" "kaldi_native_fbank" "sentencepiece" "soundfile" "textgrid" "peft>=0.13.2"
+"%PY%" -m pip install "cn2an" "kaldiio" "kaldi_native_fbank" "sentencepiece" "soundfile" "textgrid" "peft>=0.13.2"
 
 if not exist "%MODELS%" mkdir "%MODELS%"
 echo [3/3] Download models vao %MODELS% ...
 set FIRERED_MODELS=%MODELS%
-python scripts\download_firered_models.py
+"%PY%" scripts\download_firered_models.py
 
 echo [4/4] Ghi FIRERED_ROOT / FIRERED_MODELS vao pineline.config.json...
-python -c "from core.config import save_config; save_config({'FIRERED_ROOT': r'%ROOT%', 'FIRERED_MODELS': r'%MODELS%'})"
+"%PY%" -c "from core.config import save_config; save_config({'FIRERED_ROOT': r'%ROOT%', 'FIRERED_MODELS': r'%MODELS%'})"
 echo.
 echo OK. FIRERED_ROOT   = %ROOT%
 echo     FIRERED_MODELS = %MODELS%

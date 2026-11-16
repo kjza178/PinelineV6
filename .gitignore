@@ -50,3 +50,4 @@ data/.upload_*.lock
 
 # Dữ liệu runtime do agent_feeder tạo khi chạy
 data/series_meta/
+.pineline_env_path

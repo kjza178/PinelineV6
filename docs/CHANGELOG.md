@@ -1,6 +1,13 @@
 # CHANGELOG — V6
 
 ## 2026-11-16
+- **Sửa: «No module named demucs»** — `run_v6.bat` chạy server bằng `python` hệ thống, không phải venv `pineline_env`
+  của install.py → thiếu demucs, ASR bỏ bước tách giọng. Nay `scripts\pick_python.bat` chọn python chung cho
+  run_v6 / run_sidecar_v6 / install_firered_asr: PINELINE_PYTHON > `.pineline_env_path` (install.py ghi) >
+  `..\pineline_env` > `pineline_env` > python hệ thống (in ra python đang dùng). `check_env` báo thiếu demucs /
+  faster_whisper / yt_dlp kèm lệnh cài.
+- **Sửa: install.py ghi ĐÈ pineline.config.json** (mất key API, FIRERED_*, cài đặt AI…) → nay gộp vào file cũ, sao lưu
+  `pineline.config.before_install.json` trước khi ghi.
 - **Tải Bilibili bằng bộ tải gốc** (`engines/bili`, chuyển từ «bilibili_downloader» của chủ dự án) thay yt-dlp: ký WBI →
   playurl DASH → bỏ MCDN / Akamai, đổi host sang cụm UPOS, đo tốc độ chọn node → tải đa luồng theo Range, mỗi đoạn thử các
   mirror, **tải tiếp được** khi dừng / lỗi (`*.parts.json`), link CDN hết hạn thì xin link mới → ffmpeg ghép `-c copy`.

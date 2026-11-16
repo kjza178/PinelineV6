@@ -4,4 +4,5 @@ rem (v6: false -> khong poll/gui Telegram). Vong nen autopilot/feeder/film_db KH
 cd /d %~dp0
 set PYTHONIOENCODING=utf-8
 set PYTHONUTF8=1
-python agents\agent_tele_cmd.py --instance v6
+call scripts\pick_python.bat
+"%PY%" agents\agent_tele_cmd.py --instance v6

@@ -121,6 +121,24 @@ def check_torch(skip: bool) -> None:
         row("torch + CUDA", WARN, str(e)[:80])
 
 
+def check_python_pkgs() -> None:
+    """Python ĐANG chạy doctor có đủ thư viện của server không (2026-11-16: server chạy bằng python hệ thống thiếu demucs
+    → ASR bỏ bước tách giọng, chỉ thấy CẢNH BÁO trong log)."""
+    pick = ROOT / ".pineline_env_path"
+    venv = pick.read_text(encoding="utf-8").strip() if pick.is_file() else ""
+    same = (not venv) or Path(venv).resolve() == Path(sys.executable).resolve()
+    row("Python đang dùng", OK if same else WARN, sys.executable,
+        "" if same else f"run_v6.bat chạy server bằng {venv} — chạy doctor bằng python đó để kiểm đúng")
+    for mod, need, why in (("demucs", WARN, "tách giọng trước ASR (thiếu → ASR trên âm gốc, kém hơn) + âm nền demucs_*"),
+                           ("faster_whisper", OPT, "lời mẫu khi tạo giọng clone"),
+                           ("yt_dlp", WARN, "tải link không phải Bilibili / dự phòng Bilibili")):
+        if importlib.util.find_spec(mod) is None:
+            row(f"thư viện {mod}", need, f"thiếu — {why}",
+                f"\"{sys.executable}\" -m pip install -r scripts\\install\\install\\requirements-main.txt")
+        else:
+            row(f"thư viện {mod}", OK, "có")
+
+
 def check_config_files() -> None:
     for name, need in (("pineline.config.json", True), ("config.json", False)):
         p = ROOT / name
@@ -293,6 +311,7 @@ def main(argv: list[str] | None = None) -> int:
     check_python()
     check_programs()
     check_torch(a.no_torch)
+    check_python_pkgs()
     check_config_files()
     cfg, m = _load_machine()
     if m is not None:
