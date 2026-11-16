@@ -17,3 +17,10 @@ requests>=2.28
 yt-dlp>=2024.1.1
 pillow>=9.0
 onnxruntime>=1.17
+# 2026-11-16: thiếu → server báo «No module named …» (đăng YouTube / kênh test bản quyền, dò tiến trình, tải model, pinyin tên)
+google-auth>=2.20
+google-auth-oauthlib>=1.0
+google-api-python-client>=2.100
+psutil>=5.9
+huggingface_hub>=0.20
+pypinyin>=0.50

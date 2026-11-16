@@ -131,7 +131,12 @@ def check_python_pkgs() -> None:
         "" if same else f"run_v6.bat chạy server bằng {venv} — chạy doctor bằng python đó để kiểm đúng")
     for mod, need, why in (("demucs", WARN, "tách giọng trước ASR (thiếu → ASR trên âm gốc, kém hơn) + âm nền demucs_*"),
                            ("faster_whisper", OPT, "lời mẫu khi tạo giọng clone"),
-                           ("yt_dlp", WARN, "tải link không phải Bilibili / dự phòng Bilibili")):
+                           ("yt_dlp", WARN, "tải link không phải Bilibili / dự phòng Bilibili"),
+                           ("google_auth_oauthlib", WARN, "đăng YouTube + kênh test bản quyền (thiếu → trang Phim / Test BQ lỗi)"),
+                           ("googleapiclient", WARN, "đăng YouTube + kênh test bản quyền"),
+                           ("psutil", WARN, "dừng / dọn tiến trình engine"),
+                           ("funasr", OPT, "ASR Nano / Paraformer / SenseVoice — scripts\\install\\install_funasr_safe.bat"),
+                           ("fireredasr2s", OPT, "ASR FireRed — scripts\\install_firered_asr.bat")):
         if importlib.util.find_spec(mod) is None:
             row(f"thư viện {mod}", need, f"thiếu — {why}",
                 f"\"{sys.executable}\" -m pip install -r scripts\\install\\install\\requirements-main.txt")

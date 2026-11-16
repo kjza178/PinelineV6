@@ -104,7 +104,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--gpu", action="store_true", help="ép dùng GPU (CUDA)")
     ap.add_argument("--cpu", action="store_true", help="ép dùng CPU (không CUDA)")
-    ap.add_argument("--cuda", default="cu121", help="build CUDA cho torch (mặc định cu121)")
+    # 2026-11-16: cu121 không chạy RTX 50 (Blackwell) và bản torch mới không còn build cu121 → cu128 (driver ≥ 570)
+    ap.add_argument("--cuda", default="cu128", help="build CUDA cho torch (mặc định cu128; driver cũ: cu126)")
     ap.add_argument("--skip-vieneu", action="store_true", help="bỏ qua env VieNeu")
     ap.add_argument("--skip-ollama-pull", action="store_true", help="không tự pull model Ollama")
     ap.add_argument("--ollama-models", default="gemma4,gemma3:12b",

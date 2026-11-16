@@ -1,6 +1,11 @@
 # CHANGELOG — V6
 
 ## 2026-11-16
+- Bộ cài: `requirements-main.txt` thêm google-auth / google-auth-oauthlib / google-api-python-client (thiếu → «No module
+  named google.oauth2», router films không nạp: Phim đã làm, Test bản quyền, đăng YouTube hỏng), psutil, huggingface_hub,
+  pypinyin. `install.py` mặc định `--cuda cu128` (cu121 không chạy RTX 50 / bản torch mới). `install_funasr_safe.bat`
+  dùng cùng python với server, không `--user` trong venv, không ép torch 2.11 — chỉ cài lại torch CUDA khi bị kéo về CPU.
+  `check_env` báo thêm thiếu google / psutil / funasr / FireRed.
 - **Sửa: «No module named demucs»** — `run_v6.bat` chạy server bằng `python` hệ thống, không phải venv `pineline_env`
   của install.py → thiếu demucs, ASR bỏ bước tách giọng. Nay `scripts\pick_python.bat` chọn python chung cho
   run_v6 / run_sidecar_v6 / install_firered_asr: PINELINE_PYTHON > `.pineline_env_path` (install.py ghi) >

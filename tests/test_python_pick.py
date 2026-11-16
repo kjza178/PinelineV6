@@ -41,3 +41,13 @@ def test_check_env_reports_missing_demucs(monkeypatch, capsys):
     check_env.check_python_pkgs()
     d = {r[0]: r for r in rows}
     assert d["thư viện demucs"][1] == check_env.WARN and "requirements-main.txt" in d["thư viện demucs"][3]
+
+
+def test_requirements_cover_server_imports_and_funasr_script_uses_same_python():
+    req = (ROOT / "scripts" / "install" / "install" / "requirements-main.txt").read_text(encoding="utf-8")
+    for pkg in ("google-auth-oauthlib", "google-api-python-client", "psutil", "huggingface_hub", "pypinyin", "demucs"):
+        assert pkg in req, pkg                     # thiếu google.oauth2 → router films (trang Phim / Test BQ) không nạp
+    fa = _bat("scripts/install/install_funasr_safe.bat")
+    assert r'call "%~dp0..\pick_python.bat"' in fa and "torch==2.11" not in fa and "--no-deps torch torchaudio" in fa
+    src = (ROOT / "scripts" / "install" / "install.py").read_text(encoding="utf-8")
+    assert 'default="cu128"' in src
