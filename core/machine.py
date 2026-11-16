@@ -303,6 +303,13 @@ def firered_status() -> dict:
         return {"ok": False, "root": str(root), "models": str(models),
                 "why": f"chưa cài mã nguồn FireRedASR2S ở {root} — chạy scripts\\install_firered_asr.bat"
                        + (" (FIRERED_ROOT đang trỏ máy khác?)" if setting("FIRERED_ROOT", "") else "")}
+    broken = [sub for sub in ("fireredasr2", "fireredlid", "fireredpunc")
+              if not (root / "fireredasr2s" / sub / "models" / "__init__.py").is_file()
+              and not any((root / "fireredasr2s" / sub / "models").glob("*.py"))]
+    if broken:      # fix 2026-11-16: bản vendor trong git từng thiếu thư mục code models/ (.gitignore «models/» trần)
+        return {"ok": False, "root": str(root), "models": str(models),
+                "why": f"mã nguồn FireRed thiếu code {', '.join(b + '/models' for b in broken)} ở {root} — git pull bản mới, "
+                       "hoặc xoá thư mục đó rồi chạy scripts\\install_firered_asr.bat"}
     miss = [d for d in FIRERED_MODEL_DIRS if not (models / d).exists()]
     if miss:
         return {"ok": False, "root": str(root), "models": str(models),

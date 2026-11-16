@@ -1,6 +1,11 @@
 # CHANGELOG — V6
 
 ## 2026-11-16
+- **Sửa: FireRed «No module named fireredasr2s.fireredasr2.models»** trên máy cài từ git: `.gitignore` dòng `models/`
+  (định bỏ thư mục model lớn ở gốc) loại luôn code Python `vendor/FireRedASR2S/fireredasr2s/{fireredasr2,fireredlid,
+  fireredpunc}/models/` → bản vendor trong repo thiếu code, script cài thấy thư mục đã có nên không clone lại. Đã bổ
+  sung 3 thư mục từ FireRedTeam/FireRedASR2S (Apache-2.0, cùng phiên bản với phần còn lại), `.gitignore` → `/models/`.
+  `core.machine.firered_status` báo khi mã nguồn thiếu code models (Cài đặt / check_env).
 - Bộ cài: `requirements-main.txt` thêm google-auth / google-auth-oauthlib / google-api-python-client (thiếu → «No module
   named google.oauth2», router films không nạp: Phim đã làm, Test bản quyền, đăng YouTube hỏng), psutil, huggingface_hub,
   pypinyin. `install.py` mặc định `--cuda cu128` (cu121 không chạy RTX 50 / bản torch mới). `install_funasr_safe.bat`

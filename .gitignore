@@ -19,7 +19,9 @@ _to_delete/
 *.tgz
 
 # Large models & media (use Git LFS if they must be versioned)
-models/
+# CHỈ thư mục models/ ở gốc dự án (fix 2026-11-16: «models/» trần loại luôn code Python vendor/FireRedASR2S/**/models
+# → FireRed «No module named fireredasr2s.fireredasr2.models» trên máy cài từ git)
+/models/
 *.th
 *.pth
 *.onnx
