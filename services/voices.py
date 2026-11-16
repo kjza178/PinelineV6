@@ -19,7 +19,7 @@ def list_voices() -> dict:
                     "source": "VieNeu (giọng có sẵn)" if (v or {}).get("source", "").startswith("vieneu") else "clone"})
     out.sort(key=lambda x: (not x["ok"], x["name"].lower()))
     return {"items": out, "ok": sum(x["ok"] for x in out), "missing": sum(not x["ok"] for x in out),
-            "registry": str(ct.VOICES_FILE)}
+            "orphans": orphans(), "registry": str(ct.VOICES_FILE)}
 
 
 def remove(name: str) -> bool:
@@ -41,3 +41,46 @@ def remove(name: str) -> bool:
         print(f"[voices] xoá file mẫu {ref} lỗi: {e}", flush=True)
     print(f"[voices] đã xoá giọng {name}", flush=True)
     return True
+
+
+AUDIO_EXT = (".wav", ".mp3", ".m4a", ".flac", ".ogg")
+_REF_DIRS = ("clone_refs", "f5_refs", "vieneu_bac")
+
+
+def orphans() -> list[dict]:
+    """File ghi âm nằm trong voices/{clone_refs,f5_refs,vieneu_bac} nhưng CHƯA có tên trong registry
+    (vd chép tay V7.wav từ máy cũ) — giao diện cho «Thêm» một lần."""
+    import engines.clone_tts as ct
+    used = set()
+    for v in ct._load_registry().values():
+        r = ct._resolve_ref((v or {}).get("ref", ""))
+        if r:
+            used.add(str(r.resolve()).lower())
+    out = []
+    for sub in _REF_DIRS:
+        d = ct._PROJ / "voices" / sub
+        if not d.is_dir():
+            continue
+        for f in sorted(d.iterdir()):
+            if f.is_file() and f.suffix.lower() in AUDIO_EXT and str(f.resolve()).lower() not in used:
+                out.append({"file": f"voices/{sub}/{f.name}", "name": f.stem, "size": f.stat().st_size})
+    return out
+
+
+def register(file: str, name: str, text: str = "") -> dict:
+    """Thêm file mồ côi (phải nằm trong orphans()) vào registry — KHÔNG chép / đổi file."""
+    import engines.clone_tts as ct
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("thiếu tên giọng")
+    if file not in {o["file"] for o in orphans()}:
+        raise ValueError("file không nằm trong thư mục giọng hoặc đã có trong danh sách")
+    data = ct._load_registry()
+    if name in data:
+        raise ValueError(f"đã có giọng tên «{name}»")
+    data[name] = {"ref": file, "text": (text or "").strip()}
+    tmp = ct.VOICES_FILE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(ct.VOICES_FILE)
+    print(f"[voices] đã thêm giọng {name} ← {file}", flush=True)
+    return {"name": name, "ref": file}

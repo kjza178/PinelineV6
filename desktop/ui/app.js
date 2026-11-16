@@ -649,6 +649,9 @@ async function paintVoicesSec() {
     <p class="sub">${d.ok} giọng dùng được${d.missing ? ` · <b>${d.missing} thiếu file mẫu</b> (tên có trong danh sách nhưng file ghi âm chưa có trên máy)` : ""}.</p>
     ${d.missing ? `<div class="callout">Giọng thiếu file mẫu: chép thư mục <code>voices</code> từ máy cũ (USB / mạng) vào một chỗ, vd <code>E:\\may_cu\\voices</code>, rồi chạy
       <code>python scripts\\import_voices.py --src E:\\may_cu</code> (thêm <code>--apply</code> để chép thật) — hoặc tạo lại giọng bên dưới.</div>` : ""}
+    ${(d.orphans || []).length ? `<div class="callout warn"><b>${d.orphans.length} file giọng chưa có trong danh sách</b> (vd chép tay từ máy cũ). Đặt tên rồi bấm «Thêm».
+      <div class="uses">${d.orphans.map((o) => `<div class="use orphan" data-file="${esc(o.file)}"><div><code>${esc(o.file)}</code></div>
+        <div class="row"><input data-o="name" value="${esc(o.name.toLowerCase())}" placeholder="Tên giọng" style="width:110px"><input data-o="text" placeholder="Lời trong file (nên điền)"><button type="button" class="btn sm primary" data-vact="reg">Thêm</button></div></div>`).join("")}</div></div>` : ""}
     <div class="field stack"><div class="lbl"><b>Tạo giọng mới</b><span>File ghi âm một người nói rõ, 3–8 giây (dài hơn tự cắt), không nhạc nền. Gõ đúng lời trong file để giọng clone chuẩn hơn.</span></div>
       <div class="ctl"><div class="row voice-new"><input id="vnew-name" placeholder="Tên giọng (vd GiongNam1)"><input type="file" id="vnew-file" accept=".wav,.mp3,.m4a,.flac,.ogg"></div>
         <input id="vnew-text" placeholder="Lời trong file mẫu (nên điền)" style="margin-top:8px;width:100%">
@@ -677,6 +680,14 @@ $("#cfg-body").addEventListener("click", (e) => {
         if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
         say(`Đã tạo giọng «${j.voice}» (mẫu ${j.ref_sec}s)${j.has_text ? "" : " — chưa có lời mẫu, giọng có thể kém chuẩn"}`, j.has_text ? "" : "err");
       } catch (e2) { err.textContent = e2.message; throw e2; } finally { b.textContent = "Tạo giọng"; }
+      await refreshVoiceSelect(); await paintVoicesSec();
+    });
+  }
+  if (b.dataset.vact === "reg") {
+    const row = b.closest("[data-file]");
+    return act(b, "", async () => {
+      const r = await api("POST", "/api/v6/voices/register", { file: row.dataset.file, name: row.querySelector('[data-o="name"]').value.trim(), text: row.querySelector('[data-o="text"]').value.trim() });
+      say(`Đã thêm giọng «${r.name}»`);
       await refreshVoiceSelect(); await paintVoicesSec();
     });
   }

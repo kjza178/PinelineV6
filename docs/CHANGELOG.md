@@ -1,6 +1,9 @@
 # CHANGELOG — V6
 
 ## 2026-11-16
+- Giọng đọc: file ghi âm chép tay vào `voices/clone_refs|f5_refs|vieneu_bac` mà chưa có tên trong danh sách (vd V7.wav
+  từ máy cũ) → Cài đặt → Giọng đọc báo «N file giọng chưa có trong danh sách», đặt tên + lời mẫu → «Thêm» (không chép /
+  đổi file). `/api/v6/voices/register`.
 - **Giọng đọc trên máy mới:** Cài đặt → Giọng đọc có mục «Giọng clone trên máy này»: liệt kê giọng dùng được / **thiếu file
   mẫu** (git mang danh sách tên nhưng không mang wav), nghe thử, xoá mục hỏng; **tạo giọng mới** từ file ghi âm 3–8s
   (không cần mở một job) + ô «lời trong file mẫu» (máy chưa có model nhận dạng thì trước đây lời mẫu rỗng → clone kém;

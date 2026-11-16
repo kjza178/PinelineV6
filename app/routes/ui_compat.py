@@ -114,3 +114,14 @@ def v6_voice_remove(body: dict):
     if not name:
         raise HTTPException(400, "thiếu name")
     return {"ok": voices.remove(name)}
+
+
+@router.post("/api/v6/voices/register")
+def v6_voice_register(body: dict):
+    """File giọng đã chép vào voices/… nhưng chưa có tên trong danh sách → thêm (services/voices.register)."""
+    from services import voices
+    b = body or {}
+    try:
+        return {"ok": True, **voices.register(str(b.get("file") or ""), str(b.get("name") or ""), str(b.get("text") or ""))}
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e

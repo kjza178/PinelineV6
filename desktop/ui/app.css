@@ -341,3 +341,6 @@ a.btn{text-decoration:none}
 .voice-new{gap:8px;flex-wrap:wrap}
 .voice-new input[type=file]{font-size:12px;color:var(--muted)}
 #voices-sec .scroll{max-height:320px}
+.use.orphan{grid-template-columns:1fr}
+.use.orphan .row{gap:6px;flex-wrap:wrap}
+.use.orphan .row input[data-o="text"]{flex:1;min-width:160px}

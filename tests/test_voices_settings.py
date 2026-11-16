@@ -45,3 +45,17 @@ def test_clone_voice_accepts_typed_text():
 def test_desktop_voice_manager():
     js = (Path(__file__).resolve().parents[1] / "desktop" / "ui" / "app.js").read_text(encoding="utf-8")
     assert "/api/v6/voices" in js and "vnew-ok" in js and 'fd.append("text"' in js and "import_voices.py" in js
+
+
+def test_orphan_wav_detected_and_registered(reg):
+    (reg / "voices" / "clone_refs" / "V7.wav").write_bytes(b"RIFF")
+    d = voices.list_voices()
+    assert d["orphans"] == [{"file": "voices/clone_refs/V7.wav", "name": "V7", "size": 4}]
+    r = voices.register("voices/clone_refs/V7.wav", "v7", "lời mẫu")
+    assert r == {"name": "v7", "ref": "voices/clone_refs/V7.wav"}
+    d = voices.list_voices()
+    assert d["orphans"] == [] and {v["name"]: v for v in d["items"]}["v7"]["ok"]
+    with pytest.raises(ValueError):
+        voices.register("../../etc/passwd", "x")
+    with pytest.raises(ValueError):
+        voices.register("voices/clone_refs/A.wav", "A2")       # đã có trong danh sách
