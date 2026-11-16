@@ -72,3 +72,12 @@ def test_status_reports_broken_vendor_source(fr):
     vals["FIRERED_ROOT"] = str(root)
     st = machine.firered_status()
     assert not st["ok"] and "fireredasr2/models" in st["why"]
+
+
+def test_vendor_forced_align_casts_bf16_to_float32():
+    """fix 2026-11-16: FireRed use_half=BF16 → torchaudio.forced_align «log_probs must be float64, float32 or float16»
+    → mất mốc thời gian từng chữ (chia đều). Bản vendor ép .float() trước forced_align."""
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[1] / "vendor" / "FireRedASR2S" / "fireredasr2s" / "fireredasr2" / "models"
+           / "fireredasr_aed.py").read_text(encoding="utf-8")
+    assert "n_ctc_logits.float().unsqueeze(0)" in src

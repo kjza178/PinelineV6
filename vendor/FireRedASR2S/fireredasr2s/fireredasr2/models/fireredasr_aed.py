@@ -62,8 +62,10 @@ class FireRedAsrAed(torch.nn.Module):
                     nbest_hyps[n][0]["timestamp"] = None
                     continue
 
+                # Pineline 2026-11-16: use_half=BF16 → forced_align chỉ nhận float16/32/64
+                # («log_probs must be float64, float32 or float16») → mất mốc thời gian từng chữ. Ép float32.
                 alignment, _ = torchaudio.functional.forced_align(
-                    n_ctc_logits.unsqueeze(0), y.unsqueeze(0), blank=0)
+                    n_ctc_logits.float().unsqueeze(0), y.unsqueeze(0), blank=0)
                 alignment = alignment[0].cpu().tolist()
                 start_times, end_times = self.ctc.ctc_alignment_to_timestamp(alignment,
                     self.encoder.input_preprocessor.subsampling, blank_id=0)

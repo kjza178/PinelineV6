@@ -1,6 +1,9 @@
 # CHANGELOG — V6
 
 ## 2026-11-16
+- Sửa (vá vendor FireRed): chạy BF16 (`FIRERED_USE_HALF`, mặc định bật) → `torchaudio.forced_align` báo «log_probs must be
+  float64, float32 or float16» mỗi câu → mất mốc thời gian TỪNG CHỮ (FireRed chia đều trong câu; mốc câu từ VAD vẫn đúng).
+  `vendor/FireRedASR2S/.../fireredasr_aed.py` ép `.float()` trước forced_align.
 - **Sửa: FireRed «No module named fireredasr2s.fireredasr2.models»** trên máy cài từ git: `.gitignore` dòng `models/`
   (định bỏ thư mục model lớn ở gốc) loại luôn code Python `vendor/FireRedASR2S/fireredasr2s/{fireredasr2,fireredlid,
   fireredpunc}/models/` → bản vendor trong repo thiếu code, script cài thấy thư mục đã có nên không clone lại. Đã bổ
