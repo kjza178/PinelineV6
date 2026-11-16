@@ -338,3 +338,6 @@ a.btn{text-decoration:none}
 .test-add .row{gap:8px;flex-wrap:wrap}
 .test-add .row input[type=file]{font-size:12px;color:var(--muted)}
 .test-add textarea{width:100%;margin-top:8px;font-family:ui-monospace,monospace;font-size:12px}
+.voice-new{gap:8px;flex-wrap:wrap}
+.voice-new input[type=file]{font-size:12px;color:var(--muted)}
+#voices-sec .scroll{max-height:320px}

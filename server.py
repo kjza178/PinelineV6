@@ -5836,7 +5836,7 @@ def _prep_ref(raw: Path, max_dur: float = 8.0) -> tuple[Path, str, float]:
 
 
 @app.post("/api/clone-voice")
-def clone_voice(name: str = Form(...), file: UploadFile = File(...)):
+def clone_voice(name: str = Form(...), file: UploadFile = File(...), text: str = Form("")):
     """Clone 1 giọng từ file mẫu (3-8s). Đăng ký vào registry chung (VieNeu/OmniVoice)."""
     name = (name or "").strip()
     if not name:
@@ -5852,7 +5852,9 @@ def clone_voice(name: str = Form(...), file: UploadFile = File(...)):
 
     # Chuẩn hoá mẫu (auto-cắt ≤8s ở ranh giới câu) + transcript rồi enroll (ref+text)
     try:
-        prepped, text, dur = _prep_ref(ref)
+        prepped, asr_text, dur = _prep_ref(ref)
+        # 2026-11-16: người dùng gõ lời của file mẫu (máy chưa có model nhận dạng → asr_text rỗng, giọng clone kém)
+        text = (text or "").strip() or asr_text
         enroll_voice(name, prepped, text)
         print(f"[clone] {name}: mẫu {dur}s" + (" (đã tự cắt ≤8s)" if dur <= 8 else ""))
     except Exception as e:  # noqa: BLE001
@@ -5860,7 +5862,7 @@ def clone_voice(name: str = Form(...), file: UploadFile = File(...)):
         traceback.print_exc()
         print(f"[clone] FAIL {name}: {e}", flush=True)
         return JSONResponse({"error": f"clone thất bại: {e}"}, status_code=500)
-    return {"ok": True, "voice": name, "ref_sec": dur}
+    return {"ok": True, "voice": name, "ref_sec": dur, "has_text": bool(text)}
 
 
 # Câu mẫu để nghe thử giọng + thư mục cache mẫu (đọc 1 lần, nghe lại tức thì).

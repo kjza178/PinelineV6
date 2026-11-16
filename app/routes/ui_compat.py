@@ -98,3 +98,19 @@ def tc_add_project(body: dict):
 def tc_remove_project(body: dict):
     from services import test_channel_setup as tcs
     return {"ok": tcs.remove_project(str((body or {}).get("id") or ""))}
+
+
+# ── Giọng clone: danh sách + trạng thái file mẫu (services/voices) ──
+@router.get("/api/v6/voices")
+def v6_voices():
+    from services import voices
+    return voices.list_voices()
+
+
+@router.post("/api/v6/voices/remove")
+def v6_voice_remove(body: dict):
+    from services import voices
+    name = str((body or {}).get("name") or "")
+    if not name:
+        raise HTTPException(400, "thiếu name")
+    return {"ok": voices.remove(name)}

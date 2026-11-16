@@ -1,6 +1,11 @@
 # CHANGELOG — V6
 
 ## 2026-11-16
+- **Giọng đọc trên máy mới:** Cài đặt → Giọng đọc có mục «Giọng clone trên máy này»: liệt kê giọng dùng được / **thiếu file
+  mẫu** (git mang danh sách tên nhưng không mang wav), nghe thử, xoá mục hỏng; **tạo giọng mới** từ file ghi âm 3–8s
+  (không cần mở một job) + ô «lời trong file mẫu» (máy chưa có model nhận dạng thì trước đây lời mẫu rỗng → clone kém;
+  `/api/clone-voice` nhận thêm `text`). Hướng dẫn chép thư mục voices từ máy cũ bằng `scripts/import_voices.py`.
+  `services/voices.py`, `/api/v6/voices`.
 - **Kênh test trên máy mới (không có V2):** hộp «Test bản quyền» → «Thêm tài khoản»: chọn / dán file OAuth client JSON
   (Google Cloud Console; «web» hoặc «installed»), hoặc «Dùng file này» với client_secret*.json tìm thấy trong thư mục
   yt_uploader → ghi `data/test_channel/projects.json` (trước không code nào tạo file này) → «Đăng nhập». Hộp hiện đúng

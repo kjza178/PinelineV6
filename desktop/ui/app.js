@@ -592,7 +592,7 @@ async function createJob(ev) {
 const pctFmt = (v) => `${Math.round(Number(v) * 100)}%`;
 const xFmt = (v) => `${Number(v).toFixed(2).replace(/0$/, "")}×`;
 const FIELDS = {
-  voice: { label: "Giọng mặc định", hint: "Giọng clone dùng cho job mới (cả hai bộ đọc dùng chung danh sách). Tạo giọng mới ở tab «Giọng đọc» của một job.", type: "voice" },
+  voice: { label: "Giọng mặc định", hint: "Giọng clone dùng cho job mới (cả hai bộ đọc dùng chung danh sách). Tạo giọng mới ở mục «Giọng clone trên máy này» bên dưới.", type: "voice" },
   speed: { label: "Tốc độ đọc", hint: "1× là tốc độ chuẩn. Nhanh quá dễ nuốt chữ.", type: "range", min: 0.8, max: 1.3, step: 0.05, fmt: xFmt },
   tts_engine: { label: "Bộ đọc", type: "radio", options: [["vieneu", "VieNeu", "Nhanh, ổn định — nên dùng"], ["omnivoice", "OmniVoice", "Giọng tự nhiên hơn, chậm hơn"]] },
   asr_engine: { label: "Nhận dạng tiếng Trung", hint: "Chuyển lời thoại gốc thành chữ trước khi dịch.", type: "select",
@@ -636,6 +636,67 @@ const CFG_PANES = [
   ["brand", "Thương hiệu", "Tên kênh, logo và khung viền trên video.", [["Nhận diện kênh", ["brand_mode", "brand_text", "brand_logo", "frame"]]]],
 ];
 let cfg = null;
+
+// ── Giọng clone: danh sách + thiếu file mẫu + tạo giọng mới (services/voices, /api/clone-voice) ──
+async function paintVoicesSec() {
+  const sec = $("#voices-sec"); if (!sec) return;
+  let d;
+  try { d = await api("GET", "/api/v6/voices"); } catch (e) { sec.innerHTML = `<h3>Giọng clone trên máy này</h3><p class="err">Không đọc được danh sách giọng: ${esc(e.message)}</p>`; return; }
+  const rows = d.items.map((v) => `<tr data-voice="${esc(v.name)}"><td><b style="font-weight:500">${esc(v.name)}</b><div class="mut small">${esc(v.source)}${v.ok && !v.has_text ? " · chưa có lời mẫu" : ""}</div></td>`
+    + `<td>${v.ok ? '<span class="tag ok">Dùng được</span>' : `<span class="tag warn" title="${esc(v.ref)}">Thiếu file mẫu</span>`}</td>`
+    + `<td class="acts">${v.ok ? '<button type="button" class="btn sm ghost" data-vact="play">▶ Nghe</button>' : ""}<button type="button" class="btn sm ghost danger" data-vact="del">Xoá</button></td></tr>`).join("");
+  sec.innerHTML = `<h3>Giọng clone trên máy này</h3>
+    <p class="sub">${d.ok} giọng dùng được${d.missing ? ` · <b>${d.missing} thiếu file mẫu</b> (tên có trong danh sách nhưng file ghi âm chưa có trên máy)` : ""}.</p>
+    ${d.missing ? `<div class="callout">Giọng thiếu file mẫu: chép thư mục <code>voices</code> từ máy cũ (USB / mạng) vào một chỗ, vd <code>E:\\may_cu\\voices</code>, rồi chạy
+      <code>python scripts\\import_voices.py --src E:\\may_cu</code> (thêm <code>--apply</code> để chép thật) — hoặc tạo lại giọng bên dưới.</div>` : ""}
+    <div class="field stack"><div class="lbl"><b>Tạo giọng mới</b><span>File ghi âm một người nói rõ, 3–8 giây (dài hơn tự cắt), không nhạc nền. Gõ đúng lời trong file để giọng clone chuẩn hơn.</span></div>
+      <div class="ctl"><div class="row voice-new"><input id="vnew-name" placeholder="Tên giọng (vd GiongNam1)"><input type="file" id="vnew-file" accept=".wav,.mp3,.m4a,.flac,.ogg"></div>
+        <input id="vnew-text" placeholder="Lời trong file mẫu (nên điền)" style="margin-top:8px;width:100%">
+        <div class="actions"><span id="vnew-err" class="err small grow"></span><button type="button" class="btn sm primary" id="vnew-ok">Tạo giọng</button></div></div></div>
+    ${rows ? `<div class="scroll"><table class="data"><thead><tr><th>Giọng</th><th>Trạng thái</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="note">Chưa có giọng nào — tạo giọng mới ở trên.</p>'}`;
+}
+async function refreshVoiceSelect() {
+  voices = null; await loadVoices().catch(() => null);
+  const sel = $("#form-cfg")?.elements.voice; if (!sel || sel.tagName !== "SELECT") return;
+  const cur = sel.value;
+  sel.innerHTML = (voices || []).map((x) => `<option${x === cur ? " selected" : ""}>${esc(x)}</option>`).join("") || '<option value="">(chưa có giọng)</option>';
+}
+$("#cfg-body").addEventListener("click", (e) => {
+  const b = e.target.closest("#vnew-ok, button[data-vact]"); if (!b) return;
+  if (b.id === "vnew-ok") {
+    const name = $("#vnew-name").value.trim(), file = $("#vnew-file").files[0], err = $("#vnew-err");
+    err.textContent = "";
+    if (!name) { err.textContent = "Đặt tên cho giọng"; return; }
+    if (!file) { err.textContent = "Chọn file ghi âm"; return; }
+    return act(b, "", async () => {
+      b.textContent = "Đang tạo…";
+      const fd = new FormData(); fd.append("name", name); fd.append("file", file); fd.append("text", $("#vnew-text").value.trim());
+      try {
+        const r = await fetch("/api/clone-voice", { method: "POST", body: fd });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+        say(`Đã tạo giọng «${j.voice}» (mẫu ${j.ref_sec}s)${j.has_text ? "" : " — chưa có lời mẫu, giọng có thể kém chuẩn"}`, j.has_text ? "" : "err");
+      } catch (e2) { err.textContent = e2.message; throw e2; } finally { b.textContent = "Tạo giọng"; }
+      await refreshVoiceSelect(); await paintVoicesSec();
+    });
+  }
+  const name = b.closest("tr[data-voice]").dataset.voice;
+  if (b.dataset.vact === "del") {
+    if (!confirm(`Xoá giọng «${name}» khỏi danh sách?`)) return;
+    return act(b, "Đã xoá giọng", async () => { await api("POST", "/api/v6/voices/remove", { name }); await refreshVoiceSelect(); await paintVoicesSec(); });
+  }
+  if (b.dataset.vact === "play") {
+    const f = $("#form-cfg"), engine = f.querySelector('input[name="tts_engine"]:checked')?.value || "vieneu";
+    return act(b, "", async () => {
+      b.textContent = "Đang đọc…";
+      try {
+        const r = await fetch("/api/voice-sample?" + new URLSearchParams({ engine, voice: name, speed: f.elements.speed?.value || "1" }));
+        if (!r.ok) { let m = `HTTP ${r.status}`; try { m = (await r.json()).error || m; } catch (_) { /* không phải JSON */ } throw new Error(m); }
+        player.src = URL.createObjectURL(await r.blob()); await player.play();
+      } finally { b.textContent = "▶ Nghe"; }
+    });
+  }
+});
 
 // ── Âm thanh: chế độ âm nền + CHỈ những mức âm lượng mà chế độ đó dùng (engines/render._build_audio_filter) ──
 const SAFE_AUDIO = ["voice_bgm", "sfx_lib", "duck_bgm", "voice_only"];
@@ -717,6 +778,7 @@ function paintCfg() {
   const advVideo = Object.keys(FIELDS).filter((k) => FIELDS[k].adv === "video");
   $("#cfg-body").innerHTML = CFG_PANES.map(([id, title, sub, secs]) => {
     let html = id === "audio" ? audioPane() : secs.map(([t, ks]) => cfgSection(t, ks)).join("");
+    if (id === "voice") html += '<div class="sec" id="voices-sec"><h3>Giọng clone trên máy này</h3><p class="sub">Đang đọc…</p></div>';
     if (id === "video") {
       html += `<div class="sec"><details class="more"><summary>Chống trùng nội dung (phóng to, chuyển động, chỉnh màu, lật…)</summary>
         <div class="inner">${advVideo.filter((k) => k in cfg.defaults).map(cfgField).join("")}</div></details></div>`;
@@ -726,6 +788,7 @@ function paintCfg() {
   $("#cfg-meta").textContent = cfg.updated_at ? `Áp dụng cho job chạy sau khi lưu · sửa lần cuối ${String(cfg.updated_at).replace("T", " ").slice(0, 16)}${cfg.updated_by ? ` (${cfg.updated_by})` : ""}` : "Áp dụng cho job chạy sau khi lưu.";
   $("#cfg-bar").hidden = true; $("#cfg-err").hidden = true;
   syncAudioRows();
+  paintVoicesSec();
   showPane(curPane);
 }
 function cfgPatch() {
