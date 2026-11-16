@@ -123,3 +123,34 @@ def test_cleanup_only_after_merge(lib, monkeypatch):
     r = dl.cleanup(["BoA", "BoB"])
     assert r["cleaned"] == {"BoA": 2} and "chưa có file merged" in r["errors"][0]
     assert {it["name"]: it for it in dl.scan()["items"]}["BoA"]["fragments"] == 2
+
+
+def test_scan_includes_copyright_test_result_and_sse(lib, monkeypatch):
+    import core.film_db as film_db
+    from events.bus import bus
+    seen = []
+    monkeypatch.setattr(bus, "publish", lambda kind, data: seen.append((kind, data)))
+    film_db.upsert_library_block(name="BoA", status="blocked", reason="Content ID: nhạc", test_yt_url="https://youtu.be/x")
+    by = {it["name"]: it for it in dl.scan()["items"]}
+    assert by["BoA"]["block"]["status"] == "blocked" and by["BoA"]["block"]["yt_url"] == "https://youtu.be/x"
+    assert by["BoB"]["block"]["status"] == "unknown"
+    assert ("library.block", {"name": "BoA", "status": "blocked", "reason": "Content ID: nhạc",
+                              "test_yt_url": "https://youtu.be/x", "recheck_at": ""}) in seen
+    film_db.delete_library_block("BoA")
+
+
+def test_lib_check_root_follows_library_at_call_time(lib, monkeypatch):
+    import tools.lib_check as lc
+    monkeypatch.delenv("LIB_ROOT", raising=False)
+    assert lc.lib_root() == lib                    # theo thư viện đang dùng, không phải giá trị lúc import
+    monkeypatch.setenv("LIB_ROOT", "/khac")
+    assert lc.lib_root() == Path("/khac")
+
+
+def test_desktop_has_copyright_test():
+    ui = Path(__file__).resolve().parents[1] / "desktop" / "ui"
+    html, js = (ui / "index.html").read_text(encoding="utf-8"), (ui / "app.js").read_text(encoding="utf-8")
+    assert 'id="dlg-test"' in html and 'id="disk-test-sel"' in html and 'id="disk-block"' in html
+    for needle in ("/test-channel/test-one", "/test-channel/recheck-one", "/test-channel/status", "/test-channel/batch-start",
+                   "/library/set-block-status", '"library.block"'):
+        assert needle in js, needle

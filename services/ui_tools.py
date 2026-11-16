@@ -81,5 +81,6 @@ def batch_config_set(body: dict, by: str = "ui") -> dict:
 
 
 def test_channel_batch_stop() -> dict:
-    import agents.test_channel as test_channel
+    # cùng module với routes_films (/test-channel/batch-start) — agents.test_channel là bản sao có BATCH_STATE riêng
+    import tools.test_channel as test_channel
     return test_channel.stop_batch_test()

@@ -90,10 +90,12 @@
         <label class="search"><svg><use href="#i-search"/></svg><input id="disk-q" placeholder="Tìm theo tên phim (Trung / Việt)…"></label>
         <div class="seg" id="disk-view" role="radiogroup" aria-label="Kiểu xem"><label><input type="radio" name="disk-view" value="grid" checked>Lưới</label><label><input type="radio" name="disk-view" value="list">Danh sách</label></div>
         <select id="disk-state" aria-label="Lọc trạng thái"><option value="todo">Chưa làm</option><option value="ready">Sẵn sàng tạo job</option><option value="need_merge">Cần gộp tập</option><option value="done">Đã làm</option><option value="">Tất cả</option></select>
+        <select id="disk-block" aria-label="Lọc bản quyền"><option value="">Bản quyền: tất cả</option><option value="unknown">Chưa test</option><option value="clean">Sạch</option><option value="bad">Bị chặn / claim</option><option value="testing">Đang test</option></select>
         <span class="grow"></span>
         <span id="disk-picked" class="sub"></span>
         <button type="button" class="btn ghost" id="disk-clear" hidden>Bỏ chọn</button>
         <button type="button" class="btn danger" id="disk-del-sel" hidden>Xoá</button>
+        <button type="button" class="btn" id="disk-test-sel" hidden title="Test bản quyền hàng loạt trên kênh test (chạy nền, lần lượt)">Test bản quyền</button>
         <button type="button" class="btn" id="disk-merge-sel" disabled>Gộp tập đã chọn</button>
         <button type="button" class="btn primary" id="disk-add-sel" disabled>Tạo job đã chọn</button>
       </div>
@@ -235,6 +237,25 @@
   <p class="sub">Bảng nhân vật của mỗi bộ phim không bị tập mới tự ghi đè. Khi AI ở một tập đề xuất khác bản đã chốt, hệ thống giữ bản cũ và hỏi bạn ở đây.
     «Dùng bản mới» áp cho các tập dịch sau.</p>
   <div class="scroll"><table class="data"><thead><tr><th>Bộ phim</th><th>Mục</th><th>Đang dùng</th><th>Đề xuất mới</th><th>Từ tập</th><th></th></tr></thead><tbody id="conf-rows"></tbody></table></div>
+</dialog>
+
+<dialog id="dlg-test">
+  <div class="dlg-head"><h2>Test bản quyền YouTube</h2><span class="grow"></span><button type="button" class="btn ghost" id="test-close">Đóng</button></div>
+  <p class="sub">Cắt mẫu 90 giây (từ giây 60), đăng «Không công khai» lên kênh test rồi chờ YouTube quét Content ID (~5 phút) — biết phim có bị chặn trước khi làm.</p>
+  <div class="test-film"><b id="test-title"></b><div class="mut small" id="test-name"></div></div>
+  <div class="test-st"><span>Kết quả:</span> <span id="test-badge" class="tag"></span> <span id="test-when" class="mut small"></span></div>
+  <p id="test-reason" class="sub" hidden></p>
+  <p id="test-link" class="small" hidden></p>
+  <div id="test-acc"></div>
+  <label class="check"><input type="checkbox" id="test-autodel"> Xoá video test trên YouTube sau khi có kết quả</label>
+  <div class="actions">
+    <button type="button" class="btn" id="test-recheck" hidden>Kiểm lại ngay</button>
+    <button type="button" class="btn primary" id="test-run">Bắt đầu test</button>
+  </div>
+  <details class="more"><summary>Tự đánh dấu kết quả</summary><div class="inner"><div class="row" id="test-mark">
+    <button type="button" class="btn sm" data-mark="clean">Sạch</button><button type="button" class="btn sm" data-mark="partially_blocked">Chặn 1 phần</button>
+    <button type="button" class="btn sm" data-mark="blocked">Bị chặn</button><button type="button" class="btn sm" data-mark="claim">Claim nhạc</button>
+    <button type="button" class="btn sm ghost" data-mark="unknown">Xoá kết quả</button></div></div></details>
 </dialog>
 
 <script src="app.js"></script>

@@ -1,5 +1,14 @@
 # CHANGELOG — V6
 
+## 2026-11-16
+- **Test bản quyền YouTube trong «Phim chờ làm»** (chuyển từ hộp «Kiểm tra Bản Quyền» của trang Phim cũ): nhãn kết quả
+  trên từng phim (Chưa test / Đang test / Sạch / Chặn 1 phần / Bị chặn / Claim / Test lỗi), lọc theo bản quyền, nút
+  «Test BQ» mở hộp: chọn tài khoản kênh test, cắt mẫu 90s → đăng Không công khai → Content ID; «Kiểm lại ngay»; tự đánh
+  dấu kết quả. Chọn nhiều phim → «Test bản quyền N phim» (chạy nền). Kết quả recheck (~5 phút) về qua SSE `library.block`
+  (core/film_db.upsert_library_block), không polling. Đăng nhập kênh test vẫn ở trang Đăng YouTube (cũ).
+- Sửa: cắt mẫu test (tools/lib_check) đọc thư mục thư viện LÚC GỌI (`lib_root()`, theo thư mục Hongguo 2 / Cài đặt) —
+  trước cố định lúc server khởi động. Nút dừng test hàng loạt gọi đúng module với nút bắt đầu (tools.test_channel).
+
 ## 2026-11-15
 - Phim chờ làm: chọn **kiểu xem Lưới / Danh sách** (danh sách = bảng có ảnh nhỏ, ô chọn + «chọn tất cả»); app nhớ lựa chọn.
 - Phim chờ làm: nút **Xoá** (từng phim hoặc chọn nhiều) — xoá HẲN thư mục phim khỏi ổ sau khi hỏi xác nhận (kèm dung

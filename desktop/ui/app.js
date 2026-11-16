@@ -1216,18 +1216,26 @@ let diskView = (() => { try { return localStorage.getItem("disk.view") || "grid"
 function diskPoster(it) {
   return it.has_poster ? `<img loading="lazy" src="/api/v6/disk-library/poster?name=${encodeURIComponent(it.name)}" alt="">` : `<span class="noimg">${esc((it.title || "?").slice(0, 2))}</span>`;
 }
+const LIB_BLOCK = { unknown: ["Chưa test", "mut"], testing: ["Đang test…", "info"], clean: ["Sạch", "ok"], partially_blocked: ["Chặn 1 phần", "warn"],
+  blocked: ["Bị chặn", "bad"], claim: ["Claim", "warn"], failed: ["Test lỗi", "bad"], private: ["Riêng tư", "mut"] };
+const BAD_BLOCK = ["blocked", "partially_blocked", "claim"];
+function diskBlockTag(it) {
+  const b = it.block || {}, [t, c] = LIB_BLOCK[b.status] || [b.status || "Chưa test", ""];
+  return `<span class="tag ${c}" title="${esc(b.reason || "Bản quyền YouTube")}">${b.status === "unknown" || !b.status ? "BQ: " : ""}${esc(t)}</span>`;
+}
 function diskMeta(it) { return [it.episodes > 1 ? `${it.episodes} tập` : "", fmtSize(it.size), it.mtime ? new Date(it.mtime * 1000).toLocaleDateString("vi-VN") : ""].filter(Boolean).join(" · "); }
 function diskActs(it) {
   return `${it.state === "ready" ? `<button class="btn sm primary" data-disk="add">Tạo job</button>` : ""}`
     + `${it.state === "need_merge" ? `<button class="btn sm" data-disk="merge" title="Nối các tập thành 1 file (cùng độ phân giải: giữ nguyên chất lượng)">Gộp tập</button>` : ""}`
     + `${it.fragments ? `<button class="btn sm ghost" data-disk="cleanup" title="Đã có file gộp: chuyển ${it.fragments} tập lẻ vào thùng rác của thư viện">Dọn tập lẻ</button>` : ""}`
+    + `<button class="btn sm ghost" data-disk="test" title="Test bản quyền YouTube trên kênh test">Test BQ</button>`
     + `${it.state !== "merging" ? `<button class="btn sm ghost danger" data-disk="delete" title="Xoá hẳn phim này khỏi ổ">Xoá</button>` : ""}`;
 }
 function diskCard(it) {
   const [t, cls] = DISK_ST[it.state] || [it.state, ""], pick = it.state !== "merging";
   return `<article class="lib-card${diskPicked.has(it.name) ? " picked" : ""}${pick ? " can-pick" : ""}" data-name="${esc(it.name)}" title="${esc(it.path || it.folder || "")}">`
     + `<div class="poster">${diskPoster(it)}<span class="tag ${cls} st">${esc(t)}</span>${pick ? `<span class="pick" aria-hidden="true">✓</span>` : ""}</div>`
-    + `<div class="tt">${esc(it.title)}</div><div class="tvi">${esc(it.title_vi || "")}</div><div class="meta">${esc(diskMeta(it))}</div>`
+    + `<div class="tt">${esc(it.title)}</div><div class="tvi">${esc(it.title_vi || "")}</div><div class="meta">${esc(diskMeta(it))} ${diskBlockTag(it)}</div>`
     + (it.merge_error ? `<div class="err small">Gộp lỗi: ${esc(it.merge_error)}</div>` : "")
     + `<div class="acts">${diskActs(it)}</div></article>`;
 }
@@ -1240,19 +1248,21 @@ function diskRow(it) {
     + `${it.merge_error ? `<div class="err small">Gộp lỗi: ${esc(it.merge_error)}</div>` : ""}</td>`
     + `<td>${it.episodes > 1 ? `${it.episodes} tập` : ""}</td><td>${esc(fmtSize(it.size))}</td>`
     + `<td>${it.mtime ? esc(new Date(it.mtime * 1000).toLocaleDateString("vi-VN")) : ""}</td>`
-    + `<td><span class="tag ${cls}">${esc(t)}</span></td><td class="acts">${diskActs(it)}</td></tr>`;
+    + `<td><span class="tag ${cls}">${esc(t)}</span></td><td>${diskBlockTag(it)}</td><td class="acts">${diskActs(it)}</td></tr>`;
 }
 function paintDisk() {
   if (!disk?.ok) return;
-  const q = $("#disk-q").value.trim().toLowerCase(), want = $("#disk-state").value;
+  const q = $("#disk-q").value.trim().toLowerCase(), want = $("#disk-state").value, wb = $("#disk-block").value;
+  const bst = (it) => (it.block || {}).status || "unknown";
   const rows = disk.items.filter((it) => (!q || (it.title + " " + it.name + " " + (it.title_vi || "")).toLowerCase().includes(q))
-    && (!want || (want === "todo" ? it.state !== "done" : it.state === want)));
+    && (!want || (want === "todo" ? it.state !== "done" : it.state === want))
+    && (!wb || (wb === "bad" ? BAD_BLOCK.includes(bst(it)) : wb === "unknown" ? ["unknown", "failed"].includes(bst(it)) : bst(it) === wb)));
   for (const n of [...diskPicked]) if (!disk.items.some((it) => it.name === n && it.state !== "merging")) diskPicked.delete(n);
   const grid = $("#disk-grid");
   grid.className = diskView === "list" ? "lib-list card scroll" : "lib-grid";
   if (!rows.length) { grid.innerHTML = `<p class="note">${disk.items.length ? "Không có phim nào khớp bộ lọc." : "Thư viện chưa có phim nào."}</p>`; diskPickedPaint(); return; }
   grid.innerHTML = diskView === "list"
-    ? `<table class="data"><thead><tr><th style="width:32px"><input type="checkbox" id="disk-all" aria-label="Chọn tất cả"${rows.every((it) => it.state === "merging" || diskPicked.has(it.name)) ? " checked" : ""}></th><th style="width:44px"></th><th>Phim</th><th>Tập</th><th>Dung lượng</th><th>Ngày</th><th>Trạng thái</th><th></th></tr></thead><tbody>${rows.map(diskRow).join("")}</tbody></table>`
+    ? `<table class="data"><thead><tr><th style="width:32px"><input type="checkbox" id="disk-all" aria-label="Chọn tất cả"${rows.every((it) => it.state === "merging" || diskPicked.has(it.name)) ? " checked" : ""}></th><th style="width:44px"></th><th>Phim</th><th>Tập</th><th>Dung lượng</th><th>Ngày</th><th>Trạng thái</th><th>Bản quyền</th><th></th></tr></thead><tbody>${rows.map(diskRow).join("")}</tbody></table>`
     : rows.map(diskCard).join("");
   diskPickedPaint();
 }
@@ -1264,6 +1274,7 @@ function diskPickedPaint() {
   $("#disk-add-sel").disabled = !nAdd; $("#disk-add-sel").textContent = nAdd ? `Tạo ${nAdd} job` : "Tạo job đã chọn";
   $("#disk-merge-sel").disabled = !nMerge; $("#disk-merge-sel").textContent = nMerge ? `Gộp tập ${nMerge} bộ` : "Gộp tập đã chọn";
   $("#disk-del-sel").hidden = !sel.length; $("#disk-del-sel").textContent = `Xoá ${sel.length} phim`;
+  $("#disk-test-sel").hidden = !sel.length; $("#disk-test-sel").textContent = `Test bản quyền ${sel.length} phim`;
 }
 async function diskAdd(btn, names) {
   return act(btn, "", async () => {
@@ -1307,6 +1318,7 @@ $("#disk-grid").addEventListener("click", (e) => {
     if (b.dataset.disk === "add") diskAdd(b, [name]);
     if (b.dataset.disk === "merge") diskMerge(b, [name]);
     if (b.dataset.disk === "delete") diskDelete(b, [name]);
+    if (b.dataset.disk === "test") openTest(name);
     if (b.dataset.disk === "cleanup") act(b, "", async () => {
       const r = await api("POST", "/api/v6/disk-library/cleanup", { names: [name] });
       say(r.ok ? `Đã chuyển ${Object.values(r.cleaned).reduce((a, x) => a + x, 0)} tập lẻ vào thùng rác` : `Không dọn được: ${(r.errors || [])[0] || ""}`, r.ok ? "" : "err");
@@ -1343,6 +1355,77 @@ $("#disk-merge-sel").addEventListener("click", (e) => diskMerge(e.currentTarget,
 $("#disk-rescan").addEventListener("click", (e) => act(e.currentTarget, "", () => loadDisk(true)));
 $("#disk-q").addEventListener("input", debounce(paintDisk, 200));
 $("#disk-state").addEventListener("change", paintDisk);
+$("#disk-block").addEventListener("change", paintDisk);
+
+// ── Test bản quyền (tools/test_channel: cắt mẫu 90s → kênh test Unlisted → recheck Content ID; kết quả qua SSE library.block) ──
+let testName = null, testCh = null;
+function testPaint() {
+  const it = (disk?.items || []).find((x) => x.name === testName);
+  if (!it) return;
+  const b = it.block || {}, [t, c] = LIB_BLOCK[b.status] || [b.status || "Chưa test", ""];
+  $("#test-title").textContent = it.title_vi ? `${it.title} — ${it.title_vi}` : it.title;
+  $("#test-name").textContent = "Thư mục: " + (it.folder || it.path || it.name);
+  const badge = $("#test-badge"); badge.className = "tag " + c; badge.textContent = t;
+  $("#test-when").textContent = b.status === "testing" && b.recheck_at ? `· kiểm lại lúc ${String(b.recheck_at).slice(11, 16)}` : (b.tested_at ? `· ${String(b.tested_at).slice(0, 16).replace("T", " ")}` : "");
+  $("#test-reason").hidden = !b.reason; $("#test-reason").textContent = b.reason || "";
+  $("#test-link").hidden = !b.yt_url; $("#test-link").innerHTML = b.yt_url ? `Video test: <a href="${esc(b.yt_url)}" target="_blank" rel="noopener">${esc(b.yt_url)}</a>` : "";
+  $("#test-recheck").hidden = !b.yt_url;
+}
+async function testLoadAccounts() {
+  const box = $("#test-acc");
+  box.innerHTML = '<p class="sub">Đang đọc kênh test…</p>';
+  try { testCh = await api("GET", "/test-channel/status"); } catch (e) { box.innerHTML = `<p class="err">Không đọc được kênh test: ${esc(e.message)}</p>`; $("#test-run").disabled = true; return; }
+  const projs = (testCh.projects || []).filter((p) => p.connected);
+  if (!projs.length) {
+    box.innerHTML = '<div class="callout warn">Chưa đăng nhập kênh test YouTube. Đăng nhập ở <a href="/films/ui?tab=upload" target="_blank" rel="noopener">trang Đăng YouTube (cũ) ↗</a> rồi mở lại hộp này.</div>';
+    $("#test-run").disabled = true; return;
+  }
+  let pref = ""; try { pref = localStorage.getItem("tc_preferred_project") || ""; } catch (_) { /* không có storage */ }
+  if (!projs.some((p) => p.id === pref)) pref = projs.some((p) => p.id === testCh.last_connected_project) ? testCh.last_connected_project : projs[0].id;
+  box.innerHTML = `<label class="inline">Tài khoản test <select id="test-proj">${projs.map((p) => `<option value="${esc(p.id)}"${p.id === pref ? " selected" : ""}>${esc(`${p.name || p.id} — ${p.channel_title || p.email || p.id}${p.exhausted_today ? " · hết lượt hôm nay" : ""}`)}</option>`).join("")}</select></label>`
+    + (testCh.channel_limit_reached ? '<p class="err small">Kênh test đã chạm giới hạn upload hôm nay.</p>' : "")
+    + `<p class="mut small">Hôm nay đã test ${testCh.today_uploads || 0} video.</p>`;
+  $("#test-run").disabled = false;
+}
+function openTest(name) {
+  testName = name; testPaint();
+  $("#dlg-test").showModal();
+  testLoadAccounts();
+}
+$("#test-close").addEventListener("click", () => $("#dlg-test").close());
+$("#test-run").addEventListener("click", (e) => {
+  const it = (disk?.items || []).find((x) => x.name === testName); if (!it) return;
+  const pid = $("#test-proj")?.value || "";
+  try { if (pid) localStorage.setItem("tc_preferred_project", pid); } catch (_) { /* không có storage */ }
+  act(e.currentTarget, "", async () => {
+    e.currentTarget.textContent = "Đang cắt mẫu + upload…";
+    say("Đang cắt mẫu 90s và đăng lên kênh test — có thể mất vài phút");
+    let r;
+    try { r = await api("POST", "/test-channel/test-one", { name: it.name, title_vi: it.title_vi || "", project_id: pid, auto_delete: $("#test-autodel").checked }); }
+    finally { $("#test-run").textContent = "Bắt đầu test"; }
+    say(r.status === "testing" ? "Đã đăng mẫu — YouTube quét Content ID, kết quả tự cập nhật sau ~5 phút" : `Kết quả: ${(LIB_BLOCK[r.status] || [r.status])[0]}${r.reason ? " — " + r.reason : ""}`);
+    await loadDisk(); testPaint();
+  });
+});
+$("#test-recheck").addEventListener("click", (e) => act(e.currentTarget, "", async () => {
+  const r = await api("POST", "/test-channel/recheck-one", { name: testName });
+  say(`Kiểm lại: ${(LIB_BLOCK[r.status] || [r.status])[0]}${r.reason ? " — " + r.reason : ""}`);
+  await loadDisk(); testPaint();
+}));
+$("#test-mark").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-mark]"); if (!b) return;
+  act(b, "Đã lưu kết quả", async () => { await api("POST", "/library/set-block-status", { name: testName, status: b.dataset.mark, reason: "Người dùng đánh dấu" }); await loadDisk(); testPaint(); });
+});
+$("#disk-test-sel").addEventListener("click", (e) => {
+  const items = (disk?.items || []).filter((it) => diskPicked.has(it.name));
+  if (!items.length) return;
+  if (!confirm(`Test bản quyền ${items.length} phim trên kênh test?\n\nMỗi phim: cắt mẫu 90s, đăng «Không công khai» lên kênh test, kết quả về sau ~5 phút. Chạy nền lần lượt.`)) return;
+  act(e.currentTarget, "", async () => {
+    const r = await api("POST", "/test-channel/batch-start", { names: items.map((it) => it.name), title_vi_map: Object.fromEntries(items.map((it) => [it.name, it.title_vi || ""])) });
+    say(`Đã bắt đầu test ${r.total ?? items.length} phim — kết quả hiện dần trên từng phim`);
+    diskPicked.clear(); loadDisk();
+  });
+});
 
 // ───────────── Chat Agent (D10) ─────────────
 let agentHistory = [];
@@ -1405,6 +1488,13 @@ function connect() {
     try { const t = JSON.parse(e.data).text; if (t && /TẠM DỪNG|nhường ghế/.test(t)) say(t, "err"); } catch (_) { /* event không có text */ }
   });
   es.addEventListener("series.conflict", () => loadConflicts());
+  es.addEventListener("library.block", (e) => {             // kết quả test bản quyền (recheck nền ~5 phút)
+    const d = JSON.parse(e.data), it = (disk?.items || []).find((x) => x.name === d.name);
+    if (!it) return;
+    it.block = { ...(it.block || {}), status: d.status, reason: d.reason || "", yt_url: d.test_yt_url || (it.block || {}).yt_url || "", recheck_at: d.recheck_at || "" };
+    if (curView === "disk") paintDisk();
+    if (testName === d.name && $("#dlg-test").open) testPaint();
+  });
   es.addEventListener("disk_library.merge", (e) => {          // gộp tập xong / lỗi → quét lại nếu đang xem
     const d = JSON.parse(e.data);
     if (d.state === "done") say(`Đã gộp xong «${d.name}»`);

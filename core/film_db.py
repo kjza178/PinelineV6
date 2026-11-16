@@ -879,7 +879,21 @@ def upsert_library_block(
                 (name, core, title_vi, video_path, status, reason, test_yt_url, test_yt_id, test_sample_path, recheck_at or "", now, now),
             )
         row = con.execute("SELECT * FROM library_blocks WHERE name=?", (name,)).fetchone()
-        return dict(row) if row else {}
+        rec = dict(row) if row else {}
+    _publish_block(rec)
+    return rec
+
+
+def _publish_block(rec: dict) -> None:
+    """Báo UI (SSE `library.block`) khi kết quả test bản quyền đổi — kết quả recheck đến sau ~5 phút từ daemon nền,
+    UI không polling (fix 2026-11-16)."""
+    if not rec:
+        return
+    try:
+        from events.bus import bus
+        bus.publish("library.block", {k: rec.get(k) for k in ("name", "status", "reason", "test_yt_url", "recheck_at")})
+    except Exception as e:  # noqa: BLE001
+        print(f"[film_db] publish library.block lỗi: {e}", flush=True)
 
 
 def get_library_block(name: str) -> dict[str, Any] | None:

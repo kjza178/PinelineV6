@@ -213,10 +213,20 @@ def scan(lib: Path | None = None, fresh: bool = False) -> dict:
                            fragments=n if info.get("merged_file") else 0,
                            size=size, mtime=p.stat().st_mtime, merge_error=errs.get(p.name, ""),
                            in_hongguo=bool(hgi), has_poster=any((p / x).is_file() for x in POSTER_NAMES)))
+    try:
+        import core.film_db as film_db
+        blocks = film_db.list_library_blocks()
+    except Exception as e:  # noqa: BLE001
+        print(f"[disk_library] đọc kết quả test bản quyền lỗi: {e}", flush=True)
+        blocks = {}
     counts: dict[str, int] = {}
     for it in items:
         counts[it["state"]] = counts.get(it["state"], 0) + 1
         it["title_vi"] = _cached_vi(it.get("series_id") or "", it["title"])
+        b = blocks.get(it["name"]) or {}
+        it["block"] = {"status": b.get("status") or "unknown", "reason": b.get("reason") or "",
+                       "yt_url": b.get("test_yt_url") or "", "recheck_at": b.get("recheck_at") or "",
+                       "tested_at": b.get("tested_at") or ""}
     items.sort(key=lambda it: -float(it.get("mtime") or 0))          # mới tải lên đầu (như Library của Hongguo 2)
     return {"ok": True, "root": str(lib), "items": items, "counts": counts, "source": source, "hg_error": hg_err}
 

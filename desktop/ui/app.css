@@ -334,3 +334,4 @@ a.btn{text-decoration:none}
 .seg label{white-space:nowrap}
 #view-disk .toolbar{flex-wrap:wrap}
 .lib-list td.acts{white-space:nowrap}
+#dlg-test[open]{display:flex;flex-direction:column;gap:10px}

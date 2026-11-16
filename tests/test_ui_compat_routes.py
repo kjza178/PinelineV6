@@ -52,6 +52,7 @@ def test_config_get_and_set(client, monkeypatch):
 
 
 def test_batch_stop(client, monkeypatch):
-    import agents.test_channel as tc
+    # phải là tools.test_channel — cùng module (BATCH_STATE) với /test-channel/batch-start của routes_films
+    import tools.test_channel as tc
     monkeypatch.setattr(tc, "stop_batch_test", lambda: {"ok": True, "stopped": True})
     assert client.post("/test-channel/batch-stop").json()["stopped"] is True
