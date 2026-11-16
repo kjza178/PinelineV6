@@ -48,7 +48,26 @@ MODEL = os.getenv("LLM_MODEL", "ollama/gemma4:31b-cloud")
 
 # LLM LOCAL:
 # 1. Ollama :11434 (tiền tố "local/")
-LOCAL_BASE_URL = os.getenv("LOCAL_LLM_BASE_URL", "http://127.0.0.1:11434/v1").rstrip("/")
+LOCAL_BASE_URL = os.getenv("LOCAL_LLM_BASE_URL", "http://127.0.0.1:11434/v1").rstrip("/")   # giá trị lúc import (tương thích)
+
+
+def _ollama_base() -> str:
+    """Ollama LÚC GỌI: Cài đặt → AI dịch → AI trên máy (OLLAMA_BASE_URL) > env LOCAL_LLM_BASE_URL > :11434 (core/local_ai)."""
+    try:
+        from core import local_ai
+        return local_ai.value("ollama_url")
+    except Exception as e:  # noqa: BLE001
+        print(f"[llm] đọc địa chỉ Ollama lỗi: {e} → {LOCAL_BASE_URL}", flush=True)
+        return LOCAL_BASE_URL
+
+
+def _thinking() -> bool:
+    try:
+        from core import local_ai
+        return bool(local_ai.value("thinking"))
+    except Exception as e:  # noqa: BLE001
+        print(f"[llm] đọc LLM_ENABLE_THINKING lỗi: {e}", flush=True)
+        return (os.getenv("LLM_ENABLE_THINKING") or "").strip() in ("1", "true", "yes")
 LOCAL_PREFIX = "local/"
 
 # 2. llama-server :8083 (OpenAI-compatible siêu tốc GGUF)
@@ -99,7 +118,7 @@ def get_llama_models(llama_base: str | None = None) -> list[str]:
 
 def get_ollama_models(ollama_base: str | None = None) -> list[str]:
     """Lấy danh sách model trên Ollama (:11434)."""
-    base = (ollama_base or LOCAL_BASE_URL).rstrip("/")
+    base = (ollama_base or _ollama_base()).rstrip("/")
     api_url = f"{base[:-3]}/api/tags" if base.endswith("/v1") else f"{base}/api/tags"
     try:
         r = requests.get(api_url, timeout=2)
@@ -566,7 +585,8 @@ def _ollama_num_ctx() -> int:
     VRAM, Ollama offload ~nửa model sang CPU -> CPU 100% + chậm/timeout.
     Dịch lô chỉ cần ~4–8k token. Env LLM_NUM_CTX để chỉnh."""
     try:
-        return max(2048, int(os.getenv("LLM_NUM_CTX") or "8192"))
+        from core import local_ai
+        return max(2048, int(local_ai.value("num_ctx")))
     except ValueError:
         return 8192
 
@@ -575,7 +595,8 @@ def _ollama_chat(model, messages, temperature, max_tokens, json_mode, retries, t
     """Gọi Ollama qua endpoint GỐC /api/chat + TẮT thinking (think=False).
     LÝ DO: gemma4/qwen3... bật 'thinking' -> ngốn hết token cho phần suy nghĩ ->
     content JSON RỖNG (nhất là lô lớn). Endpoint OpenAI KHÔNG nhận 'think' nên phải native."""
-    base = LOCAL_BASE_URL[:-3] if LOCAL_BASE_URL.endswith("/v1") else LOCAL_BASE_URL
+    ob = _ollama_base()
+    base = ob[:-3] if ob.endswith("/v1") else ob
     url = f"{base}/api/chat"
     num_ctx = _ollama_num_ctx()
     # num_predict: trần sinh. 16384 trên lô lớn + ctx 128k = hàng phút/lô.
@@ -733,7 +754,7 @@ def chat(
     headers = {"Authorization": f"Bearer {target_key}", "Content-Type": "application/json"}
     # Gemma4/Qwen3 trên llama-server hay đốt hết max_tokens vào reasoning_content
     # -> content rỗng. Tắt thinking mặc định (có thể bật lại: LLM_ENABLE_THINKING=1).
-    enable_think = (os.getenv("LLM_ENABLE_THINKING") or "").strip() in ("1", "true", "yes")
+    enable_think = _thinking()
     payload: dict = {
         "model": m,
         "messages": messages,
@@ -809,7 +830,7 @@ def chat_with_meta(
     key = key or ("sk-local" if _is_loopback_base(base) else "")
     if not key:
         raise RuntimeError("Chưa set LLM_API_KEY")
-    enable_think = (os.getenv("LLM_ENABLE_THINKING") or "").strip() in ("1", "true", "yes")
+    enable_think = _thinking()
     payload = {
         "model": m[len(LOCAL_PREFIX):] if is_local(m) else m,
         "messages": messages,

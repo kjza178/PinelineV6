@@ -156,7 +156,7 @@ PRESETS: dict[str, dict] = {
                           "pronoun": "chatgpt/gpt-5-6-mini", "pair_fill": "chatgpt/gpt-5-6-mini",
                           "translate": "chatgpt/gpt-5-6-mini", "legacy_review": "chatgpt/gpt-6",
                           "hang_fix": "chatgpt/gpt-5-6-mini", "agent": "chatgpt/gpt-5-6-mini"}},
-    "local": {"label": "Chỉ AI local (llama :8083)", "plan_mode": "sample",
+    "local": {"label": "Chỉ AI trên máy (llama-server)", "plan_mode": "sample",
               "models": {k: "local" for k in _PRESET_FUNCS}},
 }
 
@@ -214,7 +214,7 @@ def provider_of(model: str) -> str:
         return "Ollama (local)"
     if m.startswith("ollama/") or "-cloud" in m:
         return "9router (không còn dùng)"
-    return "llama local (:8083)"
+    return "AI trên máy (llama)"
 
 
 def check_model(fid: str, model: str) -> str:
@@ -278,6 +278,8 @@ def snapshot() -> dict:
         print(f"[ai_models] liệt kê model local lỗi: {e}", flush=True)
         llama, ollama = [], []
     aurora_base = _get("AURORA_BASE_URL") or _get("CHATGPT_BASE_URL")
+    from core import local_ai
+    local_cfg = local_ai.snapshot(probe=False)
     funcs = []
     for f in FUNCTIONS:
         try:
@@ -296,8 +298,8 @@ def snapshot() -> dict:
         funcs.append(row)
     return {
         "providers": provs,
-        "aurora": {"base_url": aurora_base, "configured": bool(aurora_base)},
-        "local": {"llama": llama, "ollama": [f"local/{m}" for m in ollama]},
+        "aurora": {"base_url": aurora_base or local_cfg["aurora_url"]["value"], "configured": bool(aurora_base)},
+        "local": {"llama": llama, "ollama": [f"local/{m}" for m in ollama], "settings": local_cfg},
         "functions": funcs,
         "plan_mode": {"value": _get("PLAN_MODE") or "file", "effective": T.plan_mode_effective()},
         "presets": [{"id": k, "label": v["label"]} for k, v in PRESETS.items()],

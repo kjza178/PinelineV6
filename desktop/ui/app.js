@@ -868,7 +868,7 @@ function paintAI() {
     <div class="sec"><h3>Nhà cung cấp API</h3>
     <table class="ai-tbl"><thead><tr><th>Nhà cung cấp</th><th>API key</th><th>Địa chỉ · trần output · song song</th><th></th></tr></thead><tbody>${ai.providers.map(aiProviderRow).join("")}</tbody></table>
     <p class="mut small">Aurora: ${au.configured ? esc(au.base_url) : "chưa cấu hình AURORA_BASE_URL / CHATGPT_BASE_URL"} ·
-      llama :8083: ${lo.llama.length ? esc(lo.llama.join(", ")) : "không chạy"} · Ollama: ${lo.ollama.length ? esc(lo.ollama.join(", ")) : "không có"}</p></div>`;
+      llama (${esc(lo.settings?.llama_url?.value || "")}): ${lo.llama.length ? esc(lo.llama.join(", ")) : "không chạy"} · Ollama: ${lo.ollama.length ? esc(lo.ollama.join(", ")) : "không có"}</p></div>`;
 }
 
 async function openAI() {
@@ -997,9 +997,24 @@ function paintAISimple() {
       <div class="field"><div class="lbl"><b>Tốc độ dịch</b><span>Số phần phim dịch cùng lúc. Nhanh hơn không tốn thêm tiền.</span></div>
         <div class="ctl"><div class="seg">${SPEEDS.map(([n, t, d]) => `<label title="${esc(d)}"><input type="radio" name="prov-speed" value="${n}"${Math.abs(conc - n) === Math.min(...SPEEDS.map(([m]) => Math.abs(conc - m))) ? " checked" : ""}>${esc(t)}</label>`).join("")}</div></div></div>`;
   } else if (p.id === "aurora") {
-    detail = `<div class="callout">${ai.aurora.configured ? `Aurora: <code>${esc(ai.aurora.base_url)}</code>` : "Chưa cấu hình địa chỉ Aurora trên máy này."}</div>`;
+    const L = ai.local.settings || {};
+    detail = localField("aurora_url", "Địa chỉ Aurora", "Proxy ChatGPT (OpenAI-compatible). Để trống = mặc định (CHATGPT_BASE_URL hoặc 127.0.0.1:3377).", L)
+      + `<div class="actions"><span id="loc-status" class="small grow"></span><button type="button" class="btn" id="loc-save">Lưu</button></div>`;
   } else {
-    detail = `<div class="callout">${ai.local.llama.length ? `Llama đang chạy: ${esc(ai.local.llama.join(", "))}` : "Llama (cổng 8083) chưa chạy trên máy này."}</div>`;
+    const L = ai.local.settings || {}, lo = ai.local;
+    const run = lo.llama.length ? `<span class="ok">✓ llama-server đang chạy: ${esc(lo.llama.join(", "))}</span>` : `<span class="err">Không kết nối được llama-server ở ${esc(L.llama_url?.value || "")}</span>`;
+    const oll = lo.ollama.length ? ` · Ollama: ${esc(lo.ollama.map((m) => m.replace(/^local\//, "")).join(", "))}` : "";
+    detail = `<div class="callout">${run}${oll}</div><p class="sub">Lưu ở đây có hiệu lực ngay cả khi nhà cung cấp chính khác (vd «Khuyến nghị» vẫn dùng AI trên máy cho việc nhỏ) — không cần bấm «Chuyển sang».</p>`
+      + localField("llama_url", "Địa chỉ llama-server", "Máy chạy model GGUF (llama.cpp). Chọn model «local» = model đang mở trên server này.", L)
+      + localField("concurrency", "Số phần dịch cùng lúc", "Nên bằng số slot của llama-server (tham số -np). Cao hơn số slot chỉ xếp hàng chờ.", L, "number")
+      + localField("max_tokens", "Độ dài trả lời tối đa (token)", "Trần token mỗi lần gọi. Phải nhỏ hơn context mỗi slot của llama-server.", L, "number")
+      + `<div class="field"><div class="lbl"><b>Cho model «suy nghĩ»</b><span>Model kiểu Qwen3 / Gemma4 nghĩ trước khi trả lời: có thể tốt hơn nhưng chậm và dễ hết token. Mặc định tắt.</span></div>`
+      + `<div class="ctl"><label class="switch"><input type="checkbox" id="loc-thinking"${L.thinking?.value ? " checked" : ""}><span></span>${L.thinking?.value ? "Bật" : "Tắt"}</label></div></div>`
+      + `<details class="more"><summary>Ollama (tuỳ chọn)</summary><div class="inner">`
+      + localField("ollama_url", "Địa chỉ Ollama", "Model chọn dạng local/<tên> chạy qua Ollama.", L)
+      + localField("num_ctx", "Context Ollama (token)", "Context cấp cho mỗi lần gọi Ollama. Lớn quá dễ tràn VRAM.", L, "number")
+      + `</div></details>`
+      + `<div class="actions"><span id="loc-status" class="small grow"></span><button type="button" class="btn" id="loc-save">Lưu & kiểm tra</button></div>`;
   }
   const isCur = aiPick === cur;
   $("#ai-simple").innerHTML = `
@@ -1012,6 +1027,29 @@ function paintAISimple() {
         <button type="button" class="btn primary" id="prov-apply">${isCur ? "Áp dụng lại" : `Chuyển sang ${esc(p.name)}`}</button></div>
     </div>
     <div class="sec"><h3>AI đang làm gì</h3><p class="sub">Muốn đổi riêng từng việc: mục «Nâng cao».</p><div class="uses">${uses}</div></div>`;
+}
+function localField(name, label, hint, L, type = "text") {
+  const o = L[name] || {}, ph = o.set ? "" : String(o.value ?? o.default ?? "");
+  const extra = type === "number" && o.min != null ? ` min="${o.min}" max="${o.max}"` : "";
+  return `<div class="field"><div class="lbl"><b>${esc(label)}</b><span>${esc(hint)}${o.set ? "" : " (đang dùng mặc định)"}</span></div>`
+    + `<div class="ctl"><input type="${type}" data-local="${esc(name)}" value="${o.set ? esc(o.value) : ""}" placeholder="${esc(ph)}"${extra}></div></div>`;
+}
+async function localSave(btn) {
+  const L = ai.local.settings || {}, patch = {};
+  document.querySelectorAll("#ai-simple [data-local]").forEach((i) => {
+    const cur = L[i.dataset.local]?.set ? String(L[i.dataset.local].value) : "";
+    if (i.value.trim() !== cur) patch[i.dataset.local] = i.value.trim();
+  });
+  const th = $("#loc-thinking");
+  if (th && th.checked !== !!L.thinking?.value) patch.thinking = th.checked;
+  const st = $("#loc-status");
+  btn.disabled = true; st.innerHTML = '<span class="sub">Đang lưu…</span>';
+  try {
+    if (Object.keys(patch).length) await api("POST", "/api/v6/ai/local", { local: patch });
+    ai = await api("GET", "/api/v6/ai");
+    paintAI(); paintAISimple();
+    say(Object.keys(patch).length ? "Đã lưu cài đặt AI" : "Không có gì thay đổi");
+  } catch (e) { st.innerHTML = `<span class="err">${esc(e.message)}</span>`; } finally { btn.disabled = false; }
 }
 async function provSaveKey() {
   const key = $("#prov-key")?.value.trim();
@@ -1049,8 +1087,10 @@ function onAISimpleClick(e) {
   const b = e.target.closest("button");
   if (b?.id === "prov-test") return provTest(b);
   if (b?.id === "prov-apply") return provApply(b);
+  if (b?.id === "loc-save") return localSave(b);
 }
 function onAISimpleChange(e) {
+  if (e.target.id === "loc-thinking") e.target.parentElement.lastChild.textContent = e.target.checked ? "Bật" : "Tắt";
   if (e.target.name === "prov") { aiPick = e.target.value; paintAISimple(); }
 }
 

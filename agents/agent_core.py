@@ -1785,7 +1785,8 @@ def _chat_turn_model(
         return _chat_turn_text_protocol(messages, model, via_llm=True)
     base, key, _ = _llm_cfg()
     url = f"{base}/chat/completions"
-    enable_think = (os.getenv("LLM_ENABLE_THINKING") or "").strip() in ("1", "true", "yes")
+    from engines.llm import _thinking
+    enable_think = _thinking()
     payload: dict[str, Any] = {
         "model": model,
         "messages": messages,

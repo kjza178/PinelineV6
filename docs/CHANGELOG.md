@@ -1,6 +1,12 @@
 # CHANGELOG — V6
 
 ## 2026-11-16
+- **Cài đặt AI trên máy** (Cài đặt → AI dịch → «AI trên máy»; `core/local_ai.py`, `/api/v6/ai/local`) — trước gắn cứng /
+  chỉ đặt bằng biến môi trường: địa chỉ llama-server (LLAMA_BASE_URL), địa chỉ Ollama (OLLAMA_BASE_URL — trước chỉ env
+  LOCAL_LLM_BASE_URL, vẫn tôn trọng), số phần dịch cùng lúc riêng cho local (LOCAL_CONCURRENCY — trước dùng chung
+  SIMPLE_WORKERS với Aurora), trần token (LOCAL_MAX_TOKENS), bật/tắt «suy nghĩ» (LLM_ENABLE_THINKING), context Ollama
+  (LLM_NUM_CTX); hiện llama-server có chạy không + model đang mở. Thẻ Aurora: ô địa chỉ Aurora (AURORA_BASE_URL).
+  Mọi nơi đọc LÚC GỌI (không cần restart). Chưa đặt LOCAL_* → giữ hành vi cũ (SIMPLE_*).
 - **Test bản quyền YouTube trong «Phim chờ làm»** (chuyển từ hộp «Kiểm tra Bản Quyền» của trang Phim cũ): nhãn kết quả
   trên từng phim (Chưa test / Đang test / Sạch / Chặn 1 phần / Bị chặn / Claim / Test lỗi), lọc theo bản quyền, nút
   «Test BQ» mở hộp: chọn tài khoản kênh test, cắt mẫu 90s → đăng Không công khai → Content ID; «Kiểm lại ngay»; tự đánh

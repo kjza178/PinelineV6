@@ -216,7 +216,19 @@ def out_cap(model: str | None) -> int:
             return hit[0].out_cap()
     except Exception as e:  # noqa: BLE001
         print(f"[simple] đọc trần output của {model!r} lỗi: {e}", flush=True)
-    return max_tokens()
+    lv = _local_override(model, "max_tokens")
+    return lv if lv else max_tokens()
+
+
+def _local_override(model: str | None, name: str) -> int:
+    """AI trên máy (core/local_ai): LOCAL_MAX_TOKENS / LOCAL_CONCURRENCY nếu ĐÃ đặt; chưa đặt → 0 (dùng SIMPLE_*)."""
+    try:
+        from core import local_ai
+        if local_ai.is_local_model(model) and local_ai.snapshot(probe=False)[name]["set"]:
+            return int(local_ai.value(name))
+    except Exception as e:  # noqa: BLE001
+        print(f"[simple] đọc cài đặt AI trên máy ({name}) lỗi: {e}", flush=True)
+    return 0
 
 
 def ctx() -> int:
@@ -236,7 +248,8 @@ def workers_for(model: str | None) -> int:
             return hit[0].concurrency()
     except Exception as e:  # noqa: BLE001
         print(f"[simple] đọc số request song song của {model!r} lỗi: {e}", flush=True)
-    return workers()
+    lv = _local_override(model, "concurrency")
+    return lv if lv else workers()
 
 
 def lot_min() -> int:

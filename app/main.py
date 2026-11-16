@@ -222,6 +222,23 @@ def _v6_router(inst: Instance) -> APIRouter:
         return {"ok": True, "changed": changed, "paths": machine.paths_snapshot()}
 
     # ── Cài đặt AI: chức năng nào dùng model nào (core/ai_models.py) ──
+    # ── AI trên máy (llama-server / Ollama) + địa chỉ Aurora — core/local_ai ──
+    @r.get(V6_PREFIX + "/ai/local")
+    def ai_local_get():
+        from core import local_ai
+        return local_ai.snapshot()
+
+    @r.post(V6_PREFIX + "/ai/local")
+    def ai_local_set(body: dict):
+        from core import local_ai
+        try:
+            out = local_ai.apply((body or {}).get("local") or {})
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        if out["changed"]:
+            bus.publish("config.changed", {"changed": out["changed"]})
+        return {"ok": True, **out}
+
     @r.get(V6_PREFIX + "/ai")
     def ai_get():
         from core import ai_models
