@@ -210,7 +210,8 @@ CREATE TABLE IF NOT EXISTS library_blocks (
     test_yt_id       TEXT,
     test_sample_path TEXT,
     tested_at        TEXT,
-    updated_at       TEXT
+    updated_at       TEXT,
+    recheck_at       TEXT
 );
 CREATE INDEX IF NOT EXISTS lib_blocks_core ON library_blocks(core);
 CREATE INDEX IF NOT EXISTS lib_blocks_status ON library_blocks(status);

@@ -1,6 +1,13 @@
 # CHANGELOG — V6
 
 ## 2026-11-16
+- **Kênh test trên máy mới (không có V2):** hộp «Test bản quyền» → «Thêm tài khoản»: chọn / dán file OAuth client JSON
+  (Google Cloud Console; «web» hoặc «installed»), hoặc «Dùng file này» với client_secret*.json tìm thấy trong thư mục
+  yt_uploader → ghi `data/test_channel/projects.json` (trước không code nào tạo file này) → «Đăng nhập». Hộp hiện đúng
+  redirect URI cần khai báo. `services/test_channel_setup.py`, `/api/v6/test-channel/{candidates,projects}`; không trả
+  client_secret ra ngoài.
+- Sửa: films.db MỚI tạo thiếu cột `library_blocks.recheck_at` (migrate chạy trước khi tạo bảng) → lần ghi kết quả test
+  bản quyền đầu tiên lỗi «no such column: recheck_at». Cột nay có sẵn trong SCHEMA.
 - **Sửa: đăng nhập kênh test bấm không chạy trong app desktop.** WebView2 của app chặn link mở tab mới (`target=_blank`)
   → mọi link như vậy trong /v6/ nay mở bằng trình duyệt ngoài qua server (`POST /api/v6/open-external`, chỉ Google /
   YouTube / localhost). Hộp «Test bản quyền» tự đăng nhập: danh sách tài khoản (projects) + nút «Đăng nhập» → mở trang

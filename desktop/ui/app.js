@@ -1436,6 +1436,33 @@ async function testLogin(btn, pid) {
       + `<div class="keyrow"><input readonly value="${esc(r.auth_url)}" onclick="this.select()"><button type="button" class="btn sm" data-copy>Chép link</button></div>`;
   });
 }
+function testAddForm() {
+  const cb = `${location.origin}/test-channel/callback`;
+  return `<div class="test-add">
+    <div id="test-cands"></div>
+    <div class="field stack"><div class="lbl"><b>File OAuth client (JSON)</b><span>Google Cloud Console → APIs &amp; Services → Credentials → OAuth client ID
+      (bật «YouTube Data API v3» cho project) → tải JSON. Loại «Web application»: thêm Authorized redirect URI <code>${esc(cb)}</code>.</span></div>
+      <div class="ctl"><div class="row"><input id="test-add-name" placeholder="Tên gợi nhớ (vd Kênh test 1)"><input type="file" id="test-add-file" accept=".json,application/json"></div>
+      <textarea id="test-add-json" rows="3" placeholder='…hoặc dán nội dung file vào đây: {"web": {"client_id": "…", "client_secret": "…"}}'></textarea>
+      <div class="actions"><span id="test-add-err" class="err small grow"></span><button type="button" class="btn sm primary" id="test-add-ok">Thêm tài khoản</button></div></div></div></div>`;
+}
+async function testLoadCandidates() {
+  const box = $("#test-cands"); if (!box) return;
+  try {
+    const r = await api("GET", "/api/v6/test-channel/candidates");
+    const items = (r.items || []).filter((c) => !c.added);
+    box.innerHTML = items.length ? `<p class="sub">Tìm thấy OAuth client trong thư mục yt_uploader — dùng luôn:</p><div class="uses">${items.map((c) =>
+      `<div class="use"><div><b>${esc(c.label)}</b><span class="mut small">client …${esc(c.client_id_tail)}</span></div><button type="button" class="btn sm" data-cand="${esc(c.path)}">Dùng file này</button></div>`).join("")}</div>` : "";
+  } catch (e) { console.warn("candidates", e); }
+}
+async function testAdd(btn, body) {
+  const err = $("#test-add-err"); if (err) err.textContent = "";
+  return act(btn, "", async () => {
+    try { const r = await api("POST", "/api/v6/test-channel/projects", body); say(`Đã thêm tài khoản «${r.project.name}» — bấm «Đăng nhập»`); }
+    catch (e) { if (err) err.textContent = e.message; throw e; }
+    await testLoadAccounts();
+  });
+}
 async function testLoadAccounts() {
   const box = $("#test-acc");
   box.innerHTML = '<p class="sub">Đang đọc kênh test…</p>';
@@ -1446,13 +1473,15 @@ async function testLoadAccounts() {
     + `<button type="button" class="btn sm" data-login="${esc(p.id)}">${p.connected ? "Đăng nhập lại" : "Đăng nhập"}</button></div>`;
   const hint = '<div id="test-login-hint" class="small"></div>';
   if (!all.length) {
-    box.innerHTML = '<div class="callout warn">Bản V6 chưa có cấu hình kênh test (<code>data\\test_channel\\projects.json</code>). '
-      + 'Nếu đã dùng kênh test ở V2: chạy <code>scripts\\import_test_channel_v2.bat</code> để chép sang (gồm cả đăng nhập cũ), rồi bấm «Tải lại».</div>'
-      + '<div class="actions"><button type="button" class="btn sm" id="test-reload">Tải lại</button></div>';
+    box.innerHTML = '<div class="callout warn">Máy này chưa có tài khoản kênh test. Thêm một tài khoản (OAuth client của Google) bên dưới rồi bấm «Đăng nhập».</div>'
+      + testAddForm()
+      + '<p class="mut small">Có cây V2 trên máy: chạy <code>scripts\\import_test_channel_v2.bat</code> để chép sang (gồm cả đăng nhập cũ), rồi bấm <a href="#" id="test-reload">Tải lại</a>.</p>';
+    testLoadCandidates();
     $("#test-run").disabled = true; return;
   }
   if (!projs.length) {
-    box.innerHTML = `<div class="callout warn">Chưa đăng nhập kênh test YouTube. Bấm «Đăng nhập» ở một tài khoản dưới đây (mở trình duyệt).</div><div class="uses">${all.map(loginRow).join("")}</div>${hint}`;
+    box.innerHTML = `<div class="callout warn">Chưa đăng nhập kênh test YouTube. Bấm «Đăng nhập» ở một tài khoản dưới đây (mở trình duyệt).</div><div class="uses">${all.map(loginRow).join("")}</div>${hint}`
+      + `<details class="more"><summary>Thêm tài khoản</summary><div class="inner">${testAddForm()}</div></details>`;
     $("#test-run").disabled = true; return;
   }
   let pref = ""; try { pref = localStorage.getItem("tc_preferred_project") || ""; } catch (_) { /* không có storage */ }
@@ -1460,7 +1489,8 @@ async function testLoadAccounts() {
   box.innerHTML = `<label class="inline">Tài khoản test <select id="test-proj">${projs.map((p) => `<option value="${esc(p.id)}"${p.id === pref ? " selected" : ""}>${esc(`${p.name || p.id} — ${p.channel_title || p.email || p.id}${p.exhausted_today ? " · hết lượt hôm nay" : ""}`)}</option>`).join("")}</select></label>`
     + (testCh.channel_limit_reached ? '<p class="err small">Kênh test đã chạm giới hạn upload hôm nay.</p>' : "")
     + `<p class="mut small">Hôm nay đã test ${testCh.today_uploads || 0} video.</p>`
-    + `<details class="more"><summary>Tài khoản test (${projs.length}/${all.length} đã đăng nhập)</summary><div class="inner"><div class="uses">${all.map(loginRow).join("")}</div>${hint}</div></details>`;
+    + `<details class="more"><summary>Tài khoản test (${projs.length}/${all.length} đã đăng nhập)</summary><div class="inner"><div class="uses">${all.map(loginRow).join("")}</div>${hint}`
+    + `<details class="more"><summary>Thêm tài khoản</summary><div class="inner">${testAddForm()}</div></details></div></details>`;
   $("#test-run").disabled = false;
 }
 function openTest(name) {
@@ -1469,10 +1499,20 @@ function openTest(name) {
   testLoadAccounts();
 }
 $("#test-close").addEventListener("click", () => $("#dlg-test").close());
+$("#test-acc").addEventListener("change", (e) => {
+  if (e.target.id !== "test-add-file" || !e.target.files[0]) return;
+  e.target.files[0].text().then((t) => { $("#test-add-json").value = t; }).catch((er) => { $("#test-add-err").textContent = "Không đọc được file: " + er.message; });
+});
 $("#test-acc").addEventListener("click", (e) => {
   const lg = e.target.closest("button[data-login]"); if (lg) return testLogin(lg, lg.dataset.login);
   const ex = e.target.closest("[data-ext]"); if (ex) { e.preventDefault(); return openExternal(ex.dataset.ext); }
-  if (e.target.closest("#test-reload")) return testLoadAccounts();
+  if (e.target.closest("#test-reload")) { e.preventDefault(); return testLoadAccounts(); }
+  const cd = e.target.closest("button[data-cand]"); if (cd) return testAdd(cd, { path: cd.dataset.cand });
+  if (e.target.closest("#test-add-ok")) {
+    const json = $("#test-add-json").value.trim();
+    if (!json) { $("#test-add-err").textContent = "Chọn file JSON hoặc dán nội dung"; return; }
+    return testAdd(e.target.closest("#test-add-ok"), { name: $("#test-add-name").value.trim(), client_json: json });
+  }
   const cp = e.target.closest("button[data-copy]");
   if (cp) { const i = cp.previousElementSibling; i.select(); navigator.clipboard?.writeText(i.value).then(() => say("Đã chép link"), () => say("Chọn link rồi Ctrl+C", "err")); }
 });

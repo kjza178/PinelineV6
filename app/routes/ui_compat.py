@@ -72,3 +72,29 @@ def open_external(body: dict):
         return ui_tools.open_external((body or {}).get("url") or "")
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
+
+
+# ── Tài khoản kênh test YouTube trên máy mới (services/test_channel_setup) ──
+@router.get("/api/v6/test-channel/candidates")
+def tc_candidates():
+    from services import test_channel_setup as tcs
+    return {"items": tcs.candidates()}
+
+
+@router.post("/api/v6/test-channel/projects")
+def tc_add_project(body: dict):
+    """{name, client_json} (nội dung file OAuth client) hoặc {path} (file client_secret*.json trong yt_uploader)."""
+    from services import test_channel_setup as tcs
+    b = body or {}
+    try:
+        rec = tcs.add_from_candidate(str(b["path"]), str(b.get("name") or "")) if b.get("path") else \
+            tcs.add_project(str(b.get("name") or ""), b.get("client_json") or "")
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {"ok": True, "project": rec}
+
+
+@router.post("/api/v6/test-channel/projects/remove")
+def tc_remove_project(body: dict):
+    from services import test_channel_setup as tcs
+    return {"ok": tcs.remove_project(str((body or {}).get("id") or ""))}
