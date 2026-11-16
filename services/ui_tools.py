@@ -84,3 +84,30 @@ def test_channel_batch_stop() -> dict:
     # cùng module với routes_films (/test-channel/batch-start) — agents.test_channel là bản sao có BATCH_STATE riêng
     import tools.test_channel as test_channel
     return test_channel.stop_batch_test()
+
+
+# Trang được phép mở bằng trình duyệt ngoài từ app desktop (WebView2 của app chặn cửa sổ mới / target=_blank)
+_EXTERNAL_HOSTS = ("accounts.google.com", "console.developers.google.com", "console.cloud.google.com",
+                   "www.youtube.com", "youtube.com", "youtu.be", "studio.youtube.com")
+
+
+def open_external(url: str) -> dict:
+    """Mở `url` bằng trình duyệt mặc định của máy chạy server (= máy chạy app desktop). Chỉ trang Google / YouTube và
+    trang của chính server (localhost) — không mở địa chỉ tuỳ ý. ValueError khi không được phép."""
+    import os
+    import webbrowser
+    from urllib.parse import urlsplit
+    u = urlsplit(str(url or "").strip())
+    host = (u.hostname or "").lower()
+    ok = (u.scheme == "https" and host in _EXTERNAL_HOSTS) or (u.scheme in ("http", "https") and host in ("127.0.0.1", "localhost"))
+    if not ok:
+        raise ValueError(f"không mở địa chỉ này bằng trình duyệt ngoài: {host or url}")
+    try:
+        if os.name == "nt":
+            os.startfile(u.geturl())          # noqa: S606 — URL đã lọc host ở trên
+        elif not webbrowser.open(u.geturl()):
+            raise RuntimeError("không có trình duyệt")
+    except Exception as e:  # noqa: BLE001
+        print(f"[ui_tools] mở trình duyệt ngoài lỗi: {e}", flush=True)
+        return {"ok": False, "error": f"Không mở được trình duyệt: {e}", "url": u.geturl()}
+    return {"ok": True}

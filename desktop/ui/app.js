@@ -1411,20 +1411,56 @@ function testPaint() {
   $("#test-link").hidden = !b.yt_url; $("#test-link").innerHTML = b.yt_url ? `Video test: <a href="${esc(b.yt_url)}" target="_blank" rel="noopener">${esc(b.yt_url)}</a>` : "";
   $("#test-recheck").hidden = !b.yt_url;
 }
+// App desktop = WebView2 (có window.chrome.webview): link mở tab mới (target=_blank) bị chặn → bấm không có gì.
+// Chặn mọi link như vậy và mở bằng trình duyệt ngoài qua server (fix 2026-11-16).
+const IN_DESKTOP = !!(window.chrome && window.chrome.webview);
+document.addEventListener("click", (e) => {
+  const a = e.target.closest('a[target="_blank"]');
+  if (!a || !IN_DESKTOP) return;
+  e.preventDefault();
+  openExternal(new URL(a.getAttribute("href"), location.href).href).then((ok) => { if (!ok) say("Không mở được trình duyệt", "err"); });
+});
+async function openExternal(url) {
+  // App desktop (WebView2) chặn cửa sổ mới → nhờ server mở trình duyệt ngoài; trình duyệt thường: window.open
+  if (!IN_DESKTOP) return !!window.open(url, "_blank");
+  try { const r = await api("POST", "/api/v6/open-external", { url }); if (r.ok) return true; } catch (e) { console.warn("open-external", e); }
+  return false;
+}
+async function testLogin(btn, pid) {
+  return act(btn, "", async () => {
+    const r = await api("GET", "/test-channel/auth-url?project_id=" + encodeURIComponent(pid));
+    if (!r.auth_url) throw new Error(r.error || "không tạo được link đăng nhập");
+    const opened = await openExternal(r.auth_url);
+    $("#test-login-hint").innerHTML = (opened ? "Đã mở trang đăng nhập Google trong trình duyệt. Chọn đúng Gmail của kênh test — đăng nhập xong hộp này tự cập nhật."
+      : "Không mở được trình duyệt — chép link dưới đây dán vào trình duyệt:")
+      + `<div class="keyrow"><input readonly value="${esc(r.auth_url)}" onclick="this.select()"><button type="button" class="btn sm" data-copy>Chép link</button></div>`;
+  });
+}
 async function testLoadAccounts() {
   const box = $("#test-acc");
   box.innerHTML = '<p class="sub">Đang đọc kênh test…</p>';
   try { testCh = await api("GET", "/test-channel/status"); } catch (e) { box.innerHTML = `<p class="err">Không đọc được kênh test: ${esc(e.message)}</p>`; $("#test-run").disabled = true; return; }
-  const projs = (testCh.projects || []).filter((p) => p.connected);
+  const all = testCh.projects || [], projs = all.filter((p) => p.connected);
+  const loginRow = (p) => `<div class="use"><div><b>${esc(p.name || p.id)}</b>${p.connected ? `<span class="mut small">${esc(p.channel_title || p.email || "đã đăng nhập")}</span>` : '<span class="mut small">chưa đăng nhập</span>'}`
+    + `${p.connected && p.api_enabled === false && p.enable_url ? ` <a href="#" data-ext="${esc(p.enable_url)}" class="small">Bật YouTube API ↗</a>` : ""}</div>`
+    + `<button type="button" class="btn sm" data-login="${esc(p.id)}">${p.connected ? "Đăng nhập lại" : "Đăng nhập"}</button></div>`;
+  const hint = '<div id="test-login-hint" class="small"></div>';
+  if (!all.length) {
+    box.innerHTML = '<div class="callout warn">Bản V6 chưa có cấu hình kênh test (<code>data\\test_channel\\projects.json</code>). '
+      + 'Nếu đã dùng kênh test ở V2: chạy <code>scripts\\import_test_channel_v2.bat</code> để chép sang (gồm cả đăng nhập cũ), rồi bấm «Tải lại».</div>'
+      + '<div class="actions"><button type="button" class="btn sm" id="test-reload">Tải lại</button></div>';
+    $("#test-run").disabled = true; return;
+  }
   if (!projs.length) {
-    box.innerHTML = '<div class="callout warn">Chưa đăng nhập kênh test YouTube. Đăng nhập ở <a href="/films/ui?tab=upload" target="_blank" rel="noopener">trang Đăng YouTube (cũ) ↗</a> rồi mở lại hộp này.</div>';
+    box.innerHTML = `<div class="callout warn">Chưa đăng nhập kênh test YouTube. Bấm «Đăng nhập» ở một tài khoản dưới đây (mở trình duyệt).</div><div class="uses">${all.map(loginRow).join("")}</div>${hint}`;
     $("#test-run").disabled = true; return;
   }
   let pref = ""; try { pref = localStorage.getItem("tc_preferred_project") || ""; } catch (_) { /* không có storage */ }
   if (!projs.some((p) => p.id === pref)) pref = projs.some((p) => p.id === testCh.last_connected_project) ? testCh.last_connected_project : projs[0].id;
   box.innerHTML = `<label class="inline">Tài khoản test <select id="test-proj">${projs.map((p) => `<option value="${esc(p.id)}"${p.id === pref ? " selected" : ""}>${esc(`${p.name || p.id} — ${p.channel_title || p.email || p.id}${p.exhausted_today ? " · hết lượt hôm nay" : ""}`)}</option>`).join("")}</select></label>`
     + (testCh.channel_limit_reached ? '<p class="err small">Kênh test đã chạm giới hạn upload hôm nay.</p>' : "")
-    + `<p class="mut small">Hôm nay đã test ${testCh.today_uploads || 0} video.</p>`;
+    + `<p class="mut small">Hôm nay đã test ${testCh.today_uploads || 0} video.</p>`
+    + `<details class="more"><summary>Tài khoản test (${projs.length}/${all.length} đã đăng nhập)</summary><div class="inner"><div class="uses">${all.map(loginRow).join("")}</div>${hint}</div></details>`;
   $("#test-run").disabled = false;
 }
 function openTest(name) {
@@ -1433,6 +1469,13 @@ function openTest(name) {
   testLoadAccounts();
 }
 $("#test-close").addEventListener("click", () => $("#dlg-test").close());
+$("#test-acc").addEventListener("click", (e) => {
+  const lg = e.target.closest("button[data-login]"); if (lg) return testLogin(lg, lg.dataset.login);
+  const ex = e.target.closest("[data-ext]"); if (ex) { e.preventDefault(); return openExternal(ex.dataset.ext); }
+  if (e.target.closest("#test-reload")) return testLoadAccounts();
+  const cp = e.target.closest("button[data-copy]");
+  if (cp) { const i = cp.previousElementSibling; i.select(); navigator.clipboard?.writeText(i.value).then(() => say("Đã chép link"), () => say("Chọn link rồi Ctrl+C", "err")); }
+});
 $("#test-run").addEventListener("click", (e) => {
   const it = (disk?.items || []).find((x) => x.name === testName); if (!it) return;
   const pid = $("#test-proj")?.value || "";
@@ -1528,6 +1571,11 @@ function connect() {
     try { const t = JSON.parse(e.data).text; if (t && /TẠM DỪNG|nhường ghế/.test(t)) say(t, "err"); } catch (_) { /* event không có text */ }
   });
   es.addEventListener("series.conflict", () => loadConflicts());
+  es.addEventListener("test_channel.changed", (e) => {      // đăng nhập kênh test xong (callback Google)
+    const d = JSON.parse(e.data);
+    say(`Đã đăng nhập kênh test${d.channel_title ? ": " + d.channel_title : ""}`);
+    if ($("#dlg-test").open) testLoadAccounts();
+  });
   es.addEventListener("library.block", (e) => {             // kết quả test bản quyền (recheck nền ~5 phút)
     const d = JSON.parse(e.data), it = (disk?.items || []).find((x) => x.name === d.name);
     if (!it) return;

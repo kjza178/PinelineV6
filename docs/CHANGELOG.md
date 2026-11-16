@@ -1,6 +1,14 @@
 # CHANGELOG — V6
 
 ## 2026-11-16
+- **Sửa: đăng nhập kênh test bấm không chạy trong app desktop.** WebView2 của app chặn link mở tab mới (`target=_blank`)
+  → mọi link như vậy trong /v6/ nay mở bằng trình duyệt ngoài qua server (`POST /api/v6/open-external`, chỉ Google /
+  YouTube / localhost). Hộp «Test bản quyền» tự đăng nhập: danh sách tài khoản (projects) + nút «Đăng nhập» → mở trang
+  Google trong trình duyệt; xong callback báo app qua SSE `test_channel.changed` (hộp tự cập nhật). Không mở được trình
+  duyệt → hiện link để chép.
+- Cấu hình kênh test (`data/test_channel`: projects, token Google) nằm riêng từng cây — V6 chưa có thì luôn «chưa đăng
+  nhập». `scripts\import_test_channel_v2.bat` chép từ V2 (không ghi đè, xem trước). `data/test_channel/` vào .gitignore
+  (chứa client_secret + token).
 - **Cài đặt AI trên máy** (Cài đặt → AI dịch → «AI trên máy»; `core/local_ai.py`, `/api/v6/ai/local`) — trước gắn cứng /
   chỉ đặt bằng biến môi trường: địa chỉ llama-server (LLAMA_BASE_URL), địa chỉ Ollama (OLLAMA_BASE_URL — trước chỉ env
   LOCAL_LLM_BASE_URL, vẫn tôn trọng), số phần dịch cùng lúc riêng cho local (LOCAL_CONCURRENCY — trước dùng chung

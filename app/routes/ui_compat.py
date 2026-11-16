@@ -62,3 +62,13 @@ async def batch_config_set(request: Request):
 def test_channel_batch_stop():
     from services import ui_tools
     return ui_tools.test_channel_batch_stop()
+
+
+@router.post("/api/v6/open-external")
+def open_external(body: dict):
+    """App desktop (WebView2) không mở được cửa sổ mới → nhờ server mở trình duyệt ngoài (chỉ Google / YouTube / localhost)."""
+    from services import ui_tools
+    try:
+        return ui_tools.open_external((body or {}).get("url") or "")
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e

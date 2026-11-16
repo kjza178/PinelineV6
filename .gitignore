@@ -36,6 +36,7 @@ models/
 pineline.config.json
 token*.json
 client_secret*.json
+data/test_channel/
 cookies/
 cookies*.txt
 .env

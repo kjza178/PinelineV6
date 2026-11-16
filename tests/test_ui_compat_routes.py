@@ -56,3 +56,10 @@ def test_batch_stop(client, monkeypatch):
     import tools.test_channel as tc
     monkeypatch.setattr(tc, "stop_batch_test", lambda: {"ok": True, "stopped": True})
     assert client.post("/test-channel/batch-stop").json()["stopped"] is True
+
+
+def test_open_external_route(client, monkeypatch):
+    from services import ui_tools
+    monkeypatch.setattr(ui_tools, "open_external", lambda url: (_ for _ in ()).throw(ValueError("không mở")) if "evil" in url else {"ok": True})
+    assert client.post("/api/v6/open-external", json={"url": "https://accounts.google.com/x"}).json() == {"ok": True}
+    assert client.post("/api/v6/open-external", json={"url": "https://evil.com"}).status_code == 400

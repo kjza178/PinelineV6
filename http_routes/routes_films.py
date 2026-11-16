@@ -306,11 +306,16 @@ def tc_callback(req: Request, code: str = Query(""), state: str = Query("")):
     try:
         res = test_channel.finish_oauth(code, redirect_uri, project_id=state)
         ch_name = res.get("channel_title") or "Kênh Test"
+        try:   # báo app (SSE) — hộp Test bản quyền tự nạp lại tài khoản, không polling (2026-11-16)
+            from events.bus import bus
+            bus.publish("test_channel.changed", {"project_id": state, "channel_title": ch_name})
+        except Exception as e_pub:  # noqa: BLE001
+            print(f"[test-channel] publish test_channel.changed lỗi: {e_pub}", flush=True)
         html = f"""
         <html><head><meta charset="utf-8"></head><body style="background:#0f172a;color:#f8fafc;font-family:sans-serif;padding:40px;text-align:center">
         <h2 style="color:#22c55e">🎉 Kết nối Kênh Phụ thành công!</h2>
         <p>Đã cấp quyền cho kênh: <b>{ch_name}</b></p>
-        <p style="color:#94a3b8">Cửa sổ này sẽ tự đóng sau 3 giây...</p>
+        <p style="color:#94a3b8">Có thể đóng trang này và quay lại Pineline — app tự cập nhật.</p>
         <script>setTimeout(function(){{ window.close(); }}, 3000);</script>
         </body></html>
         """
