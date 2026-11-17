@@ -603,26 +603,33 @@ def test_p6_instance_legacy_uses_old_flow(monkeypatch, tmp_path):
     assert _man(wd)["translate_pipeline"] == "legacy"
 
 
-def test_p6_inflight_legacy_job_keeps_legacy(monkeypatch, tmp_path):
-    """Job dở luồng cũ (script.json + stage translate đã chạy + park waiting_review B2), mặc định simple:
-    _auto_gpu / Soát lại vẫn luồng cũ; «Dịch LẠI» (force) mới chuyển sang mặc định instance."""
+def test_p6_inflight_script_job_goes_simple(monkeypatch, tmp_path):
+    """2026-11-17: job có script.json + stage translate đã chạy (vd chép từ V2, dịch dở) KHÔNG còn bị đoán luồng
+    cũ (NMT + TRANSLATE_MODEL=local) — đi luồng simple (model Soát & dịch chính, vd DeepSeek)."""
     server, SP, calls, nxt = _f2_env(monkeypatch, tmp_path)
     man = {"stages": {"translate": {"status": "pending", "started_at": "2026-11-11T10:00:00", "mode": "batch",
                                     "cur_text": "soát dở — còn 3 câu chưa rv"}},
            "agent": {"held_at": "waiting_review", "review_retries": 1, "review_retry_at": 1.0}}
     wd = _job(tmp_path, script=[{"i": s["i"], "zh": s["text"], "vi": "x", "rv": 1} for s in SEGS], manifest=man)
     _auto(server)
-    assert calls[0] == "old_translate" and not any(isinstance(c, tuple) for c in calls)
+    assert calls and calls[0][0] == "simple" and "old_translate" not in calls
     m = _man(wd)
-    assert m["translate_pipeline"] == "legacy" and m["translate_pipeline_why"] == "inferred"
-    calls.clear()
-    server._translate_flow(wd, "Tiếng Việt", None, "chatgpt/x", True)          # «Soát lại»
-    assert calls == ["old_review"]
-    calls.clear()
-    server._translate_flow(wd, "Tiếng Việt", None, None, False, force=True)    # «Dịch LẠI» từ đầu
-    assert calls == [("simple", {"force": True, "rereview": False})]
-    m = _man(wd)
-    assert m["translate_pipeline"] == "simple" and m["translate_pipeline_why"] == "fresh"
+    assert m["translate_pipeline"] == "simple" and m["translate_pipeline_why"] == "default"
+
+
+def test_p6_stale_inferred_legacy_stamp_reevaluated(monkeypatch, tmp_path):
+    """Dấu legacy «inferred» do bản cũ đóng → tính lại theo mặc định instance (simple)."""
+    server, SP, calls, nxt = _f2_env(monkeypatch, tmp_path)
+    man = {"translate_pipeline": "legacy", "translate_pipeline_why": "inferred",
+           "stages": {"translate": {"status": "running", "mode": "batch"}}}
+    wd = _job(tmp_path, script=[{"i": s["i"], "zh": s["text"], "vi": "x"} for s in SEGS[:1]], manifest=man)
+    assert server._translate_pipeline_simple(wd) is True
+    assert _man(wd)["translate_pipeline"] == "simple"
+    # instance chọn legacy → dấu legacy «default» (do instance đặt) vẫn giữ nguyên
+    monkeypatch.setenv("PINELINE_TRANSLATE_PIPELINE", "legacy")
+    (tmp_path / "b").mkdir()
+    wd2 = _job(tmp_path / "b", manifest={"translate_pipeline": "legacy", "translate_pipeline_why": "inferred"})
+    assert server._translate_pipeline_simple(wd2) is False
 
 
 def test_p6_simple_traces_inferred_simple(monkeypatch, tmp_path):
@@ -656,7 +663,12 @@ def test_p6_translate_fill_follows_job_pipeline(monkeypatch, tmp_path):
     assert out["pipeline"] == "simple" and calls == [("simple", {"force": False, "rereview": False})]
     calls.clear()
     _job(tmp_path, script=rows, manifest={"stages": {"translate": {"status": "done", "mode": "batch"}}})
-    out = server.translate_fill("j1")   # job luồng cũ (suy luận) → vá bằng run_translate cũ
+    out = server.translate_fill("j1")   # 2026-11-17: dấu vết luồng cũ KHÔNG còn ép legacy → simple
+    assert out["pipeline"] == "simple" and calls == [("simple", {"force": False, "rereview": False})]
+    calls.clear()
+    _job(tmp_path, script=rows, manifest={"stages": {"translate": {"status": "done", "mode": "batch"}},
+                                          "translate_pipeline": "legacy", "translate_pipeline_why": "default"})
+    out = server.translate_fill("j1")   # job đóng dấu legacy khi instance chọn legacy → vá bằng run_translate cũ
     assert out["pipeline"] == "legacy" and calls == ["old_fill"]
 
 

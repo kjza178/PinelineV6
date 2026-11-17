@@ -44,9 +44,32 @@ def test_defaults_keep_old_values(cfg):
     assert machine.library_dir() == Path(r"D:\Lib")
     assert machine.yt_uploader_dir() == Path(r"Z:\yt_uploader")
     assert machine.cloud_llm_base_url() == ""          # 2026-11-15: V6 bỏ 9router — mặc định tắt (chỉ bật khi cấu hình rõ)
-    assert machine.aurora_base_urls() == [
-        "http://127.0.0.1:3377/v1", "http://192.168.31.247:5005/v1", "http://192.168.31.244:5005/v1"]
+    assert machine.aurora_base_urls() == ["http://127.0.0.1:3377/v1"]   # 2026-11-17: không còn Aurora LAN dự phòng
     assert machine.flag("AUTO_SWITCH_PRESETS")
+
+
+# ── 2026-11-17: không gọi máy LAN (192.168.31.x…) làm dự phòng ─────────────────
+def test_lan_urls_skipped_unless_allowed(cfg):
+    assert machine.is_lan_url("http://192.168.31.247:20128/v1") and machine.is_lan_url("http://10.0.0.5:1/v1")
+    assert not machine.is_lan_url("http://127.0.0.1:8083/v1") and not machine.is_lan_url("https://api.deepseek.com")
+    cfg["AURORA_FALLBACK_URLS"] = "http://192.168.31.247:5005/v1,https://aurora.example.com/v1"
+    cfg["CLOUD_LLM_BASE_URL"] = "http://192.168.31.247:20128/v1"
+    assert machine.aurora_base_urls() == ["http://127.0.0.1:3377/v1", "https://aurora.example.com/v1"]
+    assert machine.cloud_llm_base_url() == ""
+    cfg["ALLOW_LAN_LLM"] = "1"
+    assert "http://192.168.31.247:5005/v1" in machine.aurora_base_urls()
+    assert machine.cloud_llm_base_url() == "http://192.168.31.247:20128/v1"
+
+
+def test_llm_settings_lan_base_falls_back_local(monkeypatch):
+    from core import config as C
+    data = {"LLM_BASE_URL": "http://192.168.31.247:20128/v1", "AGENT_BASE_URL": ""}
+    monkeypatch.setattr(C, "get", lambda k, d=None: data.get(k) or d)
+    monkeypatch.setattr(machine._config, "get", lambda k, d=None: data.get(k) or d)
+    assert C.llm_settings()["base"] == "http://127.0.0.1:8083/v1"
+    assert C.agent_llm()["base"] == "http://127.0.0.1:8083/v1"
+    data["ALLOW_LAN_LLM"] = "1"
+    assert C.llm_settings()["base"] == "http://192.168.31.247:20128/v1"
 
 
 def test_in_library_matches_old_rule(cfg):

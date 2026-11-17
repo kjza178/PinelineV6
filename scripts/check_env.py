@@ -277,10 +277,7 @@ def check_dirs(m) -> None:
         _dir_row("WORK_DIR", Path(wd), MISS, "Tạo thư mục WORK_DIR hoặc sửa key")
     else:
         _dir_row("work/", w, MISS, "Tạo thư mục work (hoặc junction: mklink /J work E:\\pineline_work)")
-    mt_on = m.flag("MT_ZH_VI", "0")
-    mt_local = m.setting("MT_ZH_VI_LOCAL", "")
-    _dir_row("MT model (MT_MODEL_DIR)", Path(mt_local) if mt_local else m.mt_model_dir(), WARN if mt_on else OPT,
-             "Chép thư mục model MT (HachimiMT ct2) hoặc để tự tải từ HuggingFace lần đầu; sửa MT_MODEL_DIR/MT_ZH_VI_LOCAL")
+    # NMT (MT_ZH_VI / HachimiMT) đã bỏ khỏi V6 (2026-11-17) — không kiểm thư mục model MT nữa
     # FireRed: cùng hàm với engine + Cài đặt (core.machine.firered_status); bắt buộc khi Cài đặt chọn ASR FireRed
     try:
         import core.batch_config as _bc

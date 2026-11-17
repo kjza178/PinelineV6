@@ -1,5 +1,18 @@
 # CHANGELOG — V6
 
+## 2026-11-17
+- **Sửa: job dịch dở bị đẩy sang luồng cũ (NMT + `local`) thay vì DeepSeek.** Job có sẵn `script.json` (chép từ V2 /
+  dịch dở) bị `translate_simple.cfg.job_pipeline` ĐOÁN là luồng cũ (`translate_pipeline_why=inferred`) → `run_translate`
+  chạy NMT rồi dịch bằng `TRANSLATE_MODEL` (preset «Khuyến nghị» đặt `local` cho «Dịch phụ») → gemma :18082, lô parse lỗi.
+  Giờ không suy legacy nữa; dấu «legacy/inferred» cũ được tính lại theo mặc định instance (simple → model «Soát & dịch
+  chính»). Luồng cũ chỉ khi instance/config chọn `translate_pipeline=legacy`. Simple làm tiếp trên script.json cũ.
+- **Bỏ hẳn NMT** (`engines/mt_zh_vi`, HachimiMT) khỏi `run_translate` (luồng cũ) — `MT_ZH_VI=1` trong config cũ không
+  còn tác dụng; hết log «[mt-zh-vi] bỏ qua: [WinError 3] … 'E:\\'». `check_env` không kiểm thư mục model MT nữa.
+- **Không gọi máy LAN làm dự phòng:** mặc định `AURORA_FALLBACK_URLS` = trống (trước 192.168.31.247/244:5005);
+  URL LAN (192.168.x/10.x/172.16–31.x) trong `AURORA_FALLBACK_URLS`, `CLOUD_LLM_BASE_URL`, `LLM_BASE_URL`,
+  `AGENT_BASE_URL` bị bỏ qua (LLM chung → llama 127.0.0.1:8083), có log cảnh báo 1 lần. Bật lại: `ALLOW_LAN_LLM=1`.
+  docs/fixes/2026-11-17-no-nmt-no-lan.md
+
 ## 2026-11-16
 - **FireRed nhanh hơn** (thay vì TensorRT-LLM — xem lý do trong phiên): tắt LID mặc định (nhận dạng ngôn ngữ từng câu,
   model 3,3 GB, kết quả không dùng; bật lại `FIRERED_LID=1`), ASR theo lô trên GPU `FIRERED_ASR_BATCH` (mặc định 4; trước

@@ -37,7 +37,8 @@ MACHINE_KEYS: dict[str, tuple[str, str]] = {
     "MODEL_START_CMD": ("", "Lệnh đổi preset tuỳ ý; placeholder {script} {preset} {presets_dir} {host} {port} {base_url}. Trống = powershell -ExecutionPolicy Bypass -File {script} {preset}"),
     "AURORA_BASE_URL": ("", "Aurora/ChatGPT proxy cho model chatgpt/... (ưu tiên trước CHATGPT_BASE_URL)"),
     "CHATGPT_BASE_URL": ("http://127.0.0.1:3377/v1", "Proxy ChatGPT local (plan/review/agent dùng model chatgpt/...)"),
-    "AURORA_FALLBACK_URLS": ("http://192.168.31.247:5005/v1,http://192.168.31.244:5005/v1", "Aurora dự phòng (phân cách dấu phẩy). 'off' = không dùng"),
+    "AURORA_FALLBACK_URLS": ("", "Aurora dự phòng (phân cách dấu phẩy). Trống/'off' = không dùng. Địa chỉ LAN chỉ dùng khi ALLOW_LAN_LLM=1"),
+    "ALLOW_LAN_LLM": ("0", "1 = cho phép gọi LLM/Aurora ở địa chỉ LAN (192.168.x, 10.x, 172.16–31.x). Mặc định 0: bỏ qua, không làm dự phòng"),
     "AGENT_BASE_URL": ("", "LLM cho agent chat/feeder; trống = LLM_BASE_URL"),
     "CLOUD_LLM_BASE_URL": ("", "Router cloud cho model ollama/...-cloud (9router — V6 KHÔNG dùng nữa; trống = tắt)"),
     "MT_MODEL_DIR": (r"E:\models\mt", "Thư mục model MT zh→vi (HachimiMT ct2); MT_ZH_VI_LOCAL = trỏ thẳng 1 model"),
@@ -169,6 +170,41 @@ def preset_switch_unavailable_reason() -> str:
     return ""
 
 
+# ── Địa chỉ LAN (V6 2026-11-17: không gọi máy khác trong mạng nội bộ làm dự phòng) ──────────────
+_LAN_WARNED: set[tuple[str, str]] = set()
+
+
+def is_lan_url(url: str) -> bool:
+    """True nếu URL trỏ IP mạng nội bộ (192.168.x, 10.x, 172.16–31.x, 169.254.x) — KHÔNG tính loopback."""
+    import ipaddress
+    try:
+        host = urlsplit((url or "").strip()).hostname or ""
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return (ip.is_private or ip.is_link_local) and not ip.is_loopback
+
+
+def lan_llm_allowed() -> bool:
+    return setting("ALLOW_LAN_LLM", "0").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _warn_lan_once(key: str, url: str) -> None:
+    if (key, url) in _LAN_WARNED:
+        return
+    _LAN_WARNED.add((key, url))
+    print(f"[machine] bỏ qua {key}={url} (địa chỉ LAN — V6 không gọi máy LAN làm dự phòng; "
+          f"đặt ALLOW_LAN_LLM=1 nếu thật sự muốn)", flush=True)
+
+
+def no_lan(key: str, url: str, fallback: str = "") -> str:
+    """Trả url nếu không phải LAN (hoặc ALLOW_LAN_LLM=1); không thì `fallback` (+ cảnh báo 1 lần)."""
+    if url and is_lan_url(url) and not lan_llm_allowed():
+        _warn_lan_once(key, url)
+        return fallback
+    return url
+
+
 # ── Aurora / ChatGPT proxy ───────────────────────────────────────────────────
 def aurora_base_urls() -> list[str]:
     """Thứ tự thử: AURORA_BASE_URL, CHATGPT_BASE_URL, :3377 local, AURORA_FALLBACK_URLS."""
@@ -184,8 +220,12 @@ def aurora_base_urls() -> list[str]:
     if fb.strip().lower() not in _OFF:
         for u in fb.split(","):
             u = u.strip().rstrip("/")
-            if u and u not in out:
-                out.append(u)
+            if not u or u in out:
+                continue
+            if is_lan_url(u) and not lan_llm_allowed():
+                _warn_lan_once("AURORA_FALLBACK_URLS", u)
+                continue
+            out.append(u)
     return out
 
 
@@ -209,7 +249,7 @@ def aurora_missing_hint() -> str:
 
 # ── Dịch vụ / thư mục khác ───────────────────────────────────────────────────
 def cloud_llm_base_url() -> str:
-    return setting("CLOUD_LLM_BASE_URL").rstrip("/")
+    return no_lan("CLOUD_LLM_BASE_URL", setting("CLOUD_LLM_BASE_URL").rstrip("/"))
 
 
 def mt_model_dir() -> Path:

@@ -154,10 +154,23 @@ def save_config(updates: dict) -> dict:
     return dict(_CFG)
 
 
+_LOCAL_LLM_BASE = "http://127.0.0.1:8083/v1"
+
+
+def _no_lan_base(key: str, raw) -> str:
+    """URL LLM chung; địa chỉ LAN (vd 9router 192.168.31.x cũ) → llama local, trừ khi ALLOW_LAN_LLM=1."""
+    base = (str(raw or "").strip() or _LOCAL_LLM_BASE).rstrip("/")
+    try:
+        from core import machine as _m
+        return _m.no_lan(key, base, _LOCAL_LLM_BASE)
+    except Exception:  # noqa: BLE001
+        return base
+
+
 def llm_settings() -> dict:
     """LLM cho job (dịch/review) — đọc lúc gọi để sửa pineline.config.json có hiệu lực không cần restart."""
     return {
-        "base": (get("LLM_BASE_URL") or "http://127.0.0.1:8083/v1").rstrip("/"),   # V6: không còn 9router
+        "base": _no_lan_base("LLM_BASE_URL", get("LLM_BASE_URL")),   # V6: không còn 9router / máy LAN
         "key": get("LLM_API_KEY") or "",
         "model": get("LLM_MODEL") or "local",
         "translate_model": get("TRANSLATE_MODEL") or None,
@@ -187,7 +200,7 @@ def pass_llm_model(kind: str = "pronoun") -> str | None:
 
 def agent_llm() -> dict:
     """LLM cho agent chat / feeder: AGENT_* rồi LLM_* (cả hai file trước env)."""
-    base = (get("AGENT_BASE_URL") or get("LLM_BASE_URL") or "http://127.0.0.1:8083/v1").rstrip("/")
+    base = _no_lan_base("AGENT_BASE_URL", get("AGENT_BASE_URL") or get("LLM_BASE_URL"))
     model = get("AGENT_MODEL") or get("LLM_MODEL") or "local"
     fb = (get("AGENT_FALLBACK_MODEL") or "").strip()
     return {

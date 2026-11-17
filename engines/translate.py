@@ -3804,53 +3804,8 @@ def run_translate(
             print(f"[fill] prefill {n_triv} câu cười/thán từ", flush=True)
 
         todo = [s for s in segments if not done.get(s["i"], {}).get("vi")]
-        # NMT = DỊCH CHÍNH (mặc định). LLM chỉ vá sót + run_review rà soát.
-        # Auto model: modern/mixed → base 60-zh-vi; xianxia/cổ → QT
-        try:
-            import engines.mt_zh_vi as mt_zh_vi
-            if mt_zh_vi.enabled() and todo:
-                mid = mt_zh_vi.resolve_model_id(plan)
-                flavor = "QT" if "qt" in mid.lower() else "base"
-                primary = mt_zh_vi.primary_mode()
-                print(
-                    f"[mt-zh-vi] {'PRIMARY' if primary else 'hint'} "
-                    f"{len(todo)} câu · {flavor} · {mid}",
-                    flush=True,
-                )
-                drafts = mt_zh_vi.draft_rows(
-                    [{"i": s["i"], "text": s.get("text") or ""} for s in todo],
-                    plan=plan,
-                )
-                if primary:
-                    n_mt = 0
-                    for s in todo:
-                        vi = (drafts.get(s["i"]) or "").strip()
-                        if not vi or _has_cjk(vi):
-                            continue
-                        zh = clean_zh_spam(s.get("text") or "") or (s.get("text") or "")
-                        done[s["i"]] = {
-                            "i": s["i"], "start": s["start"], "end": s["end"],
-                            "zh": zh, "vi": normalize_vi_thousands(vi), "mt": 1,
-                        }
-                        n_mt += 1
-                    # khóa cứng ngay trên bản NMT (tên/danh hiệu type=lock)
-                    try:
-                        apply_hard_term_locks(list(done.values()), plan)
-                    except Exception as e_lock:  # noqa: BLE001
-                        print(f"[mt-zh-vi] hard-lock skip: {e_lock}", flush=True)
-                    todo = [s for s in segments if not done.get(s["i"], {}).get("vi")]
-                    print(
-                        f"[mt-zh-vi] NMT chính {n_mt} câu · còn {len(todo)} câu "
-                        f"LLM vá (CJK/trống) · review sau = {_rmodel()}",
-                        flush=True,
-                    )
-                else:
-                    for s in todo:
-                        if s["i"] in drafts:
-                            s["mt_vi"] = drafts[s["i"]]
-                    print(f"[mt-zh-vi] gắn hint {len(drafts)} câu → LLM dịch", flush=True)
-        except Exception as e_mt:  # noqa: BLE001
-            print(f"[mt-zh-vi] bỏ qua: {e_mt}", flush=True)
+        # 2026-11-17: V6 bỏ hẳn NMT (engines/mt_zh_vi, HachimiMT) — kể cả luồng cũ. Trước đây MT_ZH_VI=1 trong config
+        # cũ (chép từ V2) làm NMT dịch chính / gắn hint, thiếu model thì «[mt-zh-vi] bỏ qua: [WinError 3] E:\\».
 
         # Vá câu trống: luôn batch (oneshot hay sót/CJK với gemma)
         if mode is None and todo and len(todo) <= 80:

@@ -120,17 +120,18 @@ def pipeline_default() -> str:
 
 
 def _infer_job_pipeline(d: dict, wd) -> str | None:
-    """Job chưa đóng dấu (tạo trước P6): suy luồng đã dùng. None = chưa bắt đầu dịch."""
-    from pathlib import Path
+    """Job chưa đóng dấu: suy luồng đã dùng. None = theo mặc định instance.
+
+    2026-11-17: KHÔNG còn suy «legacy» từ script.json / stage translate đã chạy — job V2/V5 chép sang (hoặc dịch dở)
+    bị kéo về luồng cũ = NMT + TRANSLATE_MODEL (local) thay vì model Soát & dịch chính (DeepSeek…). Luồng simple làm
+    tiếp trên script.json cũ được (ScriptStore giữ câu đã có, câu chưa soát sẽ được soát). Luồng cũ chỉ khi
+    instance/config chọn legacy."""
     st = (d.get("stages") or {}).get("translate") or {}
     ag = d.get("agent") or {}
     if not isinstance(st, dict):
         st = {}
     if str(st.get("mode") or "").lower() == PIPELINE_SIMPLE or (isinstance(ag, dict) and ag.get("simple_park")):
         return PIPELINE_SIMPLE
-    if (Path(wd) / "script.json").exists() or st.get("started_at") \
-            or str(st.get("status") or "").lower() in ("running", "done", "error", "failed"):
-        return PIPELINE_LEGACY
     return None
 
 
@@ -138,8 +139,8 @@ def job_pipeline(work_dir, *, fresh: bool = False, stamp: bool = True) -> str:
     """Luồng dịch cho 1 job — mọi đường gọi dịch trong server hỏi hàm này (server._translate_pipeline_simple(wd)).
 
     - Đã đóng dấu manifest.translate_pipeline → giữ nguyên (job dở luồng cũ hoàn tất bằng luồng cũ).
-    - Chưa đóng dấu: dấu vết simple (stages.translate.mode=simple / agent.simple_park) → simple; dấu vết luồng
-      cũ (script.json / stage translate đã chạy) → legacy; chưa dịch → pipeline_default() (mặc định instance).
+    - Chưa đóng dấu (hoặc dấu legacy «inferred» cũ khi instance là simple): dấu vết simple → simple; còn lại →
+      pipeline_default() (mặc định instance). script.json có sẵn KHÔNG còn ép luồng cũ (2026-11-17).
     - fresh=True («Dịch LẠI» từ đầu — force, không phải Soát lại) → pipeline_default() và đóng dấu lại.
     stamp=True: ghi dấu qua state.job_state.try_mutate khi đổi (lỗi ghi → bỏ qua, vẫn trả luồng)."""
     import json
@@ -154,7 +155,10 @@ def job_pipeline(work_dir, *, fresh: bool = False, stamp: bool = True) -> str:
     except Exception:  # noqa: BLE001
         d = {}
     cur = str(d.get(JOB_PIPELINE_KEY) or "").strip().lower()
-    if not fresh and cur in (PIPELINE_SIMPLE, PIPELINE_LEGACY):
+    cur_why = str(d.get(JOB_PIPELINE_KEY + "_why") or "").strip().lower()
+    # dấu «legacy/inferred» cũ (đoán từ script.json) không còn giá trị → tính lại theo mặc định instance
+    stale = cur == PIPELINE_LEGACY and cur_why == "inferred" and pipeline_default() == PIPELINE_SIMPLE
+    if not fresh and not stale and cur in (PIPELINE_SIMPLE, PIPELINE_LEGACY):
         return cur
     if fresh:
         p, why = pipeline_default(), "fresh"

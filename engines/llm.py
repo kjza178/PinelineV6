@@ -705,7 +705,7 @@ def chat(
     ml = m.lower()
     if ml.startswith("ollama/") or "-cloud" in ml or ml.endswith(":cloud"):
         is_cloud = True
-        cloud_base = (_cfg_get("CLOUD_LLM_BASE_URL") or "").strip().rstrip("/")
+        cloud_base = _machine.no_lan("CLOUD_LLM_BASE_URL", (_cfg_get("CLOUD_LLM_BASE_URL") or "").strip().rstrip("/"))
         cloud_key = (_cfg_get("CLOUD_LLM_API_KEY") or "").strip()
         if not cloud_base or not cloud_key or cloud_key == "sk-local":
             raise LLMUnavailable(
