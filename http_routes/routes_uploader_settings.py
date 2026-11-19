@@ -196,7 +196,7 @@ def test_llm_conn(payload: Dict[str, Any] = Body(...)):
     """Thử gửi 1 prompt nhỏ đến LLM để đo độ trễ và kiểm tra model."""
     import urllib.request
 
-    base_url = str(payload.get("base_url") or config.get("LLM_BASE_URL") or "http://127.0.0.1:8083/v1").rstrip("/")
+    base_url = str(payload.get("base_url") or config.llm_settings()["base"]).rstrip("/")   # config: đã lọc LAN
     api_key = str(payload.get("api_key") or config.get("LLM_API_KEY") or "sk-local").strip()
     model = str(payload.get("model") or config.get("LLM_MODEL") or "local").strip()
 

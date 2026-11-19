@@ -96,6 +96,11 @@ def test_llama_ignores_remote_llm_base_url(cfg):
 def test_llama_base_url_explicit_wins_and_adds_v1(cfg):
     cfg["LLM_BASE_URL"] = "http://127.0.0.1:9090/v1"
     cfg["LLAMA_BASE_URL"] = "http://10.0.0.5:8183"
+    assert machine.llama_base_url() == "http://127.0.0.1:9090/v1"        # 2026-11-19: LAN bỏ → LLM_BASE_URL local
+    cfg["LLAMA_BASE_URL"] = "http://localhost:8183"
+    assert machine.llama_base_url() == "http://localhost:8183/v1"
+    cfg["ALLOW_LAN_LLM"] = "1"
+    cfg["LLAMA_BASE_URL"] = "http://10.0.0.5:8183"
     assert machine.llama_base_url() == "http://10.0.0.5:8183/v1"
     assert machine.llama_host_port() == ("10.0.0.5", 8183)
 
@@ -125,6 +130,8 @@ def test_custom_start_cmd_template(cfg, tmp_path):
 def test_aurora_fallback_off_and_hint(cfg):
     cfg["AURORA_FALLBACK_URLS"] = "off"
     cfg["CHATGPT_BASE_URL"] = "http://10.0.0.9:3377/v1"
+    assert machine.aurora_base_urls() == ["http://127.0.0.1:3377/v1"]          # 2026-11-19: LAN bỏ cả URL chính
+    cfg["ALLOW_LAN_LLM"] = "1"
     assert machine.aurora_base_urls() == ["http://10.0.0.9:3377/v1", "http://127.0.0.1:3377/v1"]
     cfg["PLAN_MODEL"] = "chatgpt/gpt-5-6-mini"
     hint = machine.aurora_missing_hint()

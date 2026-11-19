@@ -167,6 +167,15 @@ def _no_lan_base(key: str, raw) -> str:
         return base
 
 
+def _no_lan_aurora() -> str:
+    try:
+        from core import machine as _m
+        return (_m.no_lan("AURORA_BASE_URL", (get("AURORA_BASE_URL") or "").rstrip("/"))
+                or _m.no_lan("CHATGPT_BASE_URL", (get("CHATGPT_BASE_URL") or "").rstrip("/")))
+    except Exception:  # noqa: BLE001
+        return (get("AURORA_BASE_URL") or get("CHATGPT_BASE_URL") or "").rstrip("/")
+
+
 def llm_settings() -> dict:
     """LLM cho job (dịch/review) — đọc lúc gọi để sửa pineline.config.json có hiệu lực không cần restart."""
     return {
@@ -177,7 +186,7 @@ def llm_settings() -> dict:
         "review_model": get("REVIEW_MODEL") or None,
         "name_model": get("NAME_MODEL") or None,
         "pronoun_model": get("PRONOUN_MODEL") or None,
-        "chatgpt_base": (get("AURORA_BASE_URL") or get("CHATGPT_BASE_URL") or "").rstrip("/"),
+        "chatgpt_base": _no_lan_aurora(),
         "chatgpt_model": get("CHATGPT_MODEL") or "gpt-5-6-mini",
     }
 

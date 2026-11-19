@@ -304,7 +304,7 @@ def test_llm(payload: dict) -> tuple[int, dict]:
         get = cfg.get
     except Exception:
         get = lambda k, d=None: os.getenv(k, d)  # noqa: E731
-    base = str(payload.get("base_url") or get("LLM_BASE_URL") or "http://127.0.0.1:8083/v1").rstrip("/")
+    base = str(payload.get("base_url") or cfg.llm_settings()["base"]).rstrip("/")   # config: đã lọc LAN
     key = str(payload.get("api_key") or get("LLM_API_KEY") or "sk-local").strip()
     model = str(payload.get("model") or get("LLM_MODEL") or "local").strip()
     t0 = time.time()

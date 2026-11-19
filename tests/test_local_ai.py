@@ -9,7 +9,7 @@ import core.config as cfg
 from core import local_ai
 
 KEYS = [o.key for o in local_ai.OPTS.values()] + ["LOCAL_LLM_BASE_URL", "LLM_BASE_URL", "CHATGPT_BASE_URL",
-                                                  "SIMPLE_WORKERS", "SIMPLE_MAX_TOKENS"]
+                                                  "SIMPLE_WORKERS", "SIMPLE_MAX_TOKENS", "ALLOW_LAN_LLM"]
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def test_defaults_and_legacy_env(conf, monkeypatch):
     assert local_ai.value("ollama_url") == "http://10.0.0.5:11434/v1"           # env cũ vẫn được tôn trọng
 
 
-def test_apply_writes_config_and_readers_follow(conf):
+def test_apply_writes_config_and_readers_follow(conf, monkeypatch):
     import engines.llm as llm
     from engines.translate_simple import cfg as scfg
     out = local_ai.apply({"ollama_url": "http://192.168.1.9:11434/v1", "concurrency": "3", "max_tokens": "4096",
@@ -42,7 +42,11 @@ def test_apply_writes_config_and_readers_follow(conf):
     assert data["OLLAMA_BASE_URL"] == "http://192.168.1.9:11434/v1" and data["LOCAL_CONCURRENCY"] == "3"
     assert "LLAMA_BASE_URL" not in data and data["OTHER"] == "giữ"          # = mặc định → không ghi
     assert "OLLAMA_BASE_URL" in out["changed"]
-    assert llm._ollama_base() == "http://192.168.1.9:11434/v1" and llm._thinking() is True
+    # 2026-11-19: Ollama ở máy LAN bị bỏ (về :11434) trừ khi ALLOW_LAN_LLM=1
+    assert llm._ollama_base() == "http://127.0.0.1:11434/v1" and llm._thinking() is True
+    monkeypatch.setenv("ALLOW_LAN_LLM", "1")
+    assert llm._ollama_base() == "http://192.168.1.9:11434/v1"
+    monkeypatch.delenv("ALLOW_LAN_LLM")
     assert llm._ollama_num_ctx() == 16384
     assert scfg.workers_for("local") == 3 and scfg.workers_for("local/qwen3:8b") == 3
     assert scfg.out_cap("llama/gemma") == 4096

@@ -11,6 +11,10 @@
   - `scripts/setup_f1_links.bat`: không còn junction sang `Z:\PinelineV5` / `D:\PinelineV6_work`; tạo `work`,
     `scratch\tmp`; tuỳ chọn chép `models\`, `cookies\` từ thư mục nguồn (`setup_f1_links.bat E:\PineLineV6`).
   - `check_env`: kiểm work_root/temp của instance (thay `ROOT/work`).
+- **Chặn LAN ở mọi đường gọi LLM** (không chỉ dự phòng): `AURORA_BASE_URL`/`CHATGPT_BASE_URL`, `LLAMA_BASE_URL`, Ollama
+  (`OLLAMA_BASE_URL`), Meta Studio, nút «Thử kết nối LLM» (khi lấy từ config), `engines.llm.BASE_URL`, `check_env`.
+  Địa chỉ 192.168.x/10.x/172.16–31.x → bỏ (log 1 lần), dùng local; mở lại `ALLOW_LAN_LLM=1`. URL gõ tay khi thử kết nối giữ nguyên.
+  `check_env`: báo rõ LLM_BASE_URL LAN bị bỏ, model `ollama/…-cloud` (9router) không còn chạy được.
 
 ## 2026-11-17
 - **Sửa: job dịch dở bị đẩy sang luồng cũ (NMT + `local`) thay vì DeepSeek.** Job có sẵn `script.json` (chép từ V2 /

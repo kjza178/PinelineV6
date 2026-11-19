@@ -90,7 +90,7 @@ DEFAULT_LLAMA_BASE_URL = "http://127.0.0.1:8083/v1"
 
 def llama_base_url() -> str:
     """URL /v1 của llama-server: LLAMA_BASE_URL > LLM_BASE_URL (chỉ khi localhost) > :8083 cũ."""
-    v = setting("LLAMA_BASE_URL", "")
+    v = no_lan("LLAMA_BASE_URL", setting("LLAMA_BASE_URL", ""))      # LAN → bỏ (ALLOW_LAN_LLM=1 mở)
     if not v:
         llm = setting("LLM_BASE_URL", "")
         v = llm if (llm and is_loopback_url(llm)) else DEFAULT_LLAMA_BASE_URL
@@ -210,7 +210,7 @@ def aurora_base_urls() -> list[str]:
     """Thứ tự thử: AURORA_BASE_URL, CHATGPT_BASE_URL, :3377 local, AURORA_FALLBACK_URLS."""
     out: list[str] = []
     for k in ("AURORA_BASE_URL", "CHATGPT_BASE_URL"):
-        v = setting(k, "").rstrip("/")
+        v = no_lan(k, setting(k, "").rstrip("/"))       # 2026-11-19: cả URL chính LAN cũng bỏ (ALLOW_LAN_LLM=1 mở)
         if v and v not in out:
             out.append(v)
     dflt = MACHINE_KEYS["CHATGPT_BASE_URL"][0]

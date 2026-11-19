@@ -171,7 +171,11 @@ def _models_using(m, prefixes: tuple[str, ...]) -> list[str]:
 
 
 def check_llm(m, offline: bool) -> None:
-    base = m.setting("LLM_BASE_URL").rstrip("/")
+    raw = m.setting("LLM_BASE_URL").rstrip("/")
+    base = m.no_lan("LLM_BASE_URL", raw, "http://127.0.0.1:8083/v1").rstrip("/")
+    if base != raw:
+        row("LLM_BASE_URL (LAN)", WARN, f"{raw} bị bỏ qua (địa chỉ LAN) → dùng {base}",
+            "Xoá/đổi LLM_BASE_URL trong pineline.config.json (hoặc ALLOW_LAN_LLM=1 nếu thật sự muốn)")
     if offline:
         row("LLM_BASE_URL", SKIP, f"{base} (offline)", "")
     else:
@@ -219,6 +223,10 @@ def check_cloud(m, offline: bool) -> None:
     if not used:
         return
     b = m.cloud_llm_base_url()
+    if not b:       # V6 bỏ 9router (2026-11-15) + chặn LAN (2026-11-17): model ollama/…-cloud không còn chạy được
+        row("9router/cloud LLM", MISS, f"V6 không dùng 9router — dùng bởi {', '.join(used)}",
+            "Đổi các key trên sang deepseek/… (Cài đặt AI → Lấy danh sách model) hoặc 'local'")
+        return
     has_key = bool(m.setting("CLOUD_LLM_API_KEY", "") or "20128" in m.setting("LLM_BASE_URL", ""))
     if offline:
         row("9router/cloud LLM", WARN if not has_key else SKIP, f"{b} (offline) — dùng bởi {', '.join(used)}",

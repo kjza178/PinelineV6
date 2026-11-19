@@ -1023,10 +1023,11 @@ def _get_chatgpt_token() -> str:
 
 
 def _chatgpt_candidate_bases() -> list[str]:
-    """Ưu tiên CHATGPT_BASE_URL trong pineline.config (local :3377), rồi Aurora LAN."""
+    """Ưu tiên AURORA_BASE_URL / CHATGPT_BASE_URL trong pineline.config (local :3377), rồi dự phòng.
+    2026-11-19: địa chỉ LAN bị bỏ (machine.no_lan; ALLOW_LAN_LLM=1 mở)."""
     bases: list[str] = []
     for k in ("AURORA_BASE_URL", "CHATGPT_BASE_URL"):
-        v = _cfg(k).rstrip("/")
+        v = _machine.no_lan(k, _cfg(k).rstrip("/"))
         if v and v not in bases:
             bases.append(v)
     for u in _machine.aurora_base_urls():  # machine-config: :3377 + AURORA_FALLBACK_URLS

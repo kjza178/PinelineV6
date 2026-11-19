@@ -42,7 +42,8 @@ try:
 except Exception:  # noqa: BLE001
     pass
 
-BASE_URL = os.getenv("LLM_BASE_URL", "http://127.0.0.1:8083/v1").rstrip("/")   # V6: mặc định llama local
+BASE_URL = _machine.no_lan("LLM_BASE_URL", os.getenv("LLM_BASE_URL", "http://127.0.0.1:8083/v1").rstrip("/"),
+                           "http://127.0.0.1:8083/v1")   # V6: mặc định llama local; LAN → bỏ
 API_KEY = os.getenv("LLM_API_KEY", "")
 MODEL = os.getenv("LLM_MODEL", "ollama/gemma4:31b-cloud")
 
@@ -55,7 +56,7 @@ def _ollama_base() -> str:
     """Ollama LÚC GỌI: Cài đặt → AI dịch → AI trên máy (OLLAMA_BASE_URL) > env LOCAL_LLM_BASE_URL > :11434 (core/local_ai)."""
     try:
         from core import local_ai
-        return local_ai.value("ollama_url")
+        return _machine.no_lan("OLLAMA_BASE_URL", local_ai.value("ollama_url"), "http://127.0.0.1:11434/v1")
     except Exception as e:  # noqa: BLE001
         print(f"[llm] đọc địa chỉ Ollama lỗi: {e} → {LOCAL_BASE_URL}", flush=True)
         return LOCAL_BASE_URL
