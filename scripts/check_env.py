@@ -135,13 +135,22 @@ def check_python_pkgs() -> None:
                            ("google_auth_oauthlib", WARN, "đăng YouTube + kênh test bản quyền (thiếu → trang Phim / Test BQ lỗi)"),
                            ("googleapiclient", WARN, "đăng YouTube + kênh test bản quyền"),
                            ("psutil", WARN, "dừng / dọn tiến trình engine"),
-                           ("funasr", OPT, "ASR Nano / Paraformer / SenseVoice — scripts\\install\\install_funasr_safe.bat"),
-                           ("fireredasr2s", OPT, "ASR FireRed — scripts\\install_firered_asr.bat")):
+                           ("funasr", OPT, "ASR Nano / Paraformer / SenseVoice — scripts\\install\\install_funasr_safe.bat")):
         if importlib.util.find_spec(mod) is None:
             row(f"thư viện {mod}", need, f"thiếu — {why}",
                 f"\"{sys.executable}\" -m pip install -r scripts\\install\\install\\requirements-main.txt")
         else:
             row(f"thư viện {mod}", OK, "có")
+    # 2026-11-19: FireRed KHÔNG cài bằng pip — mã nguồn ở vendor/FireRedASR2S, engine tự thêm vào sys.path
+    # (find_spec("fireredasr2s") luôn «thiếu» = báo sai). Kiểm thư viện phụ thuộc mà install_firered_asr.bat cài.
+    miss = [mod for mod in FIRERED_DEPS if importlib.util.find_spec(mod) is None]
+    row("thư viện cho FireRed", OPT if miss else OK,
+        f"thiếu {', '.join(miss)} — chỉ cần khi dùng ASR FireRed" if miss else "đủ (" + ", ".join(FIRERED_DEPS) + ")",
+        "scripts\\install_firered_asr.bat" if miss else "")
+
+
+# Thư viện pip mà FireRedASR2S cần (cùng danh sách scripts/install_firered_asr.bat cài) — tên module import.
+FIRERED_DEPS = ("cn2an", "kaldiio", "kaldi_native_fbank", "sentencepiece", "textgrid", "peft")
 
 
 def check_config_files() -> None:
