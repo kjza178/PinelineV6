@@ -271,12 +271,15 @@ def check_dirs(m) -> None:
     _dir_row("voice_samples/", ROOT / "voice_samples", OPT, copy)
     _dir_row("models/ (cdx23, …)", ROOT / "models", OPT, copy + " — cần cho tách nhạc nền/âm thanh")
     _dir_row("cookies/", ROOT / "cookies", OPT, copy + " — cần khi tải Douyin/Bilibili/YouTube")
-    w = ROOT / "work"
-    wd = m.setting("WORK_DIR", "")
-    if wd:
-        _dir_row("WORK_DIR", Path(wd), MISS, "Tạo thư mục WORK_DIR hoặc sửa key")
-    else:
-        _dir_row("work/", w, MISS, "Tạo thư mục work (hoặc junction: mklink /J work E:\\pineline_work)")
+    # 2026-11-19 portable: thư mục job/tạm theo instance (instances/<tên>.json + <tên>.local.json), không cứng ROOT/work
+    try:
+        from core.instance import load as _load_inst
+        inst = _load_inst()
+        hint = (f"Chạy run_v6.bat (tự tạo), hoặc sửa work_root/temp trong instances/{inst.name}.local.json")
+        _dir_row(f"work_root ({inst.name})", inst.work_root, MISS, hint)
+        _dir_row(f"temp ({inst.name})", inst.temp, OPT, hint)
+    except Exception as e:  # noqa: BLE001
+        row("instance", MISS, f"không đọc được instance: {e}", "Kiểm instances/v6.json và v6.local.json (JSON hợp lệ)")
     # NMT (MT_ZH_VI / HachimiMT) đã bỏ khỏi V6 (2026-11-17) — không kiểm thư mục model MT nữa
     # FireRed: cùng hàm với engine + Cài đặt (core.machine.firered_status); bắt buộc khi Cài đặt chọn ASR FireRed
     try:

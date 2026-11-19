@@ -1,8 +1,8 @@
 {
   "name": "v6",
   "port": 8806,
-  "work_root": "D:/PinelineV6_work",
-  "temp": "D:/PinelineV6_tmp",
+  "work_root": "./work",
+  "temp": "./scratch/tmp",
   "routers": [
     "films",
     "uploader"

@@ -114,19 +114,39 @@ class Instance:
         return d
 
 
+def _root_path(v, base: Path) -> Path:
+    """Đường dẫn trong instance: tuyệt đối giữ nguyên; tương đối («./work») tính từ gốc repo — V6 portable,
+    không phụ thuộc thư mục đang đứng."""
+    p = Path(str(v))
+    return p if p.is_absolute() else (base / p)
+
+
 def load(name: str | None = None, *, directory: Path | None = None) -> Instance:
+    """instances/<tên>.json (trong git, mặc định portable) + instances/<tên>.local.json (KHÔNG trong git, đè khoá
+    riêng của máy — vd work_root ở ổ khác) — 2026-11-19: git pull không còn đụng cấu hình máy."""
     name = (name or os.getenv("PINELINE_INSTANCE") or "v6").strip()
-    path = (directory or INSTANCES_DIR) / f"{name}.json"
+    d = directory or INSTANCES_DIR
+    path = d / f"{name}.json"
     if not path.is_file():
         raise FileNotFoundError(f"Không có instance '{name}' ({path})")
     raw = json.loads(path.read_text(encoding="utf-8"))
+    local = d / f"{name}.local.json"
+    if local.is_file():
+        try:
+            over = json.loads(local.read_text(encoding="utf-8-sig"))
+        except ValueError as e:
+            raise ValueError(f"{local} không phải JSON hợp lệ: {e}") from e
+        if not isinstance(over, dict):
+            raise ValueError(f"{local} phải là object JSON {{...}}")
+        raw.update(over)
+    base = ROOT if directory is None else d.parent
     known = {"name", "port", "work_root", "temp", "host", "routers", "desktop", "agent_brain",
              "agent_watch", "telegram"}
     return Instance(
         name=raw.get("name", name),
         port=int(raw["port"]),
-        work_root=Path(raw["work_root"]),
-        temp=Path(raw.get("temp") or os.getenv("TEMP") or "."),
+        work_root=_root_path(raw["work_root"], base),
+        temp=_root_path(raw.get("temp") or os.getenv("TEMP") or ".", base),
         host=raw.get("host", "127.0.0.1"),
         routers=tuple(raw.get("routers") or ()),
         desktop=bool(raw.get("desktop", False)),

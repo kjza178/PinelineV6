@@ -53,3 +53,8 @@ data/.upload_*.lock
 # Dữ liệu runtime do agent_feeder tạo khi chạy
 data/series_meta/
 .pineline_env_path
+
+# Cấu hình RIÊNG của máy (2026-11-19): đè instances/<tên>.json, git pull không đụng
+instances/*.local.json
+# Model FireRed tải về (scripts/install_firered_asr.bat) — lớn, không commit
+vendor/FireRedASR2S/pretrained_models/

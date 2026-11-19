@@ -49,6 +49,7 @@ def main() -> None:
         from dataclasses import replace
         inst = replace(inst, port=a.port)
     inst.temp.mkdir(parents=True, exist_ok=True)
+    inst.work_root.mkdir(parents=True, exist_ok=True)   # portable: ./work tạo lần đầu
     inst.apply_env()
     # V6 F3: server.py (legacy) còn vài đường dẫn tương đối cwd → luôn chạy từ gốc cây.
     root = Path(__file__).resolve().parents[1]

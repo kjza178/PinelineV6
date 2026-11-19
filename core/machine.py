@@ -321,15 +321,40 @@ DEFAULT_FIRERED_MODELS = r"D:\AI_CACHE\firered"      # nơi scripts/download_fir
 FIRERED_MODEL_DIRS = ("FireRedASR2-AED", "FireRedVAD", "FireRedLID", "FireRedPunc")
 
 
+_PATH_WARNED: set[str] = set()
+
+
+def _safe_is_dir(p: Path) -> bool:
+    try:
+        return p.is_dir()
+    except OSError as e:                 # ổ rớt / ổ mạng chưa gắn → coi như không có (ghi lý do)
+        _warn_once(f"isdir:{p}", f"không đọc được {p}: {e}")
+        return False
+
+
+def _warn_once(key: str, msg: str) -> None:
+    if key in _PATH_WARNED:
+        return
+    _PATH_WARNED.add(key)
+    print(f"[machine] {msg}", flush=True)
+
+
 def firered_paths() -> tuple[Path, Path]:
     """(mã nguồn FireRedASR2S, thư mục model). Env > pineline.config.json > mặc định.
     Model chưa đặt: <root>/pretrained_models nếu có, không thì D:\\AI_CACHE\\firered (chỗ script cài tải về —
     fix 2026-11-16: script cài tải về đó nhưng không ghi FIRERED_MODELS → ASR báo thiếu model)."""
-    root = Path(os.getenv("FIRERED_ROOT") or setting("FIRERED_ROOT", "") or
-                str(Path(__file__).resolve().parents[1] / "vendor" / "FireRedASR2S"))
+    vendor = Path(__file__).resolve().parents[1] / "vendor" / "FireRedASR2S"
+    root = Path(os.getenv("FIRERED_ROOT") or setting("FIRERED_ROOT", "") or str(vendor))
+    # 2026-11-19 portable: config chép từ máy khác còn trỏ cây cũ (không tồn tại) → bản vendor trong cây
+    if root != vendor and not _safe_is_dir(root) and _safe_is_dir(vendor):
+        _warn_once("FIRERED_ROOT", f"{root} không tồn tại → dùng {vendor}")
+        root = vendor
     m = os.getenv("FIRERED_MODELS") or setting("FIRERED_MODELS", "")
-    if m:
+    if m and (_safe_is_dir(Path(m)) or not _safe_is_dir(root / "pretrained_models")):
         return root, Path(m)
+    if m:
+        _warn_once("FIRERED_MODELS", f"{m} không tồn tại → dùng {root / 'pretrained_models'}")
+        return root, root / "pretrained_models"
     pre = root / "pretrained_models"
     if (pre / FIRERED_MODEL_DIRS[0]).exists() or not Path(DEFAULT_FIRERED_MODELS).is_dir():
         return root, pre

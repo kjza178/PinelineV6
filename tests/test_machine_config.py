@@ -197,3 +197,20 @@ def test_doctor_offline_runs():
             for k, v in data.items():
                 if any(s in k.upper() for s in ("KEY", "TOKEN", "SECRET")) and isinstance(v, str) and len(v) > 8:
                     assert v not in r.stdout, k
+
+
+# ── 2026-11-19 portable: FIRERED_ROOT/FIRERED_MODELS trỏ máy khác (Z:/PinelineV2…) → bản vendor trong cây ──
+def test_firered_foreign_root_falls_back_to_vendor(cfg, tmp_path, monkeypatch):
+    monkeypatch.delenv("FIRERED_ROOT", raising=False)
+    monkeypatch.delenv("FIRERED_MODELS", raising=False)
+    vendor = ROOT / "vendor" / "FireRedASR2S"
+    cfg["FIRERED_ROOT"] = str(tmp_path / "khong_co" / "FireRedASR2S")
+    cfg["FIRERED_MODELS"] = str(tmp_path / "khong_co_models")
+    root, models = machine.firered_paths()
+    assert root == vendor
+    if (vendor / "pretrained_models").is_dir():
+        assert models == vendor / "pretrained_models"
+    real = tmp_path / "models_that"
+    real.mkdir()
+    cfg["FIRERED_MODELS"] = str(real)
+    assert machine.firered_paths() == (vendor, real)

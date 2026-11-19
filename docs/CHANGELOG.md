@@ -1,5 +1,17 @@
 # CHANGELOG — V6
 
+## 2026-11-19
+- **V6 portable — bỏ phụ thuộc máy cũ (V2/V5, ổ D:/Z:)** khi chạy:
+  - `instances/v6.json`: `work_root` = `./work`, `temp` = `./scratch/tmp` (tính từ gốc cây; trước D:/PinelineV6_work).
+    Máy muốn để job ở ổ khác: `instances/v6.local.json` (không vào git, đè khoá bất kỳ), vd
+    `{"work_root": "E:/PinelineV6_work", "temp": "E:/PinelineV6_tmp"}`. `run_v6` tự tạo work_root/temp.
+  - FireRed: `config.json` bỏ `FIRERED_ROOT=Z:/PinelineV2/...`, `FIRERED_MODELS=D:/AI_CACHE/firered`; `core.machine.firered_paths`
+    gặp đường dẫn không tồn tại (config chép từ máy khác) → bản `vendor/FireRedASR2S` + `pretrained_models` trong cây.
+    `install_firered_asr.bat` / `download_firered_models.py` tải model vào `vendor/FireRedASR2S/pretrained_models`.
+  - `scripts/setup_f1_links.bat`: không còn junction sang `Z:\PinelineV5` / `D:\PinelineV6_work`; tạo `work`,
+    `scratch\tmp`; tuỳ chọn chép `models\`, `cookies\` từ thư mục nguồn (`setup_f1_links.bat E:\PineLineV6`).
+  - `check_env`: kiểm work_root/temp của instance (thay `ROOT/work`).
+
 ## 2026-11-17
 - **Sửa: job dịch dở bị đẩy sang luồng cũ (NMT + `local`) thay vì DeepSeek.** Job có sẵn `script.json` (chép từ V2 /
   dịch dở) bị `translate_simple.cfg.job_pipeline` ĐOÁN là luồng cũ (`translate_pipeline_why=inferred`) → `run_translate`

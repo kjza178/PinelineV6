@@ -20,7 +20,14 @@ def test_missing_source_points_to_installer(fr):
     tmp, vals = fr
     vals["FIRERED_ROOT"] = str(tmp / "Z" / "PinelineV2" / "vendor" / "FireRedASR2S")
     st = machine.firered_status()
-    assert not st["ok"] and "install_firered_asr.bat" in st["why"] and "trỏ máy khác" in st["why"]
+    # 2026-11-19 portable: gốc trỏ máy khác (không tồn tại) → dùng vendor/FireRedASR2S trong cây; vẫn chỉ tới bộ cài
+    # khi thiếu mã nguồn/model.
+    vendor = machine.Path(machine.__file__).resolve().parents[1] / "vendor" / "FireRedASR2S"
+    if vendor.is_dir():
+        assert machine.Path(st["root"]) == vendor
+    else:
+        assert "trỏ máy khác" in st["why"]
+    assert st["ok"] or "install_firered_asr.bat" in st["why"]
 
 
 def test_models_fallback_to_installer_download_dir(fr):
