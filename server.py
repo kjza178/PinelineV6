@@ -1942,6 +1942,59 @@ def _simple_translate_run(wd: Path, target: str, *, force: bool = False, rerevie
     return _simple_pipeline.run(wd, target, force=force, rereview=rereview)
 
 
+def _note_stop(wd: Path, stage: str, why: str) -> None:
+    """2026-11-20: _auto_gpu dừng giữa chừng mà không lỗi/HOLD (trước: chỉ print) → ghi lý do vào manifest
+    (`last_stop`) để danh sách job + job cha auto-split nói được part dừng ở đâu, vì sao."""
+    rec = {"stage": stage, "why": str(why or "")[:300], "at": time.time()}
+
+    def _fn(d):
+        d["last_stop"] = rec
+    try:
+        js.try_mutate(wd, _fn)
+    except Exception as e:  # noqa: BLE001
+        print(f"[auto] ghi lý do dừng {Path(wd).name} lỗi: {e}", flush=True)
+
+
+def _clear_stop(wd: Path) -> None:
+    def _fn(d):
+        d.pop("last_stop", None)
+    try:
+        js.try_mutate(wd, _fn)
+    except Exception as e:  # noqa: BLE001
+        print(f"[auto] xoá lý do dừng {Path(wd).name} lỗi: {e}", flush=True)
+
+
+def _split_parts_report(sub_ids: list) -> str:
+    """Tóm tắt part chưa xong cho job cha: «p02 dừng ở Lồng tiếng: …; p03 …»."""
+    names = {"download": "Tải", "asr": "ASR", "translate": "Dịch", "tts": "Lồng tiếng", "mux": "Ghép"}
+    out = []
+    for sid in sub_ids or []:
+        wd = WORK_ROOT / str(sid)
+        if _part_pipeline_complete(wd):
+            continue
+        short = str(sid).rsplit("_", 1)[-1]
+        try:
+            d = Manifest(wd).data
+        except Exception as e:  # noqa: BLE001
+            out.append(f"{short}: không đọc được manifest ({e})")
+            continue
+        stages = d.get("stages") or {}
+        ag = d.get("agent") or {}
+        failed = next((n for n in WIRED_STAGES if (stages.get(n) or {}).get("status") == "failed"), None)
+        nxt = next((n for n in WIRED_STAGES if (stages.get(n) or {}).get("status") != "done"), "mux")
+        ls = d.get("last_stop") or {}
+        if failed:
+            why = f"lỗi ở {names.get(failed, failed)}: {(stages.get(failed) or {}).get('error') or ''}"
+        elif ag.get("held_at") or ag.get("qa_blocked"):
+            why = f"HOLD ({ag.get('held_at') or 'qa'}): {ag.get('hold_reason') or ''}"
+        elif ls.get("why"):
+            why = f"dừng ở {names.get(ls.get('stage'), ls.get('stage'))}: {ls['why']}"
+        else:
+            why = f"chưa chạy tới {names.get(nxt, nxt)} (xem log [auto] {sid})"
+        out.append(f"{short} {why}".strip()[:160])
+    return "; ".join(out)
+
+
 def _auto_translate_simple(wd: Path, job_id: str, target: str) -> bool:
     """translate-simple trong _auto_gpu, chạy bằng pipeline V6 [TranslateSimple (Stage), SimpleTranslateGate (Gate)].
     True = cổng PASS → tiếp cổng TTS cũ; False = PARK waiting_review (B2) / HOLD → caller return.
@@ -1959,8 +2012,12 @@ def _auto_translate_simple(wd: Path, job_id: str, target: str) -> bool:
         return True
     if rr.status == "fail":   # lỗi ngoài engine (vd ghi manifest) — như V2: chỉ log, theo trạng thái engine
         print(f"[auto] {job_id}: cổng simple lỗi ở {rr.at}: {rr.detail}", flush=True)
-        return str((ctx.extra.get("simple_result") or {}).get("status")) == "done"
+        ok = str((ctx.extra.get("simple_result") or {}).get("status")) == "done"
+        if not ok:
+            _note_stop(wd, "translate", f"cổng dịch lỗi ở {rr.at}: {rr.detail}")
+        return ok
     print(f"[auto] {job_id}: {rr.detail}", flush=True)
+    _note_stop(wd, "translate", str(rr.detail or "dịch chưa qua cổng"))
     return False
 
 
@@ -1987,6 +2044,7 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
                 flush=True,
             )
             return
+        _clear_stop(wd)
         free_gpu_vram("trước ASR — nhường GPU")
         # ASR trực tiếp từ audio gốc — không ép Demucs để tránh cắt nuốt chữ / méo tiếng trên audio dài
         asr_eng = _resolve_asr_engine(wd, asr_engine)
@@ -2103,6 +2161,7 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
                 js.persist(m_pend)
             except Exception as e_pend:  # noqa: BLE001
                 print(f"[auto] {job_id}: stamp translate pending: {e_pend}", flush=True)
+            _note_stop(wd, "translate", f"dịch chưa đủ để lồng tiếng — {why}")
             return
         if stopped():
             return
@@ -2185,6 +2244,7 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
         ready, why = translate_ready_for_tts(wd)
         if not ready:
             print(f"[auto] {job_id}: sau review dịch không sẵn sàng TTS ({why}) — DỪNG")
+            _note_stop(wd, "translate", f"sau soát, dịch chưa đủ để lồng tiếng — {why}")
             return
         _save_series_glossary(wd)
         v = _resolve_voice(wd, None)
@@ -2240,13 +2300,21 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
         print(f"[auto] {job_id}: đã DỪNG theo yêu cầu")
     except Exception as e:  # noqa: BLE001
         print(f"[auto] {job_id} lỗi: {e}")
+        marked = False
         try:
             m_err = Manifest(wd)
             for _s in WIRED_STAGES:
                 if (m_err.stage(_s) or {}).get("status") == "running":
                     m_err.mark_failed(_s, e)
-        except Exception:  # noqa: BLE001
-            pass
+                    marked = True
+        except Exception as e_mk:  # noqa: BLE001
+            print(f"[auto] {job_id}: đánh dấu lỗi stage thất bại: {e_mk}", flush=True)
+        if not marked:     # lỗi giữa 2 bước (không stage nào running) → trước: mất dấu, UI chỉ thấy «Chờ»
+            try:
+                nxt = _next_incomplete_stage(wd) or "mux"
+            except Exception:  # noqa: BLE001
+                nxt = "mux"
+            _note_stop(wd, nxt, f"lỗi: {e}")
         if "chưa chọn giọng" in str(e):
             try:
                 m = Manifest(wd)
@@ -4542,11 +4610,24 @@ def _queue_run_one(job_id: str, opts: dict) -> tuple[str, str]:
     resolution = opts["resolution"]
     render_kw = job_opts.pipeline_render_kw(opts)
 
+    early = "mux"
     try:
         early = _next_incomplete_stage(work_dir) or "mux"
+        # 2026-11-20: job cha auto-split không tự ASR/dịch/TTS (part làm) → lỗi của nó thuộc bước Ghép,
+        # trước đây đánh «Lỗi ở Nhận dạng tiếng (ASR)» dù ASR của các part đã xong.
+        if (Manifest(work_dir).data.get("split_info") or {}).get("sub_job_ids"):
+            early = "mux"
+
+            def _unfail(d):   # dấu «ASR lỗi» cũ trên job cha (bản trước) → về chờ
+                for n in ("asr", "translate", "tts"):
+                    s = (d.get("stages") or {}).get(n)
+                    if isinstance(s, dict) and s.get("status") == "failed":
+                        s["status"] = "pending"
+                        s.pop("error", None)
+            js.try_mutate(work_dir, _unfail)
         Manifest(work_dir).mark_running(early)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as e_er:  # noqa: BLE001
+        print(f"[queue] {job_id}: đánh dấu bắt đầu lỗi: {e_er}", flush=True)
 
     def _failed(detail: str) -> tuple[str, str]:
         try:
@@ -4714,6 +4795,15 @@ def _queue_run_one(job_id: str, opts: dict) -> tuple[str, str]:
                 return _failed(f"bước {stg} lỗi: {stg_info.get('error')}")
             if stg == "translate" and stg_info.get("last_error"):
                 return _failed(f"dịch lỗi: {stg_info.get('last_error')[:150]}")
+        sub_ids_end = list((m_curr.data.get("split_info") or {}).get("sub_job_ids") or [])
+        if sub_ids_end:
+            rep = _split_parts_report(sub_ids_end)
+            if rep:
+                return _failed(f"chưa ghép được bản Full — part chưa xong: {rep}")
+            return _failed("mọi part đã xong nhưng ghép bản Full lỗi (xem log [auto-split])")
+        last = m_curr.data.get("last_stop") or {}
+        if last.get("why"):
+            return _failed(f"dừng ở {last.get('stage')}: {last['why']}")
         return _failed("pipeline kết thúc nhưng output chưa hoàn chỉnh")
     except Exception as exc:  # noqa: BLE001
         return _failed(f"không thể gửi/chạy pipeline: {exc}")

@@ -56,7 +56,9 @@ def summarize(job_id: str, data: dict) -> dict[str, Any]:
         "group_index": req.get("group_index"),
         "group_total": req.get("group_total"),
         "failed_stage": failed,
-        "error": ((stages.get(failed) or {}).get("error") or "")[:200] if failed else "",
+        "error": ((stages.get(failed) or {}).get("error") or "")[:400] if failed else "",
+        # 2026-11-20: _auto_gpu dừng giữa chừng không lỗi/HOLD (vd dịch chưa đủ) → lý do hiện ở cột «Đang làm»
+        "stop_note": (str(((data.get("last_stop") or {}).get("why")) or "")[:200]) if status == "pending" else "",
         "updated_at": data.get("updated_at"),
     }
 

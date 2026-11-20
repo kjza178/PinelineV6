@@ -1,6 +1,11 @@
 # CHANGELOG — V6
 
 ## 2026-11-20
+- **Job cha auto-split (video ≥3h) báo lỗi đúng chỗ**: trước đây khi các part chưa xong, job cha hiện «Lỗi ở Nhận dạng
+  tiếng (ASR): pipeline kết thúc nhưng output chưa hoàn chỉnh» dù ASR của part đã xong. Nay lỗi nằm ở bước Ghép và kể
+  từng part chưa xong + lý do (`p02 dừng ở Dịch: …`, `p03 lỗi ở Lồng tiếng: …`); chạy lại job cha gỡ dấu «ASR lỗi» cũ.
+  `_auto_gpu` dừng giữa chừng không lỗi/HOLD (dịch chưa đủ, cổng dịch chưa qua, lỗi giữa 2 bước) giờ ghi `last_stop`
+  vào manifest → cột «Đang làm» hiện «Đã dừng: …» (`state/index.summarize` thêm `stop_note`).
 - **Port fix V5 17–20/11** (`docs/fixes/2026-11-20-port-v5-11-17-to-20.md`): Dừng job không còn treo hàng chờ khi job
   xếp sau job khác trên GPU; vá xong còn sót chữ Hán / câu trống → 1 lượt vá bằng model dự phòng (thay vì park); lập bảng
   nhân vật lỗi → model dự phòng; Trợ lý hiểu id job rút gọn (`9aa089_p01`). Chưa port: prompt thumbnail mới, kiểm tập khi

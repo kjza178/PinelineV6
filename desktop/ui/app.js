@@ -86,7 +86,7 @@ function rowHtml(j) {
   const q = queue.current === j.job_id ? '<span class="q">▶ đang chạy</span>' : (pos ? `<span class="q">chờ #${pos}</span>` : "");
   const grp = j.group_title ? `<span class="grp" title="${esc(j.group_title)}">${esc(j.group_title)}${j.group_index ? ` · tập ${esc(j.group_index)}${j.group_total ? "/" + esc(j.group_total) : ""}` : ""}</span>` : "";
   const note = j.status === "held" ? `${j.held_at || ""} ${j.hold_reason || ""}`.trim()
-    : j.status === "failed" ? `Lỗi ở ${STAGE_VI[j.failed_stage] || j.failed_stage || "?"}${j.error ? ": " + j.error : ""}` : (j.cur_text || "");
+    : j.status === "failed" ? `Lỗi ở ${STAGE_VI[j.failed_stage] || j.failed_stage || "?"}${j.error ? ": " + j.error : ""}` : (j.cur_text || (j.stop_note ? "Đã dừng: " + j.stop_note : ""));
   return `<td class="ck"><input type="checkbox" class="pick"${picked.has(j.job_id) ? " checked" : ""}></td>`
     + `<td><div class="title" title="${esc(j.title)}">${esc(j.title)}</div><div class="jid">${q}${grp}${esc(j.job_id)}</div></td>`
     + `<td>${stepsHtml(j)}</td><td>${badge(j.status)}</td><td class="note" title="${esc(note)}">${esc(note)}</td>`;
