@@ -85,3 +85,9 @@ def test_note_stop_roundtrip_and_summary(tmp_path):
     data = json.loads((wd / "manifest.json").read_text(encoding="utf-8"))
     assert "last_stop" not in data
     assert summarize("abc_p05", data)["stop_note"] == ""
+
+
+def test_ui_shows_stage_sentence_counts():
+    js = (Path(__file__).resolve().parents[1] / "desktop" / "ui" / "app.js").read_text(encoding="utf-8")
+    assert "function stageFacts(" in js and "stageFacts(s, st)" in js
+    assert "st.n_segments" in js

@@ -294,12 +294,34 @@ function paintDetail(err) {
   else if (tab === "script") syncScriptLock(j);      // không vẽ lại danh sách (đang gõ thì mất chữ)
 }
 
+// 2026-11-20: số câu ASR / dịch / lồng tiếng — manifest có sẵn (n_segments, n_missing…) nhưng trước không hiện.
+function stageFacts(s, st) {
+  const n = (v) => (v === undefined || v === null || v === "") ? null : Number(v);
+  const out = [];
+  const seg = n(st.n_segments);
+  if (s === "asr") {
+    if (seg !== null) out.push(`${seg.toLocaleString("vi-VN")} câu`);
+    if (n(st.done_sec) && n(st.done_sec) > 0) out.push(`${fmtTime(st.done_sec)} đã nghe`);
+    const eng = st.asr_engine || st.engine;
+    if (eng) out.push(String(eng));
+  } else if (s === "translate") {
+    if (seg !== null) out.push(`${seg.toLocaleString("vi-VN")} câu`);
+    if (n(st.n_missing)) out.push(`thiếu ${n(st.n_missing)}`);
+  } else if (s === "tts") {
+    if (seg !== null) out.push(`${seg.toLocaleString("vi-VN")} câu`);
+    if (n(st.n_missing)) out.push(`thiếu tiếng ${n(st.n_missing)} câu`);
+  }
+  return out.join(" · ");
+}
+
 function paintOverview(j) {
   const running = j.status === "running";
   const stages = STAGES.map((s) => {
     const sum = j.stages?.[s] || "pending";
     const st = detail?.stages?.[s] || {};
-    const text = st.error ? `<div class="err">${esc(st.error)}</div>` : (st.cur_text ? `<div class="sub">${esc(st.cur_text)}</div>` : "");
+    const facts = stageFacts(s, st);
+    const text = (st.error ? `<div class="err">${esc(st.error)}</div>` : (st.cur_text ? `<div class="sub">${esc(st.cur_text)}</div>` : ""))
+      + (facts ? `<div class="sub facts">${esc(facts)}</div>` : "");
     return `<li><div class="st-head"><b>${esc(STAGE_VI[s])}</b>${badge(sum, pct(st))}`
       + (sum === "done"
         ? `<button class="btn ghost sm" data-act="stage" data-stage="${s}" data-force="1"${running ? " disabled" : ""} title="Bỏ kết quả cũ của bước này và làm lại từ đầu">Làm lại</button>`

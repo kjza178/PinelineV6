@@ -1,6 +1,8 @@
 # CHANGELOG — V6
 
 ## 2026-11-20
+- **Tổng quan job hiện số câu**: thẻ ASR «N câu · thời lượng đã nghe · engine», Dịch «N câu · thiếu M», Lồng tiếng
+  «thiếu tiếng M câu» (đọc `n_segments`/`n_missing` sẵn có trong manifest).
 - **Job cha auto-split (video ≥3h) báo lỗi đúng chỗ**: trước đây khi các part chưa xong, job cha hiện «Lỗi ở Nhận dạng
   tiếng (ASR): pipeline kết thúc nhưng output chưa hoàn chỉnh» dù ASR của part đã xong. Nay lỗi nằm ở bước Ghép và kể
   từng part chưa xong + lý do (`p02 dừng ở Dịch: …`, `p03 lỗi ở Lồng tiếng: …`); chạy lại job cha gỡ dấu «ASR lỗi» cũ.
