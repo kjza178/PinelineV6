@@ -6942,6 +6942,19 @@ def _title_write_hook(work_dir, data: dict) -> None:
 
 
 @app.on_event("startup")
+def _start_film_db_hook():
+    """2026-11-20: thư viện (films.db) theo kịp trạng thái job ngay khi manifest đổi (không chờ mở tab / cờ feeder)."""
+    if _UNDER_PYTEST:
+        return
+    try:
+        import core.film_db as _fdb
+        from core.manifest import register_write_hook
+        register_write_hook(_fdb.write_hook)
+    except Exception as e:  # noqa: BLE001
+        print(f"[startup] film-db hook lỗi: {e}", flush=True)
+
+
+@app.on_event("startup")
 def _start_title_translate():
     """Đăng ký hook + quét 1 lần lúc khởi động (job cũ còn tiêu đề Trung). Không chạy trong pytest.
     review1: instance title_translate=false (mặc định v6/test) → không hook, không quét, không gọi LLM."""

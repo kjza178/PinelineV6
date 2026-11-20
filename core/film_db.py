@@ -299,15 +299,17 @@ def log_event(job_id: str, kind: str, detail: Any = "") -> None:
 # ─── đọc manifest ────────────────────────────────────────────────────────
 
 def _status_of(stages: dict) -> tuple[str, str]:
-    running = next((n for n, s in stages.items() if isinstance(s, dict) and s.get("status") == "running"), "")
+    """2026-11-20: chỉ xét 5 bước chính, như danh sách job (state/index.summarize). Trước xét MỌI stage — bước phụ
+    (separate / ocr / review…) còn dấu failed cũ → thư viện báo «lỗi» dù job đã render xong."""
+    st = {n: (stages.get(n) or {}).get("status") if isinstance(stages.get(n), dict) else None for n in CORE_STAGES}
+    running = next((n for n in CORE_STAGES if st[n] == "running"), "")
     if running:
         return "running", running
-    failed = next((n for n, s in stages.items()
-                   if isinstance(s, dict) and s.get("status") in ("failed", "error")), "")
+    if st["mux"] == "done":
+        return "done", "mux"
+    failed = next((n for n in CORE_STAGES if st[n] in ("failed", "error")), "")
     if failed:
         return "failed", failed
-    if (stages.get("mux") or {}).get("status") == "done":
-        return "done", "mux"
     done = [n for n in CORE_STAGES if (stages.get(n) or {}).get("status") == "done"]
     return "pending", done[-1] if done else ""
 
@@ -438,6 +440,29 @@ def sync_one(job_id: str) -> dict | None:
                 con.execute(f"UPDATE films SET {sets} WHERE job_id=?", [*diff.values(), now, r["job_id"]])
         updated = con.execute("SELECT * FROM films WHERE job_id=?", (job_id,)).fetchone()
         return dict(updated) if updated else None
+
+
+_LAST_STATUS: dict[str, str] = {}
+
+
+def write_hook(work_dir, data: dict) -> None:
+    """2026-11-20: manifest đổi trạng thái (running/failed/done…) → cập nhật films.db ngay (trước: chỉ khi mở «Thư viện»
+    và lần đồng bộ trước đã cũ > 2 phút, hoặc vòng film-db của cờ feeder — v6 tắt → thư viện kẹt trạng thái cũ)."""
+    wd = Path(work_dir)
+    try:
+        if wd.parent.resolve() != _work().resolve() or not isinstance(data, dict):
+            return
+    except OSError:
+        return
+    status = _status_of(data.get("stages") or {})[0]
+    if _LAST_STATUS.get(wd.name) == status:
+        return
+    _LAST_STATUS[wd.name] = status
+    try:
+        sync_one(wd.name)
+    except Exception as e:  # noqa: BLE001
+        _LAST_STATUS.pop(wd.name, None)
+        print(f"[film-db] đồng bộ {wd.name} lỗi: {e}", flush=True)
 
 
 def sync(hg_library: list[dict] | None = None) -> dict:

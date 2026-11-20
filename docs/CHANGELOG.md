@@ -1,6 +1,9 @@
 # CHANGELOG — V6
 
 ## 2026-11-20
+- **Thư viện báo «lỗi» dù job đã xong**: `core/film_db._status_of` chỉ xét 5 bước chính và «render xong» thắng (trước:
+  bước phụ còn dấu failed cũ → lỗi). films.db cập nhật ngay khi trạng thái job đổi (write hook), không chờ mở tab
+  Thư viện / cờ feeder.
 - **Tên bộ phim trên danh sách job**: tên hợp tập Bilibili (tiếng Trung) được dịch sang Việt cùng lúc dịch tiêu đề
   (`group_title_vi`, 1 lần cho cả bộ; theo cờ instance `title_translate`), hiện 1 dòng cắt gọn, rê chuột xem đủ + bản gốc.
 - **Tổng quan job hiện số câu**: thẻ ASR «N câu · thời lượng đã nghe · engine», Dịch «N câu · thiếu M», Lồng tiếng
