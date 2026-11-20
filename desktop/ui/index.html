@@ -57,9 +57,24 @@
         <button id="btn-enqueue" class="btn primary" disabled>Chạy job đã chọn</button>
         <button id="btn-dequeue" class="btn" disabled>Bỏ khỏi hàng chờ</button>
         <button id="btn-q-resume" class="btn primary" hidden title="Đã xem lỗi — gỡ tạm dừng và chạy tiếp các job còn lại">Chạy tiếp hàng chờ</button>
+        <button id="btn-q-panel" class="btn ghost" title="Xem / đổi thứ tự các job đang chờ chạy">Thứ tự hàng chờ</button>
         <button id="btn-q-log" class="btn ghost" title="Job nào đã chạy, lúc nào, kết quả ra sao">Nhật ký</button>
         <button id="btn-q-stop" class="btn danger ghost" disabled title="Dừng job đang chạy và xoá hàng chờ">Dừng tất cả</button>
       </section>
+
+      <section id="qpanel" class="card qpanel" hidden>
+        <div class="qp-head"><b>Thứ tự hàng chờ</b><span class="sub" id="qp-sub"></span><span class="grow"></span>
+          <button type="button" class="btn sm" id="qp-sort" title="Xếp lại theo bộ phim → mùa → tập">Sắp theo bộ / tập</button>
+          <button type="button" class="btn sm ghost" id="qp-close">Đóng</button></div>
+        <ol id="qp-list"></ol>
+      </section>
+
+      <div class="toolbar job-tools">
+        <div class="seg" id="job-filter" role="radiogroup" aria-label="Lọc theo trạng thái"></div>
+        <span class="grow"></span>
+        <button type="button" class="btn" id="btn-retry-failed" hidden title="Xếp lại vào hàng chờ mọi job đang lỗi (làm tiếp từ bước lỗi)">Chạy lại job lỗi</button>
+        <button type="button" class="btn danger ghost" id="btn-del-sel" disabled title="Xoá vĩnh viễn thư mục các job đã chọn">Xoá job đã chọn</button>
+      </div>
 
       <div class="split">
         <div id="list" class="card">

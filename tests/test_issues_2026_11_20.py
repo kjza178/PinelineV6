@@ -95,3 +95,22 @@ def test_fallback_model_listed_in_ai_settings():
     from core import ai_models
     f = ai_models.BY_ID["review_fallback"]
     assert f.key == "SIMPLE_FALLBACK_MODEL" and f.group == "Luồng dịch V6" and not f.legacy
+
+
+# ── (4) Danh sách job + hàng chờ ──
+def test_summary_has_group_and_failure_fields():
+    from state.index import summarize
+    s = summarize("j1", {"title": "T", "request": {"group_title": "Bộ A", "group_index": 2, "group_total": 10},
+                         "stages": {"download": {"status": "done"}, "asr": {"status": "failed", "error": "kaldiio thiếu"}}})
+    assert (s["group_title"], s["group_index"], s["group_total"]) == ("Bộ A", 2, 10)
+    assert s["status"] == "failed" and s["failed_stage"] == "asr" and s["error"] == "kaldiio thiếu"
+
+
+def test_desktop_jobs_view_has_queue_tools():
+    from pathlib import Path
+    ui = Path(__file__).resolve().parents[1] / "desktop" / "ui"
+    html, js = (ui / "index.html").read_text(encoding="utf-8"), (ui / "app.js").read_text(encoding="utf-8")
+    for el in ('id="job-filter"', 'id="qpanel"', 'id="btn-retry-failed"', 'id="btn-del-sel"', 'id="btn-q-panel"'):
+        assert el in html, el
+    for n in ("/api/queue/jobs/move", "/api/queue/jobs/sort", "/api/queue/jobs/remove", "jobMatch(j, jobFilter)"):
+        assert n in js, n

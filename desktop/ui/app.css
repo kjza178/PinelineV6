@@ -361,3 +361,16 @@ a.btn{text-decoration:none}
 td.mono{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all}
 .new-ck textarea{width:100%;font-family:ui-monospace,monospace;font-size:12px}
 .msg-meta{white-space:pre-line}
+/* Công việc: lọc trạng thái + thứ tự hàng chờ */
+.job-tools{flex-wrap:wrap}
+#job-filter label .n{color:var(--muted);font-size:11.5px;margin-left:2px}
+#job-filter label.dim{opacity:.55}
+.jid .grp{color:var(--accent-2);margin-right:8px}
+.qpanel{padding:12px 14px}
+.qp-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+#qp-list{list-style:none;margin:0;padding:0;max-height:34vh;overflow:auto}
+#qp-list li{display:flex;align-items:center;gap:10px;padding:6px 4px;border-top:1px solid var(--line)}
+#qp-list li:first-child{border-top:0}
+.qp-n{width:26px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.qp-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qp-a{display:flex;gap:2px}

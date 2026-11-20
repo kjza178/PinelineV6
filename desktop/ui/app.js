@@ -80,20 +80,49 @@ function stepsHtml(j) {
   return `<div class="steps">${STAGES.map((s) => { const v = j.stages?.[s] || "pending";
     return `<i class="${esc(v)}" title="${esc(STAGE_VI[s])}: ${esc(stVi(v))}"></i>`; }).join("")}</div>`;
 }
+function qPos(id) { const i = (queue.queue || []).indexOf(id); return i >= 0 ? i + 1 : 0; }
 function rowHtml(j) {
-  const q = queue.current === j.job_id ? '<span class="q">▶ đang chạy</span>' : (inQueue(j.job_id) ? '<span class="q">trong hàng chờ</span>' : "");
-  const note = j.status === "held" ? `${j.held_at || ""} ${j.hold_reason || ""}`.trim() : (j.cur_text || "");
+  const pos = qPos(j.job_id);
+  const q = queue.current === j.job_id ? '<span class="q">▶ đang chạy</span>' : (pos ? `<span class="q">chờ #${pos}</span>` : "");
+  const grp = j.group_title ? `<span class="grp" title="${esc(j.group_title)}">${esc(j.group_title)}${j.group_index ? ` · tập ${esc(j.group_index)}${j.group_total ? "/" + esc(j.group_total) : ""}` : ""}</span>` : "";
+  const note = j.status === "held" ? `${j.held_at || ""} ${j.hold_reason || ""}`.trim()
+    : j.status === "failed" ? `Lỗi ở ${STAGE_VI[j.failed_stage] || j.failed_stage || "?"}${j.error ? ": " + j.error : ""}` : (j.cur_text || "");
   return `<td class="ck"><input type="checkbox" class="pick"${picked.has(j.job_id) ? " checked" : ""}></td>`
-    + `<td><div class="title" title="${esc(j.title)}">${esc(j.title)}</div><div class="jid">${q}${esc(j.job_id)}</div></td>`
+    + `<td><div class="title" title="${esc(j.title)}">${esc(j.title)}</div><div class="jid">${q}${grp}${esc(j.job_id)}</div></td>`
     + `<td>${stepsHtml(j)}</td><td>${badge(j.status)}</td><td class="note" title="${esc(note)}">${esc(note)}</td>`;
 }
 
 const RANK = { running: 0, held: 1, pending: 2, failed: 3, done: 4 };
+// Lọc theo trạng thái (thanh trên bảng job) — nhớ lựa chọn trên máy
+const JOB_FILTERS = [["all", "Tất cả"], ["running", "Đang chạy"], ["queue", "Hàng chờ"], ["failed", "Lỗi"], ["held", "Tạm dừng"],
+  ["todo", "Chưa chạy"], ["done", "Xong"]];
+let jobFilter = (() => { try { return localStorage.getItem("jobs.filter") || "all"; } catch (_) { return "all"; } })();
+function jobMatch(j, f) {
+  if (f === "running") return j.status === "running";
+  if (f === "queue") return inQueue(j.job_id);
+  if (f === "failed") return j.status === "failed";
+  if (f === "held") return j.status === "held";
+  if (f === "todo") return j.status === "pending" && !inQueue(j.job_id);
+  if (f === "done") return j.status === "done";
+  return true;
+}
+function paintJobFilter() {
+  const all = [...jobs.values()];
+  $("#job-filter").innerHTML = JOB_FILTERS.map(([k, t]) => {
+    const n = k === "all" ? all.length : all.filter((j) => jobMatch(j, k)).length;
+    return `<label${!n && k !== "all" && k !== jobFilter ? ' class="dim"' : ""}><input type="radio" name="job-filter" value="${k}"${k === jobFilter ? " checked" : ""}>${esc(t)} <span class="n">${n}</span></label>`;
+  }).join("");
+  const nFail = all.filter((j) => j.status === "failed" && !inQueue(j.job_id)).length;
+  $("#btn-retry-failed").hidden = !nFail; $("#btn-retry-failed").textContent = `Chạy lại ${nFail} job lỗi`;
+}
 function visible() {
   const f = filter.toLowerCase();
+  // trong hàng chờ: theo đúng thứ tự sẽ chạy; còn lại: đang chạy → tạm dừng → chờ → lỗi → xong
+  const key = (j) => (queue.current === j.job_id ? -1 : qPos(j.job_id) ? qPos(j.job_id) / 1e4 : 1 + (RANK[j.status] ?? 9));
   return [...jobs.values()]
-    .filter((j) => !f || (j.title + " " + j.job_id).toLowerCase().includes(f))
-    .sort((a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9) || a.job_id.localeCompare(b.job_id));
+    .filter((j) => (!f || (j.title + " " + j.job_id + " " + (j.group_title || "")).toLowerCase().includes(f)) && jobMatch(j, jobFilter))
+    .sort((a, b) => key(a) - key(b) || String(a.group_title || "").localeCompare(String(b.group_title || ""))
+      || (Number(a.group_index) || 0) - (Number(b.group_index) || 0) || a.job_id.localeCompare(b.job_id));
 }
 
 function paint() {
@@ -108,6 +137,8 @@ function paint() {
     $("#nav-running").textContent = nRun || ""; $("#nav-running").hidden = !nRun;
     $("#empty").hidden = jobs.size > 0;
     $("#list table").hidden = jobs.size === 0;
+    if (jobs.size && !list.length) tbody.innerHTML = `<tr><td colspan="5" class="note">Không có job nào ở mục «${esc((JOB_FILTERS.find(([k]) => k === jobFilter) || [])[1] || "")}».</td></tr>`;
+    paintJobFilter();
     syncToolbar();
     return;
   }
@@ -144,6 +175,7 @@ function syncToolbar() {
   $("#btn-enqueue").disabled = n === 0;
   $("#btn-dequeue").disabled = ![...picked].some(inQueue);
   $("#btn-q-stop").disabled = !(queue.busy || queue.paused);
+  $("#btn-del-sel").disabled = !n || [...picked].some((id) => jobs.get(id)?.status === "running" || queue.current === id);
   const vis = visible();
   $("#ck-all").checked = vis.length > 0 && vis.every((j) => picked.has(j.job_id));
 }
@@ -166,7 +198,24 @@ function paintQueue() {
   $("#q-state").classList.toggle("warn", queue.persist_ok === false || !!pz);
   $("#q-dot").className = "q-dot" + (pz || queue.persist_ok === false ? " warn" : (cur ? " run" : ""));
   $("#btn-q-resume").hidden = !pz;
+  $("#btn-q-panel").textContent = n ? `Thứ tự hàng chờ (${n})` : "Thứ tự hàng chờ";
+  if (!$("#qpanel").hidden) paintQueuePanel();
   fullRedraw = true; schedule();
+}
+// Bảng thứ tự hàng chờ: đưa lên đầu / lên / xuống / gỡ từng job; xếp lại theo bộ → tập
+function paintQueuePanel() {
+  const items = queue.queue_items || (queue.queue || []).map((id) => ({ job_id: id, title: id }));
+  const cur = queue.current ? (jobs.get(queue.current)?.title || queue.current) : "";
+  $("#qp-sub").textContent = (cur ? `đang chạy «${cur}» · ` : "") + `${items.length} job đang chờ`;
+  $("#qp-list").innerHTML = items.length ? items.map((it, k) => {
+    const j = jobs.get(it.job_id) || {};
+    const grp = it.group_title ? ` <span class="mut small">${esc(it.group_title)}${it.group_index ? " · tập " + esc(it.group_index) : ""}</span>` : "";
+    return `<li data-id="${esc(it.job_id)}"><span class="qp-n">${k + 1}</span><span class="qp-t" title="${esc(it.job_id)}">${esc(j.title || it.title || it.job_id)}${grp}</span>`
+      + `<span class="qp-a"><button class="btn xs ghost" data-qm="top" title="Chạy kế tiếp"${k ? "" : " disabled"}>⤒</button>`
+      + `<button class="btn xs ghost" data-qm="up" title="Lên một bậc"${k ? "" : " disabled"}>↑</button>`
+      + `<button class="btn xs ghost" data-qm="down" title="Xuống một bậc"${k < items.length - 1 ? "" : " disabled"}>↓</button>`
+      + `<button class="btn xs ghost danger" data-qm="remove" title="Gỡ khỏi hàng chờ (không xoá job)">✕</button></span></li>`;
+  }).join("") : '<li class="note">Hàng chờ trống — chọn job ở bảng dưới rồi bấm «Chạy job đã chọn».</li>';
 }
 async function refreshQueue() {
   try { queue = await api("GET", "/api/queue/jobs"); paintQueue(); } catch (_) { /* SSE báo mất kết nối riêng */ }
@@ -1926,6 +1975,49 @@ $("#btn-dequeue").addEventListener("click", (e) => act(e.currentTarget, "Đã g�
   await api("POST", "/api/queue/jobs/remove", { job_ids: [...picked].filter(inQueue) });
   picked.clear(); await refreshQueue();
 }));
+$("#btn-q-panel").addEventListener("click", () => { const p = $("#qpanel"); p.hidden = !p.hidden; if (!p.hidden) paintQueuePanel(); });
+$("#qp-close").addEventListener("click", () => { $("#qpanel").hidden = true; });
+$("#qp-sort").addEventListener("click", (e) => act(e.currentTarget, "Đã xếp lại hàng chờ theo bộ / tập", async () => {
+  await api("POST", "/api/queue/jobs/sort", { by: "series_season" }); await refreshQueue();
+}));
+$("#qp-list").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-qm]"); if (!b) return;
+  const id = b.closest("li[data-id]").dataset.id, m = b.dataset.qm;
+  act(b, "", async () => {
+    if (m === "remove") await api("POST", "/api/queue/jobs/remove", { job_ids: [id] });
+    else await api("POST", "/api/queue/jobs/move", { job_id: id, action: m });
+    await refreshQueue();
+  });
+});
+$("#job-filter").addEventListener("change", (e) => {
+  if (e.target.name !== "job-filter") return;
+  jobFilter = e.target.value; try { localStorage.setItem("jobs.filter", jobFilter); } catch (_) { /* chỉ phiên này */ }
+  fullRedraw = true; schedule();
+});
+$("#btn-retry-failed").addEventListener("click", (e) => {
+  const ids = [...jobs.values()].filter((j) => j.status === "failed" && !inQueue(j.job_id)).map((j) => j.job_id);
+  if (!ids.length) return;
+  if (!confirm(`Xếp lại ${ids.length} job lỗi vào hàng chờ?\nMỗi job làm tiếp từ bước bị lỗi.`)) return;
+  act(e.currentTarget, `Đã xếp ${ids.length} job lỗi vào hàng chờ`, async () => { await api("POST", "/api/queue/jobs", { job_ids: ids }); await refreshQueue(); });
+});
+$("#btn-del-sel").addEventListener("click", (e) => {
+  const ids = [...picked].filter((id) => jobs.get(id)?.status !== "running" && queue.current !== id);
+  if (!ids.length) return;
+  const names = ids.slice(0, 6).map((id) => "• " + (jobs.get(id)?.title || id)).join("\n") + (ids.length > 6 ? `\n… và ${ids.length - 6} job khác` : "");
+  if (!confirm(`Xoá VĨNH VIỄN ${ids.length} job?\n\n${names}\n\nToàn bộ thư mục job (video, âm thanh, bản dịch) bị xoá, không phục hồi được.`)) return;
+  act(e.currentTarget, "", async () => {
+    const q = ids.filter(inQueue);
+    if (q.length) await api("POST", "/api/queue/jobs/remove", { job_ids: q });
+    let ok = 0; const errs = [];
+    for (const id of ids) {
+      try { await api("DELETE", "/api/jobs/" + encodeURIComponent(id)); jobs.delete(id); picked.delete(id); ok++; }
+      catch (er) { errs.push(`${jobs.get(id)?.title || id}: ${er.message}`); }
+    }
+    if (ids.includes(selected)) select(null);
+    fullRedraw = true; schedule(); refreshQueueSoon();
+    say(`Đã xoá ${ok} job${errs.length ? ` · ${errs.length} lỗi: ${errs[0]}` : ""}`, errs.length ? "err" : "");
+  });
+});
 $("#btn-q-stop").addEventListener("click", (e) => {
   if (!confirm("Dừng job đang chạy và xoá toàn bộ hàng chờ?")) return;
   act(e.currentTarget, "Đã dừng hàng chờ", async () => { await api("POST", "/api/queue/jobs/stop"); await refreshQueue(); });
