@@ -233,10 +233,32 @@ def call_llm(system: str, user: str, want: set[int], *, model: str | None, stop_
             pair_sink.extend(parse_new_pairs(out))
         return res
 
-    return cloud_retry.call_with_cloud_retry(
-        _once, model=model, label=label, what=f"lô {len(want)} câu", stop_check=stop_check,
-        cfg_get=cfg.get,
-    )
+    try:
+        return cloud_retry.call_with_cloud_retry(
+            _once, model=model, label=label, what=f"lô {len(want)} câu", stop_check=stop_check,
+            cfg_get=cfg.get,
+        )
+    except BadOutput:
+        raise                                   # lô hỏng JSON: luồng soát tự thử lại lô (review-retry), không đổi model
+    except Exception as e:  # noqa: BLE001
+        fb = cfg.fallback_model(model)
+        if not fb or "stopped by user" in str(e) or isinstance(e, cloud_retry.CloudRetryStopped):
+            raise
+        # 2026-11-20: model chính hỏng hẳn (đã qua cloud_retry) → model dự phòng cho lô này (SIMPLE_FALLBACK_MODEL)
+        print(f"{label} model {model} lỗi ({type(e).__name__}: {str(e)[:160]}) → dùng dự phòng {fb} cho lô "
+              f"{len(want)} câu", flush=True)
+
+        def _once_fb():
+            out = chat(msgs, model=fb, temperature=cfg.temperature(), json_mode=True,
+                       max_tokens=cfg.out_cap(fb), timeout=cfg.timeout())
+            res = parse_lines(out, want)
+            if pair_sink is not None:
+                pair_sink.extend(parse_new_pairs(out))
+            return res
+        return cloud_retry.call_with_cloud_retry(
+            _once_fb, model=fb, label=label, what=f"lô {len(want)} câu (dự phòng)", stop_check=stop_check,
+            cfg_get=cfg.get,
+        )
 
 
 def make_jobs(rows: list[dict], todo_idx: list[int], batch: int, ctx: int) -> list[dict]:

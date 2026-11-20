@@ -29,6 +29,17 @@
   `AGENT_BASE_URL` bị bỏ qua (LLM chung → llama 127.0.0.1:8083), có log cảnh báo 1 lần. Bật lại: `ALLOW_LAN_LLM=1`.
   docs/fixes/2026-11-17-no-nmt-no-lan.md
 
+## 2026-11-20
+- **Tab «Lời thoại»** (trước «Bản dịch") hiện **lời gốc ASR** khi job chưa dịch: `/api/v6/jobs/{id}/script` không có
+  script.json → trả câu Trung từ asr.json (`source: "asr"`), có tìm kiếm; trước chỉ báo «chưa có bản dịch».
+- **Dịch có model dự phòng** `SIMPLE_FALLBACK_MODEL` (Cài đặt → AI dịch → «Dự phòng khi AI dịch chính lỗi»): lô nào model
+  chính hỏng hẳn (mất mạng, hết tiền / quota, key sai, 5xx sau khi cloud_retry đã thử lại) → dịch bằng model dự phòng.
+  Lô hỏng JSON vẫn để luồng soát tự thử lại (không đổi model); Dừng không chuyển dự phòng.
+- **Sửa Trợ lý AI chọn «local»**: model AI trên máy (`local` / `llama` / `llama/…`) gọi llama-server ở Cài đặt → AI trên
+  máy (`LLAMA_BASE_URL`) — trước gửi tới `AGENT_BASE_URL` / `LLM_BASE_URL` (config cũ trỏ cổng / máy khác) nên lỗi, rồi
+  rơi sang dự phòng Aurora :3377 và chỉ báo lỗi Aurora. Nay lỗi ghi đủ «model chính | dự phòng». `AGENT_BASE_URL` đặt
+  riêng vẫn được tôn trọng.
+
 ## 2026-11-16
 - **FireRed nhanh hơn** (thay vì TensorRT-LLM — xem lý do trong phiên): tắt LID mặc định (nhận dạng ngôn ngữ từng câu,
   model 3,3 GB, kết quả không dùng; bật lại `FIRERED_LID=1`), ASR theo lô trên GPU `FIRERED_ASR_BATCH` (mặc định 4; trước

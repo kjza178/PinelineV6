@@ -382,6 +382,13 @@ def zh_namefix_min() -> float:
     return _float("SIMPLE_ZH_NAMEFIX_MIN", 0.75, 0.5, 1.0)
 
 
+def fallback_model(primary: str | None = None) -> str | None:
+    """SIMPLE_FALLBACK_MODEL: model dự phòng khi model Soát & dịch chính hỏng (mất mạng, hết tiền/quota, key sai, 5xx
+    sau khi đã thử lại). Trống / trùng model chính → không có (2026-11-20)."""
+    m = str(get("SIMPLE_FALLBACK_MODEL", "") or "").strip()
+    return m if m and m != (primary or "") else None
+
+
 def review_model(work_dir=None) -> str | None:
     m = str(get("SIMPLE_MODEL", "") or "").strip()
     if m:

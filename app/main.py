@@ -295,6 +295,16 @@ def _v6_router(inst: Instance) -> APIRouter:
         if not (wd / "manifest.json").is_file():
             raise HTTPException(404, "không có job")
         if not sp.is_file():
+            # 2026-11-20: chưa dịch → trả lời gốc ASR (asr.json) để UI hiện câu Trung + thời gian ngay sau bước ASR
+            ap = wd / "asr.json"
+            if ap.is_file():
+                try:
+                    arows = json.loads(ap.read_text(encoding="utf-8"))
+                except (OSError, ValueError) as e:
+                    raise HTTPException(409, f"asr.json đang được ghi hoặc hỏng: {e}") from e
+                out = [{"i": r.get("i", n), "start": r.get("start"), "end": r.get("end"), "zh": r.get("text") or r.get("zh") or ""}
+                       for n, r in enumerate(arows if isinstance(arows, list) else []) if isinstance(r, dict)]
+                return {"rows": out, "exists": False, "source": "asr", "wav": []}
             return {"rows": [], "exists": False, "wav": []}
         try:
             rows = json.loads(sp.read_text(encoding="utf-8"))
@@ -312,7 +322,7 @@ def _v6_router(inst: Instance) -> APIRouter:
                         wav.append(int(f.stem.split("_")[1]))
                 except (OSError, ValueError, IndexError):
                     continue
-        return {"rows": out, "exists": True, "wav": sorted(wav)}
+        return {"rows": out, "exists": True, "source": "script", "wav": sorted(wav)}
 
     # ── Xung đột bảng nhân vật của bộ (engines/series_glossary): tập mới khác quyết định đã chốt → người chọn ──
     @r.get(V6_PREFIX + "/series/conflicts")

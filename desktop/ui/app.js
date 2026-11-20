@@ -19,7 +19,7 @@ const picked = new Set();        // job_id được tick
 let filter = "", rafQueued = false, fullRedraw = true;
 let selected = null, detail = null, queue = { queue: [], current: null, busy: false };
 // Khung chi tiết có tab. Tab Bản dịch / Giọng / Kết quả chỉ nạp dữ liệu KHI MỞ (không polling).
-const TABS = [["overview", "Tổng quan"], ["script", "Bản dịch"], ["voice", "Giọng đọc"], ["result", "Kết quả"]];
+const TABS = [["overview", "Tổng quan"], ["script", "Lời thoại"], ["voice", "Giọng đọc"], ["result", "Kết quả"]];
 let tab = "overview";
 let script = null;                       // {rows, wav:Set, exists} của job đang mở
 let scriptFilter = "all", scriptQ = "", scriptShown = 200;
@@ -276,7 +276,7 @@ async function loadScript() {
   try {
     const d = await api("GET", `/api/v6/jobs/${encodeURIComponent(id)}/script`);
     if (id !== selected || tab !== "script") return;
-    script = { rows: d.rows || [], wav: new Set(d.wav || []), exists: d.exists };
+    script = { rows: d.rows || [], wav: new Set(d.wav || []), exists: d.exists, source: d.source || "" };
     paintScript(true);
   } catch (e) {
     if (id === selected && tab === "script") body.innerHTML = `<div class="err">Không đọc được bản dịch: ${esc(e.message)}</div>`;
@@ -342,7 +342,21 @@ function paintScript(rebuild) {
   const j = jobs.get(selected);
   if (!script || !j) return;
   if (!script.exists) {
-    body.innerHTML = '<p class="hint">Job này chưa có bản dịch. Chạy bước «Dịch» ở tab Tổng quan (hoặc Xếp hàng chạy).</p>';
+    if (script.source === "asr" && script.rows.length) {       // đã có lời gốc (ASR), chưa dịch → hiện câu Trung
+      if (rebuild || !body.querySelector("#sc-list.asr-list")) {   // thanh tìm vẽ 1 lần (gõ tìm không mất focus)
+        const dur = Number(script.rows[script.rows.length - 1].end) || 0;
+        body.innerHTML = `<div class="sc-bar"><input id="sc-q" placeholder="Tìm trong câu Trung, hoặc số câu…" value="${esc(scriptQ)}">
+            <button class="btn sm" data-act="sc-reload" title="Nạp lại từ đĩa">Tải lại</button></div>
+          <div class="callout">Lời gốc nhận dạng (ASR): <b>${script.rows.length} câu</b> · ${esc(fmtTime(dur))}. Chưa dịch — chạy bước «Dịch» ở tab Tổng quan.</div>
+          <div id="sc-list" class="asr-list"></div>`;
+      }
+      const q = scriptQ.toLowerCase();
+      const list = script.rows.filter((r) => !q || (r.zh || "").toLowerCase().includes(q) || String(r.i) === q);
+      $("#sc-list").innerHTML = (list.slice(0, scriptShown).map((r) => `<div class="ln asr"><div class="ln-meta"><b>#${esc(r.i)}</b> <span class="mut">${fmtTime(r.start)} → ${fmtTime(r.end)}</span></div><div class="zh">${esc(r.zh)}</div></div>`).join("")
+        || '<p class="hint">Không có câu nào khớp.</p>') + (list.length > scriptShown ? `<button class="btn more" data-act="sc-more">Xem thêm (${list.length - scriptShown} câu)</button>` : "");
+      return;
+    }
+    body.innerHTML = '<p class="hint">Job này chưa có lời thoại. Bước «Nhận dạng giọng» (ASR) xong sẽ hiện câu Trung ở đây; bước «Dịch» xong sẽ hiện bản dịch.</p>';
     return;
   }
   const rows = script.rows;
@@ -1171,7 +1185,7 @@ const PROVS = [
 ];
 const SPEEDS = [[8, "Tiết kiệm", "8 phần cùng lúc"], [32, "Cân bằng", "32 phần cùng lúc"], [64, "Tối đa", "64 phần cùng lúc"]];
 const USE_VI = {
-  review: "Dịch và soát toàn bộ lời thoại", plan: "Lập hồ sơ nhân vật, cách xưng hô — mỗi tập một lần",
+  review: "Dịch và soát toàn bộ lời thoại", review_fallback: "Dịch khi AI dịch chính lỗi (dự phòng)", plan: "Lập hồ sơ nhân vật, cách xưng hô — mỗi tập một lần",
   translate: "Dịch chữ trên hình, tiêu đề phim", hang_fix: "Gỡ job bị kẹt sau khi dịch",
   agent: "Trợ lý AI", agent_fallback: "Trợ lý AI khi AI chính lỗi", meta: "Tiêu đề, mô tả khi đăng YouTube", thumb: "Ảnh bìa YouTube",
 };
@@ -1230,6 +1244,7 @@ function paintAISimple() {
       <div class="actions"><span class="sub grow">${isCur ? `Đang dùng ${esc(p.name)}.` : `Hiện đang dùng ${esc((PROVS.find((x) => x.id === cur) || {}).name || "")}.`}</span>
         <button type="button" class="btn primary" id="prov-apply">${isCur ? "Áp dụng lại" : `Chuyển sang ${esc(p.name)}`}</button></div>
     </div>
+    ${fallbackSec()}
     <div class="sec"><h3>AI đang làm gì</h3><p class="sub">Muốn đổi riêng từng việc: mục «Nâng cao».</p><div class="uses">${uses}</div></div>`;
 }
 function localField(name, label, hint, L, type = "text") {
@@ -1254,6 +1269,34 @@ async function localSave(btn) {
     paintAI(); paintAISimple();
     say(Object.keys(patch).length ? "Đã lưu cài đặt AI" : "Không có gì thay đổi");
   } catch (e) { st.innerHTML = `<span class="err">${esc(e.message)}</span>`; } finally { btn.disabled = false; }
+}
+// Dự phòng cho bước dịch (SIMPLE_FALLBACK_MODEL): lô nào model chính hỏng hẳn (mất mạng, hết tiền, key sai, máy chủ lỗi
+// kéo dài) thì dịch bằng model này — chọn nhà cung cấp KHÁC model chính.
+function fallbackSec() {
+  const rv = ai.functions.find((f) => f.id === "review") || {}, fbf = ai.functions.find((f) => f.id === "review_fallback");
+  if (!fbf) return "";
+  const cur = fbf.value || "", main = rv.effective || "";
+  const opts = [["", "Không dùng dự phòng"]];
+  for (const p of ai.providers) {
+    if (!p.has_key) continue;
+    const m = (p.models || [])[0] || "";
+    if (m && m !== main) opts.push([m, `${p.label} · ${m.split("/").slice(1).join("/")}`]);
+  }
+  if (ai.local.llama.length && main !== "local") opts.push(["local", `AI trên máy · ${ai.local.llama[0]}`]);
+  if (ai.aurora.configured) opts.push(["chatgpt/gpt-5-6-mini", "Aurora · gpt-5-6-mini"]);
+  if (cur && !opts.some(([v]) => v === cur)) opts.push([cur, cur]);
+  const warn = !cur ? '<div class="callout warn">Chưa có dự phòng: AI dịch chính lỗi hẳn thì lô đó hỏng, job phải chạy lại sau.</div>' : "";
+  return `<div class="sec"><h3>Dự phòng khi AI dịch chính lỗi</h3>
+    <p class="sub">Đang dịch bằng <b>${esc(main || "?")}</b>. Lô nào lỗi hẳn (sau khi đã tự thử lại) sẽ dịch bằng model dự phòng — nên chọn nhà cung cấp khác.</p>${warn}
+    <div class="field"><div class="lbl"><b>Model dự phòng</b><span>Chỉ hiện nhà cung cấp đã có key, AI trên máy đang chạy, Aurora đã cấu hình.</span></div>
+      <div class="ctl"><div class="row-ctl"><select id="fb-model">${opts.map(([v, t]) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>
+        <button type="button" class="btn sm" id="fb-save">Lưu</button></div></div></div></div>`;
+}
+async function fallbackSave(btn) {
+  return act(btn, "Đã lưu model dự phòng", async () => {
+    ai = await api("POST", "/api/v6/ai", { models: { review_fallback: $("#fb-model").value } });
+    paintAI(); paintAISimple();
+  });
 }
 async function provSaveKey() {
   const key = $("#prov-key")?.value.trim();
@@ -1292,6 +1335,7 @@ function onAISimpleClick(e) {
   if (b?.id === "prov-test") return provTest(b);
   if (b?.id === "prov-apply") return provApply(b);
   if (b?.id === "loc-save") return localSave(b);
+  if (b?.id === "fb-save") return fallbackSave(b);
 }
 function onAISimpleChange(e) {
   if (e.target.id === "loc-thinking") e.target.parentElement.lastChild.textContent = e.target.checked ? "Bật" : "Tắt";
@@ -1784,9 +1828,10 @@ async function agentSend(ev) {
     wait.remove();
     const m = e.message || "";
     const hint = /Max retries|Connection refused|ConnectionError|Failed to establish|timed out/i.test(m)
-      ? "Không kết nối được AI của trợ lý. Kiểm tra Cài đặt → AI dịch (key / nhà cung cấp)."
+      ? "Không kết nối được AI của trợ lý. Kiểm tra Cài đặt → AI dịch (nhà cung cấp, key; AI trên máy: llama-server có đang chạy không)."
       : "";
-    agentAppend("err", "Agent lỗi: " + (hint || m), hint ? m.slice(0, 200) : "");
+    // hiện đủ lỗi từng model (chính | dự phòng) — trước cắt 200 ký tự chỉ còn lỗi Aurora
+    agentAppend("err", "Agent lỗi: " + (hint || m), hint ? m.split(" | ").map((x) => "• " + x.slice(0, 260)).join("\n") : "");
   } finally { btn.disabled = false; box.focus(); }
 }
 

@@ -1,0 +1,97 @@
+"""2026-11-20: (1) tab Lời thoại hiện lời gốc ASR khi chưa dịch; (2) dịch có model dự phòng; (3) Agent «local» gọi đúng
+llama-server ở Cài đặt → AI trên máy và báo lỗi cả model chính lẫn dự phòng."""
+from __future__ import annotations
+
+import json
+import types
+
+import pytest
+
+
+# ── (3) Agent ──
+def test_agent_local_uses_llama_base_and_reports_all_errors(monkeypatch):
+    from agents import agent_core
+    import core.config as cfg
+    from core import machine
+    vals = {"AGENT_MODEL": "local", "AGENT_FALLBACK_MODEL": "chatgpt/gpt-5-6-mini",
+            "LLM_BASE_URL": "http://127.0.0.1:20128/v1"}
+    monkeypatch.setattr(cfg, "get", lambda k, d=None: vals.get(k, d))
+    monkeypatch.setattr(machine, "llama_base_url", lambda: "http://127.0.0.1:18082/v1")
+    urls = []
+
+    def post(url, **kw):
+        urls.append(url)
+        raise ConnectionError("llama tắt")
+    monkeypatch.setattr(agent_core.requests, "post", post)
+    import engines.llm as llm
+
+    def chat(*a, **k):
+        raise ConnectionError("Aurora/ChatGPT thất bại: 127.0.0.1:3377")
+    monkeypatch.setattr(llm, "chat", chat)
+    with pytest.raises(RuntimeError) as ei:
+        agent_core._chat_turn([{"role": "user", "content": "hi"}])
+    assert urls == ["http://127.0.0.1:18082/v1/chat/completions"]       # llama ở Cài đặt, không phải LLM_BASE_URL
+    msg = str(ei.value)
+    assert msg.startswith("local: ") and " | chatgpt/gpt-5-6-mini: " in msg and "llama tắt" in msg
+
+
+def test_agent_base_explicit_still_respected(monkeypatch):
+    from agents import agent_core
+    import core.config as cfg
+    vals = {"AGENT_MODEL": "local", "AGENT_BASE_URL": "http://127.0.0.1:9999/v1"}
+    monkeypatch.setattr(cfg, "get", lambda k, d=None: vals.get(k, d))
+    urls = []
+
+    class R:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"choices": [{"message": {"content": "ok"}}]}
+    monkeypatch.setattr(agent_core.requests, "post", lambda url, **kw: urls.append(url) or R())
+    assert agent_core._chat_turn([{"role": "user", "content": "hi"}])["content"] == "ok"
+    assert urls == ["http://127.0.0.1:9999/v1/chat/completions"]
+
+
+# ── (2) Dịch dự phòng ──
+def test_call_llm_falls_back_on_provider_failure(monkeypatch):
+    from engines.translate_simple import cfg, stage_review
+    import engines.cloud_retry as cr
+    import engines.llm as llm
+    monkeypatch.setattr(cfg, "get", lambda k, d=None: {"SIMPLE_FALLBACK_MODEL": "alibaba/qwen-plus"}.get(k, d))
+    monkeypatch.setattr(cr, "call_with_cloud_retry", lambda fn, **kw: fn())          # bỏ chờ thử lại
+    used = []
+
+    def chat(msgs, model=None, **kw):
+        used.append(model)
+        if model.startswith("deepseek"):
+            raise ConnectionError("DeepSeek 402 hết tiền")
+        return json.dumps({"lines": [{"i": 1, "vi": "xin chào"}]})
+    monkeypatch.setattr(llm, "chat", chat)
+    out = stage_review.call_llm("sys", "user", {1}, model="deepseek/deepseek-v4-flash")
+    assert out[1]["vi"] == "xin chào" and used == ["deepseek/deepseek-v4-flash", "alibaba/qwen-plus"]
+
+
+def test_call_llm_no_fallback_for_bad_json_or_stop(monkeypatch):
+    from engines.translate_simple import cfg, stage_review
+    import engines.cloud_retry as cr
+    import engines.llm as llm
+    monkeypatch.setattr(cfg, "get", lambda k, d=None: {"SIMPLE_FALLBACK_MODEL": "alibaba/qwen-plus"}.get(k, d))
+    monkeypatch.setattr(cr, "call_with_cloud_retry", lambda fn, **kw: fn())
+    used = []
+    monkeypatch.setattr(llm, "chat", lambda msgs, model=None, **kw: used.append(model) or "{không phải json")
+    with pytest.raises(stage_review.BadOutput):
+        stage_review.call_llm("s", "u", {1}, model="deepseek/x")
+    assert used == ["deepseek/x"]                        # lô hỏng JSON: luồng soát tự thử lại, không đổi model
+
+    def stopped(*a, **k):
+        raise RuntimeError("stopped by user")
+    monkeypatch.setattr(llm, "chat", stopped)
+    with pytest.raises(RuntimeError, match="stopped by user"):
+        stage_review.call_llm("s", "u", {1}, model="deepseek/x")
+
+
+def test_fallback_model_listed_in_ai_settings():
+    from core import ai_models
+    f = ai_models.BY_ID["review_fallback"]
+    assert f.key == "SIMPLE_FALLBACK_MODEL" and f.group == "Luồng dịch V6" and not f.legacy

@@ -360,3 +360,4 @@ a.btn{text-decoration:none}
 .new-tabs{align-self:flex-start;margin-bottom:4px}
 td.mono{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all}
 .new-ck textarea{width:100%;font-family:ui-monospace,monospace;font-size:12px}
+.msg-meta{white-space:pre-line}

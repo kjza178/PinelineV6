@@ -1752,15 +1752,16 @@ def _chat_turn(
     import core.config as _cfg
     c = _cfg.agent_llm()
     models = [c["model"]] + ([c["fallback"]] if c["fallback"] else [])
-    last: Exception | None = None
+    errs: list[str] = []
     for i, m in enumerate(models):
         try:
             return _chat_turn_model(messages, use_tools, m, tool_choice=tool_choice)
         except Exception as e:  # noqa: BLE001
-            last = e
+            errs.append(f"{m}: {str(e)[:220]}")
             if i + 1 < len(models):
                 print(f"[agent] LLM {m} lỗi ({str(e)[:160]}) → thử {models[i + 1]}", flush=True)
-    raise last  # type: ignore[misc]
+    # 2026-11-20: báo lỗi CẢ model chính lẫn dự phòng (trước chỉ lỗi cuối → «Aurora :3377» che mất lỗi thật của model chính)
+    raise RuntimeError(" | ".join(errs) if len(errs) > 1 else errs[0])
 
 
 def _chat_turn_model(
@@ -1784,6 +1785,11 @@ def _chat_turn_model(
     if _routed_via_llm(model):
         return _chat_turn_text_protocol(messages, model, via_llm=True)
     base, key, _ = _llm_cfg()
+    # 2026-11-20: model AI trên máy (local / llama / llama/<tên> / auto) → đúng địa chỉ llama-server ở Cài đặt → AI trên máy
+    # (LLAMA_BASE_URL). Trước dùng AGENT_BASE_URL / LLM_BASE_URL (config cũ trỏ 9router LAN / cổng khác) → không tới llama.
+    if _is_llama_model(model) and not str(_agent_base_explicit() or "").strip():
+        from core import machine as _machine
+        base, key = _machine.llama_base_url(), "sk-local"
     url = f"{base}/chat/completions"
     from engines.llm import _thinking
     enable_think = _thinking()
@@ -1813,6 +1819,17 @@ def _chat_turn_model(
         raise RuntimeError(f"LLM HTTP {r.status_code}: {r.text[:400]}")
     choice = (r.json().get("choices") or [{}])[0]
     return choice.get("message") or {}
+
+
+def _is_llama_model(model: str | None) -> bool:
+    m = (model or "").strip().lower()
+    return m in ("local", "llama", "auto", "default") or m.startswith("llama/")
+
+
+def _agent_base_explicit() -> str:
+    """AGENT_BASE_URL người dùng đặt riêng cho Agent (khác LLM_BASE_URL chung) — có thì tôn trọng."""
+    import core.config as _cfg
+    return _cfg.get("AGENT_BASE_URL") or ""
 
 
 def _routed_via_llm(model: str | None) -> bool:

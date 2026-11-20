@@ -293,3 +293,13 @@ def test_disk_library_routes(client, tmp_path, monkeypatch):
     assert d["ok"] and d["items"][0]["state"] == "ready"
     assert client.post("/api/v6/disk-library/add", json={}).status_code == 400
     assert client.post("/api/v6/disk-library/merge", json={"names": []}).status_code == 400
+
+
+def test_script_falls_back_to_asr_when_not_translated(client, env_inst):
+    """2026-11-20: chưa dịch (không script.json) → trả câu Trung từ asr.json để tab Lời thoại hiện ngay sau ASR."""
+    jd = env_inst.work_root / "job-asr"
+    jd.mkdir(exist_ok=True)
+    (jd / "manifest.json").write_text(json.dumps({"request": {"title": "B"}, "stages": {"asr": {"status": "done"}}}), encoding="utf-8")
+    (jd / "asr.json").write_text(json.dumps([{"i": 0, "start": 1.0, "end": 2.5, "text": "你好"}]), encoding="utf-8")
+    d = client.get("/api/v6/jobs/job-asr/script").json()
+    assert d["exists"] is False and d["source"] == "asr" and d["rows"] == [{"i": 0, "start": 1.0, "end": 2.5, "zh": "你好"}]

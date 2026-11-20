@@ -101,6 +101,10 @@ FUNCTIONS: tuple[AIFunction, ...] = (
                "DeepSeek/Alibaba thấy cả phim / chương, lô tự tính theo «Song song»; vá câu bị cờ "
                "(engines/translate_simple). Tốn token nhất.", "SIMPLE_MODEL", _eff_review,
                "REVIEW_MODEL → TRANSLATE_MODEL", group="Luồng dịch V6"),
+    AIFunction("review_fallback", "Soát & dịch — model dự phòng", "Khi model Soát & dịch chính hỏng hẳn (mất mạng, "
+               "hết tiền / quota, key sai, lỗi máy chủ kéo dài — sau khi đã thử lại) thì lô đó dịch bằng model này. "
+               "Nên chọn nhà cung cấp KHÁC model chính (vd chính DeepSeek → dự phòng Alibaba / AI trên máy).",
+               "SIMPLE_FALLBACK_MODEL", lambda: _get("SIMPLE_FALLBACK_MODEL"), "(không có)", group="Luồng dịch V6"),
     AIFunction("plan", "Lập bảng nhân vật / xưng hô", "Đầu bước dịch, 1 lần / tập: nhân vật, cặp xưng hô, thuật ngữ, cảnh "
                "(engines/translate.build_plan).", "PLAN_MODEL", _eff_plan, "LLM_MODEL",
                extra={"mode_key": "PLAN_MODE"}, group="Luồng dịch V6"),
