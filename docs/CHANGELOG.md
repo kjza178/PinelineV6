@@ -1,6 +1,10 @@
 # CHANGELOG — V6
 
 ## 2026-11-20
+- **Port fix V5 17–20/11** (`docs/fixes/2026-11-20-port-v5-11-17-to-20.md`): Dừng job không còn treo hàng chờ khi job
+  xếp sau job khác trên GPU; vá xong còn sót chữ Hán / câu trống → 1 lượt vá bằng model dự phòng (thay vì park); lập bảng
+  nhân vật lỗi → model dự phòng; Trợ lý hiểu id job rút gọn (`9aa089_p01`). Chưa port: prompt thumbnail mới, kiểm tập khi
+  gộp (`hg_merge_check`).
 - **Công việc — quản lý job + hàng chờ**: thanh lọc trạng thái có đếm (Tất cả / Đang chạy / Hàng chờ / Lỗi / Tạm dừng /
   Chưa chạy / Xong; nhớ lựa chọn); bảng xếp job trong hàng chờ theo đúng thứ tự sẽ chạy («chờ #n»), hiện bộ phim + tập
   (`tập 2/10`), job lỗi hiện bước lỗi + lý do ngay trên dòng; **«Thứ tự hàng chờ»**: đưa lên đầu / lên / xuống / gỡ từng

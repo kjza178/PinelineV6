@@ -4614,9 +4614,30 @@ def _queue_run_one(job_id: str, opts: dict) -> tuple[str, str]:
                 _release_stage(job_id, "__all__")
                 done_event.set()
 
-        _gpu.submit(_gpu_job)
+        # port V5 fix 2026-11-20 (queue-stop-gpu-wait): không chờ done_event vô hạn — Dừng mà future còn xếp sau job
+        # khác trên _gpu (JOB_WORKERS=1, vd TTS chạy riêng) thì huỷ future để nhường ghế hàng chờ (trước: treo `current`).
+        fut = _gpu.submit(_gpu_job)
         submitted = True
-        done_event.wait()
+        while not done_event.wait(timeout=1.0):
+            if job_id not in _STOP_JOBS:
+                continue
+            try:
+                cancelled = bool(fut.cancel())
+            except Exception as e_c:  # noqa: BLE001
+                print(f"[queue] huỷ future {job_id} lỗi: {e_c}", flush=True)
+                cancelled = False
+            if cancelled:                      # chưa chạy → tự dọn (finally của _gpu_job sẽ không chạy)
+                try:
+                    _release_stage(job_id, "__all__")
+                except Exception as e_r:  # noqa: BLE001
+                    print(f"[queue] nhả stage {job_id} lỗi: {e_r}", flush=True)
+                try:
+                    _heal_stale_running(work_dir)
+                except Exception as e_h:  # noqa: BLE001
+                    print(f"[queue] heal {job_id} lỗi: {e_h}", flush=True)
+                done_event.set()
+                break
+            # future đã chạy: stop_hook kill tiến trình con; chờ finally của _gpu_job
         if job_id in _STOP_JOBS:
             return "stopped", "đã dừng"
         if error:

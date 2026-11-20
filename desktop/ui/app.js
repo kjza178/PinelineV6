@@ -1336,7 +1336,7 @@ function fallbackSec() {
   if (cur && !opts.some(([v]) => v === cur)) opts.push([cur, cur]);
   const warn = !cur ? '<div class="callout warn">Chưa có dự phòng: AI dịch chính lỗi hẳn thì lô đó hỏng, job phải chạy lại sau.</div>' : "";
   return `<div class="sec"><h3>Dự phòng khi AI dịch chính lỗi</h3>
-    <p class="sub">Đang dịch bằng <b>${esc(main || "?")}</b>. Lô nào lỗi hẳn (sau khi đã tự thử lại) sẽ dịch bằng model dự phòng — nên chọn nhà cung cấp khác.</p>${warn}
+    <p class="sub">Đang dịch bằng <b>${esc(main || "?")}</b>. Dùng khi: lô dịch lỗi hẳn (sau khi đã tự thử lại), lập bảng nhân vật lỗi, hoặc vá xong vẫn sót chữ Hán / câu trống — nên chọn nhà cung cấp khác.</p>${warn}
     <div class="field"><div class="lbl"><b>Model dự phòng</b><span>Chỉ hiện nhà cung cấp đã có key, AI trên máy đang chạy, Aurora đã cấu hình.</span></div>
       <div class="ctl"><div class="row-ctl"><select id="fb-model">${opts.map(([v, t]) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>
         <button type="button" class="btn sm" id="fb-save">Lưu</button></div></div></div></div>`;

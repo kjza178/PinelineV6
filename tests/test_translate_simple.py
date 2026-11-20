@@ -764,3 +764,31 @@ def test_v6_never_runs_nmt_even_when_enabled(tmp_path, monkeypatch):
     assert rows[0]["vi"].startswith("Tô Tình, anh") and " em " in rows[0]["vi"]   # cặp Lâm→Tô anh/em từ plan
     assert all(r["s_act"] == "new" for r in rows.values() if not r.get("junk"))
     assert not any(r.get("mt") for r in rows.values())
+
+
+def test_cjk_left_after_repair_goes_to_fallback_model(tmp_path, monkeypatch):
+    """Port V5 2026-11-20 (cjk-backup-repair): model chính để sót chữ Hán cả sau vá → 1 lượt vá bằng
+    SIMPLE_FALLBACK_MODEL thay vì park cả job vì 1 chữ Hán."""
+    wd = _job(tmp_path)
+    _nmt(monkeypatch)
+    monkeypatch.setenv("SIMPLE_FALLBACK_MODEL", "alibaba/qwen-test")
+    good = FakeLLM("good")
+
+    def chat(messages, model=None, **kw):
+        out = good(messages, model=model, **kw)
+        if model == "chatgpt/gpt-test":          # model chính: luôn để sót «投影» ở câu 0
+            d = json.loads(out)
+            for ln in d["lines"]:
+                if ln["i"] == 0:
+                    ln["vi"] = ln["vi"] + " 投影"
+            return json.dumps(d, ensure_ascii=False)
+        d = json.loads(out)                       # model dự phòng: dịch sạch (không còn chữ Hán)
+        for ln in d["lines"]:
+            ln["vi"] = re.sub(r"[\u4e00-\u9fff]+", "", ln["vi"]).strip() or "hình chiếu"
+        return json.dumps(d, ensure_ascii=False)
+    monkeypatch.setattr(llm, "chat", chat)
+    res = pipeline.run(wd, "Tiếng Việt")
+    rb = res["review"]["repair_backup"]
+    assert rb["model"] == "alibaba/qwen-test" and rb["fixed"] >= 1
+    assert "投影" not in _read(wd)[0]["vi"] and res["status"] == "done"
+    assert any(c["model"] == "alibaba/qwen-test" for c in good.calls)

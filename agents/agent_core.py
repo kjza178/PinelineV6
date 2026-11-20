@@ -1135,10 +1135,48 @@ def summarize_job(j: dict, work_root: Path) -> dict:
     }
 
 
+def resolve_job_id(work_root: Path, job_id: str) -> str:
+    """Port V5 fix 2026-11-20 (agent-resolve-short-job-id): AI hay cắt id — «9aa089_p01» trong khi thư mục thật là
+    «9aa0891fbfd1_p01», hoặc chỉ đưa vài ký tự đầu. Nhận: id đủ · tiền tố duy nhất (≥ 4 ký tự) · dạng <tiền tố>_pNN.
+    Không khớp / mơ hồ → FileNotFoundError kèm ứng viên."""
+    import re as _re
+    raw = str(job_id or "").strip()
+    if not raw:
+        raise FileNotFoundError("thiếu job_id")
+    root = Path(work_root)
+    if (root / raw / "manifest.json").is_file():
+        return raw
+    names = [d.name for d in root.iterdir() if d.is_dir() and (d / "manifest.json").is_file()] if root.is_dir() else []
+    hits: list[str] = []
+    m = _re.match(r"^([0-9a-fA-F]{4,})_p0*(\d+)$", raw)
+    if m:
+        part_re = _re.compile(rf"^{_re.escape(m.group(1))}[0-9a-fA-F]*_p0*{int(m.group(2))}$", _re.I)
+        hits = [n for n in names if part_re.match(n)]
+    if not hits and len(raw) >= 4:
+        hits = [n for n in names if n.startswith(raw)]
+    if len(hits) == 1:
+        return hits[0]
+    pref = raw.split("_p")[0] if "_p" in raw.lower() else raw
+    cands = sorted(hits or [n for n in names if len(pref) >= 3 and n.startswith(pref)])[:5]
+    hint = f" · ứng viên: {', '.join(cands)}" if cands else ""
+    raise FileNotFoundError(f"không thấy job «{raw}» (dùng id đủ hoặc ≥4 ký tự đầu; part: «9aa089_p01» → "
+                            f"«9aa0891fbfd1_p01»){' — nhiều job khớp' if len(hits) > 1 else ''}{hint}")
+
+
+def _normalize_tool_job_args(work_root: Path, args: dict) -> dict:
+    out = dict(args or {})
+    if out.get("job_id") is not None:
+        out["job_id"] = resolve_job_id(work_root, str(out["job_id"]))
+    if isinstance(out.get("job_ids"), list):
+        out["job_ids"] = [resolve_job_id(work_root, str(x)) for x in out["job_ids"] if str(x).strip()]
+    return out
+
+
 def _load_script(work_root: Path, job_id: str) -> list[dict]:
+    job_id = resolve_job_id(work_root, job_id)
     sp = work_root / job_id / "script.json"
     if not sp.is_file():
-        raise FileNotFoundError(f"chưa có script.json cho {job_id}")
+        raise FileNotFoundError(f"chưa có script.json cho {job_id} (job có nhưng chưa dịch xong)")
     rows = json.loads(sp.read_text(encoding="utf-8"))
     if not isinstance(rows, list):
         raise ValueError("script.json không phải list")
@@ -1315,6 +1353,9 @@ def _dispatch(name: str, args: dict, allow_mutate: bool) -> str:
         }, ensure_ascii=False)
 
     try:
+        # port V5 2026-11-20: chuẩn hoá job_id / job_ids rút gọn cho mọi tool có tham số job
+        if isinstance(args, dict) and ("job_id" in args or "job_ids" in args):
+            args = _normalize_tool_job_args(rt.work_root, args)
         if name == "pineline_status":
             return json.dumps(
                 classify_jobs(rt.list_jobs(), rt.work_root),

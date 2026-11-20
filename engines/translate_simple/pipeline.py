@@ -367,6 +367,28 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
         cloud_dead = rstats["n_todo"] > 0 and rstats["n_ok"] == 0
         if flags and not cloud_dead:
             flags, rlog = repair.run(store, pv, flags, model=model, stop_check=stop_check, progress=prog)
+            # port V5 fix 2026-11-20 (cjk-backup-repair): sau vá bằng model chính còn câu cờ CỨNG (sót chữ Hán / trống)
+            # → 1 lượt vá bằng model dự phòng (SIMPLE_FALLBACK_MODEL) thay vì để cổng park cả job vì 1 chữ Hán sót.
+            bmodel = cfg.fallback_model(model)
+            if flags and bmodel:
+                hard = {i: fl for i, fl in flags.items() if any((f.get("code") or "") in ("cjk", "empty") for f in fl)}
+                if hard:
+                    print(f"[simple] {len(hard)} câu cjk/empty sau vá {model} → vá lại bằng dự phòng {bmodel}", flush=True)
+                    soft = {i: fl for i, fl in flags.items() if i not in hard}
+                    try:
+                        hard_left, blog = repair.run(store, pv, hard, model=bmodel, stop_check=stop_check,
+                                                     progress=prog, rounds=1)
+                    except Exception as e_b:  # noqa: BLE001 — dự phòng lỗi thì giữ cờ cũ, cổng quyết như trước
+                        print(f"[simple] vá dự phòng {bmodel} lỗi: {type(e_b).__name__}: {e_b}", flush=True)
+                        if "stopped by user" in str(e_b):
+                            raise
+                        hard_left, blog = hard, []
+                    for e in blog:
+                        e["backup"] = bmodel
+                    rlog.extend(blog)
+                    flags = {**soft, **hard_left}
+                    rstats["repair_backup"] = {"model": bmodel, "n": len(hard), "left": len(hard_left),
+                                               "fixed": len(hard) - len(hard_left)}
         store.write()
         # 5b) fix 2026-11-13: còn câu chưa soát → 1 lượt review CHỈ các câu đó (lô nhỏ); rồi ≤ ngưỡng → nhận nháp
         miss_info = None

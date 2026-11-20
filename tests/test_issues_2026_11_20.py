@@ -114,3 +114,35 @@ def test_desktop_jobs_view_has_queue_tools():
         assert el in html, el
     for n in ("/api/queue/jobs/move", "/api/queue/jobs/sort", "/api/queue/jobs/remove", "jobMatch(j, jobFilter)"):
         assert n in js, n
+
+
+# ── Port V5 2026-11-20 ──
+def test_plan_uses_backup_model_when_main_fails(monkeypatch):
+    import engines.translate as T
+    monkeypatch.setattr(T, "plan_mode_effective", lambda: "sample")
+    monkeypatch.setattr(T, "_cfg_get", lambda k, d=None: {"SIMPLE_FALLBACK_MODEL": "alibaba/qwen-plus"}.get(k, d))
+    used = []
+
+    def sample(segments, target, model, name_hints, series_plan):
+        used.append(model)
+        if model == "deepseek/x":
+            raise ConnectionError("DeepSeek hết tiền")
+        return {"characters": [{"zh": "林", "vi": "Lâm"}], "terms": []}
+    monkeypatch.setattr(T, "_build_plan_sample", sample)
+    data = T.build_plan([{"i": 0, "text": "你好"}], model="deepseek/x")
+    assert used == ["deepseek/x", "alibaba/qwen-plus"] and data["characters"][0]["vi"] == "Lâm"
+    assert (data.get("_meta") or {}).get("plan_model_role") == "backup"
+
+
+def test_agent_resolves_short_job_id(tmp_path):
+    from agents import agent_core
+    for n in ("9aa0891fbfd1_p01", "9aa0891fbfd1_p02", "abc12345ffff"):
+        (tmp_path / n).mkdir()
+        (tmp_path / n / "manifest.json").write_text("{}", encoding="utf-8")
+    assert agent_core.resolve_job_id(tmp_path, "9aa089_p01") == "9aa0891fbfd1_p01"
+    assert agent_core.resolve_job_id(tmp_path, "9aa089_p2") == "9aa0891fbfd1_p02"
+    assert agent_core.resolve_job_id(tmp_path, "abc1") == "abc12345ffff"
+    with pytest.raises(FileNotFoundError, match="nhiều job khớp"):
+        agent_core.resolve_job_id(tmp_path, "9aa0")
+    with pytest.raises(FileNotFoundError):
+        agent_core.resolve_job_id(tmp_path, "zzzz")

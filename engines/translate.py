@@ -916,7 +916,30 @@ def build_plan(
             print(f"[plan] file-mode lỗi ({e_file}) → fallback sample", flush=True)
             data = {}
     if not data or not (data.get("characters") or data.get("terms")):
-        data = _build_plan_sample(segments, target, model, name_hints, series_plan)
+        # port V5 2026-11-20 (main + backup): plan bằng model chính lỗi / rỗng → thử model dự phòng
+        # (PLAN_MODEL_BACKUP, không đặt thì SIMPLE_FALLBACK_MODEL — cùng dự phòng với bước dịch). Trước: plan rỗng
+        # → dịch không có bảng nhân vật / xưng hô.
+        tries = [model]
+        bk = str(_cfg_get("PLAN_MODEL_BACKUP") or _cfg_get("SIMPLE_FALLBACK_MODEL") or "").strip()
+        if bk and bk != (model or _cfg_get("PLAN_MODEL") or ""):
+            tries.append(bk)
+        data = {}
+        for k, m_try in enumerate(tries):
+            try:
+                data = _build_plan_sample(segments, target, m_try, name_hints, series_plan) or {}
+            except Exception as e_sm:  # noqa: BLE001
+                print(f"[plan] sample-mode model={m_try or 'mặc định'} lỗi: {type(e_sm).__name__}: {e_sm}", flush=True)
+                data = {}
+            if data.get("characters") or data.get("terms") or data.get("pronouns"):
+                if k:
+                    print(f"[plan] dùng model dự phòng {m_try} (model chính lỗi / rỗng)", flush=True)
+                    data.setdefault("_meta", {})
+                    if isinstance(data["_meta"], dict):
+                        data["_meta"]["plan_model_role"] = "backup"
+                        data["_meta"]["plan_model"] = m_try
+                break
+            if k + 1 < len(tries):
+                print(f"[plan] model={m_try or 'mặc định'} không ra plan → thử dự phòng {tries[k + 1]}", flush=True)
 
     data = _normalize_plan_data(data)
     try:
