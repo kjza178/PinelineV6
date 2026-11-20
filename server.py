@@ -2373,6 +2373,8 @@ def _translate_title(job_id: str) -> None:
         from engines.llm import chat
         wd = WORK_ROOT / job_id
         m = Manifest(wd)
+        if not _translate_group_title(wd, m.data, chat):
+            return                              # tên bộ phim chưa dịch được → thử lại lần sau
         if m.data.get("title_vi"):
             ok = True  # đã có rồi, không cần retry
             return
@@ -2411,6 +2413,40 @@ def _translate_title(job_id: str) -> None:
                 print(f"[title] {job_id} sẽ thử lại (lần {n}/{_TITLE_MAX_RETRY})")
             else:
                 print(f"[title] {job_id} bỏ cuộc sau {n} lần thử")
+
+
+_GROUP_TITLE_VI: dict[str, str] = {}   # tên bộ (Trung) → bản Việt; các tập cùng bộ chỉ gọi LLM 1 lần
+
+
+def _translate_group_title(wd: Path, data: dict, chat) -> bool:
+    """2026-11-20: tên bộ phim / hợp tập (request.group_title, lấy nguyên từ Bilibili — tiếng Trung) → group_title_vi.
+    True = xong / không cần; False = lỗi (gọi lại sau)."""
+    gt = str((data.get("request") or {}).get("group_title") or "")
+    if data.get("group_title_vi") or not _has_cjk(gt):
+        return True
+    vi = _GROUP_TITLE_VI.get(gt)
+    if not vi:
+        from core.config import get as _cfg_get
+        msgs = [{"role": "user", "content":
+                 "Dịch tên bộ phim / series video sau sang tiếng Việt tự nhiên, NGẮN GỌN (bỏ phần quảng cáo, giữ tên "
+                 "chính và số mùa nếu có). CHỈ trả về bản dịch trên MỘT dòng, không giải thích, không ngoặc kép:\n\n" + gt}]
+        try:
+            raw = (chat(msgs, model=_cfg_get("TRANSLATE_MODEL") or None, temperature=0.3, max_tokens=200) or "").strip()
+        except Exception as e:  # noqa: BLE001
+            print(f"[title] {wd.name} lỗi dịch tên bộ: {e}", flush=True)
+            return False
+        vi = _extract_vi_title(raw)
+        if not vi:
+            print(f"[title] {wd.name} không bóc được tên bộ tiếng Việt: {raw[:120]}", flush=True)
+            return False
+        _GROUP_TITLE_VI[gt] = vi
+
+    def _fn(d):
+        d["group_title_vi"] = vi
+    js.try_mutate(wd, _fn)
+    _job_cache.pop(str(wd), None)
+    print(f"[title] {wd.name} tên bộ: {vi}", flush=True)
+    return True
 
 
 def _maybe_translate_title(job_id: str, title: str) -> None:
@@ -6891,15 +6927,18 @@ def _title_write_hook(work_dir, data: dict) -> None:
     """V6 F3: dịch tiêu đề lazy khi manifest của job đổi (trước: gọi trong GET read_job mỗi lần poll)."""
     try:
         wd = Path(work_dir)
-        if not isinstance(data, dict) or data.get("title_vi") or wd.parent.name == "_split_parts":
+        if not isinstance(data, dict) or wd.parent.name == "_split_parts":
+            return
+        req = data.get("request") or {}
+        gt = "" if data.get("group_title_vi") else str(req.get("group_title") or "")
+        if data.get("title_vi") and not _has_cjk(gt):
             return
         dl = (data.get("stages") or {}).get("download") or {}
-        req = data.get("request") or {}
-        title = dl.get("title") or req.get("title") or req.get("part_title") or ""
-        if title:
-            _maybe_translate_title(wd.name, title)
-    except Exception:  # noqa: BLE001
-        pass
+        title = "" if data.get("title_vi") else (dl.get("title") or req.get("title") or req.get("part_title") or "")
+        if title or gt:
+            _maybe_translate_title(wd.name, f"{title} {gt}")
+    except Exception as e:  # noqa: BLE001
+        print(f"[title] hook {Path(work_dir).name}: {e}", flush=True)
 
 
 @app.on_event("startup")

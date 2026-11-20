@@ -1,6 +1,8 @@
 # CHANGELOG — V6
 
 ## 2026-11-20
+- **Tên bộ phim trên danh sách job**: tên hợp tập Bilibili (tiếng Trung) được dịch sang Việt cùng lúc dịch tiêu đề
+  (`group_title_vi`, 1 lần cho cả bộ; theo cờ instance `title_translate`), hiện 1 dòng cắt gọn, rê chuột xem đủ + bản gốc.
 - **Tổng quan job hiện số câu**: thẻ ASR «N câu · thời lượng đã nghe · engine», Dịch «N câu · thiếu M», Lồng tiếng
   «thiếu tiếng M câu» (đọc `n_segments`/`n_missing` sẵn có trong manifest).
 - **Job cha auto-split (video ≥3h) báo lỗi đúng chỗ**: trước đây khi các part chưa xong, job cha hiện «Lỗi ở Nhận dạng

@@ -52,7 +52,8 @@ def summarize(job_id: str, data: dict) -> dict[str, Any]:
         "hold_reason": (agent.get("hold_reason") or "")[:160],
         "group_id": data.get("group_id") or req.get("group_id"),
         # 2026-11-20: danh sách job / hàng chờ trên /v6/ cần bộ phim, tập, bước lỗi (không % — % đổi liên tục → job.touched)
-        "group_title": req.get("group_title") or "",
+        "group_title": data.get("group_title_vi") or req.get("group_title") or "",
+        "group_title_orig": req.get("group_title") or "",
         "group_index": req.get("group_index"),
         "group_total": req.get("group_total"),
         "failed_stage": failed,

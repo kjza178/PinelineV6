@@ -365,7 +365,8 @@ td.mono{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all}
 .job-tools{flex-wrap:wrap}
 #job-filter label .n{color:var(--muted);font-size:11.5px;margin-left:2px}
 #job-filter label.dim{opacity:.55}
-.jid .grp{color:var(--accent-2);margin-right:8px}
+.jid .grp{color:var(--accent-2);margin-right:8px;white-space:nowrap}
+.jid .grp-name{display:inline-block;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 .qpanel{padding:12px 14px}
 .qp-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 #qp-list{list-style:none;margin:0;padding:0;max-height:34vh;overflow:auto}
