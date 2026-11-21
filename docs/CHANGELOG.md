@@ -1,6 +1,8 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- **Bấm Chạy job đã nằm trong hàng chờ không chạy** (vd sau restart, `queue_autostart=false`): `queue_add` chỉ bật
+  worker khi thêm được job MỚI → hàng chờ đứng «1 job đang chờ». Nay có job trong hàng là bật worker.
 - **Vài câu sót chữ Hán không còn chặn cả job**: sau mọi lượt vá (+ model dự phòng) còn ≤ max(10, 1%) câu có chữ Hán →
   gỡ chữ Hán, giữ phần Việt, đánh cờ mềm `cjk_stripped` (xem lại ở Lời thoại) và chạy tiếp; quá ngưỡng / gỡ xong không
   còn chữ Việt → park như cũ. `SIMPLE_CJK_STRIP=0` tắt, `SIMPLE_CJK_STRIP_MAX` đặt ngưỡng.

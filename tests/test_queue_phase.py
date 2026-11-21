@@ -93,3 +93,18 @@ def test_server_notes_early_failure_on_job(tmp_path, monkeypatch):
     server._queue_finished("j1", "failed", "chưa chọn giọng")
     data = json.loads((wd / "manifest.json").read_text(encoding="utf-8"))
     assert summarize("j1", data)["stop_note"] == "không chạy được: chưa chọn giọng"
+
+
+def test_queue_add_starts_worker_for_job_already_queued(tmp_path, monkeypatch):
+    """2026-11-21: sau restart (queue_autostart=false) job nằm sẵn trong hàng; bấm Chạy phải bật worker."""
+    wd = tmp_path / "j9"
+    wd.mkdir()
+    (wd / "manifest.json").write_text(json.dumps({"stages": {"download": {"status": "done"}}}), encoding="utf-8")
+    started = []
+    monkeypatch.setattr(jq, "_q", ["j9"])
+    monkeypatch.setattr(jq, "_paused", None)
+    monkeypatch.setattr(jq, "_stop", True)
+    monkeypatch.setattr(jq, "_save", lambda: True)
+    monkeypatch.setattr(jq, "_ensure_worker_unlocked", lambda: started.append(1))
+    r = jq.queue_add(["j9"], opts={}, skip_done=False)
+    assert r["queued"] == [] and started == [1] and jq._stop is False

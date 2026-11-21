@@ -675,9 +675,13 @@ def queue_add(
             if opts is not None:
                 # fallback default cho job cũ chưa có snapshot
                 _opts = dict(opts)
+        # 2026-11-21: bấm Chạy job ĐÃ nằm trong hàng (vd nạp lại sau restart khi queue_autostart=false) → trước
+        # không bật worker vì «không thêm được job mới» → hàng chờ đứng «1 job đang chờ» mãi. Người dùng bấm Chạy =
+        # muốn chạy: có job trong hàng là bật worker.
+        if cleaned and (appended or any(j in _q for j in cleaned)):
             _stop = False
         _save()
-        if appended:
+        if _q and not _stop:
             _ensure_worker_unlocked()      # đang tạm dừng (R7.4) → không bật worker; job vẫn vào hàng
         return {
             "ok": True,
