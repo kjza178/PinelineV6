@@ -1958,7 +1958,9 @@ def _note_stop(wd: Path, stage: str, why: str) -> None:
         print(f"[auto] ghi lý do dừng {Path(wd).name} lỗi: {e}", flush=True)
 
 
-def _clear_stop(wd: Path) -> None:
+def _clear_last_stop(wd: Path) -> None:
+    """Xoá lý do dừng đã ghi (`last_stop`). 2026-11-21: trước tên `_clear_stop` — TRÙNG tên hàm xoá cờ Dừng (.stop) ở
+    trên → che mất hàm đó, mọi «Chạy» không gỡ .stop cũ → dịch dừng ngay sau plan («stopped by user»)."""
     def _fn(d):
         d.pop("last_stop", None)
     try:
@@ -2052,7 +2054,7 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
                 flush=True,
             )
             return
-        _clear_stop(wd)
+        _clear_last_stop(wd)
         phase("nhận dạng tiếng (ASR) — bỏ qua nếu đã xong")
         free_gpu_vram("trước ASR — nhường GPU")
         # ASR trực tiếp từ audio gốc — không ép Demucs để tránh cắt nuốt chữ / méo tiếng trên audio dài

@@ -81,7 +81,7 @@ def test_note_stop_roundtrip_and_summary(tmp_path):
     data = json.loads((wd / "manifest.json").read_text(encoding="utf-8"))
     assert data["last_stop"]["why"] == "còn 2 câu VI trống"
     assert summarize("abc_p05", data)["stop_note"] == "còn 2 câu VI trống"
-    server._clear_stop(wd)
+    server._clear_last_stop(wd)
     data = json.loads((wd / "manifest.json").read_text(encoding="utf-8"))
     assert "last_stop" not in data
     assert summarize("abc_p05", data)["stop_note"] == ""
@@ -91,3 +91,26 @@ def test_ui_shows_stage_sentence_counts():
     js = (Path(__file__).resolve().parents[1] / "desktop" / "ui" / "app.js").read_text(encoding="utf-8")
     assert "function stageFacts(" in js and "stageFacts(s, st)" in js
     assert "st.n_segments" in js
+
+
+def test_clear_stop_still_removes_stop_flag(tmp_path):
+    """2026-11-21: hàm ghi lý do dừng từng TRÙNG tên `_clear_stop` → che hàm xoá cờ Dừng; «Chạy» không gỡ .stop cũ."""
+    wd = tmp_path / "abc_p09"
+    wd.mkdir()
+    (wd / ".stop").write_text("1", encoding="utf-8")
+    server._STOP_JOBS.add("abc_p09")
+    server._clear_stop("abc_p09")
+    assert not (wd / ".stop").exists() and "abc_p09" not in server._STOP_JOBS
+    assert not server._check_stopped("abc_p09")
+
+
+def test_no_duplicate_top_level_defs_in_server():
+    import ast
+    src = (Path(server.__file__)).read_text(encoding="utf-8")
+    seen, dup = set(), []
+    for n in ast.parse(src).body:
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if n.name in seen and not n.decorator_list:
+                dup.append(n.name)
+            seen.add(n.name)
+    assert not dup, f"hàm trùng tên (bản sau che bản trước): {dup}"

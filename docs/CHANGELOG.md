@@ -1,6 +1,10 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- **Sửa lỗi nghiêm trọng (do bản 2026-11-20 gây ra): «Chạy» không gỡ cờ Dừng cũ.** Hàm ghi lý do dừng mới đặt TRÙNG tên
+  `_clear_stop` với hàm xoá cờ Dừng (`.stop` + `_STOP_JOBS`) → che mất hàm đó; job từng bấm «Dừng» thì mọi lần «Chạy» /
+  «Chạy bước này» sau đó dịch dừng ngay sau plan («simple · đã dừng theo yêu cầu»). Đổi tên `_clear_last_stop` + test
+  chặn hàm trùng tên trong server.py.
 - **Máy chưa có Aurora**: thẻ «DeepSeek» ở Cài đặt → AI trước áp bộ «Khuyến nghị» (lập hồ sơ nhân vật + Trợ lý dự
   phòng = Aurora) → không có Aurora thì plan luôn lỗi, job dịch xong đứng chờ. Nay Aurora không trả lời (dò thật
   `GET /models`, `ai.aurora.reachable`) → áp «Tất cả DeepSeek». `FIRERED_ROOT` trỏ cây V2 (`Z:/PinelineV2/…`) xoá khỏi
