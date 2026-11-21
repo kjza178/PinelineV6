@@ -290,7 +290,7 @@ const ARCH=[
  {id:"hg",x:560,y:20,w:180,h:56,t:"Hongguo :8000",s:"app tải phim — KHÔNG kill",d:"Downloader ngoài; server gọi /dl/* qua hongguo_bridge / hongguo_rpc; hàng đợi gộp tập lưu file, tự chạy tiếp sau restart.",m:["hongguo_bridge","hongguo_rpc","routes_hg"]},
  {id:"llama",x:560,y:100,w:180,h:56,t:"llama-server :8083",s:"preset local — KHÔNG kill",d:"Model local (qwen36-turbo, gemma4…). preset_switcher đổi preset bằng PowerShell; từ 11/11 có khoá: chỉ 1 lượt đổi một lúc (fix B3).",m:["preset_switcher","llm"]},
  {id:"aur",x:560,y:180,w:180,h:56,t:"Aurora / ChatGPT :3377",s:"gpt-6 · gpt-5-6-mini",d:"REVIEW (Aurora∥ tới 24 worker), Pass1 đọc full file, plan, tên, xưng hô, hang-fix. Lỗi → fallback local.",m:["translate","llm","agent_hang_fix"]},
- {id:"r9",x:560,y:260,w:180,h:56,t:"9router (LAN)",s:"192.168.31.247:20128",d:"Router LLM trên máy khác; model gemma4 cloud. llm.py nói chuẩn OpenAI API.",m:["llm"]},
+ {id:"r9",x:560,y:260,w:180,h:56,t:"9router (LAN)",s:"LAN-cũ",d:"Router LLM trên máy khác; model gemma4 cloud. llm.py nói chuẩn OpenAI API.",m:["llm"]},
  {id:"disk",x:560,y:340,w:180,h:70,t:"Đĩa",s:"work/<job> · films.db · config",d:"work/ là junction sang D:. Mỗi job: manifest.json (trạng thái), script.json (bản dịch, cờ rv), tts/seg_*.wav, output.mp4. pineline.config.json chứa secret — không ghi vào docs.",m:["manifest","fileio","config"]}];
 const ARCH_E=[["ui","srv","HTTP"],["tg","side","long-poll"],["side","srv","HTTP /api"],["srv","side","POST /cmd"],["srv","eng","subprocess"],["srv","hg","/dl/*"],["srv","llama","OpenAI API"],["srv","aur","OpenAI API"],["srv","r9","LAN"],["srv","disk","đọc/ghi"],["eng","disk","ghi manifest"]];
 function renderArch(){

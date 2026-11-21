@@ -42,7 +42,7 @@ def test_agent_local_ignores_old_agent_base_url(monkeypatch):
     from core import machine
     import core.config as cfg
     vals = {"AGENT_MODEL": "local", "AGENT_BASE_URL": "http://127.0.0.1:3377/v1",
-            "LLM_BASE_URL": "http://192.168.31.247:20128/v1"}
+            "LLM_BASE_URL": "http://192.168.1.50:20128/v1"}
     monkeypatch.setattr(cfg, "get", lambda k, d=None: vals.get(k, d))
     monkeypatch.setattr(machine, "llama_base_url", lambda: "http://127.0.0.1:9999/v1")
     urls = []
@@ -71,7 +71,7 @@ def test_llm_settings_never_use_lan_router(monkeypatch):
     import core.config as cfg
     from core import machine
     monkeypatch.setattr(machine, "llama_base_url", lambda: "http://127.0.0.1:8083/v1")
-    monkeypatch.setattr(cfg, "get", lambda k, d=None: {"LLM_BASE_URL": "http://192.168.31.247:20128/v1",
+    monkeypatch.setattr(cfg, "get", lambda k, d=None: {"LLM_BASE_URL": "http://192.168.1.50:20128/v1",
                                                        "AGENT_BASE_URL": "http://127.0.0.1:3377/v1",
                                                        "LLM_MODEL": "ollama/gemma4:31b-cloud",
                                                        "ALLOW_LAN_LLM": "1"}.get(k, d))

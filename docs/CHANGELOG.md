@@ -75,7 +75,7 @@
   chính»). Luồng cũ chỉ khi instance/config chọn `translate_pipeline=legacy`. Simple làm tiếp trên script.json cũ.
 - **Bỏ hẳn NMT** (`engines/mt_zh_vi`, HachimiMT) khỏi `run_translate` (luồng cũ) — `MT_ZH_VI=1` trong config cũ không
   còn tác dụng; hết log «[mt-zh-vi] bỏ qua: [WinError 3] … 'E:\\'». `check_env` không kiểm thư mục model MT nữa.
-- **Không gọi máy LAN làm dự phòng:** mặc định `AURORA_FALLBACK_URLS` = trống (trước 192.168.31.247/244:5005);
+- **Không gọi máy LAN làm dự phòng:** mặc định `AURORA_FALLBACK_URLS` = trống (trước LAN-cũ);
   URL LAN (192.168.x/10.x/172.16–31.x) trong `AURORA_FALLBACK_URLS`, `CLOUD_LLM_BASE_URL`, `LLM_BASE_URL`,
   `AGENT_BASE_URL` bị bỏ qua (LLM chung → llama 127.0.0.1:8083), có log cảnh báo 1 lần. Bật lại: `ALLOW_LAN_LLM=1`.
   docs/fixes/2026-11-17-no-nmt-no-lan.md

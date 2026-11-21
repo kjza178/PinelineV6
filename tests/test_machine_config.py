@@ -48,22 +48,22 @@ def test_defaults_keep_old_values(cfg):
     assert machine.flag("AUTO_SWITCH_PRESETS")
 
 
-# ── 2026-11-17: không gọi máy LAN (192.168.31.x…) làm dự phòng ─────────────────
+# ── 2026-11-17: không gọi máy LAN (192.168.x…) làm dự phòng ─────────────────
 def test_lan_urls_skipped_unless_allowed(cfg):
-    assert machine.is_lan_url("http://192.168.31.247:20128/v1") and machine.is_lan_url("http://10.0.0.5:1/v1")
+    assert machine.is_lan_url("http://192.168.1.50:20128/v1") and machine.is_lan_url("http://10.0.0.5:1/v1")
     assert not machine.is_lan_url("http://127.0.0.1:8083/v1") and not machine.is_lan_url("https://api.deepseek.com")
-    cfg["AURORA_FALLBACK_URLS"] = "http://192.168.31.247:5005/v1,https://aurora.example.com/v1"
-    cfg["CLOUD_LLM_BASE_URL"] = "http://192.168.31.247:20128/v1"
+    cfg["AURORA_FALLBACK_URLS"] = "http://192.168.1.50:5005/v1,https://aurora.example.com/v1"
+    cfg["CLOUD_LLM_BASE_URL"] = "http://192.168.1.50:20128/v1"
     assert machine.aurora_base_urls() == ["http://127.0.0.1:3377/v1", "https://aurora.example.com/v1"]
     assert machine.cloud_llm_base_url() == ""
     cfg["ALLOW_LAN_LLM"] = "1"
-    assert "http://192.168.31.247:5005/v1" in machine.aurora_base_urls()
+    assert "http://192.168.1.50:5005/v1" in machine.aurora_base_urls()
     assert machine.cloud_llm_base_url() == ""          # 2026-11-21: 9router bỏ hoàn toàn (kể cả ALLOW_LAN_LLM=1)
 
 
 def test_llm_settings_lan_base_falls_back_local(monkeypatch):
     from core import config as C
-    data = {"LLM_BASE_URL": "http://192.168.31.247:20128/v1", "AGENT_BASE_URL": ""}
+    data = {"LLM_BASE_URL": "http://192.168.1.50:20128/v1", "AGENT_BASE_URL": ""}
     monkeypatch.setattr(C, "get", lambda k, d=None: data.get(k) or d)
     monkeypatch.setattr(machine._config, "get", lambda k, d=None: data.get(k) or d)
     assert C.llm_settings()["base"] == "http://127.0.0.1:8083/v1"
@@ -91,7 +91,7 @@ def test_llama_from_llama_base_url_only(cfg):
 
 def test_llama_ignores_remote_llm_base_url(cfg):
     """LLM_BASE_URL trỏ 9router/LAN → không phải llama local → giữ :8083 cũ."""
-    cfg["LLM_BASE_URL"] = "http://192.168.31.247:20128/v1"
+    cfg["LLM_BASE_URL"] = "http://192.168.1.50:20128/v1"
     assert machine.llama_host_port() == ("127.0.0.1", 8083)
 
 

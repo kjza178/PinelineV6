@@ -158,7 +158,7 @@ _LOCAL_LLM_BASE = "http://127.0.0.1:8083/v1"
 
 
 def _no_lan_base(key: str, raw) -> str:
-    """URL LLM chung; địa chỉ LAN (vd 9router 192.168.31.x cũ) → llama local, trừ khi ALLOW_LAN_LLM=1."""
+    """URL LLM chung; địa chỉ LAN (vd 9router LAN cũ) → llama local, trừ khi ALLOW_LAN_LLM=1."""
     base = (str(raw or "").strip() or _LOCAL_LLM_BASE).rstrip("/")
     try:
         from core import machine as _m

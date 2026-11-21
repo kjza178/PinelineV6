@@ -42,7 +42,7 @@ Lỗi: luôn `LLMUnavailable`, giữ `requests.HTTPError` ở `__cause__` → `c
 5xx / mất mạng = transient (hàng chờ tự thử lại), 401/403/404/400 = lỗi cấu hình (báo ngay, không thử lại).
 
 ## Gỡ 9router
-- Mặc định `LLM_BASE_URL` = llama local `http://127.0.0.1:8083/v1` (trước: `192.168.31.247:20128`), `LLM_MODEL` / `AGENT_MODEL`
+- Mặc định `LLM_BASE_URL` = llama local `http://127.0.0.1:8083/v1` (trước: `LAN-cũ`), `LLM_MODEL` / `AGENT_MODEL`
   mặc định `local` (trước `ollama/gemma4:31b-cloud`), `CLOUD_LLM_BASE_URL` mặc định trống.
 - Model `ollama/…-cloud` chỉ chạy khi cấu hình rõ `CLOUD_LLM_BASE_URL` + `CLOUD_LLM_API_KEY`; không thì báo đổi sang
   deepseek/alibaba/chatgpt/local (không còn đoán địa chỉ LAN).

@@ -9,7 +9,7 @@
 [trans] Model=local | mode=batch | cần dịch 3490/3669 câu, lô 20
 [trans] lô 20 câu parse lỗi/thiếu … -> chia đôi thử lại
 ```
-Config đặt DeepSeek nhưng job chạy NMT + local; vẫn có gọi 192.168.31.x.
+Config đặt DeepSeek nhưng job chạy NMT + local; vẫn có gọi LAN-cũ.
 
 ## Root cause
 1. `engines/translate_simple/cfg._infer_job_pipeline`: job chưa đóng dấu mà có `script.json` / stage translate đã chạy
@@ -17,8 +17,8 @@ Config đặt DeepSeek nhưng job chạy NMT + local; vẫn có gọi 192.168.31
    config chép từ V2) rồi LLM `TRANSLATE_MODEL` — preset «Khuyến nghị» gán `local` cho «Dịch phụ» → gemma local.
    DeepSeek chỉ là `SIMPLE_MODEL`/`REVIEW_MODEL` của luồng simple.
 2. NMT còn trong `run_translate`.
-3. `core/machine.py` mặc định `AURORA_FALLBACK_URLS` = 192.168.31.247/244:5005 → mọi gọi `chatgpt/…` (plan) thử LAN khi
-   :3377 lỗi; `LLM_BASE_URL`/`CLOUD_LLM_BASE_URL` trong config cũ trỏ 9router 192.168.31.247:20128.
+3. `core/machine.py` mặc định `AURORA_FALLBACK_URLS` = LAN-cũ → mọi gọi `chatgpt/…` (plan) thử LAN khi
+   :3377 lỗi; `LLM_BASE_URL`/`CLOUD_LLM_BASE_URL` trong config cũ trỏ 9router LAN-cũ.
 
 ## Sửa
 - `cfg._infer_job_pipeline` chỉ còn suy «simple»; `job_pipeline` coi dấu `legacy/inferred` là cũ khi mặc định là simple.
@@ -33,4 +33,4 @@ Config đặt DeepSeek nhưng job chạy NMT + local; vẫn có gọi 192.168.31
 ## Cần trên Windows
 - Restart :8806. Job đang kẹt (vd 18d869dd0c3f): Dừng rồi Chạy tiếp → log phải là `[simple] …` (không còn `[mt-zh-vi]`,
   `[trans] Model=local`).
-- Tuỳ chọn dọn `pineline.config.json`: `MT_ZH_VI*`, `LLM_BASE_URL`/`CLOUD_LLM_BASE_URL` 192.168.31.247 (đã vô hiệu bằng code).
+- Tuỳ chọn dọn `pineline.config.json`: `MT_ZH_VI*`, `LLM_BASE_URL`/`CLOUD_LLM_BASE_URL` LAN-cũ (đã vô hiệu bằng code).
