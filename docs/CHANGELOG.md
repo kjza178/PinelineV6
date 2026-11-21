@@ -1,6 +1,10 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- **Máy chưa có Aurora**: thẻ «DeepSeek» ở Cài đặt → AI trước áp bộ «Khuyến nghị» (lập hồ sơ nhân vật + Trợ lý dự
+  phòng = Aurora) → không có Aurora thì plan luôn lỗi, job dịch xong đứng chờ. Nay Aurora không trả lời (dò thật
+  `GET /models`, `ai.aurora.reachable`) → áp «Tất cả DeepSeek». `FIRERED_ROOT` trỏ cây V2 (`Z:/PinelineV2/…`) xoá khỏi
+  pineline.config.json (trống = vendor/FireRedASR2S).
 - **Hàng chờ nói job đang LÀM GÌ / CHỜ GÌ**: `job_queue.set_phase` — thanh hàng chờ + cột «Đang làm» hiện bước hiện tại
   (chuẩn bị, tải nguồn, chờ tới lượt GPU, ASR, dịch, soát, kiểm chất lượng, cổng QA, TTS, render, part i/N…) và khi
   job GIỮ GHẾ: lý do + «tự thử lại sau ~N phút» hoặc «CHỜ NGƯỜI DUYỆT — bấm Chạy tiếp». Trước: chỉ «Đang chạy «…»» dù

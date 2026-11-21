@@ -187,3 +187,25 @@ def test_ai_change_wakes_review_parks(srv, tmp_path, monkeypatch):
     assert translate_wake.on_ai_changed(["PLAN_MODE"]) == []          # không phải model/key → không đụng
     assert translate_wake.on_ai_changed(["SIMPLE_MODEL"]) == ["a"]
     assert added == ["a"] and "held_at" not in _agent(tmp_path / "a")["agent"]
+
+
+# ── Aurora «có địa chỉ» ≠ «đang chạy»: bộ DeepSeek không giao plan cho Aurora khi Aurora không trả lời ──
+def test_aurora_reachable_probe(monkeypatch):
+    import requests
+    from core import ai_models
+    assert ai_models._aurora_reachable("") is False
+
+    def boom(*a, **k):
+        raise requests.ConnectionError("WinError 10061")
+    monkeypatch.setattr(requests, "get", boom)
+    assert ai_models._aurora_reachable("http://127.0.0.1:3377/v1") is False
+
+    class R:
+        status_code = 200
+    monkeypatch.setattr(requests, "get", lambda *a, **k: R())
+    assert ai_models._aurora_reachable("http://127.0.0.1:3377/v1") is True
+
+
+def test_deepseek_card_avoids_aurora_when_unreachable():
+    js = (Path(__file__).resolve().parents[1] / "desktop" / "ui" / "app.js").read_text(encoding="utf-8")
+    assert 'p.id === "deepseek" && !ai.aurora?.reachable ? "deepseek" : p.preset' in js

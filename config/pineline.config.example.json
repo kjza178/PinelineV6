@@ -60,7 +60,7 @@
   "RENDER_BRAND_OPACITY": "0.72",
   "RENDER_BRAND_LOGO": "off",
   "RENDER_FRAME": "off",
-  "FIRERED_ROOT": "Z:/Pineline/vendor/FireRedASR2S",
+  "FIRERED_ROOT": "",
   "FIRERED_MODELS": "D:/AI_CACHE/firered",
   "DOWNLOAD_MAX_HEIGHT": "720",
   "DOWNLOAD_PREFER_HEVC": "1",

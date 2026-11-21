@@ -192,6 +192,20 @@ def fetch_models(name: str, *, api_key: str | None = None, base_url: str | None 
             "suggested": f"{p.name}/{pick}" if pick else "", "fetched_at": time.time()}
 
 
+def _aurora_reachable(base: str | None) -> bool:
+    """2026-11-21: Aurora có ĐANG TRẢ LỜI không (GET /models, 1.5 s). «configured» chỉ là có địa chỉ — config cũ luôn có
+    CHATGPT_BASE_URL=:3377 dù máy không chạy Aurora → UI tưởng có Aurora, giao plan cho Aurora → plan luôn lỗi."""
+    if not base:
+        return False
+    try:
+        import requests
+        r = requests.get(str(base).rstrip("/") + "/models", timeout=1.5)
+        return r.status_code < 500
+    except Exception as e:  # noqa: BLE001
+        print(f"[ai_models] Aurora {base} không trả lời: {type(e).__name__}", flush=True)
+        return False
+
+
 def _preset_models(pr: dict) -> dict:
     if "provider" not in pr:
         return dict(pr["models"])
@@ -283,6 +297,7 @@ def snapshot() -> dict:
         print(f"[ai_models] liệt kê model local lỗi: {e}", flush=True)
         llama, ollama = [], []
     aurora_base = _get("AURORA_BASE_URL") or _get("CHATGPT_BASE_URL")
+    aurora_up = _aurora_reachable(aurora_base)
     from core import local_ai
     local_cfg = local_ai.snapshot(probe=False)
     funcs = []
@@ -303,7 +318,8 @@ def snapshot() -> dict:
         funcs.append(row)
     return {
         "providers": provs,
-        "aurora": {"base_url": aurora_base or local_cfg["aurora_url"]["value"], "configured": bool(aurora_base)},
+        "aurora": {"base_url": aurora_base or local_cfg["aurora_url"]["value"], "configured": bool(aurora_base),
+                   "reachable": aurora_up},
         "local": {"llama": llama, "ollama": [f"local/{m}" for m in ollama], "settings": local_cfg},
         "functions": funcs,
         "plan_mode": {"value": _get("PLAN_MODE") or "file", "effective": T.plan_mode_effective()},

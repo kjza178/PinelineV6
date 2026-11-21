@@ -1398,13 +1398,16 @@ async function provTest(btn) {
 }
 async function provApply(btn) {
   const p = PROVS.find((x) => x.id === aiPick);
-  const what = p.id === "deepseek"
+  // 2026-11-21: bộ «Khuyến nghị» giao lập hồ sơ nhân vật (plan) + Trợ lý dự phòng cho Aurora — máy chưa có Aurora
+  // → plan luôn lỗi → job dịch xong đứng chờ. Chưa cấu hình Aurora → DeepSeek làm hết.
+  const preset = p.id === "deepseek" && !ai.aurora?.reachable ? "deepseek" : p.preset;
+  const what = preset === "recommended"
     ? "DeepSeek dịch & soát và chạy Trợ lý; Aurora lập hồ sơ nhân vật; AI trên máy dịch chữ trên hình."
-    : `${p.name} làm mọi việc dịch, soát và Trợ lý.`;
+    : `${p.name} làm mọi việc dịch, soát, lập hồ sơ nhân vật và Trợ lý.`;
   if (!confirm(`Dùng ${p.name}?\n\n${what}\n\nÁp dụng cho các job chạy sau.`)) return;
   return act(btn, `Đã chuyển sang ${p.name}`, async () => {
     if (p.api) await provSaveKey();
-    ai = await api("POST", "/api/v6/ai", { preset: p.preset });
+    ai = await api("POST", "/api/v6/ai", { preset });
     paintAI(); paintAISimple();
   });
 }
