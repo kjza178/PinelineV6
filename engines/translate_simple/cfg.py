@@ -382,6 +382,21 @@ def zh_namefix_min() -> float:
     return _float("SIMPLE_ZH_NAMEFIX_MIN", 0.75, 0.5, 1.0)
 
 
+def cjk_strip_max(n_rows: int) -> int:
+    """2026-11-21: sau mọi lượt vá (+ dự phòng) còn ≤ N câu sót chữ Hán → gỡ chữ Hán, giữ phần Việt, cho chạy tiếp
+    (đánh cờ mềm «cjk_stripped» để người xem) thay vì park cả job. SIMPLE_CJK_STRIP=0 tắt; SIMPLE_CJK_STRIP_MAX
+    (mặc định max(10, 1% số câu))."""
+    if not _flag("SIMPLE_CJK_STRIP", "1"):
+        return 0
+    raw = str(get("SIMPLE_CJK_STRIP_MAX", "") or "").strip()
+    if raw:
+        try:
+            return max(0, int(raw))
+        except ValueError:
+            pass
+    return max(10, int(n_rows * 0.01))
+
+
 _LOCAL_PROBE: dict = {"t": 0.0, "ok": False}
 
 

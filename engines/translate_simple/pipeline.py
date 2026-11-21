@@ -16,6 +16,7 @@ Cặp suy luận ghi work_dir/plan_inferred.json (KHÔNG vào glossary.json tr�
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 
@@ -226,6 +227,34 @@ def _review_missing(store: ScriptStore, pv: PlanView, plan: dict, flags: dict, *
     return info, flags
 
 
+_CJK_CHARS = re.compile(r"[\u3000-\u303f\u3400-\u9fff\uf900-\ufaff\uff00-\uff0f\uff1a-\uff20]+")
+
+
+def _strip_residual_cjk(store: ScriptStore, flags: dict) -> list:
+    """Câu còn cờ cjk sau mọi lượt vá: gỡ chữ Hán (giữ phần Việt) nếu số câu ≤ ngưỡng; cờ cjk → cờ mềm cjk_stripped.
+    Trả danh sách i đã gỡ ([] khi tắt / vượt ngưỡng / không câu nào)."""
+    cjk_i = [i for i, fl in flags.items() if any(f.get("code") == "cjk" for f in fl)]
+    lim = cfg.cjk_strip_max(len(store.rows))
+    if not cjk_i or len(cjk_i) > lim:
+        return []
+    rows = store.by_i()
+    done = []
+    for i in cjk_i:
+        r = rows.get(i)
+        if not r:
+            continue
+        old = r.get("vi") or ""
+        new = re.sub(r"\s{2,}", " ", _CJK_CHARS.sub(" ", old)).strip(" ,，:：-")
+        if not new or not re.search(r"[A-Za-zÀ-ỹ]", new):
+            continue                                   # gỡ xong không còn chữ Việt → để cổng park như cũ
+        store.set_vi(r, new, "cjk_strip", f"gỡ chữ Hán sót sau vá: {old[:60]}")
+        r["cjk_stripped"] = 1
+        flags[i] = [f for f in flags[i] if f.get("code") != "cjk"] + [
+            {"code": "cjk_stripped", "why": f"đã gỡ chữ Hán sót — xem lại: {old[:60]}"}]
+        done.append(i)
+    return done
+
+
 def _accept_unreviewed(store: ScriptStore) -> tuple[list[int], int]:
     """Còn ≤ SIMPLE_UNREVIEWED_TOLERANCE câu chưa soát VÀ mọi câu đó có bản nháp vi (không trống, không chữ Hán)
     → nhận bản nháp: rv=1 + unreviewed_accepted=1 (+ trace). Vượt ngưỡng / thiếu nháp → không đổi gì (park).
@@ -395,6 +424,13 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
                     flags = {**soft, **hard_left}
                     rstats["repair_backup"] = {"model": bmodel, "n": len(hard), "left": len(hard_left),
                                                "fixed": len(hard) - len(hard_left)}
+        # 5a) 2026-11-21: vẫn sót chữ Hán ở vài câu → gỡ chữ Hán, cho chạy tiếp (cờ mềm), không park cả job
+        stripped = _strip_residual_cjk(store, flags) if flags else []
+        if stripped:
+            rstats["cjk_stripped"] = {"n": len(stripped), "i": stripped[:50]}
+            store.note("cjk_strip", None, f"gỡ chữ Hán sót ở {len(stripped)} câu: {stripped[:30]}")
+            print(f"[simple] gỡ chữ Hán sót ở {len(stripped)} câu (sau vá) → chạy tiếp, xem lại ở Lời thoại: "
+                  f"{stripped[:20]}", flush=True)
         store.write()
         # 5b) fix 2026-11-13: còn câu chưa soát → 1 lượt review CHỈ các câu đó (lô nhỏ); rồi ≤ ngưỡng → nhận nháp
         miss_info = None

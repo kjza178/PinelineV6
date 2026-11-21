@@ -1,6 +1,12 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- **Vài câu sót chữ Hán không còn chặn cả job**: sau mọi lượt vá (+ model dự phòng) còn ≤ max(10, 1%) câu có chữ Hán →
+  gỡ chữ Hán, giữ phần Việt, đánh cờ mềm `cjk_stripped` (xem lại ở Lời thoại) và chạy tiếp; quá ngưỡng / gỡ xong không
+  còn chữ Việt → park như cũ. `SIMPLE_CJK_STRIP=0` tắt, `SIMPLE_CJK_STRIP_MAX` đặt ngưỡng.
+- Hàng chờ báo UI mỗi lượt chạy kết thúc + lý do lỗi (vd «chưa chọn giọng») ghi lên job — không còn đứng «chuẩn bị».
+- Watchdog chỉ in sớm (60 s) ở bước nhanh (chuẩn bị / chờ GPU); bước dịch/TTS/render > 1 giờ mới in.
+- Cài đặt → Video → «Chống trùng nội dung»: mất nhãn từ mục thứ 2 (map truyền index thành `solo`) → hiện lại nhãn.
 - **Watchdog hàng chờ**: job đứng 1 bước > 60 s (`QUEUE_STUCK_SEC`) → in ngăn xếp các luồng (`[queue-watchdog]`) ra
   console = biết kẹt ở dòng nào (không áp cho lúc giữ ghế chờ thử lại / chờ người).
 - Ghi trạng thái job khi không có manifest.json → báo lỗi, KHÔNG lấy khoá (trước: đẻ thư mục rác

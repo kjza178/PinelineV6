@@ -381,9 +381,13 @@ def _watchdog_loop() -> None:
             job, text, ts = _phase.get("job"), _phase.get("text") or "", float(_phase.get("ts") or 0)
             if not job or job != _current or not ts or text.startswith("giữ ghế"):
                 continue
+            # bước nhanh (chuẩn bị / bắt đầu / chờ GPU) đứng > STUCK_SEC là bất thường; bước làm việc thật (dịch, TTS,
+            # render… gọi AI / GPU hàng chục phút) chỉ in khi đứng > 1 giờ
+            quick = text.startswith(("chuẩn bị", "bắt đầu", "chờ tới lượt GPU", "tải nguồn"))
+            limit = STUCK_SEC if quick else max(STUCK_SEC, 3600.0)
             age = time.time() - ts
             key = (job, text, ts)
-            if age >= STUCK_SEC and _watch["dumped"] != key:
+            if age >= limit and _watch["dumped"] != key:
                 _watch["dumped"] = key
                 _dump_stuck_stacks(job, text, age)
         except Exception as e:  # noqa: BLE001

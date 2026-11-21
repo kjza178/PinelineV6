@@ -335,7 +335,7 @@ function paintOverview(j) {
 }
 
 // ───────────── tab Bản dịch (D2) ─────────────
-const FLAG_VI = { pronoun: "xưng hô", name: "tên", empty: "trống", cjk: "còn chữ Hán" };
+const FLAG_VI = { pronoun: "xưng hô", name: "tên", empty: "trống", cjk: "còn chữ Hán", cjk_stripped: "đã gỡ chữ Hán — xem lại" };
 function fmtTime(sec) {
   const t = Math.max(0, Number(sec) || 0), m = Math.floor(t / 60), s = Math.floor(t % 60);
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
@@ -1007,7 +1007,7 @@ function paintCfg() {
     if (id === "voice") html += '<div class="sec" id="voices-sec"><h3>Giọng clone trên máy này</h3><p class="sub">Đang đọc…</p></div>';
     if (id === "video") {
       html += `<div class="sec"><details class="more"><summary>Chống trùng nội dung (phóng to, chuyển động, chỉnh màu, lật…)</summary>
-        <div class="inner">${advVideo.filter((k) => k in cfg.defaults).map(cfgField).join("")}</div></details></div>`;
+        <div class="inner">${advVideo.filter((k) => k in cfg.defaults).map((k) => cfgField(k)).join("")}</div></details></div>`;
     }
     return `<div class="pane" data-pane="${id}" hidden><h2>${esc(title)}</h2><p class="sub">${esc(sub)}</p>${html}</div>`;
   }).join("") + (extra.length ? `<div class="pane" data-pane="advanced" hidden>${cfgSection("Cấu hình chung khác", extra, "Các tuỳ chọn ít dùng hoặc của luồng cũ.")}</div>` : "");

@@ -209,3 +209,41 @@ def test_aurora_reachable_probe(monkeypatch):
 def test_deepseek_card_avoids_aurora_when_unreachable():
     js = (Path(__file__).resolve().parents[1] / "desktop" / "ui" / "app.js").read_text(encoding="utf-8")
     assert 'p.id === "deepseek" && !ai.aurora?.reachable ? "deepseek" : p.preset' in js
+
+
+# ── sót chữ Hán sau mọi lượt vá: gỡ chữ Hán, chạy tiếp (cờ mềm) thay vì park cả job ──
+def test_residual_cjk_stripped_when_few(tmp_path, monkeypatch):
+    from engines.translate_simple import pipeline
+    from engines.translate_simple.script_store import ScriptStore
+    wd = tmp_path / "j"
+    wd.mkdir()
+    st = ScriptStore(wd)
+    st.rows = [{"i": 0, "zh": "县主", "vi": "Huyện chủ 县主 đến rồi", "rv": 1},
+               {"i": 1, "zh": "好", "vi": "好", "rv": 1},
+               {"i": 2, "zh": "你", "vi": "Chào", "rv": 1}]
+    _cfg(monkeypatch, {})
+    flags = {0: [{"code": "cjk"}], 1: [{"code": "cjk"}]}
+    done = pipeline._strip_residual_cjk(st, flags)
+    assert done == [0] and st.rows[0]["vi"] == "Huyện chủ đến rồi" and st.rows[0]["cjk_stripped"] == 1
+    assert [f["code"] for f in flags[0]] == ["cjk_stripped"]
+    assert flags[1] == [{"code": "cjk"}]                  # gỡ xong không còn chữ Việt → giữ cờ, cổng park như cũ
+    from engines.translate_simple import gate
+    g = gate.decide(n_rows=3, n_asr=3, coverage_gap=0, n_missing=0, n_unreviewed=0, flags={0: flags[0]})
+    assert g["status"] == "done"
+
+
+def test_residual_cjk_not_stripped_when_many_or_off(tmp_path, monkeypatch):
+    from engines.translate_simple import pipeline
+    from engines.translate_simple.script_store import ScriptStore
+    st = ScriptStore(tmp_path)
+    st.rows = [{"i": k, "vi": f"Câu {k} 好"} for k in range(20)]
+    flags = {k: [{"code": "cjk"}] for k in range(20)}
+    _cfg(monkeypatch, {"SIMPLE_CJK_STRIP_MAX": "5"})
+    assert pipeline._strip_residual_cjk(st, flags) == []
+    _cfg(monkeypatch, {"SIMPLE_CJK_STRIP": "0"})
+    assert pipeline._strip_residual_cjk(st, dict(list(flags.items())[:2])) == []
+
+
+def test_video_advanced_fields_keep_labels():
+    js = (Path(__file__).resolve().parents[1] / "desktop" / "ui" / "app.js").read_text(encoding="utf-8")
+    assert ".map((k) => cfgField(k)).join" in js and ".map(cfgField)" not in js
