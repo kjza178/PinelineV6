@@ -1,6 +1,11 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- **Second Brain OFF thì không HOLD**: `_auto_gpu` vẫn quét chất lượng + HOLD «N high QA» trước TTS dù instance
+  `agent_brain=false` → nay bỏ qua khi cờ tắt.
+- **«Chạy tiếp» khi job đang giữ ghế hàng chờ** (HOLD qa_brain / qa_gate…): trước báo «job đang chạy rồi» (job là
+  `current` của hàng chờ) → không gỡ được HOLD. Nay chỉ từ chối khi có bước thật sự đang chạy; job giữ ghế → gỡ HOLD,
+  vòng giữ ghế tự chạy tiếp.
 - **Bấm Chạy job đã nằm trong hàng chờ không chạy** (vd sau restart, `queue_autostart=false`): `queue_add` chỉ bật
   worker khi thêm được job MỚI → hàng chờ đứng «1 job đang chờ». Nay có job trong hàng là bật worker.
 - **Vài câu sót chữ Hán không còn chặn cả job**: sau mọi lượt vá (+ model dự phòng) còn ≤ max(10, 1%) câu có chữ Hán →

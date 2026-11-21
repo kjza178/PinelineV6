@@ -247,3 +247,28 @@ def test_residual_cjk_not_stripped_when_many_or_off(tmp_path, monkeypatch):
 def test_video_advanced_fields_keep_labels():
     js = (Path(__file__).resolve().parents[1] / "desktop" / "ui" / "app.js").read_text(encoding="utf-8")
     assert ".map((k) => cfgField(k)).join" in js and ".map(cfgField)" not in js
+
+
+# ── «Chạy tiếp» khi job đang GIỮ GHẾ hàng chờ (HOLD qa_brain) ──
+def test_resume_works_while_job_holds_queue_seat(srv, tmp_path, monkeypatch):
+    from http_routes import routes_agent
+    wd = _mk(tmp_path, "h1", {"held_at": "qa_brain", "qa_blocked": True, "hold_reason": "Second Brain: 1 high QA"})
+    monkeypatch.setattr(routes_agent.S, "WORK_ROOT", tmp_path)
+    monkeypatch.setattr(srv.job_queue, "queue_state", lambda: {"current": "h1", "queue": ["h1"]})
+    added = []
+    monkeypatch.setattr(srv.job_queue, "queue_add", lambda *a, **k: added.append(a) or {"queued": []})
+    r = routes_agent._agent_resume("h1")
+    ag = _agent(wd)["agent"]
+    assert r["ok"] is True and added == []
+    assert ag["qa_blocked"] is False and ag["qa_override"] is True and "held_at" not in ag
+
+
+def test_resume_refused_when_stage_really_running(srv, tmp_path, monkeypatch):
+    from http_routes import routes_agent
+    _mk(tmp_path, "h2", {"held_at": "qa_brain"})
+    monkeypatch.setattr(routes_agent.S, "WORK_ROOT", tmp_path)
+    srv._STAGE_BUSY.add(("h2", "tts"))
+    try:
+        assert routes_agent._agent_resume("h2")["ok"] is False
+    finally:
+        srv._STAGE_BUSY.discard(("h2", "tts"))

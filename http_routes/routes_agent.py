@@ -314,8 +314,13 @@ def _agent_resume(job_id: str) -> dict:
     work_dir = S.WORK_ROOT / job_id
     if not (work_dir / "manifest.json").exists():
         return {"ok": False, "error": "job không tồn tại"}
-    if _job_in_pipeline(job_id):
+    # 2026-11-21: job GIỮ GHẾ hàng chờ (đang HOLD/park — current nhưng không bước nào chạy) vẫn «Chạy tiếp» được:
+    # gỡ HOLD → vòng giữ ghế thấy sẵn sàng → chạy tiếp. Trước: current = «đang chạy rồi» → không gỡ được HOLD.
+    with S._STAGE_BUSY_LOCK:
+        busy = any(j == job_id for j, _ in S._STAGE_BUSY)
+    if busy:
         return {"ok": False, "error": "job đang chạy rồi — không cần chạy tiếp"}
+    holding_seat = S.job_queue.queue_state().get("current") == job_id
     m = Manifest(work_dir)
     agent = dict(m.data.get("agent") or {})
     agent["hold_after_translate"] = False
@@ -335,6 +340,9 @@ def _agent_resume(job_id: str) -> dict:
     except Exception:  # noqa: BLE001
         opts = dict(m.data.get("queue_opts") or S.job_queue.queue_state().get("opts") or {})
     opts.pop("pin_opts", None)
+    if holding_seat:     # đang giữ ghế: vòng chờ của worker tự chạy lại khi thấy đã gỡ HOLD
+        return {"ok": True, "job_id": job_id, "queued": [], "queue": S.job_queue.queue_state()["queue"],
+                "message": "Đã bỏ chặn — job đang giữ ghế hàng chờ sẽ chạy tiếp lồng tiếng + render ngay."}
     r = S.job_queue.queue_add([job_id], opts=opts, skip_done=False)
     S.job_queue.queue_front(job_id)
     return {"ok": True, "job_id": job_id, "queued": r.get("queued"), "queue": S.job_queue.queue_state()["queue"],

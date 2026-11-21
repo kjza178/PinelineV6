@@ -1945,6 +1945,10 @@ def _simple_translate_run(wd: Path, target: str, *, force: bool = False, rerevie
     return _simple_pipeline.run(wd, target, force=force, rereview=rereview)
 
 
+class _BrainOff(Exception):
+    """Instance tắt Second Brain → bỏ khối kiểm chất lượng trong _auto_gpu."""
+
+
 def _note_stop(wd: Path, stage: str, why: str) -> None:
     """2026-11-20: _auto_gpu dừng giữa chừng mà không lỗi/HOLD (trước: chỉ print) → ghi lý do vào manifest
     (`last_stop`) để danh sách job + job cha auto-split nói được part dừng ở đâu, vì sao."""
@@ -2179,8 +2183,16 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
         if stopped():
             return
         # Second Brain: scan/heal chất lượng VI trước khi TTS
-        phase("kiểm chất lượng bản dịch (Second Brain)")
+        # 2026-11-21: instance tắt Second Brain (agent_brain=false) → KHÔNG quét / HOLD (trước: vẫn HOLD «high QA»
+        # dù log startup báo «Second Brain OFF»).
+        _brain_on = _instance_flag("agent_brain")
+        if _brain_on:
+            phase("kiểm chất lượng bản dịch (Second Brain)")
+        else:
+            print(f"[auto] {job_id}: Second Brain OFF (instance) — bỏ qua kiểm chất lượng / HOLD", flush=True)
         try:
+            if not _brain_on:
+                raise _BrainOff()
             from agents.agent_quality import scan_and_heal_job
             qb = scan_and_heal_job(wd, write=True)
             _ag_now = Manifest(wd).data.get("agent") or {}
@@ -2204,6 +2216,8 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
                     flush=True,
                 )
                 return
+        except _BrainOff:
+            pass
         except Exception as e_br:  # noqa: BLE001
             print(f"[auto] {job_id}: brain quality skip: {e_br}", flush=True)
         # Pineline V2 Agent: HOLD sau translate — không TTS đến khi duyệt script
