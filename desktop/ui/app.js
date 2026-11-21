@@ -1938,7 +1938,12 @@ function connect() {
   });
   es.addEventListener("queue.changed", (e) => {
     refreshQueueSoon();
-    try { const t = JSON.parse(e.data).text; if (t && /TẠM DỪNG|nhường ghế/.test(t)) say(t, "err"); } catch (_) { /* event không có text */ }
+    try {
+      const d = JSON.parse(e.data);
+      if (d.text && /TẠM DỪNG|nhường ghế/.test(d.text)) say(d.text, "err");
+      // 2026-11-21: lượt chạy kết thúc lỗi → nói ngay vì sao (trước: thanh hàng chờ đứng «chuẩn bị», tưởng treo)
+      if (d.result === "failed") say(`«${jobs.get(d.job_id)?.title || d.job_id}» không chạy được: ${d.detail || "lỗi"}`, "err");
+    } catch (_) { /* event không có text */ }
   });
   es.addEventListener("series.conflict", () => loadConflicts());
   es.addEventListener("test_channel.changed", (e) => {      // đăng nhập kênh test xong (callback Google)

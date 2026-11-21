@@ -399,6 +399,26 @@ def _ensure_watchdog() -> None:
     t.start()
 
 
+_finish_hook: Callable[[str, str, str], None] | None = None
+
+
+def set_finish_hook(fn: Callable[[str, str, str], None] | None) -> None:
+    """fn(job_id, status, detail) sau MỖI lần chạy job xong (done/failed/stopped/held…)."""
+    global _finish_hook
+    _finish_hook = fn
+
+
+def _finished(job_id: str, status: str, detail: str) -> None:
+    _phase.update(job=None, text="", ts=time.time())
+    print(f"[queue] {job_id}: kết thúc lượt chạy → {status}{(' — ' + str(detail)[:200]) if detail else ''}", flush=True)
+    fn = _finish_hook
+    if fn is not None:
+        try:
+            fn(str(job_id), str(status or ""), str(detail or ""))
+        except Exception as e:  # noqa: BLE001
+            print(f"[queue] finish hook lỗi: {e}", flush=True)
+
+
 def set_phase(job_id: str | None, text: str) -> None:
     """Ghi «đang làm gì» của job hiện tại (nhẹ, trong bộ nhớ) + báo UI qua hook. Không ném lỗi."""
     text = str(text or "")[:200]
@@ -963,6 +983,9 @@ def _worker_loop_inner() -> None:
                     status = result or "failed"
         except Exception as e:  # noqa: BLE001
             status, detail = "failed", str(e)[:200]
+        # 2026-11-21: báo UI MỖI lượt chạy kết thúc (trước: không event → thanh hàng chờ đứng «Đang chạy … chuẩn bị»
+        # dù job đã thoát ngay vì «chưa chọn giọng» / «giọng không tồn tại»… — người dùng tưởng treo).
+        _finished(job_id, status, detail)
 
         # Studio: HOLD / soát dở → giữ ghế, chờ sẵn sàng rồi chạy lại CÙNG job.
         # Không lấy job kế (tránh nhảy linh tinh khi Brain/review dừng sớm).

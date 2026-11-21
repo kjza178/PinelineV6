@@ -70,3 +70,26 @@ def test_watchdog_dumps_stuck_worker_stack(monkeypatch, capsys):
         assert "[queue-watchdog] job x đứng ở «chuẩn bị» 75 s" in out and "--- luồng pineline-job-queue ---" in out
     finally:
         gate.set()
+
+
+def test_finish_hook_called_and_phase_cleared():
+    got = []
+    jq.set_finish_hook(lambda j, s, d: got.append((j, s, d)))
+    try:
+        jq._phase.update(job="a", text="chuẩn bị", ts=1.0)
+        jq._finished("a", "failed", "giọng 'V9' không tồn tại")
+        assert got == [("a", "failed", "giọng 'V9' không tồn tại")] and jq._phase["text"] == ""
+    finally:
+        jq.set_finish_hook(None)
+
+
+def test_server_notes_early_failure_on_job(tmp_path, monkeypatch):
+    import server
+    from state.index import summarize
+    monkeypatch.setattr(server, "WORK_ROOT", tmp_path)
+    wd = tmp_path / "j1"
+    wd.mkdir()
+    (wd / "manifest.json").write_text(json.dumps({"stages": {"download": {"status": "done"}}}), encoding="utf-8")
+    server._queue_finished("j1", "failed", "chưa chọn giọng")
+    data = json.loads((wd / "manifest.json").read_text(encoding="utf-8"))
+    assert summarize("j1", data)["stop_note"] == "không chạy được: chưa chọn giọng"

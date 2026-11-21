@@ -6898,6 +6898,27 @@ job_queue.set_notify_hook(_queue_notify)
 job_queue.set_phase_hook(_queue_phase_pub)
 
 
+def _queue_finished(job_id: str, status: str, detail: str) -> None:
+    """Lượt chạy job xong → UI cập nhật hàng chờ + báo lỗi; lỗi trước khi vào bước nào (giọng, bận…) ghi vào job."""
+    if status == "failed" and detail:
+        wd = WORK_ROOT / job_id
+        try:
+            sts = {n: ((Manifest(wd).stage(n) or {}).get("status")) for n in WIRED_STAGES}
+        except Exception as e:  # noqa: BLE001
+            print(f"[queue] đọc {job_id}: {e}", flush=True)
+            sts = {}
+        if not any(v == "failed" for v in sts.values()):
+            _note_stop(wd, "queue", f"không chạy được: {detail}")
+    try:
+        from events.bus import bus as _bus
+        _bus.publish("queue.changed", {"job_id": job_id, "result": status, "detail": str(detail or "")[:300]})
+    except Exception as e:  # noqa: BLE001
+        print(f"[queue] publish kết quả: {e}", flush=True)
+
+
+job_queue.set_finish_hook(_queue_finished)
+
+
 # ===== Route tách file (đợt 7): UI, Hongguo, Agent =====
 # Phải nạp sau mọi hàm/model lõi ở trên; các module này đọc server qua `import server as S`.
 import http_routes.routes_ui as routes_ui  # noqa: E402
