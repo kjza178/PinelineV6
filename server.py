@@ -1620,6 +1620,7 @@ def _check_and_run_auto_split_parts(
             st_dl = m_chk.data.setdefault("stages", {}).setdefault("download", {})
             st_dl["cur_text"] = f"Video dài {dur/3600:.1f}h · Đang tự động dò khoảng lặng chia Part 2.5h…"
             js.persist(m_chk)
+            job_queue.set_phase(job_id, f"video dài {dur/3600:.1f}h — dò khoảng lặng để chia part")
             res_split = split_job_to_subjobs(job_id, target_hours=2.5, work_root=WORK_ROOT)
             sub_ids = list(res_split.get("sub_job_ids") or [])
 
@@ -1651,6 +1652,7 @@ def _check_and_run_auto_split_parts(
                 continue
 
             print(f"\n[auto-split] >>> ĐANG LÀM VIỆC PART {idx}/{len(sub_ids)}: {s_id} <<<", flush=True)
+            job_queue.set_phase(job_id, f"part {idx}/{len(sub_ids)} ({s_id})")
             m_p = Manifest(wd)
             st_mux = m_p.data.setdefault("stages", {}).setdefault("mux", {})
             st_mux["cur_text"] = f"Đang chạy tự động Part {idx}/{len(sub_ids)} ({s_id})…"
@@ -1679,6 +1681,7 @@ def _check_and_run_auto_split_parts(
         st_mux["cur_text"] = f"Đang ghép {len(sub_ids)} part thành file Full cuối cùng…"
         js.persist(m_p)
 
+        job_queue.set_phase(job_id, f"ghép {len(sub_ids)} part thành bản Full")
         res_merge = merge_job_parts(job_id, work_root=WORK_ROOT)
         if res_merge.get("ok"):
             print(f"[auto-split] {job_id}: HOÀN TẤT GHÉP BẢN FULL {res_merge.get('output_path')} ({res_merge.get('size_mb')}MB) ✓", flush=True)
@@ -2030,6 +2033,11 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
     Dừng giữa các bước."""
     wd = WORK_ROOT / job_id
     rkw = dict(render_kw or {})
+    _owner = _split_parent_id(job_id) or job_id          # part chạy dưới ghế của job cha
+    _tag = f"{job_id.rsplit('_', 1)[-1]} · " if _owner != job_id else ""
+
+    def phase(text: str) -> None:
+        job_queue.set_phase(_owner, _tag + text)
 
     def stopped() -> bool:
         return job_id in _STOP_JOBS
@@ -2045,6 +2053,7 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
             )
             return
         _clear_stop(wd)
+        phase("nhận dạng tiếng (ASR) — bỏ qua nếu đã xong")
         free_gpu_vram("trước ASR — nhường GPU")
         # ASR trực tiếp từ audio gốc — không ép Demucs để tránh cắt nuốt chữ / méo tiếng trên audio dài
         asr_eng = _resolve_asr_engine(wd, asr_engine)
@@ -2054,6 +2063,7 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
         # translate-simple (port F6): mặc định luồng mới (Stage+Gate); rollback instance translate_pipeline=legacy
         # P6 (V2 F2): job đã bắt đầu luồng cũ (park/review dở) → giữ luồng cũ (manifest.translate_pipeline)
         _simple = _translate_pipeline_simple(wd)
+        phase("dịch + soát (luồng V6)" if _simple else "dịch (luồng cũ — legacy)")
         if _simple:
             if not _auto_translate_simple(wd, job_id, target):
                 return
@@ -2093,6 +2103,7 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
                 n_unrev = -1
             if n_unrev > 0:
                 # Studio SOP: cùng ghế queue — chạy hết soát rồi mới TTS (không nhả job).
+                phase(f"soát bản dịch (luồng cũ) — còn {n_unrev} câu chưa soát")
                 print(
                     f"[auto] {job_id}: còn {n_unrev} câu chưa rv — chạy REVIEW trong ghế "
                     f"(Aurora∥ / local fallback), không nhảy job",
@@ -2166,6 +2177,7 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
         if stopped():
             return
         # Second Brain: scan/heal chất lượng VI trước khi TTS
+        phase("kiểm chất lượng bản dịch (Second Brain)")
         try:
             from agents.agent_quality import scan_and_heal_job
             qb = scan_and_heal_job(wd, write=True)
@@ -2224,6 +2236,7 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
                 _run_review_sync(work_dir, target=target, model=model)
 
             print(f"[auto] {job_id}: QA gate — snapshot + review…")
+            phase("cổng QA trước lồng tiếng")
             gate = run_qa_gate(wd, run_review_fn=_rev, target=target)
             if not gate.get("pass"):
                 reasons = (gate.get("diff") or {}).get("fail_reasons") or gate.get("error")
@@ -2253,6 +2266,7 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
             raise RuntimeError(
                 "chưa chọn giọng clone — dừng 1-click (không render tiếng gốc)."
             )
+        phase("lồng tiếng (TTS)")
         free_gpu_vram("trước TTS")
         sp = _resolve_speed(wd, None)
         eng = _resolve_tts_engine(wd, None)
@@ -2265,6 +2279,7 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
         if stopped():
             return
         if audio_mode in ("demucs_keep", "demucs_clean"):   # cần tách nền
+            phase("tách nhạc nền (demucs)")
             free_gpu_vram("trước tách nền")
             import importlib
             import engines.separate as _sep_mod
@@ -2273,10 +2288,12 @@ def _auto_gpu(job_id: str, target: str, audio_mode: str, voice_vol: float,
             if stopped():
                 return
         if use_ocr:
+            phase("OCR phụ đề cứng")
             free_gpu_vram("trước OCR")
             run_ocr(wd)
             if stopped():
                 return
+        phase("ghép / render video")
         free_gpu_vram("trước render")
         _do_render(
             wd, force=False, audio_mode=audio_mode, voice_vol=voice_vol,
@@ -2687,8 +2704,10 @@ def read_job(work_dir: Path) -> dict:
             miss, n_rows = sm
             tr_st["n_missing"] = miss
             tr_st["n_segments"] = tr_st.get("n_segments") or n_rows
-            if miss <= 0 and tr_st.get("status") in ("done", "pending", None, ""):
-                tr_st["cur_text"] = tr_st.get("cur_text") if tr_st.get("status") == "running" else "đủ bản dịch"
+            # 2026-11-21: chỉ khi bước Dịch ĐÃ XONG. Trước cả khi «Chờ» → che mất lý do thật (soát dở / AI lỗi / HOLD)
+            # → «Dịch · Chờ · đủ bản dịch» mà không chạy, người dùng không biết vì sao.
+            if miss <= 0 and tr_st.get("status") == "done":
+                tr_st["cur_text"] = "đủ bản dịch"
             result["stages"]["translate"] = tr_st
             # V6 F3: KHÔNG ghi manifest trong GET (trước: js.persist n_missing ở đây). Số trả về đã
             # tính thật từ script.json ở trên; luồng dịch (translate/fill) tự ghi n_missing khi chạy.
@@ -4682,6 +4701,7 @@ def _queue_run_one(job_id: str, opts: dict) -> tuple[str, str]:
     work_dir = WORK_ROOT / job_id
     if not (work_dir / "manifest.json").exists():
         return "failed", "không tìm thấy manifest"
+    job_queue.set_phase(job_id, "chuẩn bị (kiểm tra job, giọng, tham số)")
     _heal_stale_running(work_dir)
     if job_queue.is_wired_done(work_dir):
         return "done", "đã hoàn tất trước đó"
@@ -4766,6 +4786,7 @@ def _queue_run_one(job_id: str, opts: dict) -> tuple[str, str]:
             url = request.get("url")
             if not url:
                 return _failed("manifest không có URL nguồn")
+            job_queue.set_phase(job_id, "tải nguồn")
             try:
                 download_video(
                     url,
@@ -4786,6 +4807,7 @@ def _queue_run_one(job_id: str, opts: dict) -> tuple[str, str]:
 
         def _gpu_job() -> None:
             try:
+                job_queue.set_phase(job_id, "bắt đầu chạy các bước")
                 is_handled = _check_and_run_auto_split_parts(
                     job_id, target, audio_mode, voice_vol, orig_vol, use_ocr,
                     fit, resolution, translate_mode, render_kw,
@@ -4813,6 +4835,7 @@ def _queue_run_one(job_id: str, opts: dict) -> tuple[str, str]:
 
         # port V5 fix 2026-11-20 (queue-stop-gpu-wait): không chờ done_event vô hạn — Dừng mà future còn xếp sau job
         # khác trên _gpu (JOB_WORKERS=1, vd TTS chạy riêng) thì huỷ future để nhường ghế hàng chờ (trước: treo `current`).
+        job_queue.set_phase(job_id, "chờ tới lượt GPU (đang có việc GPU khác: bước chạy riêng / job khác)")
         fut = _gpu.submit(_gpu_job)
         submitted = True
         while not done_event.wait(timeout=1.0):
@@ -6860,8 +6883,17 @@ def _queue_notify(text: str) -> None:
         print(f"[queue] telegram: {e}", flush=True)
 
 
+def _queue_phase_pub(job_id: str, text: str) -> None:
+    try:
+        from events.bus import bus as _bus
+        _bus.publish("queue.changed", {"phase": text, "job_id": job_id})
+    except Exception as e:  # noqa: BLE001
+        print(f"[queue] publish phase: {e}", flush=True)
+
+
 job_queue.set_needs_human_hook(_queue_needs_human)
 job_queue.set_notify_hook(_queue_notify)
+job_queue.set_phase_hook(_queue_phase_pub)
 
 
 # ===== Route tách file (đợt 7): UI, Hongguo, Agent =====

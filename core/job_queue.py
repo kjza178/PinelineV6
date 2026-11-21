@@ -340,6 +340,33 @@ def _persist_path() -> Path:
 _save_failed = 0      # số lần ghi _job_queue.json hỏng liên tiếp (0 = lần ghi gần nhất thành công)
 
 
+# 2026-11-21: job đang chạy LÀM GÌ / CHỜ GÌ (trước: UI chỉ «Đang chạy «…»» dù job đang giữ ghế chờ thử lại, chờ GPU…
+# → người dùng thấy «bấm chạy mà không có gì xảy ra»). Runner (server) đặt qua set_phase; worker đặt khi giữ ghế.
+_phase: dict = {"job": None, "text": "", "ts": 0.0}
+_phase_hook: Callable[[str, str], None] | None = None
+
+
+def set_phase_hook(fn: Callable[[str, str], None] | None) -> None:
+    global _phase_hook
+    _phase_hook = fn
+
+
+def set_phase(job_id: str | None, text: str) -> None:
+    """Ghi «đang làm gì» của job hiện tại (nhẹ, trong bộ nhớ) + báo UI qua hook. Không ném lỗi."""
+    text = str(text or "")[:200]
+    if _phase.get("job") == job_id and _phase.get("text") == text:
+        return
+    _phase.update(job=job_id, text=text, ts=time.time())
+    if text:
+        print(f"[queue] {job_id}: {text}", flush=True)
+    fn = _phase_hook
+    if fn is not None:
+        try:
+            fn(str(job_id or ""), text)
+        except Exception as e:  # noqa: BLE001
+            print(f"[queue] phase hook lỗi: {e}", flush=True)
+
+
 def _save() -> bool:
     """Ghi hàng chờ ra đĩa (atomic). KHÔNG BAO GIỜ ném lỗi — trả False khi ghi hỏng.
 
@@ -521,6 +548,8 @@ def queue_state() -> dict:
             "persist_ok": _save_failed == 0,     # False = đang không ghi được _job_queue.json (đĩa đầy / file bị khoá)
             "paused": dict(_paused) if _paused else None,   # R7.4: tạm dừng vì nhiều job lỗi liên tiếp
             "consec_fail": _consec_fail,
+            "phase": _phase["text"] if _current and _phase.get("job") == _current else "",
+            "phase_ts": _phase["ts"] if _current and _phase.get("job") == _current else 0,
         }
 
 
@@ -823,6 +852,29 @@ def _worker_loop() -> None:
             time.sleep(2.0)
 
 
+def _park_phase(job_id: str, status: str, detail: str) -> str:
+    """Câu cho UI khi job giữ ghế: chờ gì, tới khi nào."""
+    try:
+        data = json.loads((WORK_ROOT / str(job_id) / "manifest.json").read_text(encoding="utf-8"))
+        ag = data.get("agent") or {}
+    except Exception as e:  # noqa: BLE001
+        print(f"[queue] đọc lý do giữ ghế {job_id}: {e}", flush=True)
+        ag = {}
+    why = str(ag.get("hold_reason") or detail or status or "").strip()
+    at = ag.get("review_retry_at")
+    when = ""
+    try:
+        if at:
+            left = max(0, int(float(at) - time.time()))
+            when = f" · tự thử lại sau ~{max(1, left // 60)} phút" if left >= 60 else " · sắp tự thử lại"
+    except (TypeError, ValueError):
+        when = ""
+    if ag.get("hold_after_translate") or ag.get("qa_blocked") or str(ag.get("held_at") or "") not in (
+            "", "waiting_review", "split_parts"):
+        return f"giữ ghế — CHỜ NGƯỜI DUYỆT: {why} (bấm «Chạy tiếp» ở job, hoặc «Bỏ khỏi hàng chờ» để chạy job khác)"[:200]
+    return f"giữ ghế — {why}{when}"[:200]
+
+
 def _worker_loop_inner() -> None:
     global _current, _stop, _thread, _consec_fail, _paused
     while True:
@@ -844,6 +896,7 @@ def _worker_loop_inner() -> None:
                 except Exception:
                     pass
             _current = job_id
+            _phase.update(job=job_id, text="", ts=time.time())
             # get (không pop): server chết giữa job → _load đưa current lại đầu hàng với đúng opts
             opts = dict(_opts_by_job.get(job_id) or _opts)
             _save()
@@ -874,6 +927,7 @@ def _worker_loop_inner() -> None:
                 _save()
             poll = max(0.5, float(_PARK_POLL_SEC) or 5.0)
             parked_at = time.time()
+            set_phase(job_id, _park_phase(job_id, status, detail))
             while True:
                 with _lock:
                     if _stop:

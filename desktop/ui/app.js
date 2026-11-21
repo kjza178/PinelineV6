@@ -88,7 +88,7 @@ function rowHtml(j) {
   const gTip = j.group_title_orig && j.group_title_orig !== j.group_title ? `${j.group_title}\n${j.group_title_orig}` : j.group_title;
   const grp = j.group_title ? `<span class="grp" title="Bộ: ${esc(gTip)}"><span class="grp-name">${esc(j.group_title)}</span>${j.group_index ? ` · tập ${esc(j.group_index)}${j.group_total ? "/" + esc(j.group_total) : ""}` : ""}</span>` : "";
   const note = j.status === "held" ? `${j.held_at || ""} ${j.hold_reason || ""}`.trim()
-    : j.status === "failed" ? `Lỗi ở ${STAGE_VI[j.failed_stage] || j.failed_stage || "?"}${j.error ? ": " + j.error : ""}` : (j.cur_text || (j.stop_note ? "Đã dừng: " + j.stop_note : ""));
+    : j.status === "failed" ? `Lỗi ở ${STAGE_VI[j.failed_stage] || j.failed_stage || "?"}${j.error ? ": " + j.error : ""}` : (j.cur_text || (queue.current === j.job_id && queue.phase ? queue.phase : "") || (j.stop_note ? "Đã dừng: " + j.stop_note : ""));
   return `<td class="ck"><input type="checkbox" class="pick"${picked.has(j.job_id) ? " checked" : ""}></td>`
     + `<td><div class="title" title="${esc(j.title)}">${esc(j.title)}</div><div class="jid">${q}${grp}${esc(j.job_id)}</div></td>`
     + `<td>${stepsHtml(j)}</td><td>${badge(j.status)}</td><td class="note" title="${esc(note)}">${esc(note)}</td>`;
@@ -186,7 +186,8 @@ function syncToolbar() {
 function paintQueue() {
   const cur = queue.current ? (jobs.get(queue.current)?.title || queue.current) : null;
   const n = (queue.queue || []).length;
-  let text = cur ? `Đang chạy «${cur}»${n ? ` · ${n} job đang chờ` : ""}` : (n ? `${n} job đang chờ` : "Trống — chọn job rồi bấm «Chạy job đã chọn»");
+  let text = cur ? `Đang chạy «${cur}»${queue.phase ? ` — ${queue.phase}` : ""}${n ? ` · ${n} job đang chờ` : ""}`
+    : (n ? `${n} job đang chờ` : "Trống — chọn job rồi bấm «Chạy job đã chọn»");
   // persist_ok=false: backend không ghi được hàng chờ ra đĩa (đĩa đầy / file bị khoá) — vẫn chạy, nhưng restart sẽ mất thứ tự
   if (queue.persist_ok === false) text += " · ⚠ không lưu được hàng chờ ra đĩa (kiểm tra ổ đĩa)";
   // paused: backend tự TẠM DỪNG vì nhiều job lỗi liên tiếp (lỗi chung: GPU, đĩa, cloud, cấu hình) — R7.4
@@ -220,7 +221,7 @@ function paintQueuePanel() {
   }).join("") : '<li class="note">Hàng chờ trống — chọn job ở bảng dưới rồi bấm «Chạy job đã chọn».</li>';
 }
 async function refreshQueue() {
-  try { queue = await api("GET", "/api/queue/jobs"); paintQueue(); } catch (_) { /* SSE báo mất kết nối riêng */ }
+  try { queue = await api("GET", "/api/queue/jobs"); paintQueue(); fullRedraw = true; schedule(); } catch (_) { /* SSE báo mất kết nối riêng */ }
 }
 const refreshQueueSoon = debounce(refreshQueue, 600);
 

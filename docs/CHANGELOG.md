@@ -1,6 +1,11 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- **Hàng chờ nói job đang LÀM GÌ / CHỜ GÌ**: `job_queue.set_phase` — thanh hàng chờ + cột «Đang làm» hiện bước hiện tại
+  (chuẩn bị, tải nguồn, chờ tới lượt GPU, ASR, dịch, soát, kiểm chất lượng, cổng QA, TTS, render, part i/N…) và khi
+  job GIỮ GHẾ: lý do + «tự thử lại sau ~N phút» hoặc «CHỜ NGƯỜI DUYỆT — bấm Chạy tiếp». Trước: chỉ «Đang chạy «…»» dù
+  job đang đứng chờ → «bấm chạy mà không có gì xảy ra».
+- Bước Dịch «Chờ» không còn bị ghi đè thành «đủ bản dịch» (che lý do thật: soát dở / AI lỗi / HOLD) — chỉ khi đã xong.
 - **Chỉ còn 3 loại AI: nhà cung cấp API (deepseek/…, alibaba/…), Aurora (chatgpt/…), AI trên máy (local)**. Bỏ hoàn
   toàn router 9router / LAN: `LLM_BASE_URL`, `AGENT_BASE_URL`, `CLOUD_LLM_*` KHÔNG còn được đọc; model `ollama/…-cloud`
   báo đổi model; `LLM_MODEL` kiểu 9router → «local». Sửa lỗi Trợ lý AI «local» gọi nhầm `127.0.0.1:3377` (config cũ
