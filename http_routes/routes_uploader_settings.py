@@ -196,7 +196,7 @@ def test_llm_conn(payload: Dict[str, Any] = Body(...)):
     """Thử gửi 1 prompt nhỏ đến LLM để đo độ trễ và kiểm tra model."""
     import urllib.request
 
-    base_url = str(payload.get("base_url") or config.get("LLM_BASE_URL") or "http://127.0.0.1:8083/v1").rstrip("/")
+    base_url = str(payload.get("base_url") or config.llm_settings()["base"]).rstrip("/")   # config: đã lọc LAN
     api_key = str(payload.get("api_key") or config.get("LLM_API_KEY") or "sk-local").strip()
     model = str(payload.get("model") or config.get("LLM_MODEL") or "local").strip()
 
@@ -475,8 +475,14 @@ def uploader_save_settings(payload: Dict[str, Any] = Body(...)):
 @router.get("/api/auto-publish/config")
 @router.get("/auto-publish/config")
 def auto_publish_get_config():
+    import os
+
     import agents.auto_publisher as auto_publisher
-    return {"ok": True, "config": auto_publisher.load_config()}
+    # instance_on: cờ instance auto_publish (PINELINE_FLAG_AUTO_PUBLISH). Tắt → server KHÔNG tự đăng sau render dù
+    # config.enabled bật (server.py: _instance_flag("auto_publish")) — giao diện phải nói rõ, không để công tắc «chết».
+    flag = os.getenv("PINELINE_FLAG_AUTO_PUBLISH")
+    on = True if flag is None else flag.strip().lower() in ("1", "true", "yes", "on")
+    return {"ok": True, "config": auto_publisher.load_config(), "instance_on": on}
 
 
 @router.post("/api/auto-publish/config")

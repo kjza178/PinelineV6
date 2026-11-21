@@ -5,9 +5,9 @@ V6: MẶC ĐỊNH BẬT (cfg.translate_pipeline). Rollback: `"translate_pipeline
 
 Luồng 6 bước (xem docs/design/2026-11-12-translate-simple.md):
   1) ASR có sẵn (asr.json)
-  2) stage_draft : Plan (cloud) ∥ NMT nháp (GPU) — 2 thread song song
+  2) stage_draft : Plan (cloud). 2026-11-15: V6 BỎ HẲN NMT — AI dịch thẳng từ zh ở bước 3
   3) stage_review: REVIEW cloud theo lô — MỘT lần gọi: sửa nghĩa + áp xưng hô theo cặp plan +
-                   tên/thuật ngữ + thành ngữ + dịch câu trống; trả {i, vi, spk, to, conf}
+                   tên/thuật ngữ + thành ngữ + dịch câu trống; trả {i, vi, spk, to, conf, sua}
   4) post + validate: hậu kỳ tất định (khoá thuật ngữ + chuẩn số, KHÔNG regex đại từ) → đánh cờ
   5) repair      : vá đúng câu bị cờ, ≤ SIMPLE_REPAIR_ROUNDS lượt
   6) gate        : done | park (server park waiting_review B2) | hold (cần người)

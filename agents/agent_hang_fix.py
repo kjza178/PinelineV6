@@ -16,6 +16,11 @@ from typing import Any
 BATCH = 8
 
 
+def resolve_model(model: str | None = None) -> str:
+    """Model sửa job treo: tham số → HANG_FIX_MODEL → PRONOUN_MODEL → chatgpt/gpt-5-6-mini (core/ai_models đọc hàm này)."""
+    return model or _cfg("HANG_FIX_MODEL") or _cfg("PRONOUN_MODEL") or "chatgpt/gpt-5-6-mini"
+
+
 def _cfg(key: str, default: str | None = None) -> str | None:
     try:
         from core.config import get
@@ -128,7 +133,7 @@ def _llm_trace_batch(cases: list[dict], model: str | None) -> list[dict]:
             "window": c["window"],
         })
     user = "CASES:\n" + json.dumps(payload, ensure_ascii=False)
-    use_model = model or _cfg("HANG_FIX_MODEL") or _cfg("PRONOUN_MODEL") or "chatgpt/gpt-5-6-mini"
+    use_model = resolve_model(model)
     out = chat(
         [{"role": "system", "content": sys}, {"role": "user", "content": user}],
         model=use_model,
@@ -293,7 +298,7 @@ def fix_hang_job(
         "n_safe_healed": n_safe,
         "items": [],
         "n_fixed_cues": 0,
-        "model": model or _cfg("HANG_FIX_MODEL") or _cfg("PRONOUN_MODEL") or "chatgpt/gpt-5-6-mini",
+        "model": resolve_model(model),
     }
     if not cases:
         brain = write_qa_brain(work_dir, flags0, healed=n_safe) if write else {}

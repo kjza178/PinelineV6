@@ -104,7 +104,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--gpu", action="store_true", help="ép dùng GPU (CUDA)")
     ap.add_argument("--cpu", action="store_true", help="ép dùng CPU (không CUDA)")
-    ap.add_argument("--cuda", default="cu121", help="build CUDA cho torch (mặc định cu121)")
+    # 2026-11-16: cu121 không chạy RTX 50 (Blackwell) và bản torch mới không còn build cu121 → cu128 (driver ≥ 570)
+    ap.add_argument("--cuda", default="cu128", help="build CUDA cho torch (mặc định cu128; driver cũ: cu126)")
     ap.add_argument("--skip-vieneu", action="store_true", help="bỏ qua env VieNeu")
     ap.add_argument("--skip-ollama-pull", action="store_true", help="không tự pull model Ollama")
     ap.add_argument("--ollama-models", default="gemma4,gemma3:12b",
@@ -134,7 +135,19 @@ def main():
             f" khác, hoặc dùng --cpu (torch CPU nhẹ hơn nhiều).", RED)
 
     tindex = torch_index(gpu, args.cuda)
-    config = {"_note": "install.py tự ghi. Sửa tay nếu dời venv/cache."}
+    # fix 2026-11-16: GỘP vào pineline.config.json đang có (trước ghi đè cả file → mất key API, FIRERED_*, cài đặt AI…)
+    cfg_path = ROOT / "pineline.config.json"
+    config = {}
+    if cfg_path.is_file():
+        try:
+            config = json.loads(cfg_path.read_text(encoding="utf-8"))
+            bak = cfg_path.with_name("pineline.config.before_install.json")
+            bak.write_text(cfg_path.read_text(encoding="utf-8"), encoding="utf-8")
+            say(f"  Giữ cấu hình cũ ({len(config)} khoá) — bản sao: {bak.name}", GREEN)
+        except Exception as e:  # noqa: BLE001
+            say(f"[CẢNH BÁO] Không đọc được pineline.config.json ({e}) — tạo mới", YEL)
+            config = {}
+    config.setdefault("_note", "install.py ghi thêm VIENEU_PY / HF_HOME / OMNI_*. Sửa tay nếu dời venv/cache.")
 
     def _install_torch(py, extra=()):
         try:
@@ -175,7 +188,7 @@ def main():
     # OmniVoice là TÙY CHỌN (repo riêng OmniVoiceStudio) — chỉ ghi gợi ý.
     config.setdefault("OMNI_PY", "")
     config.setdefault("OMNI_CWD", "")
-    config["OMNI_MODEL"] = "splendor1811/omnivoice-vietnamese"
+    config.setdefault("OMNI_MODEL", "splendor1811/omnivoice-vietnamese")
     config["OMNI_DEVICE"] = "cuda" if gpu else "cpu"
     (ROOT / "pineline.config.json").write_text(
         json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -183,6 +196,9 @@ def main():
 
     # Launcher trỏ ĐÚNG python của pineline_env (tránh chạy nhầm python hệ thống).
     mpy_abs = venv_python(main_env)
+    # run_v6.bat / run_sidecar_v6.bat đọc file này để chạy server bằng venv (trước: python hệ thống → thiếu demucs…)
+    (ROOT / ".pineline_env_path").write_text(str(mpy_abs), encoding="utf-8")
+    say("  -> .pineline_env_path (run_v6.bat dùng venv này)", GREEN)
     (ROOT / "start.bat").write_text(
         f'@echo off\r\n"{mpy_abs}" "%~dp0app.py" %*\r\npause\r\n', encoding="utf-8")
     sh = ROOT / "start.sh"

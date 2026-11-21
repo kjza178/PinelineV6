@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import queue as queue_mod
 import re
 import sys
 import threading
@@ -154,11 +155,81 @@ _PARK_STATUSES = frozenset({"held", "parked", "waiting_review"})
 _park_ready_hook: Callable[[str], bool] | None = None
 _PARK_POLL_SEC = float(os.getenv("QUEUE_PARK_POLL_SEC", "5") or "5")
 
+# ───────────── chạy 24/7 (R7.3–R7.5, 2026-11-14) ─────────────
+_HISTORY_NAME = "_job_queue_history.jsonl"
+_HISTORY_MAX_BYTES = 2 * 1024 * 1024
+_consec_fail = 0                       # số job `failed` liên tiếp (job `done` đặt lại 0; `stopped`/park không tính)
+_recent_fail: list[dict] = []          # các job failed trong chuỗi hiện tại (cho thông báo)
+_paused: dict | None = None            # {"reason", "ts", "fails": [...]} — hàng chờ đang TẠM DỪNG (R7.4)
+_notify_hook: Callable[[str], None] | None = None
+_needs_human_hook: Callable[[str], bool] | None = None
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(float(os.getenv(name, str(default)) or default))
+    except ValueError:
+        return default
+
+
+def max_consec_fail() -> int:
+    """R7.4: số job failed LIÊN TIẾP làm hàng chờ tạm dừng (mặc định 3; 0 = tắt)."""
+    return max(0, _env_int("QUEUE_MAX_CONSEC_FAIL", 3))
+
+
+def hold_yield_sec() -> float:
+    """R7.3: job HOLD CẦN NGƯỜI giữ ghế quá ngần này giây mà còn job khác chờ → nhường ghế (0 = tắt = luật
+    Studio cũ: giữ ghế vô thời hạn). Mặc định 0 — chủ dự án bật khi muốn chạy 24/7 không người canh."""
+    try:
+        return max(0.0, float(os.getenv("QUEUE_HOLD_YIELD_SEC", "0") or 0))
+    except ValueError:
+        return 0.0
+
+
+def set_notify_hook(fn: Callable[[str], None] | None) -> None:
+    """Server gắn kênh báo (Telegram / event UI). Lỗi trong hook không ảnh hưởng hàng chờ."""
+    global _notify_hook
+    _notify_hook = fn
+
+
+def set_needs_human_hook(fn: Callable[[str], bool] | None) -> None:
+    """Server gắn: True = job đang HOLD cần NGƯỜI (khác park tự thử lại)."""
+    global _needs_human_hook
+    _needs_human_hook = fn
+
+
+def _notify(text: str) -> None:
+    print(f"[queue] {text}", flush=True)
+    fn = _notify_hook
+    if fn is None:
+        return
+    try:
+        fn(text)
+    except Exception as e:  # noqa: BLE001
+        print(f"[queue] notify hook lỗi: {e}", flush=True)
+
+
+def _needs_human(job_id: str) -> bool:
+    fn = _needs_human_hook
+    if fn is not None:
+        try:
+            return bool(fn(job_id))
+        except Exception as e:  # noqa: BLE001
+            print(f"[queue] needs_human hook lỗi: {e}", flush=True)
+            return False
+    try:
+        data = json.loads((WORK_ROOT / str(job_id) / "manifest.json").read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 — không đọc được thì coi như không chắc → không nhường ghế
+        return False
+    ag = data.get("agent") or {}
+    return bool(ag.get("hold_after_translate") or ag.get("qa_blocked")
+                or str(ag.get("held_at") or "") not in ("", "waiting_review", "split_parts"))
+
 
 def _reset_for_tests(load_disk: bool = False) -> None:
     """Chỉ dùng trong pytest."""
     global _q, _current, _opts, _opts_by_job, _hist, _stop, _thread, _runner, _clear_stop_hook
-    global _park_ready_hook
+    global _park_ready_hook, _consec_fail, _paused, _notify_hook, _needs_human_hook, _save_failed
     with _lock:
         _stop = True
         old_thread = _thread
@@ -175,7 +246,14 @@ def _reset_for_tests(load_disk: bool = False) -> None:
         _runner = None
         _clear_stop_hook = None
         _park_ready_hook = None
+        _consec_fail = 0
+        _recent_fail.clear()
+        _paused = None
+        _notify_hook = None
+        _needs_human_hook = None
+        _save_failed = 0
         set_stop_hook(None)
+    _history_flush()        # mục của test trước không lọt sang thư mục của test sau
     if load_disk:
         _load()
 
@@ -259,25 +337,80 @@ def _persist_path() -> Path:
     return WORK_ROOT / _PERSIST_NAME
 
 
-def _save() -> None:
-    WORK_ROOT.mkdir(parents=True, exist_ok=True)
+_save_failed = 0      # số lần ghi _job_queue.json hỏng liên tiếp (0 = lần ghi gần nhất thành công)
+
+
+# 2026-11-21: job đang chạy LÀM GÌ / CHỜ GÌ (trước: UI chỉ «Đang chạy «…»» dù job đang giữ ghế chờ thử lại, chờ GPU…
+# → người dùng thấy «bấm chạy mà không có gì xảy ra»). Runner (server) đặt qua set_phase; worker đặt khi giữ ghế.
+_phase: dict = {"job": None, "text": "", "ts": 0.0}
+_phase_hook: Callable[[str, str], None] | None = None
+
+
+def set_phase_hook(fn: Callable[[str, str], None] | None) -> None:
+    global _phase_hook
+    _phase_hook = fn
+
+
+def set_phase(job_id: str | None, text: str) -> None:
+    """Ghi «đang làm gì» của job hiện tại (nhẹ, trong bộ nhớ) + báo UI qua hook. Không ném lỗi."""
+    text = str(text or "")[:200]
+    if _phase.get("job") == job_id and _phase.get("text") == text:
+        return
+    _phase.update(job=job_id, text=text, ts=time.time())
+    if text:
+        print(f"[queue] {job_id}: {text}", flush=True)
+    fn = _phase_hook
+    if fn is not None:
+        try:
+            fn(str(job_id or ""), text)
+        except Exception as e:  # noqa: BLE001
+            print(f"[queue] phase hook lỗi: {e}", flush=True)
+
+
+def _save() -> bool:
+    """Ghi hàng chờ ra đĩa (atomic). KHÔNG BAO GIỜ ném lỗi — trả False khi ghi hỏng.
+
+    R7.1 (fix 2026-11-14): trước đây lỗi ghi (đĩa đầy, `os.replace` dính PermissionError vì antivirus / tiến trình
+    khác đang mở file trên Windows) văng thẳng ra — trong luồng worker = thread chết im lặng: `current` kẹt, mọi job
+    còn lại đứng tới khi có người xếp job mới. Hàng chờ trong bộ nhớ vẫn đúng → thử lại ngắn, hỏng thì ghi log và
+    chạy tiếp; lần `_save` sau sẽ ghi bù. (Mất bản ghi đĩa chỉ ảnh hưởng nếu server chết đúng lúc đó.)"""
+    global _save_failed
     payload = {
         "queue": list(_q),
         "opts": dict(_opts),
         "opts_by_job": {k: dict(v) for k, v in _opts_by_job.items()},
         "current": _current,
+        "paused": dict(_paused) if _paused else None,
     }
-    target = _persist_path()
-    temp = target.with_name(f".{target.name}.tmp")
-    with temp.open("w", encoding="utf-8") as handle:
-        json.dump(payload, handle, ensure_ascii=False, indent=2)
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.replace(temp, target)
+    last: Exception | None = None
+    for attempt in range(4):
+        try:
+            WORK_ROOT.mkdir(parents=True, exist_ok=True)
+            target = _persist_path()
+            temp = target.with_name(f".{target.name}.tmp")
+            with temp.open("w", encoding="utf-8") as handle:
+                json.dump(payload, handle, ensure_ascii=False, indent=2)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp, target)
+            if _save_failed:
+                print(f"[queue] ghi hàng chờ đã được lại (sau {_save_failed} lần hỏng)", flush=True)
+            _save_failed = 0
+            return True
+        except Exception as e:  # noqa: BLE001 — OSError là chính; TypeError nếu opts không tuần tự hoá được
+            last = e
+            if attempt < 3:
+                time.sleep(0.05 * (attempt + 1))
+    _save_failed += 1
+    if _save_failed == 1 or _save_failed % 20 == 0:      # không spam log khi đĩa đầy kéo dài
+        print(f"[queue] KHÔNG ghi được {_persist_path()} ({type(last).__name__}: {last}) — hàng chờ vẫn chạy "
+              f"trong bộ nhớ; khởi động lại lúc này có thể mất thứ tự hàng chờ (lần hỏng thứ {_save_failed})",
+              flush=True)
+    return False
 
 
 def _load() -> None:
-    global _q, _opts, _opts_by_job, _current
+    global _q, _opts, _opts_by_job, _current, _paused
     p = _persist_path()
     if not p.is_file():
         return
@@ -302,13 +435,96 @@ def _load() -> None:
             if _opts and str(cur) not in _opts_by_job:
                 _opts_by_job[str(cur)] = dict(_opts)
         _current = None
+        pz = data.get("paused")
+        _paused = dict(pz) if isinstance(pz, dict) and _q else None   # restart không tự gỡ tạm dừng
 
 
 def _hist_push(job_id: str, status: str, detail: str = "") -> None:
-    _hist.append(
-        {"job_id": job_id, "status": status, "detail": detail, "ts": time.time()}
-    )
+    """Gọi khi đang giữ _lock → chỉ thao tác bộ nhớ; ghi file + đọc tiêu đề job do luồng `queue-history` làm
+    (fix 2026-11-14 review: trước ghi đĩa ngay trong khoá — đĩa chậm/bị khoá làm mọi API hàng chờ chờ theo)."""
+    rec = {"job_id": job_id, "status": status, "detail": detail, "ts": time.time()}
+    _hist.append(rec)
     del _hist[:-20]
+    _history_enqueue(rec)
+
+
+_hist_q: "queue_mod.Queue[dict]" = None  # type: ignore[assignment]   # tạo lười trong _history_enqueue
+_hist_writer: threading.Thread | None = None
+_hist_writer_lock = threading.Lock()
+
+
+def _history_enqueue(rec: dict) -> None:
+    global _hist_q, _hist_writer
+    with _hist_writer_lock:
+        if _hist_q is None:
+            _hist_q = queue_mod.Queue()
+        if _hist_writer is None or not _hist_writer.is_alive():
+            _hist_writer = threading.Thread(target=_history_writer_loop, name="queue-history", daemon=True)
+            _hist_writer.start()
+    _hist_q.put(rec)
+
+
+def _history_writer_loop() -> None:
+    while True:
+        rec = _hist_q.get()
+        try:
+            _history_append(rec)
+        finally:
+            _hist_q.task_done()
+
+
+def _history_flush(timeout: float = 3.0) -> None:
+    """Chờ luồng ghi xong các mục đang chờ (đọc nhật ký ngay sau khi job kết thúc vẫn thấy mục mới)."""
+    q = _hist_q
+    t0 = time.time()
+    while q is not None and q.unfinished_tasks and time.time() - t0 < timeout:
+        time.sleep(0.01)
+
+
+def _history_path() -> Path:
+    return WORK_ROOT / _HISTORY_NAME
+
+
+def _history_append(rec: dict) -> None:
+    """R7.5: nhật ký hàng chờ ra file JSONL (sống qua restart) — «đêm qua chuyện gì xảy ra». Best-effort:
+    không ghi được thì chỉ báo 1 dòng, không ảnh hưởng hàng chờ. Quá 2 MB → xoay sang `.1` (giữ 2 file)."""
+    try:
+        p = _history_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            if p.is_file() and p.stat().st_size > _HISTORY_MAX_BYTES:
+                os.replace(p, p.with_name(p.name + ".1"))
+        except OSError as e:
+            print(f"[queue] không xoay được nhật ký hàng chờ ({e}) — ghi tiếp vào file hiện tại", flush=True)
+        line = dict(rec)
+        line["at"] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(rec.get("ts") or time.time()))
+        line["title"] = get_job_info(str(rec.get("job_id") or "")).get("title")   # tự xử lý lỗi (trả job_id)
+        with p.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(line, ensure_ascii=False) + "\n")
+    except Exception as e:  # noqa: BLE001
+        print(f"[queue] không ghi được nhật ký hàng chờ: {e}", flush=True)
+
+
+def queue_history(limit: int = 100) -> list[dict]:
+    """Các mục mới nhất của nhật ký hàng chờ (mới → cũ), đọc từ file (cả file đã xoay nếu cần)."""
+    limit = max(1, min(int(limit or 100), 2000))
+    _history_flush()
+    out: list[dict] = []
+    for p in (_history_path(), _history_path().with_name(_HISTORY_NAME + ".1")):
+        if len(out) >= limit:
+            break
+        try:
+            lines = p.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for ln in reversed(lines):
+            try:
+                out.append(json.loads(ln))
+            except ValueError:
+                continue
+            if len(out) >= limit:
+                break
+    return out
 
 
 def queue_busy() -> bool:
@@ -329,6 +545,11 @@ def queue_state() -> dict:
             "opts": dict(_opts),
             "opts_by_job": {k: dict(v) for k, v in _opts_by_job.items()},
             "busy": bool(_current) or bool(_q) or bool(_thread and _thread.is_alive()),
+            "persist_ok": _save_failed == 0,     # False = đang không ghi được _job_queue.json (đĩa đầy / file bị khoá)
+            "paused": dict(_paused) if _paused else None,   # R7.4: tạm dừng vì nhiều job lỗi liên tiếp
+            "consec_fail": _consec_fail,
+            "phase": _phase["text"] if _current and _phase.get("job") == _current else "",
+            "phase_ts": _phase["ts"] if _current and _phase.get("job") == _current else 0,
         }
 
 
@@ -383,7 +604,7 @@ def queue_add(
             _stop = False
         _save()
         if appended:
-            _ensure_worker_unlocked()
+            _ensure_worker_unlocked()      # đang tạm dừng (R7.4) → không bật worker; job vẫn vào hàng
         return {
             "ok": True,
             "queued": appended,
@@ -391,6 +612,7 @@ def queue_add(
             "skipped_missing": skipped_missing,
             "queue": list(_q),
             "current": _current,
+            "paused": dict(_paused) if _paused else None,
         }
 
 
@@ -527,19 +749,43 @@ def queue_update_opts(updates: dict[str, dict]) -> dict:
 
 
 def queue_clear() -> dict:
+    global _paused, _consec_fail
     with _lock:
         _q.clear()
         _opts_by_job.clear()
+        _paused = None            # hàng chờ trống → không còn gì để tạm dừng
+        _consec_fail = 0
+        _recent_fail.clear()
         _save()
     return {"ok": True, **queue_state()}
 
 
+def queue_resume() -> dict:
+    """R7.4: người dùng đã xem lỗi → gỡ tạm dừng, đặt lại bộ đếm, chạy tiếp hàng chờ."""
+    global _paused, _consec_fail, _stop
+    with _lock:
+        was = _paused
+        _paused = None
+        _consec_fail = 0
+        _recent_fail.clear()
+        if _q:
+            _stop = False
+            _ensure_worker_unlocked()
+        _save()
+    if was:
+        print("[queue] gỡ tạm dừng — chạy tiếp hàng chờ", flush=True)
+    return {"ok": True, "resumed": bool(was), **queue_state()}
+
+
 def queue_stop() -> dict:
     """Clear queue + báo worker dừng; gọi _stop_job(current) nếu server đã wire."""
-    global _stop, _current
+    global _stop, _current, _paused, _consec_fail
     with _lock:
         _stop = True
         _q.clear()
+        _paused = None
+        _consec_fail = 0
+        _recent_fail.clear()
         # giữ opts_by_job của current để runner còn đọc; dọn pending
         cur = _current
         pending_opts = {k: v for k, v in _opts_by_job.items() if k == cur}
@@ -569,6 +815,8 @@ def _ensure_worker_unlocked() -> None:
     global _thread, _stop
     if _thread and _thread.is_alive():
         return
+    if _paused:       # R7.4: đang tạm dừng vì lỗi liên tiếp → chỉ queue_resume() mới chạy lại
+        return
     _stop = False
     _thread = threading.Thread(
         target=_worker_loop, daemon=True, name="pineline-job-queue"
@@ -582,7 +830,53 @@ def _ensure_worker() -> None:
 
 
 def _worker_loop() -> None:
-    global _current, _stop, _thread
+    """Vòng worker có lưới an toàn (R7.1): lỗi KHÔNG lường trước trong chính vòng lặp (không phải lỗi của job —
+    runner đã tự bắt) được ghi log kèm traceback rồi vòng lặp chạy tiếp, thay vì thread chết để hàng chờ đứng."""
+    global _current, _thread
+    crashes = 0
+    while True:
+        try:
+            _worker_loop_inner()
+            return
+        except Exception:  # noqa: BLE001
+            import traceback
+            crashes += 1
+            print(f"[queue] LỖI trong vòng worker (lần {crashes}) — chạy tiếp sau 2 s:\n{traceback.format_exc()}",
+                  flush=True)
+            with _lock:
+                _current = None
+                if crashes >= 5:      # lỗi lặp lại ngay → dừng hẳn, không quay vòng đốt CPU; xếp job mới sẽ bật lại
+                    _thread = None
+                    print("[queue] vòng worker lỗi 5 lần liên tiếp → DỪNG worker (hàng chờ giữ nguyên)", flush=True)
+                    return
+            time.sleep(2.0)
+
+
+def _park_phase(job_id: str, status: str, detail: str) -> str:
+    """Câu cho UI khi job giữ ghế: chờ gì, tới khi nào."""
+    try:
+        data = json.loads((WORK_ROOT / str(job_id) / "manifest.json").read_text(encoding="utf-8"))
+        ag = data.get("agent") or {}
+    except Exception as e:  # noqa: BLE001
+        print(f"[queue] đọc lý do giữ ghế {job_id}: {e}", flush=True)
+        ag = {}
+    why = str(ag.get("hold_reason") or detail or status or "").strip()
+    at = ag.get("review_retry_at")
+    when = ""
+    try:
+        if at:
+            left = max(0, int(float(at) - time.time()))
+            when = f" · tự thử lại sau ~{max(1, left // 60)} phút" if left >= 60 else " · sắp tự thử lại"
+    except (TypeError, ValueError):
+        when = ""
+    if ag.get("hold_after_translate") or ag.get("qa_blocked") or str(ag.get("held_at") or "") not in (
+            "", "waiting_review", "split_parts"):
+        return f"giữ ghế — CHỜ NGƯỜI DUYỆT: {why} (bấm «Chạy tiếp» ở job, hoặc «Bỏ khỏi hàng chờ» để chạy job khác)"[:200]
+    return f"giữ ghế — {why}{when}"[:200]
+
+
+def _worker_loop_inner() -> None:
+    global _current, _stop, _thread, _consec_fail, _paused
     while True:
         with _lock:
             if _stop:
@@ -602,6 +896,7 @@ def _worker_loop() -> None:
                 except Exception:
                     pass
             _current = job_id
+            _phase.update(job=job_id, text="", ts=time.time())
             # get (không pop): server chết giữa job → _load đưa current lại đầu hàng với đúng opts
             opts = dict(_opts_by_job.get(job_id) or _opts)
             _save()
@@ -631,6 +926,8 @@ def _worker_loop() -> None:
                 _current = job_id
                 _save()
             poll = max(0.5, float(_PARK_POLL_SEC) or 5.0)
+            parked_at = time.time()
+            set_phase(job_id, _park_phase(job_id, status, detail))
             while True:
                 with _lock:
                     if _stop:
@@ -644,23 +941,66 @@ def _worker_loop() -> None:
                         _opts_by_job.pop(job_id, None)
                         _save()
                         break
+                    others = len(_q) > 1
+                # R7.3 (tuỳ chọn, mặc định tắt): HOLD cần NGƯỜI quá lâu mà còn job khác chờ → nhường ghế.
+                # Job giữ nguyên trạng thái HOLD trong manifest; «Chạy tiếp» sẽ xếp nó lại lên ĐẦU hàng.
+                limit = hold_yield_sec()
+                if limit > 0 and others and time.time() - parked_at >= limit and _needs_human(job_id):
+                    with _lock:
+                        if job_id in _q:
+                            _q.remove(job_id)
+                        _opts_by_job.pop(job_id, None)
+                        _current = None
+                        _hist_push(job_id, "sidelined", f"HOLD cần người quá {int(limit)} s — nhường ghế cho job kế")
+                        _save()
+                    _notify(f"Job «{get_job_info(job_id).get('title') or job_id}» đang chờ người duyệt quá "
+                            f"{int(limit // 60) or 1} phút → nhường ghế cho job kế. Bấm «Chạy tiếp» ở job đó khi duyệt xong.")
+                    break
                 if _park_ready(job_id):
                     with _lock:
+                        # R7.2 (fix 2026-11-14): job giữ ghế phải chạy lại TRƯỚC. Trong lúc park, hàng chờ có thể
+                        # bị sắp lại / job khác bị đẩy lên đầu (queue_move, queue_sort, queue_front của «Chạy tiếp»
+                        # job khác) → trước đây vòng kế lấy _q[0] là job KHÁC, phá luật «không nhảy job».
+                        if job_id in _q and _q[0] != job_id:
+                            _q.remove(job_id)
+                            _q.insert(0, job_id)
                         _current = None
                         _save()
                     break
                 time.sleep(poll)
             continue
 
+        trip: dict | None = None
         with _lock:
             _hist_push(job_id, status, detail)
             _current = None
             if job_id not in _q:
                 _opts_by_job.pop(job_id, None)
+            # R7.4: nhiều job failed LIÊN TIẾP = nhiều khả năng lỗi chung (GPU, đĩa, cloud, cấu hình) → tạm dừng
+            # thay vì đánh failed cả hàng chờ trong vài phút. `done` đặt lại; `stopped`/khác không tính.
+            st_l = str(status or "").strip().lower()
+            if st_l == "failed":
+                _consec_fail += 1
+                _recent_fail.append({"job_id": job_id, "detail": str(detail or "")[:200]})
+                del _recent_fail[:-10]
+            elif st_l == "done":
+                _consec_fail = 0
+                _recent_fail.clear()
+            lim = max_consec_fail()
+            if lim > 0 and _consec_fail >= lim and _q and not _stop:
+                trip = {"reason": f"{_consec_fail} job lỗi liên tiếp", "ts": time.time(),
+                        "fails": [dict(x) for x in _recent_fail[-lim:]], "left": len(_q)}
+                _paused = trip
+                _thread = None
             _save()
-            if _stop:
+            if trip is None and _stop:
                 _thread = None
                 return
+        if trip is not None:
+            last = trip["fails"][-1] if trip["fails"] else {}
+            _notify(f"TẠM DỪNG hàng chờ: {trip['reason']} (còn {trip['left']} job chưa chạy). "
+                    f"Lỗi gần nhất: {last.get('detail') or '?'} — xem lỗi rồi bấm «Chạy tiếp hàng chờ».")
+            return
 
 
 # Load persist khi import (server có thể set WORK_ROOT trước — xem Task 2).

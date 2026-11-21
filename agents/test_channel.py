@@ -1405,7 +1405,7 @@ def start_batch_test(names: list[str] | None = None, limit: int = 500, auto_dele
         # Lấy các mùa chưa test trong D:\Lib
         tested = film_db.list_library_blocks()
         candidates = []
-        lib_root = lib_check.LIB_ROOT
+        lib_root = lib_check.lib_root()
         if lib_root.is_dir():
             for f in sorted(lib_root.iterdir(), key=lambda x: x.stat().st_mtime if x.exists() else 0, reverse=True):
                 if f.is_dir():

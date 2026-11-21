@@ -14,7 +14,7 @@ Luồng cũ (`run_translate` → `run_review` → cổng vá) có ~6 cơ chế c
 ## 2. Luồng 6 bước
 
 ```
-asr.json ─► (2) stage_draft:  Plan (cloud, build_plan / glossary.json có sẵn) ∥ NMT nháp (GPU, mt_zh_vi.draft_rows)
+asr.json ─► (2) stage_draft:  Plan (cloud, build_plan / glossary.json có sẵn)   [2026-11-15: BỎ NMT — xem cuối file]
           ─► (3) stage_review: lô ~30 câu (+ ±4 câu ngữ cảnh chỉ đọc) → 1 gọi/lô:
                  sửa nghĩa + ÁP XƯNG HÔ theo cặp plan + tên/thuật ngữ + thành ngữ + dịch câu trống
                  → mỗi câu {i, vi, spk, to, conf}; câu trả hợp lệ mới rv=1
@@ -184,3 +184,11 @@ Prompt vá (`REPAIR_PROMPT` trong `stage_review.py`) dùng cùng khối plan + m
 - Model thật có trả ĐỦ câu + JSON trọn cho lô 30 không (nếu hay thiếu → hạ `SIMPLE_BATCH`), độ chính xác `spk/to/conf`, tỉ lệ cờ sau vá (ngưỡng hold 3 % có hợp lý không).
 - Điểm golden: `Z:\PinelineV6\scripts\golden_ab.py --variants base,simple --yes` khi V2 rảnh (GPU + GPT).
 - Thời gian/token thật so với luồng cũ; NMT ∥ plan upload trên máy thật (VRAM).
+
+
+## Cập nhật 2026-11-15 — bỏ hẳn NMT
+Quyết định chủ dự án: luồng V6 không dịch thô NMT nữa. `stage_draft.run` chỉ lập plan; mọi câu chưa có vi được gửi
+review với `dich=true` → AI dịch thẳng từ zh theo plan (và ngữ cảnh cả phim với model API — A8). Lý do: với model API
+mạnh, bản nháp không tiết kiệm token output (review vẫn trả mọi câu), tốn GPU/VRAM tranh với ASR/TTS, và nháp «tạm được»
+kéo bản cuối (A/B 2026-11-12: AI cầm lái theo plan → xưng hô ~95 % so với ~30 % khi NMT cầm lái). Các khoá
+`SIMPLE_NMT_WAIT_PLAN`, `SIMPLE_NMT_UNLOAD` hết tác dụng. NMT còn ở luồng `legacy`. Các mục NMT phía trên là lịch sử.

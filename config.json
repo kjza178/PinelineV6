@@ -36,8 +36,6 @@
   "PRONOUN_TITLE_POLICY": "1",
   "REVIEW_PRONOUN_MASK": "1",
   "REVIEW_BACKUP": "aurora_parallel",
-  "FIRERED_ROOT": "Z:/PinelineV2/vendor/FireRedASR2S",
-  "FIRERED_MODELS": "D:/AI_CACHE/firered",
   "AGENT_BRAIN_TG_SEC": "600",
   "AURORA_REVIEW_MODEL": "chatgpt/gpt-6"
 }

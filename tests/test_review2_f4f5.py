@@ -76,7 +76,7 @@ def test_ui_routes_use_localize():
 def test_routes_ui_html_file_localized(clean_env):
     pytest.importorskip("fastapi")
     from http_routes import routes_ui
-    body = routes_ui._html_file("index3.html").body.decode("utf-8")
+    body = routes_ui._html_file("index.html").body.decode("utf-8")
     assert not FOREIGN_URL.search(body)
 
 

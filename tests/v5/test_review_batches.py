@@ -15,8 +15,10 @@ SCRIPTS = sorted((ROOT / "scripts").glob("check_batch*.py"))
 
 @pytest.mark.batches
 @pytest.mark.parametrize("script", SCRIPTS, ids=[p.stem for p in SCRIPTS])
-def test_review_batch(script):
-    env = dict(os.environ, PYTHONIOENCODING="utf-8")
+def test_review_batch(script, tmp_path):
+    # script chạy ở TIẾN TRÌNH RIÊNG → fixture cách ly films.db (tests/conftest.py) không áp dụng; FILM_DB trỏ DB tạm
+    # để không ghi vào data/films.db thật (fix 2026-11-14: migrate cột work_root từng ghi vào DB của repo).
+    env = dict(os.environ, PYTHONIOENCODING="utf-8", FILM_DB=str(tmp_path / "films.db"))
     r = subprocess.run([sys.executable, str(script)], cwd=ROOT, env=env,
                        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
     fails = [ln for ln in r.stdout.splitlines() if "FAIL" in ln and "0 FAIL" not in ln]

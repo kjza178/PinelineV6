@@ -45,68 +45,17 @@ def detect_flow_mode(target: str) -> str:
     return "name"
 
 
-def _find_hongguo_executable() -> tuple[Path | None, Path | None]:
-    """Tìm đường dẫn pythonw.exe và launcher.pyc/app.pyc của Hongguo Downloader."""
-    # 1. Kiểm tra biến môi trường hoặc thư mục AppData chuẩn
-    candidates = [
-        Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Hongguo Downloader",
-        Path(r"C:\Users\MyPC\AppData\Local\Programs\Hongguo Downloader"),
-    ]
-    for d in candidates:
-        if d.is_dir():
-            pyw = d / "python" / "pythonw.exe"
-            launcher = d / "launcher.pyc"
-            if not launcher.exists():
-                launcher = d / "app.pyc"
-            if pyw.is_file() and launcher.is_file():
-                return pyw, launcher
-    return None, None
-
-
 def ensure_hongguo_running(timeout: float = 12.0) -> dict[str, Any]:
-    """Kiểm tra Hongguo Downloader, nếu tắt sẽ tự khởi chạy."""
+    """Hongguo 2: engine RPC tự khởi động khi gọi (agents/hongguo_rpc.ensure). Hongguo 1 (Downloader :8000) đã bỏ."""
+    try:
+        import agents.hongguo_rpc as rpc
+        rpc.ensure()
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "running": False, "error": f"Không bật được Hongguo 2: {e}"}
     p = hg.ping()
     if p.get("ok"):
-        return {"ok": True, "running": True, "message": "Hongguo Downloader đang chạy sẵn sàng.", "base": p.get("base")}
-
-    pyw, launcher = _find_hongguo_executable()
-    if not pyw or not launcher:
-        return {
-            "ok": False,
-            "running": False,
-            "error": "Không tìm thấy thư mục cài đặt Hongguo Downloader (mặc định tại AppData/Local/Programs/Hongguo Downloader).",
-        }
-
-    try:
-        # Khởi chạy ngầm không chặn
-        subprocess.Popen(
-            [str(pyw), str(launcher)],
-            cwd=str(pyw.parent.parent),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            creationflags=getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-    except Exception as e:
-        return {"ok": False, "running": False, "error": f"Lỗi khi khởi chạy Hongguo: {e}"}
-
-    # Chờ ping thành công
-    start = time.time()
-    while time.time() - start < timeout:
-        time.sleep(1.0)
-        p = hg.ping()
-        if p.get("ok"):
-            return {
-                "ok": True,
-                "running": True,
-                "message": "Đã tự động khởi chạy Hongguo Downloader thành công.",
-                "base": p.get("base"),
-            }
-
-    return {
-        "ok": False,
-        "running": False,
-        "error": f"Đã gửi lệnh bật nhưng sau {int(timeout)}s Hongguo Downloader chưa phản hồi :8000.",
-    }
+        return {"ok": True, "running": True, "message": "Hongguo 2 sẵn sàng."}
+    return {"ok": False, "running": False, "error": p.get("error") or "Hongguo 2 chưa phản hồi"}
 
 
 def tool_hg_search(query: str, expand: bool = False, limit: int = 10) -> str:
@@ -116,7 +65,7 @@ def tool_hg_search(query: str, expand: bool = False, limit: int = 10) -> str:
         return json.dumps({"error": "thiếu query tìm kiếm"}, ensure_ascii=False)
 
     try:
-        # Ưu tiên tìm nhanh qua API local :8000 (< 500ms).
+        # Tìm nhanh qua Hongguo 2.
         # Chỉ khi không ra kết quả và user yêu cầu expand mới thử mở rộng web.
         res = hg.search(q, expand=False)
         results = res.get("results") or []

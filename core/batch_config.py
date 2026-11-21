@@ -15,6 +15,16 @@ from core.fileio import atomic_write_text, file_lock
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "work" / "logs" / "batch_config.json"
+_DEFAULT_CONFIG_PATH = CONFIG_PATH
+
+
+def _config_path() -> Path:
+    """Cấu hình batch theo work root của instance đang chạy (fix 2026-11-14: trước cứng ROOT/work → instance `test`
+    ghi đè cấu hình thật, instance `prod` đọc nhầm). CONFIG_PATH bị đặt riêng (test) → giữ."""
+    if CONFIG_PATH != _DEFAULT_CONFIG_PATH:
+        return CONFIG_PATH
+    from core.instance import work_root_now
+    return work_root_now(ROOT / "work") / "logs" / "batch_config.json"
 
 DEFAULTS: dict[str, Any] = {
     "voice": "v5",
@@ -59,7 +69,7 @@ LABELS: dict[str, str] = {
     "tts_engine": "TTS",
     "asr_engine": "ASR",
     "audio_mode": "Âm nền",
-    "voice_vol": "Âm lượng giọng Việt",
+    "voice_vol": "Giọng Trung nền (chỉ demucs_keep)",   # KHÔNG phải giọng Việt — giọng Việt = RENDER_DUB_VOL
     "orig_vol": "Tiếng gốc nền (khi ducking)",
     "translate_mode": "Dịch",
     "review_backup": "REVIEW backup (Aurora parallel)",
@@ -138,17 +148,17 @@ def load() -> dict[str, Any]:
     sẽ xếp job sai giọng/âm nền)."""
     global _last_good
     out = dict(DEFAULTS)
-    if CONFIG_PATH.is_file():
+    if _config_path().is_file():
         err = None
         for _ in range(3):
             try:
-                data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+                data = json.loads(_config_path().read_text(encoding="utf-8"))
                 break
             except Exception as e:  # noqa: BLE001
                 err = e
                 time.sleep(0.1)
         else:
-            print(f"[batch_config] đọc {CONFIG_PATH} lỗi: {err} — dùng bản đọc tốt gần nhất", flush=True)
+            print(f"[batch_config] đọc {_config_path()} lỗi: {err} — dùng bản đọc tốt gần nhất", flush=True)
             return dict(_last_good) if _last_good else out
         for k, v in (data.get("opts") or {}).items():
             if k in DEFAULTS and v is not None:
@@ -187,10 +197,10 @@ def render_kwargs(o: dict[str, Any]) -> dict[str, Any]:
 
 
 def meta() -> dict[str, Any]:
-    if not CONFIG_PATH.is_file():
+    if not _config_path().is_file():
         return {"updated_at": None, "updated_by": None}
     try:
-        data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        data = json.loads(_config_path().read_text(encoding="utf-8"))
         return {"updated_at": data.get("updated_at"), "updated_by": data.get("updated_by")}
     except Exception:  # noqa: BLE001
         return {"updated_at": None, "updated_by": None}
@@ -199,7 +209,7 @@ def meta() -> dict[str, Any]:
 def _write(opts: dict[str, Any], by: str) -> None:
     global _last_good
     atomic_write_text(
-        CONFIG_PATH,
+        _config_path(),
         json.dumps({"opts": opts, "updated_at": _now(), "updated_by": by}, ensure_ascii=False, indent=2),
     )
     _last_good = dict(opts)
@@ -211,7 +221,7 @@ def update(patch: dict[str, Any], by: str = "api") -> dict[str, Any]:
     if unknown:
         raise ValueError(f"Key không hỗ trợ: {', '.join(unknown)}. Hợp lệ: {', '.join(DEFAULTS)}")
     # server (UI) và sidecar (Telegram /set) cùng sửa → đọc-sửa-ghi trong khoá
-    with file_lock(CONFIG_PATH):
+    with file_lock(_config_path()):
         cur = load()
         changed: dict[str, Any] = {}
         for k, v in patch.items():
@@ -226,7 +236,7 @@ def update(patch: dict[str, Any], by: str = "api") -> dict[str, Any]:
 
 
 def reset(by: str = "api") -> dict[str, Any]:
-    with file_lock(CONFIG_PATH):
+    with file_lock(_config_path()):
         _write(dict(DEFAULTS), by)
     return dict(DEFAULTS)
 

@@ -9,6 +9,16 @@ from typing import Any
 from .schema import apply_style_lock_from_genre, empty_glossary_skeleton
 
 
+def _translate_model() -> str | None:
+    """fix 2026-11-15: TRANSLATE_MODEL → LLM_MODEL theo cấu hình (trước chỉ đọc biến môi trường, bỏ qua pineline.config.json)."""
+    try:
+        from core.config import get
+        return get("TRANSLATE_MODEL") or get("LLM_MODEL") or None
+    except Exception as e:  # noqa: BLE001
+        print(f"[context-studio] đọc cấu hình model lỗi: {e}", flush=True)
+        return os.getenv("TRANSLATE_MODEL") or os.getenv("LLM_MODEL") or None
+
+
 def _heuristic_analyze(segments: list[dict]) -> dict[str, Any]:
     """Không cần API — scaffold để xem flow. Heuristic thô."""
     g = empty_glossary_skeleton()
@@ -217,7 +227,7 @@ Trả JSON đúng schema:
 }}"""
     out = chat(
         [{"role": "system", "content": sys_p}, {"role": "user", "content": user}],
-        model=model or os.getenv("TRANSLATE_MODEL") or os.getenv("LLM_MODEL") or None,
+        model=model or _translate_model(),
         temperature=0.15,
         json_mode=True,
         max_tokens=8192,

@@ -5,6 +5,7 @@ Dùng cơ chế park/hold sẵn có của V6:
             `_queue_park_ready` / state.job_state.park_ready chờ tới hạn rồi chạy lại cùng job, không nhả ghế).
   • HOLD  = held_at=simple_gate + hold_after_translate (cần người; agent.qa_override → cho qua),
             hoặc review_failed khi quá QUEUE_REVIEW_RETRY_MAX lượt.
+  • FAIL  = engine báo status «error» (lỗi không phải cloud — R1.3): stage translate = failed, không thử lại.
   • PASS  = gỡ dấu park/hold của simple → đi tiếp cổng TTS cũ (translate_ready_for_tts → Brain → HOLD → QA gate → TTS).
 Ghi manifest DUY NHẤT qua state.job_state.apply_simple_gate (một Manifest.update).
 Port Q6 11-13: câu ZH rác / lượt review câu thiếu / nhận nháp ≤ tolerance xử lý TRONG engine
@@ -49,6 +50,14 @@ class SimpleTranslateGate(Gate):
                    "gate": {"reasons": (st.get("simple") or {}).get("reasons") or []}}
         status = str(res.get("status") or "park")
         why = "; ".join((res.get("gate") or {}).get("reasons") or []) or status
+        if status == "error":
+            # R1.3: lỗi không thử lại được → stage translate = failed (có lý do), KHÔNG park / đếm lượt thử lại.
+            try:
+                js.mark_failed(ctx.work_dir, "translate", why)
+            except Exception as e:  # noqa: BLE001
+                ctx.log(f"[auto] {ctx.job_id}: không ghi được stage failed: {e}")
+            ctx.extra["simple_gate"] = {"status": status, "why": why, "result": "fail"}
+            return GateResult.fail(why)
         out = js.apply_simple_gate(
             ctx.work_dir, status=status, why=why,
             retry_sec=self.retry_sec if self.retry_sec is not None else _retry_sec(),

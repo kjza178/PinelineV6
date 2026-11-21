@@ -7,7 +7,8 @@ state.job_state.apply_simple_gate).
 
   ctx.opts:  target (mặc định «Tiếng Việt»), force (dịch lại từ đầu), rereview (soát lại câu đã rv)
   ctx.extra["simple_result"]: dict trả về của engines.translate_simple.pipeline.run
-             (lỗi không phải Dừng → {"status": "park", "gate": {"reasons": ["lỗi: …"]}} — như V2: park, không fail)
+             lỗi tạm (cloud/mạng) → {"status": "park", …}: hàng chờ tự thử lại;
+             lỗi khác (bug code, file hỏng) → {"status": "error", …}: Gate đánh stage failed ngay (R1.3)
 """
 from __future__ import annotations
 
@@ -24,6 +25,32 @@ def _translate_stage(ctx: Context) -> dict:
         return ((d.get("stages") or {}).get("translate")) or {}
     except Exception:  # noqa: BLE001
         return {}
+
+
+def _is_transient(e: BaseException) -> bool:
+    """Lỗi đáng thử lại: cloud_retry nhận là limit/5xx/timeout, hoặc lỗi mạng/timeout chuẩn."""
+    try:
+        from engines.cloud_retry import classify_cloud_retry
+        if classify_cloud_retry(e):
+            return True
+    except Exception:  # noqa: BLE001 — không phân loại được thì xét theo kiểu lỗi bên dưới
+        pass
+    return isinstance(e, (TimeoutError, ConnectionError))
+
+
+def _save_traceback(ctx: Context, e: BaseException) -> str:
+    """Ghi traceback đầy đủ vào <work_dir>/translate_error.log (nối thêm). Trả tên file ("" nếu không ghi được)."""
+    import time
+    import traceback
+    try:
+        p = ctx.work_dir / "translate_error.log"
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(f"\n===== {time.strftime('%Y-%m-%d %H:%M:%S')} job={ctx.job_id} =====\n")
+            f.write("".join(traceback.format_exception(type(e), e, e.__traceback__)))
+        return p.name
+    except OSError as e2:
+        ctx.log(f"[auto] {ctx.job_id}: không ghi được translate_error.log: {e2}")
+        return ""
 
 
 class TranslateSimple(Stage):
@@ -58,6 +85,18 @@ class TranslateSimple(Stage):
         except Exception as e:  # noqa: BLE001
             if "stopped by user" in str(e).lower() or stop_check():
                 raise Stopped(ctx.job_id) from e
-            ctx.log(f"[auto] {ctx.job_id}: dịch simple lỗi: {e} → park waiting_review")
-            res = {"status": "park", "gate": {"reasons": [f"lỗi: {str(e)[:120]}"]}}
+            if _is_transient(e):
+                # lỗi tạm (cloud 429/5xx/timeout, mạng) → park: hàng chờ tự thử lại (B2)
+                ctx.log(f"[auto] {ctx.job_id}: dịch simple lỗi tạm: {e} → park waiting_review")
+                res = {"status": "park", "gate": {"reasons": [f"lỗi tạm: {str(e)[:120]}"]}}
+            else:
+                # R1.3 (fix 2026-11-14): lỗi KHÔNG phải cloud (bug code, file hỏng…) thử lại cũng vô ích. Trước đây
+                # vẫn park 3 lượt × 5 phút (giữ ghế hàng chờ ~15 phút) rồi mới HOLD, traceback mất. Nay: ghi đủ
+                # traceback ra <job>/translate_error.log và báo «error» → Gate đánh stage failed ngay.
+                tb = _save_traceback(ctx, e)
+                ctx.log(f"[auto] {ctx.job_id}: dịch simple LỖI (không thử lại): {type(e).__name__}: {e}"
+                        + (f" — chi tiết: {tb}" if tb else ""))
+                res = {"status": "error", "error_type": type(e).__name__,
+                       "gate": {"reasons": [f"lỗi {type(e).__name__}: {str(e)[:160]}"
+                                            + (" (xem translate_error.log)" if tb else "")]}}
         ctx.extra[RESULT_KEY] = res if isinstance(res, dict) else {"status": "park"}

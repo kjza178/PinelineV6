@@ -39,14 +39,37 @@ def test_defaults_keep_old_values(cfg):
     cmd = machine.model_start_cmd("gemma4-12b")
     assert cmd[:5] == ["powershell", "-ExecutionPolicy", "Bypass", "-File", str(machine.model_start_script())]
     assert cmd[-1] == "gemma4-12b"
-    assert machine.hongguo_base_url() == "http://127.0.0.1:8000"
+    assert not hasattr(machine, "hongguo_base_url")      # 2026-11-15: Hongguo 1 (:8000) bỏ hẳn
     assert machine.mt_model_dir() == Path(r"E:\models\mt")
     assert machine.library_dir() == Path(r"D:\Lib")
     assert machine.yt_uploader_dir() == Path(r"Z:\yt_uploader")
-    assert machine.cloud_llm_base_url() == "http://192.168.31.247:20128/v1"
-    assert machine.aurora_base_urls() == [
-        "http://127.0.0.1:3377/v1", "http://192.168.31.247:5005/v1", "http://192.168.31.244:5005/v1"]
+    assert machine.cloud_llm_base_url() == ""          # 2026-11-15: V6 bỏ 9router — mặc định tắt (chỉ bật khi cấu hình rõ)
+    assert machine.aurora_base_urls() == ["http://127.0.0.1:3377/v1"]   # 2026-11-17: không còn Aurora LAN dự phòng
     assert machine.flag("AUTO_SWITCH_PRESETS")
+
+
+# ── 2026-11-17: không gọi máy LAN (192.168.x…) làm dự phòng ─────────────────
+def test_lan_urls_skipped_unless_allowed(cfg):
+    assert machine.is_lan_url("http://192.168.1.50:20128/v1") and machine.is_lan_url("http://10.0.0.5:1/v1")
+    assert not machine.is_lan_url("http://127.0.0.1:8083/v1") and not machine.is_lan_url("https://api.deepseek.com")
+    cfg["AURORA_FALLBACK_URLS"] = "http://192.168.1.50:5005/v1,https://aurora.example.com/v1"
+    cfg["CLOUD_LLM_BASE_URL"] = "http://192.168.1.50:20128/v1"
+    assert machine.aurora_base_urls() == ["http://127.0.0.1:3377/v1", "https://aurora.example.com/v1"]
+    assert machine.cloud_llm_base_url() == ""
+    cfg["ALLOW_LAN_LLM"] = "1"
+    assert "http://192.168.1.50:5005/v1" in machine.aurora_base_urls()
+    assert machine.cloud_llm_base_url() == ""          # 2026-11-21: 9router bỏ hoàn toàn (kể cả ALLOW_LAN_LLM=1)
+
+
+def test_llm_settings_lan_base_falls_back_local(monkeypatch):
+    from core import config as C
+    data = {"LLM_BASE_URL": "http://192.168.1.50:20128/v1", "AGENT_BASE_URL": ""}
+    monkeypatch.setattr(C, "get", lambda k, d=None: data.get(k) or d)
+    monkeypatch.setattr(machine._config, "get", lambda k, d=None: data.get(k) or d)
+    assert C.llm_settings()["base"] == "http://127.0.0.1:8083/v1"
+    assert C.agent_llm()["base"] == "http://127.0.0.1:8083/v1"
+    data["ALLOW_LAN_LLM"] = "1"
+    assert C.llm_settings()["base"] == "http://127.0.0.1:8083/v1"     # 2026-11-21: LLM_BASE_URL không còn đọc
 
 
 def test_in_library_matches_old_rule(cfg):
@@ -57,21 +80,28 @@ def test_in_library_matches_old_rule(cfg):
     assert machine.in_library("F:/Kho/x.mp4") and not machine.in_library(r"D:\Lib\x.mp4")
 
 
-# ── llama host/port suy từ LLM_BASE_URL ─────────────────────────────────────
-def test_llama_from_local_llm_base_url(cfg):
+# ── llama host/port: chỉ LLAMA_BASE_URL (2026-11-21: LLM_BASE_URL bỏ) ───────────────
+def test_llama_from_llama_base_url_only(cfg):
     cfg["LLM_BASE_URL"] = "http://localhost:9090/v1"
+    assert machine.llama_base_url() == "http://127.0.0.1:8083/v1"
+    cfg["LLAMA_BASE_URL"] = "http://localhost:9090/v1"
     assert machine.llama_base_url() == "http://localhost:9090/v1"
     assert machine.llama_host_port() == ("localhost", 9090)
 
 
 def test_llama_ignores_remote_llm_base_url(cfg):
     """LLM_BASE_URL trỏ 9router/LAN → không phải llama local → giữ :8083 cũ."""
-    cfg["LLM_BASE_URL"] = "http://192.168.31.247:20128/v1"
+    cfg["LLM_BASE_URL"] = "http://192.168.1.50:20128/v1"
     assert machine.llama_host_port() == ("127.0.0.1", 8083)
 
 
 def test_llama_base_url_explicit_wins_and_adds_v1(cfg):
     cfg["LLM_BASE_URL"] = "http://127.0.0.1:9090/v1"
+    cfg["LLAMA_BASE_URL"] = "http://10.0.0.5:8183"
+    assert machine.llama_base_url() == "http://127.0.0.1:8083/v1"        # LAN bỏ → mặc định (LLM_BASE_URL không đọc)
+    cfg["LLAMA_BASE_URL"] = "http://localhost:8183"
+    assert machine.llama_base_url() == "http://localhost:8183/v1"
+    cfg["ALLOW_LAN_LLM"] = "1"
     cfg["LLAMA_BASE_URL"] = "http://10.0.0.5:8183"
     assert machine.llama_base_url() == "http://10.0.0.5:8183/v1"
     assert machine.llama_host_port() == ("10.0.0.5", 8183)
@@ -102,6 +132,8 @@ def test_custom_start_cmd_template(cfg, tmp_path):
 def test_aurora_fallback_off_and_hint(cfg):
     cfg["AURORA_FALLBACK_URLS"] = "off"
     cfg["CHATGPT_BASE_URL"] = "http://10.0.0.9:3377/v1"
+    assert machine.aurora_base_urls() == ["http://127.0.0.1:3377/v1"]          # 2026-11-19: LAN bỏ cả URL chính
+    cfg["ALLOW_LAN_LLM"] = "1"
     assert machine.aurora_base_urls() == ["http://10.0.0.9:3377/v1", "http://127.0.0.1:3377/v1"]
     cfg["PLAN_MODEL"] = "chatgpt/gpt-5-6-mini"
     hint = machine.aurora_missing_hint()
@@ -122,7 +154,7 @@ def ps(monkeypatch, cfg):
 
 
 def test_preset_switcher_base_from_config(ps, cfg):
-    cfg["LLM_BASE_URL"] = "http://127.0.0.1:9191/v1"
+    cfg["LLAMA_BASE_URL"] = "http://127.0.0.1:9191/v1"
     assert ps._base() == "http://127.0.0.1:9191"
 
 
@@ -174,3 +206,20 @@ def test_doctor_offline_runs():
             for k, v in data.items():
                 if any(s in k.upper() for s in ("KEY", "TOKEN", "SECRET")) and isinstance(v, str) and len(v) > 8:
                     assert v not in r.stdout, k
+
+
+# ── 2026-11-19 portable: FIRERED_ROOT/FIRERED_MODELS trỏ máy khác (Z:/PinelineV2…) → bản vendor trong cây ──
+def test_firered_foreign_root_falls_back_to_vendor(cfg, tmp_path, monkeypatch):
+    monkeypatch.delenv("FIRERED_ROOT", raising=False)
+    monkeypatch.delenv("FIRERED_MODELS", raising=False)
+    vendor = ROOT / "vendor" / "FireRedASR2S"
+    cfg["FIRERED_ROOT"] = str(tmp_path / "khong_co" / "FireRedASR2S")
+    cfg["FIRERED_MODELS"] = str(tmp_path / "khong_co_models")
+    root, models = machine.firered_paths()
+    assert root == vendor
+    if (vendor / "pretrained_models").is_dir():
+        assert models == vendor / "pretrained_models"
+    real = tmp_path / "models_that"
+    real.mkdir()
+    cfg["FIRERED_MODELS"] = str(real)
+    assert machine.firered_paths() == (vendor, real)

@@ -1,8 +1,9 @@
 """
-llm.py — Gọi LLM qua 9router API (tương thích chuẩn OpenAI).
+llm.py — Gọi LLM. Đường đi theo tiền tố model: deepseek/… alibaba/… (engines/providers), chatgpt/… aurora/… (Aurora),
+local/… (Ollama), llama/… hoặc "local" (llama-server :8083). V6 không còn dùng 9router.
 
 Cấu hình qua config.json / pineline.config.json (LLM_* / TRANSLATE_MODEL / REVIEW_MODEL: file config thắng env):
-    LLM_BASE_URL   mặc định http://192.168.31.247:20128/v1
+    LLM_BASE_URL   mặc định http://127.0.0.1:8083/v1 (llama-server local)
     LLM_API_KEY    (chỉ đặt trong pineline.config.json — không ghi key vào code/.bat)
     LLM_MODEL      ollama/gemma4:31b-cloud
     TRANSLATE_MODEL ollama/gemma4:31b-cloud
@@ -41,13 +42,32 @@ try:
 except Exception:  # noqa: BLE001
     pass
 
-BASE_URL = os.getenv("LLM_BASE_URL", "http://192.168.31.247:20128/v1").rstrip("/")
-API_KEY = os.getenv("LLM_API_KEY", "")
-MODEL = os.getenv("LLM_MODEL", "ollama/gemma4:31b-cloud")
+BASE_URL = "http://127.0.0.1:8083/v1"   # 2026-11-21: chỉ còn AI trên máy (LLAMA_BASE_URL); LLM_BASE_URL (9router) bỏ
+API_KEY = "sk-local"
+MODEL = "local"
 
 # LLM LOCAL:
 # 1. Ollama :11434 (tiền tố "local/")
-LOCAL_BASE_URL = os.getenv("LOCAL_LLM_BASE_URL", "http://127.0.0.1:11434/v1").rstrip("/")
+LOCAL_BASE_URL = os.getenv("LOCAL_LLM_BASE_URL", "http://127.0.0.1:11434/v1").rstrip("/")   # giá trị lúc import (tương thích)
+
+
+def _ollama_base() -> str:
+    """Ollama LÚC GỌI: Cài đặt → AI dịch → AI trên máy (OLLAMA_BASE_URL) > env LOCAL_LLM_BASE_URL > :11434 (core/local_ai)."""
+    try:
+        from core import local_ai
+        return _machine.no_lan("OLLAMA_BASE_URL", local_ai.value("ollama_url"), "http://127.0.0.1:11434/v1")
+    except Exception as e:  # noqa: BLE001
+        print(f"[llm] đọc địa chỉ Ollama lỗi: {e} → {LOCAL_BASE_URL}", flush=True)
+        return LOCAL_BASE_URL
+
+
+def _thinking() -> bool:
+    try:
+        from core import local_ai
+        return bool(local_ai.value("thinking"))
+    except Exception as e:  # noqa: BLE001
+        print(f"[llm] đọc LLM_ENABLE_THINKING lỗi: {e}", flush=True)
+        return (os.getenv("LLM_ENABLE_THINKING") or "").strip() in ("1", "true", "yes")
 LOCAL_PREFIX = "local/"
 
 # 2. llama-server :8083 (OpenAI-compatible siêu tốc GGUF)
@@ -98,7 +118,7 @@ def get_llama_models(llama_base: str | None = None) -> list[str]:
 
 def get_ollama_models(ollama_base: str | None = None) -> list[str]:
     """Lấy danh sách model trên Ollama (:11434)."""
-    base = (ollama_base or LOCAL_BASE_URL).rstrip("/")
+    base = (ollama_base or _ollama_base()).rstrip("/")
     api_url = f"{base[:-3]}/api/tags" if base.endswith("/v1") else f"{base}/api/tags"
     try:
         r = requests.get(api_url, timeout=2)
@@ -144,7 +164,18 @@ def list_available_models() -> dict:
                 "label": f"{om} (Ollama)",
                 "source": "ollama",
             })
-    # 3. Model config
+    # 3. Nhà cung cấp API (engines/providers) — chỉ nhà đã có key, tên lấy lần gần nhất từ GET /models
+    #    (không gọi mạng ở đây; danh sách nạp bằng nút «Lấy danh sách model» trong Cài đặt AI)
+    try:
+        from engines import providers as _providers
+        for p in _providers.all_providers():
+            if not p.configured():
+                continue
+            for pm in _providers.cached_models(p)[1]:
+                out.append({"id": f"{p.name}/{pm}", "label": f"{pm} ({p.label})", "source": p.name})
+    except Exception as e:  # noqa: BLE001
+        print(f"[llm] liệt kê model nhà cung cấp lỗi: {e}", flush=True)
+    # 4. Model config
     if def_model and not any(x["id"] == def_model for x in out):
         out.append({
             "id": def_model,
@@ -554,7 +585,8 @@ def _ollama_num_ctx() -> int:
     VRAM, Ollama offload ~nửa model sang CPU -> CPU 100% + chậm/timeout.
     Dịch lô chỉ cần ~4–8k token. Env LLM_NUM_CTX để chỉnh."""
     try:
-        return max(2048, int(os.getenv("LLM_NUM_CTX") or "8192"))
+        from core import local_ai
+        return max(2048, int(local_ai.value("num_ctx")))
     except ValueError:
         return 8192
 
@@ -563,7 +595,8 @@ def _ollama_chat(model, messages, temperature, max_tokens, json_mode, retries, t
     """Gọi Ollama qua endpoint GỐC /api/chat + TẮT thinking (think=False).
     LÝ DO: gemma4/qwen3... bật 'thinking' -> ngốn hết token cho phần suy nghĩ ->
     content JSON RỖNG (nhất là lô lớn). Endpoint OpenAI KHÔNG nhận 'think' nên phải native."""
-    base = LOCAL_BASE_URL[:-3] if LOCAL_BASE_URL.endswith("/v1") else LOCAL_BASE_URL
+    ob = _ollama_base()
+    base = ob[:-3] if ob.endswith("/v1") else ob
     url = f"{base}/api/chat"
     num_ctx = _ollama_num_ctx()
     # num_predict: trần sinh. 16384 trên lô lớn + ctx 128k = hàng phút/lô.
@@ -632,6 +665,13 @@ def chat(
     base, key, default_model = _settings()
     llama_base = _llama_base()
     m = (model or default_model or "").strip()
+    # Nhà cung cấp API riêng (engines/providers): deepseek/…, alibaba/… (qwen/…) — mỗi nhà một module.
+    from engines import providers as _providers
+    hit = _providers.resolve(m)
+    if hit is not None:
+        prov, bare = hit
+        return _providers.chat_text(prov, bare, messages, temperature=temperature, max_tokens=max_tokens,
+                                    json_mode=json_mode, retries=retries, timeout=timeout)
     if is_local(m):
         m = m[len(LOCAL_PREFIX):]
         ensure_ollama_model(m)                    # chưa pull -> tự pull (lần đầu)
@@ -660,24 +700,15 @@ def chat(
     is_llama = False
     is_cloud = False
 
-    # ollama/*-cloud (vd gemma4:31b-cloud) → 9router, KHÔNG nuốt vào :8083 dù LLM_BASE=local
+    # 2026-11-21: ollama/*-cloud (9router) bỏ hoàn toàn — chỉ còn nhà cung cấp / Aurora / AI trên máy.
     ml = m.lower()
     if ml.startswith("ollama/") or "-cloud" in ml or ml.endswith(":cloud"):
-        is_cloud = True
-        cloud_base = (_cfg_get("CLOUD_LLM_BASE_URL") or "").strip().rstrip("/")
-        cloud_key = (_cfg_get("CLOUD_LLM_API_KEY") or "").strip()
-        if not cloud_base:
-            cloud_base = _machine.cloud_llm_base_url()
-        if not cloud_key or cloud_key == "sk-local":
-            # fallback: LLM_* nếu đang trỏ 9router
-            if "20128" in (base or "") and key and key != "sk-local":
-                cloud_base, cloud_key = base, key
-            else:
-                raise LLMUnavailable(
-                    "REVIEW/cloud model cần CLOUD_LLM_API_KEY (9router) trong pineline.config.json"
-                )
-        target_base, target_key = cloud_base, cloud_key
-        print(f"[llm] cloud {m} via {target_base}", flush=True)
+        raise LLMUnavailable(
+            f"Model «{m}» cần router cloud (9router) — V6 không dùng. Chọn nhà cung cấp (deepseek/…, alibaba/…), "
+            "Aurora (chatgpt/…) hoặc AI trên máy (local) trong Cài đặt → AI."
+        )
+    target_base, target_key = llama_base, "sk-local"
+    is_cloud = False
 
     llama_active = get_llama_models(llama_base)
 
@@ -718,7 +749,7 @@ def chat(
     headers = {"Authorization": f"Bearer {target_key}", "Content-Type": "application/json"}
     # Gemma4/Qwen3 trên llama-server hay đốt hết max_tokens vào reasoning_content
     # -> content rỗng. Tắt thinking mặc định (có thể bật lại: LLM_ENABLE_THINKING=1).
-    enable_think = (os.getenv("LLM_ENABLE_THINKING") or "").strip() in ("1", "true", "yes")
+    enable_think = _thinking()
     payload: dict = {
         "model": m,
         "messages": messages,
@@ -794,7 +825,7 @@ def chat_with_meta(
     key = key or ("sk-local" if _is_loopback_base(base) else "")
     if not key:
         raise RuntimeError("Chưa set LLM_API_KEY")
-    enable_think = (os.getenv("LLM_ENABLE_THINKING") or "").strip() in ("1", "true", "yes")
+    enable_think = _thinking()
     payload = {
         "model": m[len(LOCAL_PREFIX):] if is_local(m) else m,
         "messages": messages,

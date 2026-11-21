@@ -556,7 +556,7 @@ Nguồn: grep `_cfg_get(`/`_cfg(`/`os.getenv(`/`config.get` trong các file dị
 
 | Key | Mặc định code | Prod | Đề xuất |
 |---|---|---|---|
-| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | `http://192.168.31.247:20128/v1`, "", `ollama/gemma4:31b-cloud` | như mặc định | Gom vào `providers.default`; bỏ URL LAN cứng trong code (V6 đã qua `core.machine`) |
+| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | `LAN-cũ`, "", `ollama/gemma4:31b-cloud` | như mặc định | Gom vào `providers.default`; bỏ URL LAN cứng trong code (V6 đã qua `core.machine`) |
 | `LOCAL_LLM_BASE_URL` | `http://127.0.0.1:11434/v1` | — | `providers.ollama` |
 | `LLAMA_BASE_URL` | `:8083/v1` | — | `providers.llama` (V6: `core.machine`) |
 | `CLOUD_LLM_BASE_URL`, `CLOUD_LLM_API_KEY` | (fallback 9router cứng) | đặt | `providers.cloud` |

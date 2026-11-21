@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lồng Tiếng Studio</title>
+<title>Pineline V2 · Agent</title>
 <style>
   /* ===== Pineline · Calm — dark-first tối giản (Linear/Vercel-vibe) ===== */
   :root{
@@ -31,16 +31,8 @@
     grid-template-columns:var(--c1,210px) 6px var(--c2,336px) 6px minmax(0,1fr);
     flex:1 1 52%;min-height:200px;min-width:0;overflow:hidden;
   }
-  /* Khung thêm link: CHỈ hiện khi .app.compose-on (bấm + Thêm link) */
-  .compose{
-    display:none;flex-direction:column;
-    flex:0 0 0;min-height:0;max-height:0;opacity:0;pointer-events:none;
-    overflow:hidden;border:0;width:100%;padding:0;margin:0;background:var(--bg);
-  }
-  .app.compose-on .compose{
-    display:flex;flex:1 1 48%;min-height:180px;max-height:none;
-    opacity:1;pointer-events:auto;overflow:hidden;
-  }
+  .compose{display:none;flex-direction:column;flex:0 0 0;min-height:0;max-height:0;opacity:0;pointer-events:none;overflow:hidden;border:0;width:100%;padding:0;margin:0;background:var(--bg)}
+  .app.compose-on .compose{display:flex;flex:1 1 48%;min-height:180px;max-height:none;opacity:1;pointer-events:auto;overflow:hidden}
   .app.compose-on .workbench{flex:1 1 52%;min-height:200px}
   .app:not(.compose-on) .workbench{flex:1 1 auto;min-height:0}
 
@@ -53,14 +45,18 @@
   /* sidebar */
   .side{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 12px;min-height:0;overflow:hidden}
   .brand{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:600;padding:4px 6px 15px}
-  .brand i{width:20px;height:20px;border-radius:6px;background:linear-gradient(140deg,var(--accent),#a86f1c);color:#231a08;font-weight:800;font-size:11px;display:grid;place-items:center;font-style:normal}
+  .brand i{width:20px;height:20px;border-radius:6px;background:linear-gradient(140deg,#5b9cf5,#2a5fad);color:#061018;font-weight:800;font-size:11px;display:grid;place-items:center;font-style:normal}
   .side-add{width:100%;background:var(--accent);border:0;border-radius:9px;padding:9px;color:#231a08;font-weight:650;cursor:pointer;font-size:12.5px;margin-bottom:12px;font-family:inherit}
   .side-add:hover{filter:brightness(1.07)}
   .app.compose-on .side-add{display:none}
   .side-hg{display:block;width:100%;text-align:center;border:1px solid var(--line2);border-radius:9px;padding:8px;color:var(--text2);font-size:12px;font-weight:600;margin-bottom:12px;text-decoration:none}
   .side-hg:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
 
-  /* (compose styles gộp ở khối trên) */
+  /* Thêm link — full vùng trên (display/pointer do .compose / .compose-on phía trên) */
+  .compose{
+    flex-direction:column;
+    padding:0;margin:0;background:var(--bg);
+  }
   .new-box{
     display:flex;flex-direction:column;
     width:100%;height:100%;min-height:0;flex:1;
@@ -72,13 +68,13 @@
   .new-h .nc{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
   .new-h .nc.on{color:var(--accent)}
   .new-h .nh-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
-  .new-h .btn-queue{
-    display:none;align-items:center;gap:6px;
-    background:var(--panel);border:1px solid var(--line2);border-radius:8px;
-    padding:6px 12px;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;
+  .new-h .btn-queue, .new-h .btn-close-compose{
+    display:none;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;
+    border:1px solid var(--line2);background:var(--raise);color:var(--text2);
+    font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;
   }
-  .new-h .btn-queue:hover{border-color:var(--accent);color:var(--accent)}
-  .app.compose-on .new-h .btn-queue{display:inline-flex}
+  .new-h .btn-queue:hover, .new-h .btn-close-compose:hover{border-color:var(--accent);color:var(--accent)}
+  .app.compose-on .new-h .btn-queue, .app.compose-on .new-h .btn-close-compose{display:inline-flex}
   .new-box textarea{
     flex:1 1 auto;min-height:80px;width:100%;height:100%;
     resize:none;line-height:1.55;border:0;border-radius:0;
@@ -101,6 +97,45 @@
   .new-local .nl-sub{font-size:12px;color:var(--muted)}
   .new-local-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
   .new-local-row input[type=text], .new-local-row #local-path, .new-local-row textarea#local-path{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--fg);font:inherit;font-size:12.5px}
+  .folder-pick{border:1px solid var(--line);border-radius:12px;background:var(--raise);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+  .folder-pick .fp-title{font-size:14px;font-weight:650;color:var(--text)}
+  .folder-pick .fp-sub{font-size:12px;color:var(--muted);line-height:1.45}
+  .folder-pick .fp-main{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .folder-pick .fp-main .btn.big{
+    background:var(--accent);border:0;border-radius:10px;padding:12px 18px;color:#231a08;
+    font-weight:700;font-size:14px;cursor:pointer;font-family:inherit
+  }
+  .folder-pick .fp-main .btn.big:hover{filter:brightness(1.06)}
+  .folder-pick .fp-main .btn.big:disabled{opacity:.55;cursor:wait}
+  .folder-pick .fp-sel{
+    min-height:72px;max-height:200px;overflow:auto;border:1px dashed var(--line2);
+    border-radius:10px;background:var(--bg);padding:8px 10px
+  }
+  .folder-pick .fp-sel.empty{display:grid;place-items:center;color:var(--muted);font-size:12.5px}
+  .folder-pick .fp-chip{
+    display:inline-flex;align-items:center;gap:6px;margin:3px 4px 3px 0;padding:5px 10px;
+    border-radius:999px;background:var(--accent-dim);border:1px solid var(--accent-line);
+    font-size:12px;max-width:100%
+  }
+  .folder-pick .fp-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
+  .folder-pick .fp-chip button{
+    border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0 2px
+  }
+  .folder-pick .fp-chip button:hover{color:var(--err)}
+  .folder-pick .fp-foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .folder-pick .fp-foot .btn.pri{
+    background:var(--accent);border:0;border-radius:9px;padding:9px 14px;color:#231a08;
+    font-weight:700;cursor:pointer;font-family:inherit;font-size:13px
+  }
+  .folder-pick .fp-foot .btn.pri:disabled{opacity:.45;cursor:not-allowed}
+  .folder-pick .fp-meta{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .folder-pick details.fp-more{font-size:12px;color:var(--muted)}
+  .folder-pick details.fp-more summary{cursor:pointer;user-select:none}
+  .folder-pick details.fp-more .fp-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+  .folder-pick details.fp-more input[type=text]{
+    flex:1;min-width:160px;background:var(--bg);border:1px solid var(--line);border-radius:8px;
+    padding:7px 10px;color:var(--text);font:inherit
+  }
 
   .ckbox{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;padding:7px 10px;background:var(--panel);border:1px solid var(--line);border-radius:9px;font-size:11.5px;color:var(--muted)}
   .ckbox .cst{display:flex;align-items:center;gap:6px;min-width:0}
@@ -142,10 +177,6 @@
   .jstart,.jdel{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:11px;padding:2px 4px;border-radius:6px;opacity:0}
   .jrow:hover .jstart,.jrow:hover .jdel{opacity:.7}
   .jstart:hover{color:var(--ok);opacity:1} .jdel:hover{color:var(--err);opacity:1}
-  .jmove-box{display:inline-flex;align-items:center;gap:1px;margin:0 2px;flex:none;opacity:0.4;transition:opacity .15s}
-  .jrow:hover .jmove-box{opacity:1}
-  .jmove-btn{border:0;background:transparent;color:var(--text2);cursor:pointer;font-size:11px;padding:1px 2px;border-radius:4px;line-height:1;transition:transform .1s, color .1s}
-  .jmove-btn:hover{color:var(--accent);transform:scale(1.25);background:var(--accent-dim)}
   /* nhóm nhiều phần (multi-P / playlist) */
   .jgroup{border:1px solid var(--line);border-radius:9px;margin:2px 0 6px;overflow:hidden}
   .jgroup.run{border-color:var(--accent-line)}
@@ -166,10 +197,39 @@
   .jgacts button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:10px;padding:1px 4px;border-radius:5px;opacity:0;font-family:inherit}
   .jghead:hover .jgacts button{opacity:.9}
   .jgacts button:hover{color:var(--accent)}
-  .qbar{display:flex;gap:4px;flex-wrap:wrap;align-items:center;padding:2px 0 8px;position:sticky;top:0;background:var(--side);z-index:2}
+  .jgacts button.jg-run{color:var(--ok);font-weight:700}
+  .jgacts button.jg-sort{color:var(--accent);font-weight:600}
+  .jmove-box{display:inline-flex;align-items:center;gap:1px;margin:0 2px;flex:none;opacity:0.4;transition:opacity .15s}
+  .jrow:hover .jmove-box{opacity:1}
+  .jmove-btn{border:0;background:transparent;color:var(--text2);cursor:pointer;font-size:11px;padding:1px 2px;border-radius:4px;line-height:1;transition:transform .1s, color .1s}
+  .jmove-btn:hover{color:var(--accent);transform:scale(1.25);background:var(--accent-dim)}
+  .qbar{display:flex;gap:4px;flex-wrap:wrap;align-items:center;padding:2px 0 8px;position:sticky;top:0;background:var(--side);z-index:10}
   .qbar .btn{font-size:10.5px;padding:4px 7px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--text2);cursor:pointer;font-family:inherit}
   .qbar .btn:hover{border-color:var(--accent);color:var(--accent)}
   .qbar .qhint{font-size:10px;color:var(--muted)}
+  .qbar #queue-status:hover{color:var(--accent);text-decoration:underline}
+
+  /* Queue Manager Modal */
+  .qm-dlg{width:min(860px,94vw);max-height:88vh;background:var(--side);border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.6);overflow:hidden;display:flex;flex-direction:column}
+  .qm-cur-box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+  .qm-cur-head{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600}
+  .qm-cur-title{font-size:13.5px;font-weight:650;color:var(--text);display:flex;align-items:center;gap:8px}
+  .qm-pbar{height:6px;background:var(--line2);border-radius:3px;overflow:hidden;width:100%}
+  .qm-pbar-fill{height:100%;background:var(--accent);transition:width .3s}
+  .qm-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 0 8px}
+  .qm-toolbar .btn{font-size:11.5px;padding:5px 10px;border-radius:7px}
+  .qm-table-wrap{overflow-y:auto;max-height:420px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+  .qm-table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .qm-table th{background:var(--panel);color:var(--muted);font-weight:600;font-size:11px;padding:8px 10px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--line)}
+  .qm-table td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .qm-table tr:hover{background:var(--raise)}
+  .qm-badge{display:inline-block;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700;line-height:1.2}
+  .qm-badge.p-badge{background:#153d5a;color:#74c0fc;border:1px solid #1f5f8a}
+  .qm-badge.cur{background:#153d22;color:#63e6be;border:1px solid #1f6f40}
+  .qm-actions{display:flex;align-items:center;gap:4px}
+  .qm-actions button{background:var(--panel);border:1px solid var(--line);color:var(--text2);border-radius:5px;padding:3px 6px;cursor:pointer;font-size:11px;transition:all .15s}
+  .qm-actions button:hover{background:var(--raise);border-color:var(--accent);color:var(--accent)}
+  .qm-actions button.del:hover{border-color:var(--err);color:var(--err)}
   .side-foot{margin-top:auto;font-size:10.5px;color:var(--muted);padding:12px 6px 2px;border-top:1px solid var(--line);display:flex;align-items:center;gap:7px}
   .side-foot .dg{width:6px;height:6px;border-radius:50%;background:var(--accent)}
 
@@ -306,15 +366,27 @@
   .spin{display:inline-block;animation:sp 1s linear infinite}
 </style>
 </head>
-<body>
+<body data-ui="shell3">
 <div class="app">
-  <section class="compose" id="compose" hidden aria-hidden="true">
+
+  <div class="ui-switch" style="display:flex;align-items:center;gap:10px;padding:7px 14px;background:linear-gradient(90deg,rgba(120,196,122,.12),transparent);border-bottom:1px solid var(--line);font-size:12px;color:var(--text2);flex:none">
+    <b style="color:var(--ok)">Pineline V6</b> · Agent nhúng
+    <span style="flex:1"></span>
+    <a href="/v6/" style="padding:3px 10px;border-radius:999px;background:var(--accent);color:#1a1405;border-color:transparent;font-weight:650;text-decoration:none" title="Về giao diện chính (app desktop)">← Giao diện mới</a>
+    <a href="/studio" style="padding:3px 10px;border-radius:999px;background:var(--ok);color:#0c1a0c;border-color:transparent;font-weight:650;text-decoration:none">UI3</a>
+    <a href="/hongguo2" style="padding:3px 10px;border-radius:999px;border:1px solid var(--line2);color:var(--text2);text-decoration:none">HG</a>
+    <a href="/films/ui" style="padding:3px 10px;border-radius:999px;border:1px solid var(--accent-line);color:var(--accent);text-decoration:none;font-weight:650" title="Films UI · Mùa mới">🎬 Phim</a>
+    <button type="button" id="btn-agent" onclick="toggleAgent()" title="Pineline V2 Agent" style="padding:3px 10px;border-radius:999px;border:1px solid var(--accent-line);background:var(--accent-dim);color:var(--accent);font-weight:650;cursor:pointer;font-family:inherit;font-size:12px">Agent</button>
+  </div>
+
+  <section class="compose" id="compose">
     <div class="new-box">
       <div class="new-h">
         <span class="nl">Thêm video</span>
         <div class="nh-actions">
           <span class="nc" id="url-count">0 link</span>
-          <button type="button" class="btn-queue" id="btn-queue" onclick="openQueue()">← Hàng chờ</button>
+          <button type="button" class="btn-queue" id="btn-queue" onclick="openQueue()">Hàng chờ</button>
+          <button type="button" class="btn-close-compose" id="btn-close-compose" onclick="closeCompose()" title="Thu gọn / Đóng khung thêm video">✕ Đóng</button>
         </div>
       </div>
       <textarea id="url" spellcheck="false"
@@ -330,15 +402,36 @@
         </div>
         <div class="new-hint">Ctrl+Enter để thêm · playlist tự tách thành nhóm</div>
         <div class="new-local">
-          <div class="nl-sub">Hoặc video ngoài <b>không cần link</b></div>
+          <div class="nl-sub">Video local — không cần link</div>
+          <div class="folder-pick" id="folder-pick">
+            <div class="fp-title">Import series từ ổ đĩa</div>
+            <div class="fp-sub">Một lần chọn nhiều folder (Ctrl / Shift). Ví dụ trong <b>D:\Lib</b>: 第一季…第四季.</div>
+            <div class="fp-main">
+              <button type="button" class="btn big" id="fp-pick-btn" onclick="pickMultiFolders()">📂 Chọn nhiều folder…</button>
+              <span class="fp-meta" id="fp-st"></span>
+            </div>
+            <div class="fp-sel empty" id="fp-sel">Chưa chọn folder nào</div>
+            <div class="fp-foot">
+              <button type="button" class="btn pri" id="fp-add-btn" onclick="addSelectedFolders()" disabled>+ Thêm vào hàng chờ</button>
+              <button type="button" class="btn" onclick="fpClearSel()">Xóa lựa chọn</button>
+              <span class="fp-meta" id="fp-count"></span>
+            </div>
+            <details class="fp-more">
+              <summary>Tuỳ chọn thêm</summary>
+              <div class="fp-row">
+                <input type="text" id="fp-root" value="D:\Lib" placeholder="Thư mục gốc mặc định" spellcheck="false">
+                <label class="amuted"><input type="checkbox" id="local-move"> move file</label>
+                <label class="amuted"><input type="checkbox" id="local-recursive" checked> recursive</label>
+              </div>
+            </details>
+          </div>
           <div class="new-local-row">
             <input type="file" id="local-file" accept="video/*,.mp4,.mkv,.webm,.mov" multiple onchange="addLocalFile(this)">
             <span class="amuted" id="local-up-st"></span>
           </div>
           <div class="new-local-row">
-            <textarea id="local-path" rows="3" placeholder="Path (1 dòng / 1 file)&#10;D:\video\a.mp4&#10;D:\video\b.mkv" style="flex:1;min-width:180px;resize:vertical"></textarea>
-            <button type="button" class="btn" id="add-local" onclick="addLocalPath()">+ Thêm file local</button>
-            <label class="amuted"><input type="checkbox" id="local-move"> move</label>
+            <textarea id="local-path" rows="2" placeholder="Hoặc dán path thủ công (1 dòng / 1 path)" style="flex:1;min-width:180px;resize:vertical"></textarea>
+            <button type="button" class="btn" id="add-local" onclick="addLocalPath()">+ Path</button>
           </div>
         </div>
       </div>
@@ -346,15 +439,15 @@
   </section>
   <div class="workbench">
     <aside class="side">
-      <div class="brand"><i>P</i> Lồng Tiếng Studio</div>
-      <button type="button" class="side-add" onclick="showCompose()">+ Thêm link</button>
+      <div class="brand"><i>V2</i> Pineline V2</div>
+      <button type="button" class="side-add" onclick="showCompose()">+ Thêm video</button>
       <div class="side-row2">
-        <a class="side-hg" href="/hongguo">Hongguo</a>
-        <a class="side-hg" href="http://127.0.0.1:8802/films/ui?tab=seasons" title="Films UI · tab Mùa mới" style="border-color:var(--accent);color:var(--accent)">🎬 Phim</a>
+        <a class="side-hg" href="/hongguo2">Hongguo</a>
+        <a class="side-hg" href="/films/ui" title="Trang Phim" style="border-color:var(--accent);color:var(--accent)">🎬 Phim</a>
         <button type="button" class="btn" title="Enqueue merge mọi series Hongguo chưa DONE" onclick="mergeAllSeries()">Merge all series</button>
       </div>
       <div class="ckbox" id="cookie-box"></div>
-      <div class="slabel" id="qty">Hàng chờ · <a href="/ui3" style="color:var(--accent);text-transform:none;letter-spacing:0;font-weight:600">UI3</a>/<a href="/hongguo" style="color:var(--accent);text-transform:none;letter-spacing:0;font-weight:600">HG</a>/<a href="http://127.0.0.1:8802/films/ui?tab=seasons" style="color:var(--accent);text-transform:none;letter-spacing:0;font-weight:600">Phim</a></div>
+      <div class="slabel" id="qty">Hàng chờ · <a href="/hongguo2" style="color:var(--accent);text-transform:none;letter-spacing:0;font-weight:600">HG</a>/<a href="/films/ui" style="color:var(--accent);text-transform:none;letter-spacing:0;font-weight:600">Phim</a></div>
       <div class="queue" id="list"></div>
       <div class="side-foot"><span class="dg"></span> GPU · gemma4 · chạy lần lượt</div>
     </aside>
@@ -395,6 +488,67 @@
   </div>
 </div>
 
+<div class="mask" id="qm-mask" onclick="if(event.target===this)closeQueueModal()">
+  <div class="qm-dlg" role="dialog" aria-modal="true">
+    <div class="dlg-h">
+      <span style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">⚡</span>
+        <b style="font-size:15px">Quản Lý Hàng Chờ Render</b>
+        <span class="qm-badge p-badge" id="qm-count-badge">0 job</span>
+      </span>
+      <button class="dlg-x" onclick="closeQueueModal()" title="Đóng (Esc)">✕</button>
+    </div>
+    <div class="dlg-b" style="padding:14px 18px;gap:12px;overflow:hidden">
+      <!-- Box Job Hiện Tại Đang Chạy -->
+      <div class="qm-cur-box" id="qm-cur-box">
+        <div class="qm-cur-head">
+          <span style="color:var(--muted)">🎬 ĐANG THỰC HIỆN</span>
+          <span id="qm-cur-status-text" style="color:var(--ok);font-weight:600">--</span>
+        </div>
+        <div class="qm-cur-title" id="qm-cur-title">Không có job nào đang chạy</div>
+        <div class="qm-pbar"><div class="qm-pbar-fill" id="qm-cur-pbar" style="width:0%"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)">
+          <span id="qm-cur-step">Giai đoạn: --</span>
+          <span id="qm-cur-eta">ETA: --</span>
+        </div>
+      </div>
+
+      <!-- Thanh công cụ hàng chờ -->
+      <div class="qm-toolbar">
+        <span style="font-size:12px;font-weight:600;color:var(--text2)">Hàng chờ tiếp theo:</span>
+        <button type="button" class="btn pri" onclick="sortQueueJobs('series_season')" title="Tự động nhận diện và xếp tuần tự theo Tên Bộ + Season (Phần 1 → Phần 2 → Phần 3...)">⚡ Sắp xếp Phần 1→Pn</button>
+        <button type="button" class="btn" onclick="sortQueueJobs('name')" title="Sắp xếp theo thứ tự bảng chữ cái A-Z">🔤 Tên A-Z</button>
+        <button type="button" class="btn" onclick="sortQueueJobs('reverse')" title="Đảo ngược danh sách hàng chờ">🔄 Đảo thứ tự</button>
+        <button type="button" class="btn" onclick="queueClearConfirm()" style="margin-left:auto;color:var(--err);border-color:rgba(239,68,68,0.3)" title="Xoá toàn bộ các job đang chờ">🗑️ Xoá sạch</button>
+      </div>
+
+      <!-- Bảng danh sách job đang chờ -->
+      <div class="qm-table-wrap">
+        <table class="qm-table">
+          <thead>
+            <tr>
+              <th style="width:40px;text-align:center">#</th>
+              <th style="width:70px;text-align:center">Phần</th>
+              <th>Tên Phim & Bộ</th>
+              <th style="width:110px">Job ID</th>
+              <th style="width:170px;text-align:center">Đổi Vị Trí Chờ</th>
+            </tr>
+          </thead>
+          <tbody id="qm-tbody">
+            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Hàng chờ trống.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="dlg-f" style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:11.5px;color:var(--muted)">
+        💡 Mẹo: Bấm <b>🔝</b> để đẩy job lên làm trước tiên, hoặc <b>⚡ Sắp xếp</b> để tự động chỉnh P1→Pn.
+      </div>
+      <button class="btn" onclick="closeQueueModal()">Đóng</button>
+    </div>
+  </div>
+</div>
+
 <script src="/static/live_sync.js"></script>
 <script>
 const STAGES=[
@@ -406,8 +560,7 @@ const STAGES=[
   // 'separate' (Tách nền) ĐÃ BỎ khỏi danh sách bước: Render tự chạy Demucs khi cần.
   {key:'mux',name:'Ghép + xuất',sub:'che watermark/hardsub + sub + trộn',opt:false},
 ];
-let selected=null, expanded=new Set(), lastFull=null, cache=[], lastDetailSig=null, logOpen=true;
-let composeOpen=false;  // true chỉ khi user bấm + Thêm link
+let selected=new URLSearchParams(location.search).get('job')||null, expanded=new Set(), lastFull=null, cache=[], lastDetailSig=null, logOpen=true, composeOpen=false;
 
 const fmtDur=s=>{ if(!s) return ''; const m=Math.floor(s/60),ss=Math.floor(s%60); return m+':'+String(ss).padStart(2,'0'); };
 const statClass=s=>s==='done'?'ok':s==='running'?'run':s==='failed'?'err':'wait';
@@ -469,37 +622,125 @@ async function addJob(){
   }catch(e){ alert('Lỗi tạo job: '+e); }
   delete btn.dataset.busy; btn.disabled=false; updateUrlCount();
 }
+const fpSelPaths=[]; // paths đã chọn từ multi-picker
+
+function fpRenderSel(){
+  const box=document.getElementById('fp-sel');
+  const btn=document.getElementById('fp-add-btn');
+  const count=document.getElementById('fp-count');
+  if(!box) return;
+  if(!fpSelPaths.length){
+    box.className='fp-sel empty';
+    box.textContent='Chưa chọn folder nào';
+    if(btn) btn.disabled=true;
+    if(count) count.textContent='';
+    return;
+  }
+  box.className='fp-sel';
+  box.innerHTML=fpSelPaths.map((p,i)=>{
+    const name=p.split(/[/\\]/).filter(Boolean).pop()||p;
+    return `<span class="fp-chip" title="${escapeHtml(p)}"><span>${escapeHtml(name)}</span>`
+      +`<button type="button" title="Bỏ" onclick="fpRemoveAt(${i})">×</button></span>`;
+  }).join('');
+  if(btn){ btn.disabled=false; btn.textContent=`+ Thêm ${fpSelPaths.length} folder vào hàng chờ`; }
+  if(count) count.textContent=`${fpSelPaths.length} folder`;
+}
+function fpClearSel(){ fpSelPaths.length=0; fpRenderSel(); document.getElementById('fp-st').textContent=''; }
+function fpRemoveAt(i){ fpSelPaths.splice(i,1); fpRenderSel(); }
+function fpSetPaths(paths){
+  const seen=new Set(fpSelPaths);
+  for(const p of paths){ if(p && !seen.has(p)){ seen.add(p); fpSelPaths.push(p); } }
+  fpRenderSel();
+}
+async function pickMultiFolders(){
+  const st=document.getElementById('fp-st');
+  const pickBtn=document.getElementById('fp-pick-btn');
+  const cur=(document.getElementById('fp-root')||{}).value||'D:\\Lib';
+  if(pickBtn) pickBtn.disabled=true;
+  st.textContent='Đang mở cửa sổ chọn… (kéo lên từ taskbar nếu bị khuất)';
+  try{
+    const q=new URLSearchParams({initial: (cur||'D:\\Lib').trim()});
+    const r=await fetch('/api/fs/pick-dirs?'+q, {method:'POST'});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error||r.status);
+    if(d.cancelled || !(d.paths&&d.paths.length)){ st.textContent='Đã hủy'; return; }
+    try{
+      const parent=d.paths[0].replace(/[/\\][^/\\]+$/, '');
+      const rootEl=document.getElementById('fp-root');
+      if(parent && rootEl) rootEl.value=parent;
+    }catch(e){}
+    fpSetPaths(d.paths);
+    st.textContent=`Đã chọn ${d.count} folder`;
+    // Import luôn sau khi chọn — 1 bước
+    if(confirm(`Thêm ${d.count} folder vào hàng chờ ngay?`)){
+      await addSelectedFolders(true);
+    }
+  }catch(e){ st.textContent=''; alert('Không mở được cửa sổ chọn folder:\n'+e); }
+  finally{ if(pickBtn) pickBtn.disabled=false; }
+}
+async function addSelectedFolders(skipConfirm){
+  const paths=[...fpSelPaths];
+  const st=document.getElementById('fp-st');
+  const btn=document.getElementById('fp-add-btn');
+  if(!paths.length){ alert('Chưa chọn folder — bấm «Chọn nhiều folder…»'); return; }
+  const target=(document.getElementById('target')||{}).value||'Tiếng Việt';
+  const move=!!(document.getElementById('local-move')||{}).checked;
+  const recursive=!!(document.getElementById('local-recursive')||{checked:true}).checked;
+  if(!skipConfirm && !confirm(`Import ${paths.length} folder?`)) return;
+  if(btn){ btn.disabled=true; btn.textContent=`Đang thêm ${paths.length}…`; }
+  st.textContent=`Đang import ${paths.length} folder…`;
+  try{
+    const r=await fetch('/api/jobs/local-batch',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({paths,target,move,recursive,group_folder:true})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||d.error){
+      alert((d.error||r.status)+(d.details?`\n`+d.details.slice(0,5).join('\n'):''));
+      st.textContent='Lỗi import';
+    }else{
+      const n=d.count||(d.job_ids||[]).length||0;
+      const nf=(d.folders||[]).length;
+      st.textContent=`Xong · ${n} job · ${nf} series`;
+      if(d.errors&&d.errors.length) alert(`Đã thêm ${n} job\nMột số lỗi:\n`+d.errors.slice(0,5).join('\n'));
+      fpClearSel();
+      await refresh();
+      const first=(d.job_ids&&d.job_ids[0])||d.job_id;
+      if(first) select(first);
+    }
+  }catch(e){ alert('Lỗi: '+e); st.textContent='Lỗi'; }
+  fpRenderSel();
+}
+
 async function addLocalPath(){
   const el=document.getElementById('local-path');
   const raw=(el&&el.value||'').trim();
-  if(!raw){ alert('Nhập đường dẫn file video (1 dòng / 1 file)'); return; }
+  if(!raw){ alert('Nhập path file hoặc folder (1 dòng / 1 path)'); return; }
   const paths=raw.split(/\r?\n/).map(s=>s.trim().replace(/^["']|["']$/g,'')).filter(Boolean);
   if(!paths.length) return;
   const target=(document.getElementById('target')||{}).value||'Tiếng Việt';
   const move=!!(document.getElementById('local-move')||{}).checked;
+  const recursive=!!(document.getElementById('local-recursive')||{checked:true}).checked;
   const btn=document.getElementById('add-local');
   const st=document.getElementById('local-up-st');
-  if(btn) btn.disabled=true;
-  let ok=0, fail=0, first=null, errs=[];
-  for(let i=0;i<paths.length;i++){
-    if(st) st.textContent=`path ${i+1}/${paths.length}…`;
-    if(btn) btn.textContent=`Đang thêm ${i+1}/${paths.length}…`;
-    try{
-      const r=await fetch('/api/jobs/local-path',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({path:paths[i],target,move})});
-      const d=await r.json();
-      if(!r.ok||d.error){ fail++; errs.push((d.error||r.status)+''); continue; }
-      ok++;
-      const id=(d.job_ids&&d.job_ids[0])||d.job_id;
-      if(id && !first) first=id;
-    }catch(e){ fail++; errs.push(String(e)); }
-  }
-  if(el) el.value='';
-  if(st) st.textContent=ok?`xong ${ok}`:'';
-  if(btn){ btn.disabled=false; btn.textContent='+ Thêm file local'; }
-  await refresh();
-  if(first) select(first);
-  if(fail) alert(`Đã thêm ${ok} file, lỗi ${fail}`+(errs[0]?`\n${errs[0]}`:''));
+  if(btn){ btn.disabled=true; btn.textContent='Đang import…'; }
+  if(st) st.textContent=`${paths.length} path…`;
+  try{
+    const r=await fetch('/api/jobs/local-batch',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({paths,target,move,recursive,group_folder:true})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||d.error){
+      alert(d.error||r.status)+(d.details?`\n`+d.details.slice(0,5).join('\n'):'');
+    }else{
+      const n=d.count||(d.job_ids||[]).length||0;
+      const nf=(d.folders||[]).length;
+      if(st) st.textContent=`xong ${n} job`+(nf?` · ${nf} folder`:'');
+      if(d.errors&&d.errors.length) alert(`Đã thêm ${n} job\nMột số lỗi:\n`+d.errors.slice(0,5).join('\n'));
+      if(el) el.value='';
+      await refresh();
+      const first=(d.job_ids&&d.job_ids[0])||d.job_id;
+      if(first) select(first);
+    }
+  }catch(e){ alert('Lỗi: '+e); }
+  if(btn){ btn.disabled=false; btn.textContent='+ Thêm file/folder'; }
 }
 async function addLocalFile(input){
   const files=[...(input.files||[])]; if(!files.length) return;
@@ -537,28 +778,24 @@ async function addLocalFile(input){
   if(first) select(first);
   if(fail) alert(`Đã thêm ${ok} file, lỗi ${fail}`+(errs[0]?`\n${errs[0]}`:''));
 }
-function openQueue(){
-  // Đóng khung thêm link → về hàng chờ / job
-  composeOpen=false;
-  applyComposeUi();
-  if(cache && cache.length){
-    select(cache[0].job_id);
-  } else {
-    selected=null;
-    const mid=document.getElementById('mid'), panel=document.getElementById('panel');
-    if(mid) mid.innerHTML='<div class="empty">Chưa có video — bấm <b>+ Thêm link</b>.</div>';
-    if(panel) panel.innerHTML='<div class="empty pnl-empty">—</div>';
-  }
-}
 function applyComposeUi(){
   const app=document.querySelector('.app');
   const box=document.getElementById('compose');
   if(app) app.classList.toggle('compose-on', !!composeOpen);
   if(box){ box.hidden=!composeOpen; box.setAttribute('aria-hidden', composeOpen?'false':'true'); }
 }
+function openQueue(){
+  closeCompose();
+  if(cache && cache.length){
+    select(cache[0].job_id);
+  } else {
+    setJobMode(true);
+    const mid=document.getElementById('mid'), panel=document.getElementById('panel');
+    if(mid) mid.innerHTML='<div class="empty">Chưa có video — bấm <b>+ Thêm video</b>.</div>';
+    if(panel) panel.innerHTML='<div class="empty pnl-empty">—</div>';
+  }
+}
 function setJobMode(on){
-  // on=true → đang xem job (ẩn compose trừ khi composeOpen)
-  // Giữ composeOpen nếu user đang thêm link; chỉ ép ẩn khi chọn job.
   if(on) composeOpen=false;
   applyComposeUi();
   document.querySelector('.app')?.classList.toggle('job', !!on || !composeOpen);
@@ -570,10 +807,11 @@ function showCompose(){
   document.querySelector('.app')?.classList.remove('job');
   renderList(cache);
   updateUrlCount();
-  const mid=document.getElementById('mid'), panel=document.getElementById('panel');
-  if(mid) mid.innerHTML='<div class="empty">Đang thêm link — xong bấm <b>← Hàng chờ</b>.</div>';
-  if(panel) panel.innerHTML='<div class="empty pnl-empty">—</div>';
   setTimeout(()=>{ const u=document.getElementById('url'); if(u) u.focus(); },40);
+}
+function closeCompose(){
+  composeOpen=false;
+  applyComposeUi();
 }
 function select(id){ composeOpen=false; selected=id; setJobMode(true); refresh(); }
 
@@ -611,40 +849,32 @@ function renderList(jobs){
   if(bq) bq.textContent = jobs.length ? `Hàng chờ · ${jobs.length}` : 'Hàng chờ';
   const el=document.getElementById('list');
   if(!jobs.length){ el.innerHTML='<div class="jp" style="padding:4px 6px">Chưa có video.</div>'; listSel.clear(); return; }
-  // Soft-patch list đơn: chỉ cập nhật %/class — không innerHTML cả cột (hết giật sidebar)
-  const flat=jobs.filter(j=>!j.group_id);
-  const hasGroup=jobs.some(j=>j.group_id);
-  if(!hasGroup && flat.length && el.querySelector('.qbar')){
-    const nodes=[...el.querySelectorAll('.jrow[data-jid]')];
-    if(nodes.length===flat.length && flat.every(j=>nodes.some(n=>n.dataset.jid===j.job_id))){
-      flat.forEach(j=>{
-        const n=el.querySelector(`.jrow[data-jid="${j.job_id}"]`); if(!n) return;
-        n.classList.toggle('sel', selected===j.job_id);
-        const dot=n.querySelector('.jdot'); if(dot) dot.className='jdot d-'+statClass(j.status);
-        const jp=n.querySelector('.jp');
-        if(jp) jp.textContent=j.started?(j.status==='running'?`${j.overall}%`:statText(j.status)):'chờ';
-        const jt=n.querySelector('.jt'); if(jt && j.title && jt.textContent!==j.title){ jt.textContent=j.title; }
-        const chk=n.querySelector('.jchk'); if(chk) chk.checked=listSel.has(j.job_id);
-        let go=n.querySelector('.jstart');
-        const need=(j.status!=='running'&&j.status!=='done');
-        if(need && !go){ go=document.createElement('button'); go.className='jstart'; go.title='Bắt đầu'; go.textContent='▶'; go.onclick=ev=>{ev.stopPropagation();startJob(j.job_id);}; n.insertBefore(go, n.querySelector('.jdel')); }
-        if(!need && go) go.remove();
-      });
-      const h=el.querySelector('.qhint'); if(h) h.textContent=listSel.size?`${listSel.size} chọn`:'';
-      return;
-    }
-  }
   const groups={}; jobs.forEach(j=>{ if(j.group_id){ (groups[j.group_id]=groups[j.group_id]||[]).push(j); } });
-  const gids=Object.keys(groups);
+  // Cấu trúc không đổi → chỉ patch tại chỗ (dựng lại innerHTML mỗi 2s làm header nhóm giật / mất hover)
+  const sig=listStructSig(jobs, groups);
+  if(el.dataset.sig===sig && el.querySelector('.qbar')){
+    jobs.forEach(j=>{ const n=el.querySelector(`.jrow[data-jid="${j.job_id}"]`); if(n) patchJrow(n,j); });
+    for(const [gid,mem] of Object.entries(groups)){
+      const g=el.querySelector(`.jgroup[data-gid="${gid}"]`); if(!g) continue;
+      g.classList.toggle('run', mem.some(x=>x.status==='running'));
+      const cnt=g.querySelector('.jgcount');
+      const txt=`${mem.filter(x=>x.status==='done').length}/${mem.length}`;
+      if(cnt && cnt.textContent!==txt) cnt.textContent=txt;
+    }
+    const h=el.querySelector('.qhint'); if(h) h.textContent=listSel.size?`${listSel.size} chọn`:'';
+    return;
+  }
   const seen=new Set(); let html='';
   html+=`<div class="qbar" id="qbar">
     <button type="button" class="btn" onclick="groupSelected()" title="Gom các job đã tick thành 1 series">＋ Gom nhóm</button>
     <button type="button" class="btn" onclick="addSelectedToGroup()" title="Thêm job đã tick vào nhóm có sẵn">↳ Vào nhóm</button>
     <button type="button" class="btn" onclick="ungroupSelected()" title="Tách job đã tick khỏi nhóm">⤢ Tách</button>
     <span class="qhint">${listSel.size?listSel.size+' chọn':''}</span>
-    <button type="button" class="btn pri" id="btn-queue-run" onclick="runJobQueue()" title="Chạy run-all tuần tự các job đã tick">▶ Chạy hàng chờ</button>
-    <button type="button" class="btn stop" id="btn-queue-stop" onclick="stopJobQueue()">⏹ Dừng hàng chờ</button>
-    <span class="qhint" id="queue-status"></span>
+    <button type="button" class="btn pri" id="btn-queue-run" onclick="runJobQueue()" title="Chạy run-all tuần tự các job đã tick (tự sắp xếp P1→Pn)">▶ Chạy hàng chờ</button>
+    <button type="button" class="btn" onclick="sortQueueJobs('series_season')" title="Sắp xếp toàn bộ hàng chờ theo Phần 1→Pn">⚡ Xếp P1→Pn</button>
+    <button type="button" class="btn" onclick="openQueueModal()" title="Xem bảng đầy đủ các job trong hàng chờ">📋 Quản lý Hàng Chờ (🔝 ▲ ▼ 🔻)</button>
+    <button type="button" class="btn stop" id="btn-queue-stop" onclick="stopJobQueue()">⏹ Dừng</button>
+    <span class="qhint" id="queue-status" onclick="openQueueModal()" style="cursor:pointer" title="Bấm để mở Quản lý Hàng Đợi"></span>
   </div>`;
   jobs.forEach(j=>{
     if(j.group_id){
@@ -660,6 +890,10 @@ function renderList(jobs){
           <span class="jt jgtitle">${escapeHtml(gt)}</span>
           <span class="jgcount">${nd}/${mem.length}</span>
           <span class="jgacts">
+            <button type="button" class="jg-run" title="Chạy cả series (hàng chờ, theo P1→Pn)"
+              onclick="event.stopPropagation();runGroupQueue('${escapeHtml(j.group_id)}',${escapeHtml(JSON.stringify(gt))})">▶</button>
+            <button type="button" class="jg-sort" title="⚡ Tự động xếp P1→Pn cho series này"
+              onclick="event.stopPropagation();sortGroupSeries('${escapeHtml(j.group_id)}')">⚡ P1→Pn</button>
             <button type="button" title="Đổi tên series" onclick="event.stopPropagation();renameGroup('${escapeHtml(j.group_id)}',${escapeHtml(JSON.stringify(gt))})">✎</button>
             <button type="button" title="Giải tán nhóm" onclick="event.stopPropagation();dissolveGroup('${escapeHtml(j.group_id)}')">⤢</button>
           </span>
@@ -669,6 +903,80 @@ function renderList(jobs){
     } else { html+=jrow(j); }
   });
   el.innerHTML=html;
+  el.dataset.sig=sig;
+  void paintQueueStatus();
+}
+function listStructSig(jobs, groups){
+  const parts=[]; const seen=new Set();
+  jobs.forEach(j=>{
+    if(!j.group_id){ parts.push(j.job_id+'|'+j.title); return; }
+    if(seen.has(j.group_id)) return; seen.add(j.group_id);
+    const mem=groups[j.group_id].slice().sort((a,b)=>(a.group_index||0)-(b.group_index||0));
+    parts.push('G'+j.group_id+'|'+(mem[0].group_title||'')+'|'+(groupOpen[j.group_id]!==false)+'|'
+      +mem.map(x=>x.job_id+':'+(x.group_index||'')+':'+x.title).join(','));
+  });
+  return parts.join('\n');
+}
+function patchJrow(n, j){
+  n.classList.toggle('sel', selected===j.job_id);
+  const dot=n.querySelector('.jdot'); const dc='jdot d-'+statClass(j.status); if(dot && dot.className!==dc) dot.className=dc;
+  const jp=n.querySelector('.jp');
+  const pt=j.started?(j.status==='running'?`${j.overall}%`:statText(j.status)):'chờ';
+  if(jp && jp.textContent!==pt) jp.textContent=pt;
+  const chk=n.querySelector('.jchk'); if(chk) chk.checked=listSel.has(j.job_id);
+  let go=n.querySelector('.jstart');
+  const need=(j.status!=='running'&&j.status!=='done');
+  if(need && !go){ go=document.createElement('button'); go.className='jstart'; go.title='Bắt đầu'; go.textContent='▶'; go.onclick=ev=>{ev.stopPropagation();startJob(j.job_id);}; n.insertBefore(go, n.querySelector('.jdel')); }
+  if(!need && go) go.remove();
+
+  let mbox=n.querySelector('.jmove-box');
+  if(need && !mbox){
+    mbox=document.createElement('span');
+    mbox.className='jmove-box';
+    mbox.title='Thứ tự làm việc (ưu tiên hàng chờ)';
+    mbox.innerHTML=`
+      <button type="button" class="jmove-btn" title="Đưa lên ĐẦU hàng chờ (Làm trước nhất)" onclick="event.stopPropagation();moveQueueJob('${j.job_id}','top')">🔝</button>
+      <button type="button" class="jmove-btn" title="Lên 1 bậc" onclick="event.stopPropagation();moveQueueJob('${j.job_id}','up')">▲</button>
+      <button type="button" class="jmove-btn" title="Xuống 1 bậc" onclick="event.stopPropagation();moveQueueJob('${j.job_id}','down')">▼</button>
+      <button type="button" class="jmove-btn" title="Đưa xuống CUỐI hàng chờ" onclick="event.stopPropagation();moveQueueJob('${j.job_id}','bottom')">🔻</button>
+    `;
+    const target=go || n.querySelector('.jdel');
+    if(target) n.insertBefore(mbox, target);
+    else n.appendChild(mbox);
+  }
+  if(!need && mbox) mbox.remove();
+}
+async function sortGroupSeries(groupId){
+  try{
+    const st = await (await fetch('/api/queue/jobs')).json();
+    const currentQueue = st.queue || [];
+    const groupJobs = (cache || []).filter(j => j.group_id === groupId);
+    if(!groupJobs.length){ alert('Không tìm thấy job trong nhóm'); return; }
+    // Ưu tiên số Phần trên title; fallback group_index
+    const CN_MAP = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+    function seasonOf(j){
+      const t = j.title_vi || j.title || '';
+      const mVi = t.match(/(?:^|[\s_\-\.\(:|])(?:p|phần|mùa|season|s|tập|t)\s*(\d+)/i)
+               || t.match(/^(?:phần|mùa|p)\s*(\d+)\s*[|:\-–—]/i);
+      if(mVi) return parseInt(mVi[1], 10);
+      const mCn = t.match(/第([一二三四五六七八九十\d]+)季/);
+      if(mCn) return CN_MAP[mCn[1]] || parseInt(mCn[1], 10) || 1;
+      return Number(j.group_index) || 1;
+    }
+    groupJobs.sort((a,b) => seasonOf(a) - seasonOf(b));
+    const sortedIds = groupJobs.map(j => j.job_id);
+    let newQ = currentQueue.filter(id => !sortedIds.includes(id));
+    newQ = [...sortedIds, ...newQ];
+    const r = await fetch('/api/queue/jobs/reorder', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({order: newQ})
+    });
+    const newSt = await r.json().catch(()=>({}));
+    if(!r.ok){ alert(newSt.error || 'Lỗi xếp series'); return; }
+    _lastQueueState = newSt;
+    void paintQueueStatus();
+    void refresh();
+  }catch(e){ alert('Lỗi xếp series: ' + e); }
 }
 function toggleGroup(gid){ groupOpen[gid]=(groupOpen[gid]===false); renderList(cache); }
 async function groupSelected(){
@@ -740,8 +1048,7 @@ async function dissolveGroup(gid){
 async function mergeAllSeries(){
   try{
     const lib=await (await fetch('/api/hg/library')).json();
-    const items=lib.items||lib.library||lib||[];
-    const arr=Array.isArray(items)?items:(items.items||[]);
+    const arr=lib.items||[];
     const pending=arr.filter(x=>!(x.done||(x.merged&&!x.fragments))).map(x=>x.name).filter(Boolean);
     if(!pending.length){ alert('Hongguo: tất cả series đã DONE / không có gì để merge'); return; }
     if(!confirm('Enqueue merge '+pending.length+' series Hongguo chưa xong?')) return;
@@ -752,77 +1059,56 @@ async function mergeAllSeries(){
     const skip=(d.skipped_done||[]).length;
     alert('Đã xếp '+((d.queue||pending).length)+' series vào hàng merge'
       +(skip?` · bỏ qua ${skip} đã done`:'')
-      +'\nXem tiến độ tại /hongguo');
+      +'\nXem tiến độ tại /hongguo2');
   }catch(e){ alert('Lỗi merge: '+e+'\n(Hongguo Downloader đang chạy?)'); }
 }
 
+let selectedStep=null, panelJobId=null, lastPanelSig=null;
 function defaultStep(j){
-  const run=STAGES.find(s=>(j.stages[s.key]||{}).status==='running'); if(run) return run.key;
-  const dn=STAGES.filter(s=>(j.stages[s.key]||{}).status==='done'); if(dn.length) return dn[dn.length-1].key;
+  const stages=(j&&j.stages)||{};
+  if((stages.separate||{}).status==='running') return 'asr';
+  const run=STAGES.find(s=>(stages[s.key]||{}).status==='running'); if(run) return run.key;
+  const dn=STAGES.filter(s=>(stages[s.key]||{}).status==='done'); if(dn.length) return dn[dn.length-1].key;
   return 'download';
 }
-function selectStep(key){ selectedStep=key; if(lastFull){ document.querySelectorAll('.step').forEach((el,i)=>el.classList.toggle('sel',STAGES[i]&&STAGES[i].key===key)); renderPanel(lastFull,true); } }
+function selectStep(key){ selectedStep=key; if(lastFull){ document.querySelectorAll('#mid-steps .step').forEach(el=>el.classList.toggle('sel',el.dataset.key===key)); renderPanel(lastFull,true); } }
 
-function renderDetail(j){
-  const mid=document.getElementById('mid'), panel=document.getElementById('panel');
-  if(!j){
-    if(!composeOpen){
-      applyComposeUi();
-      if(mid) mid.innerHTML='<div class="empty">Chọn một video trong hàng chờ.</div>';
-      if(panel) panel.innerHTML='<div class="empty pnl-empty">Chọn một bước để xem chi tiết.</div>';
-    }
-    lastFull=null; lastPanelSig=null;
-    return;
-  }
-  composeOpen=false;
-  setJobMode(true);
-  if(panelJobId!==j.job_id){ panelJobId=j.job_id; selectedStep=defaultStep(j); }
-  if(!selectedStep) selectedStep=defaultStep(j);
-  // Cùng job + khung mid đã có → soft-patch (KHÔNG innerHTML cả cột → hết giật form/video)
-  if(lastFull && lastFull.job_id===j.job_id && mid && mid.querySelector('.steps') && mid.querySelector('.autobar')){
-    patchDetailLive(j);
-    return;
-  }
-  const badges=[
-    j.platform?`<span>${j.platform}</span>`:'',
-    j.height?`<span><b>${j.height}p</b></span>`:'',
-    j.duration_sec?`<span class="mono">${fmtDur(j.duration_sec)}</span>`:'',
-    j.target?`<span>→ ${j.target}</span>`:'',
-  ].filter(Boolean).join('');
-  let eta=''; const dl=j.stages.download||{}; if(dl.status==='running'&&dl.eta>0) eta='còn '+fmtDur(dl.eta);
-  const tr=j.stages.translate||{};
-  const model=(tr.model||'gemma4').replace('local/','').replace('ollama/','').replace('gc/','').replace('kr/','');
-  const stat=`<div class="stat" id="mid-stat">
-    <div><div class="k">Đã dịch</div><div class="v" id="stat-tr">${tr.n_done!=null?tr.n_done:(tr.n_segments||0)}<small> /${tr.n_total||tr.n_segments||0}</small></div></div>
-    <div><div class="k">Model</div><div class="v">${escapeHtml(model)}</div></div>
-    <div><div class="k">Trạng thái</div><div class="v t-${statClass(j.status)}" id="stat-st">${statText(j.status)}</div></div>
-  </div>`;
-  const isRun=j.status==='running';
-  const isDone=j.status==='done';
-  const autoBar=`<div class="autobar">
+
+/* ===== UI3 Shell vs Data ===== */
+function shellMidOk(j){
+  return !!(j && lastFull && lastFull.job_id===j.job_id
+    && document.getElementById('shell-mid')
+    && document.getElementById('mid-autobar')
+    && document.getElementById('panel-body'));
+}
+function autoBarHtml(j){
+  const isRun=j.status==='running', isDone=j.status==='done';
+  const asrE=((j.stages.asr||{}).asr_engine||(j.stages.asr||{}).engine||'hybrid_fa');
+  const ttsE=((j.stages.tts||{}).tts_engine||'vieneu');
+  return `<div class="autobar" id="mid-autobar">
     <button class="btn pri big" id="btn-run-all" ${isRun||isDone?'disabled':''} onclick="runAll('${j.job_id}')">▶ Chạy tự động (toàn bộ)</button>
     <button class="btn stop" id="btn-stop-all" ${isRun?'':'disabled'} onclick="stopJob('${j.job_id}')">⏹ Dừng</button>
     ${isDone?'':`<button class="btn" id="btn-mark-all" title="Heal: đánh dấu các bước đã có file = xong" onclick="markJobDone('${j.job_id}')">✓ Đánh dấu xong</button>`}
     <span class="autosep"></span>
-    <label class="chk" title="Engine nhận diện lời — mặc định Hybrid FA">🎤 <select id="auto-asr" onchange="saveAsrEngine('${j.job_id}',this.value)">
-      <option value="nano_fa" ${(((j.stages.asr||{}).asr_engine||(j.stages.asr||{}).engine||'nano_fa')==='nano_fa')?'selected':''}>⭐ Nano + Direct FA (Khuyên dùng — Không đúp câu)</option>
-      <option value="hybrid_fa" ${(((j.stages.asr||{}).asr_engine||(j.stages.asr||{}).engine)==='hybrid_fa')?'selected':''}>Hybrid FA (Nano+Para+FA, no repair)</option>
-      <option value="fun_asr_nano" ${(((j.stages.asr||{}).asr_engine||(j.stages.asr||{}).engine)==='fun_asr_nano')?'selected':''}>Fun-ASR-Nano — chỉ chữ</option>
-      <option value="paraformer_zh" ${(((j.stages.asr||{}).asr_engine||(j.stages.asr||{}).engine)==='paraformer_zh')?'selected':''}>Paraformer — chỉ timing</option>
-      <option value="sensevoice" ${(((j.stages.asr||{}).asr_engine||(j.stages.asr||{}).engine)==='sensevoice')?'selected':''}>SenseVoice — nhanh</option>
-      <option value="firered_asr" ${(((j.stages.asr||{}).asr_engine||(j.stages.asr||{}).engine)==='firered_asr')?'selected':''}>FireRedASR2 — dự phòng</option>
+    <label class="chk" title="Engine nhận diện lời — Nano + Direct FA chuẩn SOTA">🎤 <select id="auto-asr" onchange="saveAsrEngine('${j.job_id}',this.value)">
+      <option value="nano_fa" ${asrE==='nano_fa'||!asrE?'selected':''}>⭐ Nano + Direct FA (Khuyên dùng — Không đúp câu)</option>
+      <option value="hybrid_fa" ${asrE==='hybrid_fa'?'selected':''}>Hybrid FA (Nano+Para+FA, no repair)</option>
+      <option value="fun_asr_nano" ${asrE==='fun_asr_nano'?'selected':''}>Fun-ASR-Nano — chỉ chữ</option>
+      <option value="paraformer_zh" ${asrE==='paraformer_zh'?'selected':''}>Paraformer — chỉ timing</option>
+      <option value="sensevoice" ${asrE==='sensevoice'?'selected':''}>SenseVoice — nhanh</option>
+      <option value="firered_asr" ${asrE==='firered_asr'?'selected':''}>FireRedASR2 — dự phòng</option>
     </select></label>
-    <label class="chk" title="Engine lồng tiếng">🧠 <select id="auto-engine" onchange="autoEngineChanged('${j.job_id}')"><option value="vieneu" ${((j.stages.tts||{}).tts_engine||'vieneu')==='vieneu'?'selected':''}>VieNeu</option><option value="omnivoice" ${((j.stages.tts||{}).tts_engine)==='omnivoice'?'selected':''}>OmniVoice</option></select></label>
-    <label class="chk" title="Giọng lồng tiếng cho cả pipeline">🗣️ <select id="auto-voice" onchange="saveTtsVoice('${j.job_id}',this.value)"></select></label>
-    <label class="chk" title="Tốc độ đọc">⏩ <select id="auto-speed" onchange="saveTtsSpeed('${j.job_id}',this.value)">${speedOptions((j.stages.tts||{}).speed)}</select></label>
-    <label class="chk" title="Cách xử lý âm nền">🔊 <select id="auto-audio" onchange="autoAudioChanged()">
-      <option value="voice_bgm" selected>Giọng + BGM thư viện (bỏ nhạc gốc)</option>
+    <label class="chk" title="Engine lồng tiếng">🧠 <select id="auto-engine" onchange="autoEngineChanged('${j.job_id}')"><option value="vieneu" ${ttsE==='vieneu'?'selected':''}>VieNeu</option><option value="omnivoice" ${ttsE==='omnivoice'?'selected':''}>OmniVoice</option></select></label>
+    <label class="chk" title="Giọng">🗣️ <select id="auto-voice" onchange="saveTtsVoice('${j.job_id}',this.value)"></select></label>
+    <label class="chk" title="Tốc độ">⏩ <select id="auto-speed" onchange="saveTtsSpeed('${j.job_id}',this.value)">${speedOptions((j.stages.tts||{}).speed)}</select></label>
+    <label class="chk" title="Âm nền">🔊 <select id="auto-audio" onchange="autoAudioChanged()">
+      <option value="voice_bgm" selected>Giọng + BGM thư viện</option>
       <option value="sfx_lib">Tiếng động gốc + nhạc kho sạch (bỏ nhạc gốc)</option>
-      <option value="duck_bgm">Ducking + BGM thư viện (át nhạc gốc)</option>
+      <option value="duck_bgm">Ducking + BGM thư viện</option>
       <option value="voice_only">Chỉ giọng Việt</option>
-      <option value="duck">Ducking (giữ tiếng gốc — rủi ro BGM)</option>
-      <option value="demucs_keep">Demucs: nền gốc + giọng Trung nhỏ</option>
-      <option value="demucs_clean">Demucs: bỏ giọng Trung (giữ BGM gốc)</option>
+      <option value="duck">Ducking (giữ gốc)</option>
+      <option value="demucs_keep">Demucs keep</option>
+      <option value="demucs_clean">Demucs clean</option>
     </select></label>
     <label class="chk" id="row-auto-ovol" title="Chỉ dùng khi Ducking / Ducking+BGM">Tiếng gốc nền <select id="auto-ovol">
       <option value="0.12">rất nhỏ</option>
@@ -832,53 +1118,150 @@ function renderDetail(j){
       <option value="0.45">to</option>
       <option value="0.6">rất to</option>
     </select></label>
-    <label class="chk" title="Cách dịch">🈶 <select id="auto-tr-mode">
-      <option value="batch" selected>batch (lô 20)</option>
-      <option value="auto">auto</option>
-      <option value="oneshot">oneshot</option>
-    </select></label>
-    <label class="chk" title="REVIEW chính = Gemma local; backup = Aurora GPT song song">🛡 <select id="auto-review-backup">
-      <option value="off" selected>REVIEW: chính</option>
-      <option value="aurora_parallel">Aurora GPT∥</option>
-    </select></label>
-    <label class="chk" title="Quét chữ trên hình (tên/địa danh)"><input type="checkbox" id="auto-ocr"> OCR</label>
-    <label class="chk" title="Ghép đủ câu + bắt kịp khoảng trống"><input type="checkbox" id="auto-fit" checked> Khớp time</label>
-    <label class="chk" title="Độ phân giải xuất">🖥 <select id="auto-res"><option value="source" selected>Nguồn</option><option value="1080">1080p/1K</option></select></label>
+    <label class="chk">🈶 <select id="auto-tr-mode"><option value="batch" selected>batch</option><option value="auto">auto</option><option value="oneshot">oneshot</option></select></label>
+    <label class="chk" title="off = REVIEW_MODEL config; Aurora∥ = rà bằng chatgpt/gpt-6 (Aurora/:3377)">🛡 <select id="auto-review-backup"><option value="off">REVIEW: config</option><option value="aurora_parallel" selected>Aurora GPT∥</option></select></label>
+    <label class="chk"><input type="checkbox" id="auto-ocr"> OCR</label>
+    <label class="chk"><input type="checkbox" id="auto-fit" checked> Khớp time</label>
+    <label class="chk">🖥 <select id="auto-res"><option value="source" selected>Nguồn</option><option value="1080">1080p</option></select></label>
   </div>
-  <div class="autobar-fx">
+  <div class="autobar-fx" id="mid-autobar-fx">
     <span class="alabel">Render</span>
-    <label class="chk" title="Zoom crop mép">🔍 <select id="auto-zoom"><option value="off">off (không zoom)</option><option value="1.10">10%</option><option value="1.12" selected>12%</option><option value="1.15">15%</option></select></label>
+    <label class="chk">🔍 <select id="auto-zoom"><option value="off">off (không zoom)</option><option value="1.10">10%</option><option value="1.12" selected>12%</option><option value="1.15">15%</option></select></label>
     <label class="chk"><input type="checkbox" id="auto-motion" checked> Ken Burns+Drift</label>
     <label class="chk"><input type="checkbox" id="auto-lut" checked> LUT</label>
+    <label class="chk" title="Bật/tắt che hardsub (blur/stretch) khi render"><input type="checkbox" id="auto-hs-blur" checked onchange="queueBatchPush('hardsub_blur',this)"> Che hardsub (blur)</label>
     <label class="chk">Grain <select id="auto-grain"><option value="off">off</option><option value="weak" selected>weak</option><option value="medium">medium</option><option value="strong">strong</option></select></label>
-    <label class="chk" title="Bitrate H264">Nén <select id="auto-vbit"><option value="8M" selected>8M đẹp</option><option value="4M">4M cân bằng</option><option value="2M">2M nhẹ</option></select></label>
+    <label class="chk">Nén <select id="auto-vbit"><option value="8M" selected>8M</option><option value="4M">4M</option><option value="2M">2M</option></select></label>
     <label class="chk">Lật <select id="auto-flip"><option value="" selected>không</option><option value="h">ngang</option><option value="v">dọc</option><option value="hv">cả hai</option></select></label>
-    <label class="chk">🖼 Khung <select id="auto-frame"><option value="off" selected>tắt</option><option value="auto">auto</option></select></label>
-    <label class="chk">™️ Brand <select id="auto-brand-mode"><option value="off" selected>tắt</option><option value="drift">drift</option><option value="corners">corners</option><option value="drift_seed">drift_seed</option></select></label>
-    <input id="auto-brand-text" placeholder="Tên kênh" title="Chữ brand">
+    <label class="chk">🖼 <select id="auto-frame"><option value="off" selected>tắt</option><option value="auto">auto</option></select></label>
+    <label class="chk">™️ <select id="auto-brand-mode"><option value="off" selected>tắt</option><option value="drift">drift</option><option value="corners">corners</option><option value="drift_seed">drift_seed</option></select></label>
+    <input id="auto-brand-text" placeholder="Tên kênh">
     <label class="chk">logo <select id="auto-brand-logo"><option value="off" selected>tắt</option><option value="auto">auto</option></select></label>
+    <span class="autosep"></span>
+    <button type="button" class="btn" id="btn-batchcfg-load" onclick="loadBatchCfg()" title="Nạp config batch (Auto-pilot/Agent đang dùng) vào thanh này">⤓ Nạp config batch</button>
+    <button type="button" class="btn" id="btn-batchcfg-save" onclick="saveBatchCfg()" title="Lưu thanh này làm config batch cho Auto-pilot + Agent + Telegram (sẽ hỏi có lưu cả giọng/engine của job này không)">💾 Lưu làm config batch</button>
   </div>`;
-  const steps=STAGES.map(s=>stepRow(j,s)).join('');
-  mid.innerHTML=`
-    <div class="mtop"><div><div class="mtitle">${escapeHtml(j.title)}</div><div class="mbadges">${badges}</div></div>
-      <div class="pct"><div class="n" id="mid-pct">${j.overall||0}%</div><div class="s" id="mid-eta">${eta}</div></div></div>
-    <div class="pline"><i id="mid-bar" style="width:${j.overall||0}%"></i></div>
-    ${stat}${autoBar}
-    <div class="seclabel">Các bước</div><div class="steps">${steps}</div>
-    ${buildLog(j)}`;
-  lastFull=j;
-  renderPanel(j);
-  fillAutoVoices(j);
-  fillAutoFrames(); fillAutoLogos();
-  autoAudioChanged();
-  if(logOpen) feedSentences(j);
 }
-/** Cập nhật % / bước / nút — giữ nguyên form + panel-body (không giật). */
+function logShellHtml(j){
+  const live=j.status==='running'?'<span class="live"><i></i> trực tiếp</span>':'';
+  return `<div class="log" id="mid-log"><div class="logh" onclick="toggleLog()"><span class="caret" id="log-caret">${logOpen?'▾':'▸'}</span> Nhật ký ${live}</div><div class="logbody" id="logbody" style="${logOpen?'':'display:none'}"></div></div>`;
+}
+function patchOneStep(j,s){
+  const el=document.querySelector(`#mid-steps .step[data-key="${s.key}"]`);
+  if(!el) return;
+  const tmp=document.createElement('div');
+  tmp.innerHTML=stepRow(j,s);
+  const neu=tmp.firstElementChild; if(!neu) return;
+  neu.setAttribute('data-key', s.key);
+  if(el.className!==neu.className) el.className=neu.className;
+  ['.snode','.sinfo','.sright'].forEach(sel=>{
+    const a=el.querySelector(sel), b=neu.querySelector(sel);
+    if(a&&b){
+      if(a.className!==b.className) a.className=b.className;
+      if(a.innerHTML!==b.innerHTML) a.innerHTML=b.innerHTML;
+    }
+  });
+}
+function patchStepsShell(j){
+  const box=document.getElementById('mid-steps');
+  if(!box) return;
+  if(box.children.length!==STAGES.length){
+    box.innerHTML=STAGES.map(s=>{
+      let row=stepRow(j,s);
+      if(!/data-key=/.test(row)) row=row.replace('<div class="step', `<div data-key="${s.key}" class="step`);
+      return row;
+    }).join('');
+  }
+  STAGES.forEach(s=>patchOneStep(j,s));
+}
+function patchLogData(j){
+  const caret=document.getElementById('log-caret');
+  if(caret) caret.textContent=logOpen?'▾':'▸';
+  const logbody=document.getElementById('logbody');
+  if(!logbody) return;
+  logbody.style.display=logOpen?'':'none';
+  if(!logOpen) return;
+  const tmp=document.createElement('div'); tmp.innerHTML=buildLog(j);
+  const neu=tmp.querySelector('#logbody')||tmp.querySelector('.logbody');
+  const html=neu?neu.innerHTML:'';
+  if(logbody.innerHTML!==html) logbody.innerHTML=html;
+}
+
+
+function renderDetail(j){
+  const mid=document.getElementById('mid'), panel=document.getElementById('panel');
+  if(!j || !j.job_id || !j.stages){
+    if(!composeOpen){
+      applyComposeUi();
+      if(mid) mid.innerHTML='<div class="empty">'+(j&&j.error?escapeHtml(String(j.error)):'Chọn một video trong hàng chờ.')+'</div>';
+      if(panel) panel.innerHTML='<div class="empty pnl-empty">Chọn một bước để xem chi tiết.</div>';
+    }
+    lastFull=null; lastPanelSig=null; panelJobId=null;
+    return;
+  }
+  composeOpen=false;
+  setJobMode(true);
+  const jobChanged = panelJobId !== j.job_id;
+  if(jobChanged){
+    panelJobId=j.job_id;
+    selectedStep=defaultStep(j);
+    const qh=(_queueHistory||[]).find(h=>h.job_id===j.job_id);
+    if(j.status==='failed'||(qh&&qh.status==='failed')) logOpen=true;
+  }
+  if(!selectedStep) selectedStep=defaultStep(j);
+  if(!jobChanged && shellMidOk(j)){ patchDetailLive(j); return; }
+
+  const badges=[
+    j.platform?`<span>${j.platform}</span>`:'',
+    j.height?`<span><b>${j.height}p</b></span>`:'',
+    j.duration_sec?`<span class="mono">${fmtDur(j.duration_sec)}</span>`:'',
+    j.target?`<span>→ ${j.target}</span>`:'',
+  ].filter(Boolean).join('');
+  let eta=''; const dl=j.stages.download||{}; if(dl.status==='running'&&dl.eta>0) eta='còn '+fmtDur(dl.eta);
+  const tr=j.stages.translate||{};
+  const model=(tr.model||'gemma4').replace('local/','').replace('ollama/','').replace('gc/','').replace('kr/','');
+  const stepsHtml=STAGES.map(s=>{
+    let row=stepRow(j,s);
+    if(!/data-key=/.test(row)) row=row.replace('<div class="step', `<div data-key="${s.key}" class="step`);
+    return row;
+  }).join('');
+
+  mid.innerHTML=`
+    <div id="shell-mid" data-job="${j.job_id}">
+      <div class="mtop"><div><div class="mtitle" id="mid-title">${escapeHtml(j.title)}</div><div class="mbadges" id="mid-badges">${badges}</div></div>
+        <div class="pct"><div class="n" id="mid-pct">${j.overall||0}%</div><div class="s" id="mid-eta">${eta}</div></div></div>
+      <div class="pline"><i id="mid-bar" style="width:${j.overall||0}%"></i></div>
+      <div class="stat" id="mid-stat">
+        <div><div class="k">Đã dịch</div><div class="v" id="stat-tr">${tr.n_done!=null?tr.n_done:(tr.n_segments||0)}<small> /${tr.n_total||tr.n_segments||0}</small></div></div>
+        <div><div class="k">Model</div><div class="v" id="stat-model">${escapeHtml(model)}</div></div>
+        <div><div class="k">Trạng thái</div><div class="v t-${statClass(j.status)}" id="stat-st">${statText(j.status)}</div></div>
+      </div>
+      ${autoBarHtml(j)}
+      <div class="seclabel">Các bước</div>
+      <div class="steps" id="mid-steps">${stepsHtml}</div>
+      ${logShellHtml(j)}
+    </div>`;
+  const s=STAGES.find(x=>x.key===selectedStep)||STAGES[0];
+  const idx=STAGES.findIndex(x=>x.key===selectedStep)+1;
+  panel.innerHTML=`<div class="pnl-h" id="pnl-h"><span><span class="pn">${idx}</span> <span id="pnl-name">${s.name}</span></span><span id="pnl-ctrl">${stageCtrl(j,s)}</span></div>`+
+    `<div class="artifact" id="panel-body"><div class="afile amuted">Đang tải…</div></div>`;
+  lastFull=j;
+  lastPanelSig=panelSig(j);
+  panel.dataset.artSig='';
+  loadArtifact(j, selectedStep);
+  autoPrefApply(); autoPrefBind();
+  fillAutoVoices(j); fillAutoFrames(); fillAutoLogos();
+  autoAudioChanged();
+  loadBatchCfg(true);
+  if(logOpen){ patchLogData(j); feedSentences(j); }
+}
 function patchDetailLive(j){
   lastFull=j;
+  const title=document.getElementById('mid-title');
+  if(title && j.title && title.textContent!==j.title) title.textContent=j.title;
   const pct=document.getElementById('mid-pct'); if(pct) pct.textContent=(j.overall||0)+'%';
   const etaEl=document.getElementById('mid-eta');
-  if(etaEl){ let eta=''; const dl=j.stages.download||{}; if(dl.status==='running'&&dl.eta>0) eta='còn '+fmtDur(dl.eta); etaEl.textContent=eta; }
+  if(etaEl){ let eta=''; const dl=j.stages.download||{}; if(dl.status==='running'&&dl.eta>0) eta='còn '+fmtDur(dl.eta); etaEl.textContent=eta||''; }
   const bar=document.getElementById('mid-bar'); if(bar) bar.style.width=(j.overall||0)+'%';
   const tr=j.stages.translate||{};
   const trEl=document.getElementById('stat-tr');
@@ -888,18 +1271,12 @@ function patchDetailLive(j){
   const isRun=j.status==='running', isDone=j.status==='done';
   const bRun=document.getElementById('btn-run-all'); if(bRun) bRun.disabled=!!(isRun||isDone);
   const bStop=document.getElementById('btn-stop-all'); if(bStop) bStop.disabled=!isRun;
-  const steps=document.querySelector('#mid .steps');
-  if(steps) steps.innerHTML=STAGES.map(s=>stepRow(j,s)).join('');
-  // Nhật ký: chỉ patch body nếu đang mở (không rebuild caret/layout)
-  const logbody=document.getElementById('logbody');
-  if(logbody && logOpen){
-    const tmp=document.createElement('div'); tmp.innerHTML=buildLog(j);
-    const neu=tmp.querySelector('#logbody');
-    if(neu && logbody.innerHTML!==neu.innerHTML) logbody.innerHTML=neu.innerHTML;
-  }
+  patchStepsShell(j);
+  patchLogData(j);
   renderPanel(j, false);
   if(logOpen) feedSentences(j);
 }
+
 async function fillAutoVoices(j){
   const sel=document.getElementById('auto-voice'); if(!sel) return;
   await loadVoices();
@@ -942,19 +1319,41 @@ function patchPanelLive(j){
   }
 }
 function renderPanel(j, force){
-  const panel=document.getElementById('panel'); const s=STAGES.find(x=>x.key===selectedStep);
+  const panel=document.getElementById('panel');
+  const s=STAGES.find(x=>x.key===selectedStep);
   if(!s){ panel.innerHTML='<div class="empty pnl-empty">Chọn một bước.</div>'; lastPanelSig=null; return; }
-  const sig=panelSig(j);
-  // không đổi cấu trúc + panel đã dựng -> chỉ patch header/% (giữ bảng dịch/video)
-  if(!force && sig===lastPanelSig && document.getElementById('panel-body')){
-    patchPanelLive(j);
+  let body=document.getElementById('panel-body');
+  let hdr=document.getElementById('pnl-h');
+  if(!body || !hdr){
+    const idx=STAGES.findIndex(x=>x.key===selectedStep)+1;
+    panel.innerHTML=`<div class="pnl-h" id="pnl-h"><span><span class="pn">${idx}</span> <span id="pnl-name">${s.name}</span></span><span id="pnl-ctrl">${stageCtrl(j,s)}</span></div>`+
+      `<div class="artifact" id="panel-body"><div class="afile amuted">Đang tải…</div></div>`;
+    lastPanelSig=panelSig(j);
+    panel.dataset.artSig='';
+    loadArtifact(j, selectedStep);
     return;
   }
-  lastPanelSig=sig;
+  const sig=panelSig(j);
   const idx=STAGES.findIndex(x=>x.key===selectedStep)+1;
-  panel.innerHTML=`<div class="pnl-h"><span><span class="pn">${idx}</span> ${s.name}</span>${stageCtrl(j,s)}</div>`+
-    `<div class="artifact" id="panel-body"><div class="afile amuted">Đang tải…</div></div>`;
-  loadArtifact(j, selectedStep);
+  const nameEl=document.getElementById('pnl-name');
+  const ctrlEl=document.getElementById('pnl-ctrl');
+  const pn=hdr.querySelector('.pn');
+  if(pn) pn.textContent=String(idx);
+  if(nameEl) nameEl.textContent=s.name;
+  if(ctrlEl){
+    const ctrl=stageCtrl(j,s);
+    if(ctrlEl.innerHTML!==ctrl) ctrlEl.innerHTML=ctrl;
+  }
+  const st=j.stages[selectedStep]||{};
+  const artSig=[selectedStep,st.status,st.n_segments,st.n_clips,st.n_missing,st.asr_engine||st.engine,st.tts_engine,st.model,st.reviewed,!!j.dub].join('|');
+  if(force || panel.dataset.artSig!==artSig){
+    panel.dataset.artSig=artSig;
+    lastPanelSig=sig;
+    loadArtifact(j, selectedStep);
+  } else {
+    lastPanelSig=sig;
+    patchPanelLive(j);
+  }
 }
 
 // Thanh Chạy/Dừng của bước đang xem (nằm ở header panel bên phải).
@@ -992,18 +1391,23 @@ function stageCtrl(j,s){
 }
 
 function stepRow(j,s){
-  const st=(j.stages[s.key]||{}).status||'pending';
+  const sep = j.stages.separate || {};
+  const sepRun = sep.status === 'running';
+  const rawSt = (j.stages[s.key]||{}).status||'pending';
+  const isAsrSep = (s.key === 'asr' && sepRun && rawSt !== 'running' && rawSt !== 'done');
+  const st = isAsrSep ? 'running' : rawSt;
   const running=st==='running', done=st==='done', stg=j.stages[s.key]||{};
   let sub=s.sub;
   if(st==='failed'&&stg.error){ sub=`<span class="err">⚠ ${escapeHtml(String(stg.error).slice(0,60))}</span>`; }
   else if(running){
-    const p=stg.progress; let d='';
-    if(s.key==='download'&&p!=null){ const pc=Math.min(Math.max(p,0),100); d=`${pc}%`+(stg.speed>0?' · '+fmtSize(stg.speed)+'/s':''); }
+    const p=isAsrSep ? sep.progress : stg.progress; let d='';
+    if(isAsrSep){ d=`Demucs tách tiếng ${sep.progress!=null?sep.progress+'%':''}`.trim(); }
+    else if(s.key==='download'&&p!=null){ const pc=Math.min(Math.max(p,0),100); d=`${pc}%`+(stg.speed>0?' · '+fmtSize(stg.speed)+'/s':''); }
     else if(s.key==='asr'&&p!=null) d=`${escapeHtml(stg.asr_engine||stg.engine||'')} ${p}% · ${stg.n_segments||0} câu`.trim();
     else if(s.key==='translate'&&stg.review) d=`soát ${stg.review_progress||0}%`;
     else if((s.key==='translate'||s.key==='tts')&&p!=null) d=`${p}% · ${stg.n_done||0}/${stg.n_total||0}`;
     else if((s.key==='ocr'||s.key==='separate'||s.key==='mux')&&p!=null) d=`${p}%`;
-    let beat=''; if(stg.updated_at){ const ago=Math.max(0,Math.round(Date.now()/1000-stg.updated_at));
+    let beat=''; if(stg.updated_at && !isAsrSep){ const ago=Math.max(0,Math.round(Date.now()/1000-stg.updated_at));
       const cur=(stg.cur_text||'').toLowerCase();
       const booting=/start|xep hang|chuan bi|spawn|loading|enroll/.test(cur);
       if(ago>=(booting?180:60)) beat=` · ⚠ treo?`; }
@@ -1011,21 +1415,12 @@ function stepRow(j,s){
   } else if(done){
     const miss=stg.n_missing||0;
     const warn=miss?` · <span class="err">⚠ thiếu ${miss}</span>`:'';
-    if(s.key==='asr'){
-      const src=stg.asr_source||'';
-      const engFromSrc=src.includes('fun_nano')?'fun_asr_nano':src.includes('firered')?'firered_asr'
-        :src.includes('paraformer')?'paraformer_zh':src.includes('sensevoice')?'sensevoice'
-        :(src.includes('aligned')||src.includes('repaired')||src.includes('consensus'))?'hybrid_fa':'';
-      const engShow=engFromSrc||stg.asr_engine||stg.engine||stg.model||'';
-      const mdl=stg.model&&!((engShow==='fun_asr_nano'&&/firered/i.test(stg.model))||(engShow==='firered_asr'&&/nano|fun/i.test(stg.model)))?stg.model:'';
-      sub=`${stg.n_segments||0} câu · ${escapeHtml(engShow)}${mdl&&mdl!==engShow?` · ${escapeHtml(mdl)}`:''}`;
-    }
+    if(s.key==='asr') sub=`${stg.n_segments||0} câu · ${escapeHtml(stg.asr_engine||stg.engine||stg.model||'')}`;
     else if(s.key==='translate'){
       const asrN=(j.stages.asr||{}).n_segments;
       const n=stg.n_segments||0;
       const splitNote=(asrN&&n&&n!==asrN)?` · tách sub từ ${asrN}`:'';
-      const stale=stg.stale||(stg.asr_sync&&stg.asr_sync.stale)?` · <span class="err">⚠ lệch ASR</span>`:'';
-      sub=`${n} dòng`+splitNote+(stg.reviewed?' · đã soát':'')+stale+warn;
+      sub=`${n} dòng`+splitNote+(stg.reviewed?' · đã soát':'')+warn;
     }
     else if(s.key==='ocr') sub=`${stg.n_texts||0} chữ`;
     else if(s.key==='tts'&&stg.n_clips!=null) sub=`${stg.n_clips} câu`+warn;
@@ -1035,12 +1430,16 @@ function stepRow(j,s){
   const ready={download:true,asr:dlD,translate:asrD,tts:trD,ocr:asrD,separate:dlD,mux:(ttsD||j.dub)}[s.key];
   // Cột 2 chỉ hiện TRẠNG THÁI; nút Chạy/Dừng nằm ở panel bên phải.
   let right='';
-  if(running){ right=`<span class="sstat run">${stg.progress!=null?stg.progress+'%':'…'}</span>`; }
+  if(running){
+    const prg = isAsrSep ? sep.progress : stg.progress;
+    right=`<span class="sstat run">${prg!=null?prg+'%':'…'}</span>`;
+  }
   else if(done){ right=`<span class="sstat ok">Xong</span>`; }
   else if(st==='failed'){ right=`<span class="sstat err">Lỗi</span>`; }
   else if(ready){ right=`<span class="sstat rdy">Sẵn sàng</span>`; }
   else{ right=`<span class="sstat">Chờ</span>`; }
-  const mini=(running&&stg.progress!=null)?`<div class="miniline"><i style="width:${Math.min(stg.progress,100)}%"></i></div>`:'';
+  const prgVal = isAsrSep ? sep.progress : stg.progress;
+  const mini=(running&&prgVal!=null)?`<div class="miniline"><i style="width:${Math.min(prgVal,100)}%"></i></div>`:'';
   const nodeCls=done?'ok':st==='failed'?'err':running?'run':'';
   const opt=s.opt?`<span class="opt">tùy chọn</span>`:'';
   const sel=selectedStep===s.key?'sel':'';
@@ -1066,16 +1465,26 @@ function buildLog(j){
   STAGES.filter(s=>(j.stages[s.key]||{}).status==='failed').forEach(s=>{
     const stg=j.stages[s.key]||{};
     const err=stg.error||stg.detail||'';
-    rows.push({t:'',cls:'er',x:`<span class="er">⚠ ${s.name} lỗi${err?': '+err:''}</span>`});
+    rows.push({t:'',cls:'er',x:`<span class="er">⚠ ${s.name} lỗi${err?': '+escapeHtml(err):''}</span>`});
   });
-  if(j.status==='failed' && (j.error||j.status_detail)){
-    rows.unshift({t:'',cls:'er',x:`<span class="er" style="font-weight:600">❌ ${j.error||j.status_detail}</span>`});
+
+  // Thông tin hàng chờ / nguyên nhân lỗi của riêng job này
+  const qh=(_queueHistory||[]).find(h=>h.job_id===j.job_id);
+  if(qh){
+    if(qh.status==='failed'){
+      rows.unshift({t:'',cls:'er',x:`<span class="er" style="font-weight:600">❌ Lỗi hàng chờ: ${escapeHtml(qh.detail||'pipeline kết thúc nhưng output chưa hoàn chỉnh')}</span>`});
+    } else if(qh.status==='done'){
+      rows.push({t:'',cls:'ok',x:`<span class="ok">✅ Hàng chờ hoàn tất</span>`});
+    }
+  } else if(j.status==='failed' && (j.error||j.status_detail)){
+    rows.unshift({t:'',cls:'er',x:`<span class="er" style="font-weight:600">❌ ${escapeHtml(j.error||j.status_detail)}</span>`});
   }
+
   const body=rows.length?rows.map(r=>`<div class="le"><span class="t">${r.t}</span><span>${r.x}</span></div>`).join(''):'<div class="le amuted">Chưa bắt đầu.</div>';
   const live=j.status==='running'?'<span class="live"><i></i> trực tiếp</span>':'';
   return `<div class="log"><div class="logh" onclick="toggleLog()"><span class="caret">${logOpen?'▾':'▸'}</span> Nhật ký ${live}</div>${logOpen?`<div class="logbody" id="logbody">${body}</div>`:''}</div>`;
 }
-function toggleLog(){ logOpen=!logOpen; if(lastFull) renderDetail(lastFull); }
+function toggleLog(){ logOpen=!logOpen; const c=document.getElementById('log-caret'); if(c) c.textContent=logOpen?'▾':'▸'; const b=document.getElementById('logbody'); if(b) b.style.display=logOpen?'':'none'; if(logOpen && lastFull){ patchLogData(lastFull); feedSentences(lastFull); } }
 async function feedSentences(j){
   const tr=j.stages.translate||{}; if(tr.status!=='running'&&tr.status!=='done') return;
   const b=document.getElementById('logbody'); if(!b) return;
@@ -1121,76 +1530,32 @@ async function loadArtifact(j,key){
     }
     else if(key==='asr'){
       const cur=j.stages.asr||{};
-      // Nguồn đang dùng = sự thật (asr_source / số câu), KHÔNG lấy tip từ dropdown "chạy"
-      const srcNow=cur.asr_source||'';
-      const activeEng=srcNow.includes('fun_nano')?'fun_asr_nano'
-        :srcNow.includes('firered')?'firered_asr'
-        :srcNow.includes('paraformer')?'paraformer_zh'
-        :srcNow.includes('sensevoice')?'sensevoice'
-        :(srcNow.includes('aligned')||srcNow.includes('consensus')||srcNow.includes('repaired'))?'hybrid_fa'
-        :(cur.asr_engine||cur.engine)||curAsrEngine(j);
-      const runEng=activeEng;  // dropdown khớp bản đang dùng (không lấy engine lệch)
-      const engSel=`🎤 Chạy ASR mới: <select id="asr-engine" onchange="asrEngineChanged('${j.job_id}')">
-        <option value="nano_fa" ${runEng==='nano_fa'||!runEng?'selected':''}>⭐ Nano + Direct FA (Khuyên dùng — Không đúp câu)</option>
-        <option value="hybrid_fa" ${runEng==='hybrid_fa'?'selected':''}>Hybrid FA (Nano+Para+FA, no repair)</option>
-        <option value="fun_asr_nano" ${runEng==='fun_asr_nano'?'selected':''}>Fun-ASR-Nano</option>
-        <option value="paraformer_zh" ${runEng==='paraformer_zh'?'selected':''}>Paraformer</option>
-        <option value="sensevoice" ${runEng==='sensevoice'?'selected':''}>SenseVoice</option>
-        <option value="firered_asr" ${runEng==='firered_asr'?'selected':''}>FireRedASR2</option>
-      </select> <span class="amuted">· chọn rồi bấm Chạy = ASR lại từ audio</span>`;
-      const activeTip={
-        fun_asr_nano:'Fun-ASR-Nano · chữ tốt, timing VAD thô',
-        firered_asr:'FireRedASR2-AED',
-        paraformer_zh:'Paraformer · timing tốt',
-        sensevoice:'SenseVoiceSmall',
-        hybrid_fa:'Hybrid FA+Repair',
-      }[activeEng]||'';
+      const eng=(cur.asr_engine||cur.engine)||curAsrEngine(j);
+      const engSel=`🎤 <select id="asr-engine" onchange="asrEngineChanged('${j.job_id}')">
+        <option value="nano_fa" ${eng==='nano_fa'||!eng?'selected':''}>⭐ Nano + Direct FA (Khuyên dùng — Không đúp câu)</option>
+        <option value="hybrid_fa" ${eng==='hybrid_fa'?'selected':''}>Hybrid FA (Nano+Para+FA, no repair)</option>
+        <option value="fun_asr_nano" ${eng==='fun_asr_nano'?'selected':''}>Fun-ASR-Nano — chỉ chữ</option>
+        <option value="paraformer_zh" ${eng==='paraformer_zh'?'selected':''}>Paraformer — chỉ timing</option>
+        <option value="sensevoice" ${eng==='sensevoice'?'selected':''}>SenseVoice — nhanh</option>
+        <option value="firered_asr" ${eng==='firered_asr'?'selected':''}>FireRedASR2 — dự phòng</option>
+      </select>`;
+      const tip={nano_fa:'SOTA chuẩn mới: Fun-ASR-Nano chữ chuẩn + Qwen3-ForcedAligner ghim mốc trực tiếp (không đúp câu, không trôi dạt).',
+                 hybrid_fa:'Chốt: Nano→Para→align→FA (đã tắt repair lấp lỗ).',
+                 fun_asr_nano:'Chỉ Fun-ASR-Nano · chữ tốt, timing VAD thô — không đủ cho TTS mịn.',
+                 sensevoice:'SenseVoiceSmall · nhanh, chữ kém Nano.',
+                 firered_asr:'FireRedASR2-AED · dự phòng.',
+                 paraformer_zh:'Chỉ Paraformer · timing tốt, chữ kém Nano.'}[eng]||'';
       let rows=null;
-      try{ const r=await fetch(F('asr.json')+'?t='+Date.now(),{cache:'no-store'}); if(r.ok) rows=await r.json(); }catch(e){}
-      let srcRow='', quick='';
-      try{
-        const sr=await fetch('/api/jobs/'+j.job_id+'/asr-sources',{cache:'no-store'});
-        if(sr.ok){
-          const sd=await sr.json();
-          const srcItems=(sd.items||[]).filter(x=>x.file!=='asr.json');
-          const act=srcNow||sd.active||'';
-          const nano=srcItems.find(x=>x.file==='asr.fun_nano.json');
-          const fire=srcItems.find(x=>x.file==='asr.firered.json');
-          if(nano||fire){
-            const onNano=act==='asr.fun_nano.json';
-            const onFire=act==='asr.firered.json';
-            quick=`<div class="afile" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-              <b>Đổi bản chữ đang xem:</b>
-              ${nano?`<button class="btn ${onNano?'pri':''}" onclick="selectAsrSource('${j.job_id}','asr.fun_nano.json')">Nano · ${nano.n}${onNano?' ✓':''}</button>`:''}
-              ${fire?`<button class="btn ${onFire?'pri':''}" onclick="selectAsrSource('${j.job_id}','asr.firered.json')">FireRed · ${fire.n}${onFire?' ✓':''}</button>`:''}
-              <span class="amuted" id="asr-src-st"></span>
-            </div>`;
-          }
-          if(srcItems.length>=1){
-            const opts=srcItems.map(x=>`<option value="${escapeHtml(x.file)}" ${x.file===act?'selected':''}>${escapeHtml(x.label)} · ${x.n}</option>`).join('');
-            srcRow=`<div class="afile">📂 Khác: <select id="asr-source" onchange="selectAsrSource('${j.job_id}')">${opts}</select></div>`;
-          }
-        }
-      }catch(e){}
-      const head=`<div class="afile">${engSel}</div>`+quick+srcRow;
+      try{ const r=await fetch(F('asr.json')); if(r.ok) rows=await r.json(); }catch(e){}
+      const head=`<div class="afile">${engSel}<span class="amuted"> · ${escapeHtml(tip)}</span></div>`;
       if(!Array.isArray(rows)){
         box.innerHTML=head+`<div class="afile amuted">${cur.status==='running'?'⏳ Đang nhận diện lời…':'Chưa có asr.json — chọn engine rồi bấm Chạy.'}</div>`;
         return;
       }
-      const modelLbl=activeTip.split(' · ')[0]||activeEng;
-      // Cảnh báo nếu nhãn engine lệch số câu / nguồn
-      const expectN={fun_asr_nano:1825,firered_asr:2060}[activeEng];
-      const warn=(srcNow.includes('fun_nano')&&rows.length!==1825&&rows.length>0)
-        ||(srcNow.includes('firered')&&rows.length<2000)
-        ||((cur.asr_engine||'')==='fun_asr_nano' && srcNow.includes('firered'))
-        ||((cur.asr_engine||'')==='firered_asr' && srcNow.includes('fun_nano'))
-        ?`<div class="afile err">⚠ Lệch nhãn/nguồn — bấm lại Nano/FireRed bên trên để đồng bộ.</div>`:'';
-      const peek=rows.slice(0,5).map(r=>`<div class="amuted mono" style="padding:1px 0">${fmtDur(r.start)} · ${escapeHtml((r.text||'').slice(0,72))}</div>`).join('');
+      const used=cur.asr_engine||cur.engine||eng;
       const list=rows.map((r,ix)=>`<tr><td class="ct amuted">${r.i!=null?r.i:ix}</td><td class="ct" onclick="seekTo(${r.start})">${fmtDur(r.start)}</td><td class="ct amuted">${fmtDur(r.end)}</td><td>${escapeHtml(r.text||'')}</td></tr>`).join('');
-      const csBtn=`<div class="afile">🧠 Context Studio (PRE) <button class="btn pri" onclick="runContextStudio('${j.job_id}',true)">▶ Analyze · LLM</button> <button class="btn" onclick="runContextStudio('${j.job_id}',false)">heuristic</button> <button class="btn" onclick="runContextStudio('${j.job_id}',true,true)">↻ Force</button> <button class="linkbtn" onclick="showContextStudio('${j.job_id}')">👁 Xem pack</button> <span class="amuted" id="cs-st"></span></div><div id="cs-box"></div>`;
-      box.innerHTML=head+warn
-        +`<div class="afile" style="border-left:3px solid var(--accent);padding-left:10px"><b>ĐANG DÙNG:</b> ${escapeHtml(modelLbl)} · <b>${rows.length}</b> câu (full asr.json)${srcNow?` · <code>${escapeHtml(srcNow)}</code>`:''}${activeTip?` · <span class="amuted">${escapeHtml(activeTip)}</span>`:''} · <a href="/api/jobs/${j.job_id}/srt/zh">⬇ .srt</a> · <a href="/api/jobs/${j.job_id}/file/asr.json" target="_blank">⬇ asr.json</a><div style="margin-top:6px">${peek}</div></div>`
-        +csBtn+`<div class="atable"><table><thead><tr><th>#</th><th>bắt đầu</th><th>kết</th><th>text</th></tr></thead><tbody>${list}</tbody></table></div>`;
+      const csBtn=`<div class="afile">🧠 Context Studio (PRE) <button class="btn pri" onclick="runContextStudio('${j.job_id}',true)" title="PRE-SCAN genre/nhân vật/xưng hô → glossary trước khi dịch">▶ Analyze · LLM</button> <button class="btn" onclick="runContextStudio('${j.job_id}',false)">heuristic</button> <button class="btn" onclick="runContextStudio('${j.job_id}',true,true)" title="Chạy lại (ghi đè pack)">↻ Force</button> <button class="linkbtn" onclick="showContextStudio('${j.job_id}')">👁 Xem pack</button> <span class="amuted" id="cs-st"></span></div><div id="cs-box"></div>`;
+      box.innerHTML=head+`<div class="afile">📄 ${rows.length} câu (full asr.json) · engine: <b>${escapeHtml(used)}</b>${cur.model?` · ${escapeHtml(cur.model)}`:''} · <a href="/api/jobs/${j.job_id}/srt/zh">⬇ .srt (Trung)</a> · <a href="/api/jobs/${j.job_id}/file/asr.json" target="_blank">⬇ asr.json</a></div>`+csBtn+`<div class="atable"><table><thead><tr><th>#</th><th>bắt đầu</th><th>kết</th><th>text</th></tr></thead><tbody>${list}</tbody></table></div>`;
       void showContextStudio(j.job_id, true);
     }
     else if(key==='translate'){ await artTranslate(j,box,F); }
@@ -1229,15 +1594,13 @@ async function loadDynamicModels(selectId, preferredVal, force = false){
 
 async function artTranslate(j,box,F){
   const trSt=j.stages.translate||{}; let rows=null,gloss=null;
-  try{const r=await fetch(F('script.display.json'),{cache:'no-store'}); if(r.ok){ const d=await r.json(); if(Array.isArray(d)&&d.length) rows=d; }}catch(e){}
-  if(!rows||!rows.length){ try{const r=await fetch(F('script.json'),{cache:'no-store'}); if(r.ok) rows=await r.json();}catch(e){} }
+  try{const r=await fetch(F('script.json'),{cache:'no-store'}); if(r.ok) rows=await r.json();}catch(e){}
   try{const g=await fetch(F('glossary.json'),{cache:'no-store'}); if(g.ok) gloss=await g.json();}catch(e){}
   if(trSt.status==='running'){ box.innerHTML=`<div class="afile">⏳ Đang ${trSt.review?'soát':'dịch'}… theo dõi ở dòng bước.</div>`+(rows?tblTrans(j,rows):''); requestAnimationFrame(()=>initTransColResize()); return; }
   const done=trSt.model&&trSt.status==='done'?'· đã dịch: '+escapeHtml(trSt.model):''; const rev=trSt.reviewed?' · đã soát: '+escapeHtml(trSt.review_model||'?'):'';
   const modeNow=trSt.mode||'auto';
-  const ctrl=`<div class="afile">🈺 <select id="tr-model"><option value="gemma4-12b-qat-mtp-fast">gemma4-12b-qat-mtp-fast (:8083 ⭐)</option><option value="gemma4-12b">gemma4-12b (:8083)</option><option value="qwen36-tq3">qwen36-tq3 (:8083)</option><option value="local/gemma4">gemma4 (Ollama)</option><option value="local/gemma3:12b">gemma3:12b (Ollama)</option><option value="">(mặc định config)</option></select> <button class="btn sm" onclick="loadDynamicModels('tr-model',null,true)" title="Làm mới danh sách models đang chạy trên 8083 / Ollama">🔄</button> <select id="tr-mode" title="Cách dịch — batch giữ mạch tốt hơn"><option value="batch" selected>batch (lô nhỏ · mạch tốt)</option><option value="oneshot">oneshot (cả file 1 lần)</option><option value="auto">auto</option></select> <button class="btn pri" onclick="doTranslate('${j.job_id}','single')" title="Xoá script cũ và dịch lại toàn bộ">↻ Dịch lại toàn bộ</button><span class="amuted"> ${done}${rev}${modeNow&&trSt.status==='done'?' · mode '+escapeHtml(modeNow):''}</span></div>`+
-    `<div class="afile">⚡ 2 lượt: <button class="btn" onclick="doTranslate('${j.job_id}','2pass')">batch nháp → gemma3 rà văn phong</button>`+(rows?` <button class="btn" onclick="doTranslate('${j.job_id}','review')">🖌 Rà soát văn phong</button>`:'')+` · hoặc header bước: <b>↻ Chạy lại</b></div>`+
-    (rows?`<div class="afile">🎯 <b>Dịch tối ưu</b>: <button class="btn pri" onclick="runTranslateAlts('${j.job_id}')">Quét phương án (ngữ cảnh+văn phong)</button> <button class="linkbtn" onclick="showTranslateAlts('${j.job_id}')">👁 Xem & chọn</button> <span class="amuted" id="alts-st"></span></div><div id="alts-box"></div>`:'');
+  const ctrl=`<div class="afile">🈺 <select id="tr-model"><option value="gemma4-12b-qat-mtp-fast">gemma4-12b-qat-mtp-fast (:8083 ⭐)</option><option value="gemma4-12b">gemma4-12b (:8083)</option><option value="qwen36-tq3">qwen36-tq3 (:8083)</option><option value="local/gemma4">gemma4 (Ollama)</option><option value="local/gemma3:12b">gemma3:12b (Ollama)</option><option value="">(mặc định config)</option></select> <button class="btn sm" onclick="loadDynamicModels('tr-model',null,true)" title="Làm mới danh sách models đang chạy trên 8083 / Ollama">🔄</button> <select id="tr-mode" title="Cách dịch"><option value="oneshot" selected>oneshot (cả file 1 lần)</option><option value="auto">auto</option><option value="batch">batch (lô nhỏ)</option></select> <button class="btn pri" onclick="doTranslate('${j.job_id}','single')" title="Xoá script cũ và dịch lại toàn bộ">↻ Dịch lại toàn bộ</button><span class="amuted"> ${done}${rev}${modeNow&&trSt.status==='done'?' · mode '+escapeHtml(modeNow):''}</span></div>`+
+    `<div class="afile">⚡ 2 lượt: <button class="btn" onclick="doTranslate('${j.job_id}','2pass')">oneshot nháp → gemma3 rà văn phong</button>`+(rows?` <button class="btn" onclick="doTranslate('${j.job_id}','review')">🖌 Rà soát văn phong</button>`:'')+` · hoặc header bước: <b>↻ Chạy lại</b></div>`;
   if(!rows){ box.innerHTML=ctrl+`<div class="afile">🧠 Context Studio (PRE) <button class="btn pri" onclick="runContextStudio('${j.job_id}',true)">▶ Analyze · LLM</button> <button class="btn" onclick="runContextStudio('${j.job_id}',false)">heuristic</button> <button class="linkbtn" onclick="showContextStudio('${j.job_id}')">👁 Xem</button> <span class="amuted" id="cs-st"></span></div><div id="cs-box"></div><div class="afile amuted">Chưa có bản dịch — Analyze sau ASR, rồi Dịch.</div>`; void showContextStudio(j.job_id, true); void loadDynamicModels('tr-model', trSt.model); return; }
   const gsum=gloss?`<div class="afile amuted">📘 ${((gloss.characters||[]).length)} nhân vật · ${((gloss.terms||[]).length)} thuật ngữ</div>`:'';
   const csRow=`<div class="afile">🧠 Context Studio (PRE) <button class="btn pri" onclick="runContextStudio('${j.job_id}',true)">▶ Analyze · LLM</button> <button class="btn" onclick="runContextStudio('${j.job_id}',false)">heuristic</button> <button class="btn" onclick="runContextStudio('${j.job_id}',true,true)">↻ Force</button> <button class="linkbtn" onclick="showContextStudio('${j.job_id}')">👁 Xem</button> <span class="amuted" id="cs-st"></span></div><div id="cs-box"></div>`;
@@ -1251,9 +1614,7 @@ async function artTranslate(j,box,F){
     return `<div class="miss-row"><button class="linkbtn" onclick="seekTo(${r.start})">#${r.i}</button> <span class="mono amuted">${fmtDur(r.start)}</span> <span class="zh" title="${escapeHtml(r.zh||'')}">${escapeHtml(short||'(không chữ)')}</span> <button class="linkbtn" onclick="focusMissLine(${r.i})">sửa</button></div>`;
   }).join('')}${miss>missRows.length?`<div class="amuted">… và ${miss-missRows.length} câu nữa</div>`:''}</div>`:'';
   const missBox=miss?`<div class="afile"><span class="err">⚠ ${miss} câu chưa dịch (trống)</span> <button class="btn pri" onclick="fillTranslate('${j.job_id}')">🩹 Dịch vá ${miss} câu</button> <span class="amuted">sau dịch đã tự kiểm tra missing · bấm để vá thêm</span></div>`:`<div class="afile amuted">✓ Kiểm tra missing: đủ bản dịch</div>`;
-  const sync=trSt.asr_sync||{};
-  const staleBox=sync.stale?`<div class="afile" style="border-left:3px solid var(--err);padding-left:10px"><span class="err">⚠ Dịch lệch ASR:</span> ${escapeHtml(sync.reason||'')} · ASR <b>${sync.n_asr||'?'}</b> · script <b>${sync.n_script||'?'}</b> · ZH khớp ${sync.zh_match||0}. <button class="btn pri" onclick="doTranslate('${j.job_id}','single')">↻ Dịch lại theo ASR hiện tại</button></div>`:'';
-  box.innerHTML=ctrl+csRow+gsum+staleBox+missBox+missList+`<div class="afile">📄 ${rows.length} dòng${miss?` · <span style="color:var(--ok)">${rows.length-miss} đã dịch</span>`:''}${splitNote} · <a href="/api/jobs/${j.job_id}/srt/vi">⬇ .srt (Việt)</a> · <a href="/api/jobs/${j.job_id}/srt/zh">⬇ .srt (Trung)</a> <button class="linkbtn" onclick="revealJob('${j.job_id}','sub.vi.srt')">📂</button> <button class="btn" onclick="cleanZhSpam('${j.job_id}')" title="Rút 哈哈/呃呃 spam từ ASR">🧹 Rút spam ZH</button></div>`+
+  box.innerHTML=ctrl+csRow+gsum+missBox+missList+`<div class="afile">📄 ${rows.length} dòng${miss?` · <span style="color:var(--ok)">${rows.length-miss} đã dịch</span>`:''}${splitNote} · <a href="/api/jobs/${j.job_id}/srt/vi">⬇ .srt (Việt)</a> · <a href="/api/jobs/${j.job_id}/srt/zh">⬇ .srt (Trung)</a> <button class="linkbtn" onclick="revealJob('${j.job_id}','sub.vi.srt')">📂</button> <button class="btn" onclick="cleanZhSpam('${j.job_id}')" title="Rút 哈哈/呃呃 spam từ ASR">🧹 Rút spam ZH</button></div>`+
     `<div class="afile amuted">✏️ Sửa ô Trung hoặc Việt · Enter/blur = lưu · kéo <b>vạch dọc</b> giữa Trung|Việt để co cột (đúp = mặc định)</div>`+tblTrans(j,rows);
   requestAnimationFrame(()=>initTransColResize());
   void showContextStudio(j.job_id, true);
@@ -1572,6 +1933,8 @@ function artMux(j,box){
   const rbar=running?`<div class="pline big" style="margin-top:8px"><i style="width:${barPct}%"></i></div>`:'';
   const zCur=st.zoom||1.12;
   const vbCur=st.vbitrate||'8M';
+  // Đồng bộ từ thanh Auto (batch) — tránh panel mux luôn checked=true bỏ qua hardsub_blur=false
+  const hsBlurOn=!!(document.getElementById('auto-hs-blur')||{checked:true}).checked;
   const ctrl=`<div class="afile">🎬 <button class="btn pri" onclick="muxJob('${j.job_id}')" ${running?'disabled':''}>${done?'↻ Render lại':'Render video'}</button> <span class="amuted" id="mux-st">${rpct}</span></div>${rbar}`+
     `<div class="afile">🔊 Âm thanh: <select id="mux-audio" onchange="muxModeChanged()">${audioModeOptions(mode)}</select> <span class="amuted">· BGM thư viện = assets/bgm (không lấy nhạc gốc)</span></div>`+
     `<div class="afile" id="row-vvol">Giọng Trung giữ lại: <select id="mux-vvol"><option value="0.12">rất nhỏ</option><option value="0.2" selected>nhỏ</option><option value="0.32">vừa</option></select></div>`+
@@ -1580,7 +1943,7 @@ function artMux(j,box){
     `<div class="afile">🔍 Zoom crop: <select id="mux-zoom"><option value="off" ${(zCur==='off'||zCur<=1.01)?'selected':''}>off (không zoom)</option><option value="1.10" ${(zCur==1.1||zCur==1.10)&&zCur!=='off'?'selected':''}>10%</option><option value="1.12" ${(!zCur||zCur==1.12)&&zCur!=='off'?'selected':''}>12%</option><option value="1.15" ${zCur==1.15&&zCur!=='off'?'selected':''}>15%</option></select> · <label class="chk"><input type="checkbox" id="mux-motion" checked> Ken Burns+Drift</label> · <label class="chk"><input type="checkbox" id="mux-lut" checked> LUT</label> · Grain <select id="mux-grain"><option value="off">off</option><option value="weak" selected>weak</option><option value="medium">medium</option><option value="strong">strong</option></select></div>`+
     `<div class="afile">🖼 Khung <select id="mux-frame"><option value="off" selected>tắt</option><option value="auto">auto</option></select></div>`+
     `<div class="afile">™️ Brand <select id="mux-brand-mode" title="Chữ/logo kênh"><option value="off" selected>tắt</option><option value="drift">chạy sin (mượt)</option><option value="corners">đổi góc mỗi 40s</option><option value="drift_seed">sin + random theo job</option></select> · chữ <input id="mux-brand-text" placeholder="Tên kênh" style="width:140px"> · logo <select id="mux-brand-logo"><option value="off" selected>tắt</option><option value="auto">auto</option></select></div>`+
-    `<div class="afile"><label class="chk"><input type="checkbox" id="opt-sub" checked> phụ đề Việt</label> <label class="chk" title="Ghép đủ câu + bắt kịp khoảng trống"><input type="checkbox" id="opt-fit" checked> Khớp time</label> <span class="amuted">· luôn che watermark/hardsub + overlay OCR</span></div>`+
+    `<div class="afile"><label class="chk"><input type="checkbox" id="opt-sub" checked> phụ đề Việt</label> <label class="chk" title="Ghép đủ câu + bắt kịp khoảng trống"><input type="checkbox" id="opt-fit" checked> Khớp time</label> <label class="chk" title="Tắt = không blur/stretch vùng hardsub"><input type="checkbox" id="mux-hs-blur"${hsBlurOn?' checked':''}> Che hardsub (blur)</label> <span class="amuted">· watermark + overlay OCR</span></div>`+
     `<div class="afile">🖥 Độ phân giải: <select id="mux-res"><option value="source" selected>Nguồn (giữ gốc)</option><option value="1080">1080p / 1K (Full HD)</option></select> · Lật: <select id="mux-flip"><option value="" selected>không</option><option value="h">ngang (gương trái-phải)</option><option value="v">dọc (lật trên-dưới)</option><option value="hv">cả hai</option></select> · Nén H264: <select id="mux-vbit" title="Bitrate video — càng thấp file càng nhẹ"><option value="8M" ${!vbCur||vbCur==='8M'?'selected':''}>8M đẹp (~5–6GB/90p)</option><option value="4M" ${vbCur==='4M'?'selected':''}>4M cân bằng (~2.5GB)</option><option value="2M" ${vbCur==='2M'?'selected':''}>2M nhẹ (~1.3GB)</option></select></div>`;
   let player=''; if(done){ const resLbl=(st.width&&st.height)?`${st.width}×${st.height}`:(st.resolution||'');
     const vbLbl=st.vbitrate?` · H264 ${st.vbitrate}`:'';
@@ -1617,7 +1980,7 @@ async function fillAutoFrames(){
   try{
     const d=await (await fetch('/api/frames')).json();
     const files=(d&&d.frames)||[];
-    const cur=sel.value||'off';
+    const cur=autoPrefLoad()['auto-frame']||sel.value||'off';
     sel.innerHTML=`<option value="off">tắt</option><option value="auto">auto</option>`+
       files.map(f=>`<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
     sel.value=[...sel.options].some(o=>o.value===cur)?cur:'off';
@@ -1628,7 +1991,7 @@ async function fillAutoLogos(){
   try{
     const d=await (await fetch('/api/brand-logos')).json();
     const files=(d&&d.logos)||[];
-    const cur=sel.value||'off';
+    const cur=autoPrefLoad()['auto-brand-logo']||sel.value||'off';
     sel.innerHTML=`<option value="off">tắt</option><option value="auto">auto</option>`+
       files.map(f=>`<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
     sel.value=[...sel.options].some(o=>o.value===cur)?cur:'off';
@@ -1640,12 +2003,140 @@ function muxModeChanged(){
   if(vv) vv.style.display=(m==='demucs_keep')?'':'none';
   if(ov) ov.style.display=(m==='duck'||m==='duck_bgm')?'':'none';
 }
+// Lựa chọn áp cho cả batch (không lưu theo job) — giữ nguyên khi chuyển job / F5
+const AUTO_PREF_KEY='pineline.ui3.autobar';
+const AUTO_PREF_IDS=['auto-audio','auto-ovol','auto-tr-mode','auto-review-backup','auto-ocr','auto-fit','auto-res',
+  'auto-zoom','auto-motion','auto-lut','auto-hs-blur','auto-grain','auto-vbit','auto-flip','auto-frame',
+  'auto-brand-mode','auto-brand-text','auto-brand-logo'];
+function autoPrefLoad(){ try{ return JSON.parse(localStorage.getItem(AUTO_PREF_KEY)||'{}')||{}; }catch(e){ return {}; } }
+function autoPrefSave(){
+  if(!document.getElementById('mid-autobar')) return;
+  const p=autoPrefLoad();
+  AUTO_PREF_IDS.forEach(id=>{ const el=document.getElementById(id); if(el) p[id]=el.type==='checkbox'?el.checked:el.value; });
+  try{ localStorage.setItem(AUTO_PREF_KEY, JSON.stringify(p)); }catch(e){}
+}
+function autoPrefApply(){
+  const p=autoPrefLoad();
+  AUTO_PREF_IDS.forEach(id=>{
+    if(!(id in p)) return;
+    const el=document.getElementById(id); if(!el) return;
+    if(el.type==='checkbox'){
+      // Tránh !!'false' === true (localStorage / batch string)
+      const v=p[id];
+      if(typeof v==='boolean') el.checked=v;
+      else{
+        const s=String(v==null?'':v).trim().toLowerCase();
+        el.checked=!['0','false','off','no','tắt','tat','không','khong',''].includes(s);
+      }
+    }
+    else if(el.tagName==='SELECT'){ const v=String(p[id]); if([...el.options].some(o=>o.value===v)) el.value=v; }
+    else el.value=p[id];
+  });
+}
+function autoPrefBind(){
+  AUTO_PREF_IDS.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el || el.dataset.prefBound) return;
+    el.dataset.prefBound='1';
+    el.addEventListener('change', autoPrefSave);
+    if(el.tagName==='INPUT' && el.type!=='checkbox') el.addEventListener('input', autoPrefSave);
+  });
+  // Mọi thay đổi do user trên thanh → ghi thẳng config batch (Auto-pilot/Agent/queue dùng chung)
+  const map={...BATCH_TO_AUTO,...PERJOB_TO_AUTO};
+  for(const [k,id] of Object.entries(map)){
+    const el=document.getElementById(id);
+    if(!el || el.dataset.batchBound) continue;
+    el.dataset.batchBound='1';
+    el.addEventListener('change', ()=>queueBatchPush(k, el));
+    if(el.tagName==='INPUT' && el.type!=='checkbox') el.addEventListener('input', ()=>queueBatchPush(k, el));
+  }
+}
+const PERJOB_TO_AUTO={voice:'auto-voice',speed:'auto-speed',tts_engine:'auto-engine',asr_engine:'auto-asr'};
+const NUM_KEYS=new Set(['orig_vol','speed']);
+let _batchPending={}, _batchTimer=null;
+function queueBatchPush(k, el){
+  if(!el) return;
+  let v= el.type==='checkbox' ? el.checked : el.value;
+  if(k==='zoom'){
+    v = (v==='off'||v==='1.0') ? 'off' : (parseFloat(v)||1.12);
+  } else if(NUM_KEYS.has(k)){ v=parseFloat(v); if(!isFinite(v)) return; }
+  if(k==='voice' && !v) return;
+  _batchPending[k]=v;
+  clearTimeout(_batchTimer);
+  _batchTimer=setTimeout(flushBatchPush, 500);
+}
+async function flushBatchPush(){
+  const patch=_batchPending; _batchPending={};
+  if(!Object.keys(patch).length) return;
+  try{
+    const r=await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({opts:patch,by:'ui3'})});
+    const d=await r.json();
+    if(!r.ok||!d.ok){ _btnFlash('btn-batchcfg-save','✗ '+(d.error||r.status)); return; }
+    const ch=Object.entries(d.changed||{}).map(([k,v])=>`${k}=${v}`);
+    if(ch.length) _btnFlash('btn-batchcfg-save','✓ Config batch: '+ch.join(', '));
+    markPerJobDiff(d.opts||{});
+  }catch(e){ _btnFlash('btn-batchcfg-save','✗ Không lưu được cấu hình'); }
+}
+const BATCH_TO_AUTO={audio_mode:'auto-audio',orig_vol:'auto-ovol',translate_mode:'auto-tr-mode',review_backup:'auto-review-backup',ocr:'auto-ocr',
+  fit:'auto-fit',resolution:'auto-res',zoom:'auto-zoom',motion:'auto-motion',lut:'auto-lut',
+  hardsub_blur:'auto-hs-blur',grain:'auto-grain',
+  vbitrate:'auto-vbit',flip:'auto-flip',frame:'auto-frame',brand_mode:'auto-brand-mode',
+  brand_text:'auto-brand-text',brand_logo:'auto-brand-logo'};
+function _btnFlash(id, text){
+  const b=document.getElementById(id); if(!b) return;
+  const old=b.dataset.label||b.textContent; b.dataset.label=old;
+  b.textContent=text; setTimeout(()=>{ b.textContent=old; }, 2500);
+}
+async function loadBatchCfg(silent){
+  try{
+    const d=await (await fetch('/config')).json();
+    const o=d.opts||{};
+    const p=autoPrefLoad();
+    for(const [k,id] of Object.entries(BATCH_TO_AUTO)){
+      if(o[k]==null) continue;
+      p[id]= k==='zoom' ? ((o[k]==='off'||o[k]<=1.01) ? 'off' : Number(o[k]).toFixed(2)) : o[k];
+    }
+    try{ localStorage.setItem(AUTO_PREF_KEY, JSON.stringify(p)); }catch(e){}
+    autoPrefApply(); fillAutoFrames(); fillAutoLogos(); autoAudioChanged();
+    markPerJobDiff(o);
+    if(!silent) _btnFlash('btn-batchcfg-load','✓ Đã nạp');
+  }catch(e){ if(!silent) _btnFlash('btn-batchcfg-load','✗ Không đọc được cấu hình'); }
+}
+// Giọng/tốc độ/engine hiển thị theo job; viền vàng = khác config batch (queue sẽ dùng giá trị batch)
+function markPerJobDiff(o){
+  for(const [k,id] of Object.entries(PERJOB_TO_AUTO)){
+    const el=document.getElementById(id); if(!el||o[k]==null||el.value==='') continue;
+    const same= NUM_KEYS.has(k) ? Math.abs(parseFloat(el.value)-Number(o[k]))<1e-6 : el.value===String(o[k]);
+    el.style.outline= same ? '' : '1px solid #e0a030';
+    el.title= same ? '' : `Job này: ${el.value} · Config batch: ${o[k]}`;
+  }
+}
+async function saveBatchCfg(){
+  const all=collectRunAllOpts();
+  const o={voice_vol:all.voice_vol};
+  for(const k of Object.keys(BATCH_TO_AUTO)) o[k]=all[k];
+  // giọng/tốc độ/engine trên thanh là của job đang mở — chỉ đưa vào batch khi user đồng ý
+  const perJob=`giọng ${all.voice||'—'} · tốc độ ${all.speed} · TTS ${all.tts_engine} · ASR ${all.asr_engine}`;
+  if(confirm(`Lưu cả ${perJob} (đang là của job này) làm mặc định cho batch?\n\nOK = lưu cả 4 mục này\nCancel = chỉ lưu âm nền / dịch / render / brand`)){
+    Object.assign(o,{voice:all.voice,speed:all.speed,tts_engine:all.tts_engine,asr_engine:all.asr_engine});
+  }
+  try{
+    const r=await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({opts:o,by:'ui3'})});
+    const d=await r.json();
+    if(!r.ok||!d.ok){ alert('Lưu config batch lỗi: '+(d.error||r.status)); return; }
+    const ch=Object.entries(d.changed||{}).map(([k,v])=>`${k}=${v}`);
+    _btnFlash('btn-batchcfg-save', ch.length?`✓ Đã lưu (${ch.length} thay đổi)`:'✓ Không đổi');
+    const b=document.getElementById('btn-batchcfg-save'); if(b) b.title=ch.length?'Vừa đổi: '+ch.join(', '):'Config batch không đổi';
+  }catch(e){ _btnFlash('btn-batchcfg-save','✗ Không lưu được cấu hình'); }
+}
 function autoAudioChanged(){
   const m=(document.getElementById('auto-audio')||{}).value;
   const ovol=document.getElementById('auto-ovol');
   const ov=document.getElementById('row-auto-ovol');
   const duck=(m==='duck'||m==='duck_bgm');
-  if(ov){ ov.style.opacity=duck?'1':'0.45'; }
+  if(ov) ov.style.opacity=duck?'1':'0.45';
   if(ovol) ovol.disabled=!duck;
 }
 
@@ -1674,60 +2165,10 @@ async function saveAsrEngine(id,e){
 async function asrEngineChanged(id){
   const el=document.getElementById('asr-engine');
   const e=el&&el.value?el.value:curAsrEngine();
-  // Đổi dropdown = muốn XEM/DÙNG file đó (nếu có). Không ghi engine trước khi promote.
-  const map={fun_asr_nano:'asr.fun_nano.json',firered_asr:'asr.firered.json',
-             paraformer_zh:'asr.paraformer_zh.json',sensevoice:'asr.sensevoice.json',
-             hybrid_fa:'asr.aligned_repaired.json'};
-  const src=map[e];
-  if(src){
-    try{
-      const sr=await fetch('/api/jobs/'+id+'/asr-sources',{cache:'no-store'});
-      if(sr.ok){
-        const items=((await sr.json()).items||[]).map(x=>x.file);
-        let pick=src;
-        if(e==='hybrid_fa' && !items.includes(pick)){
-          pick=['asr.aligned_repaired.json','asr.aligned_fa.json','asr.aligned.json','asr.consensus.json']
-            .find(f=>items.includes(f));
-        }
-        if(pick && items.includes(pick)){
-          await selectAsrSource(id, pick);
-          try{ if(typeof rememberForm==='function') rememberForm(id,'auto-asr',e); }catch(err){}
-          const a=document.getElementById('auto-asr'); if(a && [...a.options].some(o=>o.value===e)) a.value=e;
-          return;
-        }
-      }
-    }catch(err){}
-  }
-  // Không có file sẵn → chỉ lưu engine để lần Chạy tới
   if(!(await saveAsrEngine(id,e))) return;
   try{ if(typeof rememberForm==='function') rememberForm(id,'auto-asr',e); }catch(err){}
   const a=document.getElementById('auto-asr'); if(a && [...a.options].some(o=>o.value===e)) a.value=e;
   if(lastFull){ (lastFull.stages.asr=lastFull.stages.asr||{}).asr_engine=e; lastFull.stages.asr.engine=e; renderPanel(lastFull,true); }
-}
-async function selectAsrSource(id, forced){
-  const el=document.getElementById('asr-source');
-  const st=document.getElementById('asr-src-st');
-  const src=forced || (el&&el.value);
-  if(!src){ alert('Chưa chọn file ASR'); return; }
-  if(st) st.textContent='⏳ đang ghi '+src+'…';
-  try{
-    const r=await fetch('/api/jobs/'+id+'/asr-select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:src})});
-    const d=await r.json().catch(()=>({}));
-    if(!r.ok){ if(st) st.textContent=''; alert(d.error||r.status); return; }
-    if(st) st.textContent='✓ '+src+' · '+d.n_segments+' câu'+(d.translate_stale?' · ⚠ cần dịch lại':'');
-    if(lastFull){
-      const a=lastFull.stages.asr=lastFull.stages.asr||{};
-      a.asr_source=src; a.n_segments=d.n_segments; a.status='done';
-      if(d.engine){ a.asr_engine=d.engine; a.engine=d.engine; }
-      if(d.model) a.model=d.model;
-      else if(src.includes('fun_nano')) a.model='Fun-ASR-Nano';
-      else if(src.includes('firered')) a.model='FireRedASR2-AED';
-    }
-    lastDetailSig=null;
-    // reload panel ngay — thấy số câu + 5 dòng đầu đổi
-    if(lastFull) await loadArtifact(lastFull,'asr');
-    else void refresh();
-  }catch(e){ if(st) st.textContent=''; alert('Lỗi: '+e); }
 }
 function fillVoices(){ const vs=document.getElementById('tts-voice'); if(!vs||!VOICES) return; const list=VOICES[curEngine()]||[]; const cur=(lastFull&&lastFull.stages.tts)?lastFull.stages.tts.voice:null;
   const noneMsg='(chưa có giọng — Thêm giọng)';
@@ -1737,13 +2178,12 @@ function engineChanged(id){ const e=curEngine(); saveTtsEngine(id,e);
   if(lastFull){ (lastFull.stages.tts=lastFull.stages.tts||{}).tts_engine=e; renderPanel(lastFull,true); }  // dựng lại: đổi form clone↔train + danh sách giọng
 }
 async function doTranslate(id,mode){ let body,label;
-  const trMode=(document.getElementById('tr-mode')||{value:'batch'}).value||'batch';
+  const trMode=(document.getElementById('tr-mode')||{value:'oneshot'}).value||'oneshot';
   const trModel=(document.getElementById('tr-model')||{}).value||null;
-  if(mode==='single'){ body={model:trModel,mode:trMode}; label='↻ Dịch LẠI TOÀN BỘ ('+trMode+') — xoá script.json cũ'; }
-  else if(mode==='2pass'){ body={model:trModel||'gemma4-12b-qat-mtp-fast',review_model:'local/gemma3:12b',mode:trMode}; label='Dịch 2 lượt LẠI (batch → gemma3 rà) — xoá bản cũ'; }
+  if(mode==='single'){ body={model:trModel,mode:trMode,force:true}; label='↻ Dịch LẠI TOÀN BỘ ('+trMode+') — xoá script.json cũ'; }
+  else if(mode==='2pass'){ body={model:trModel||'gemma4-12b-qat-mtp-fast',review_model:'local/gemma3:12b',mode:trMode,force:true}; label='Dịch 2 lượt LẠI (oneshot → gemma3 rà) — xoá bản cũ'; }
   else{ body={review_only:true,review_model:'local/gemma3:12b'}; label='Rà soát văn phong (giữ bản dịch, chỉ soát)'; }
   if(!confirm(label+'?\nTTS cũ sẽ lỗi thời.')) return;
-  paintRunning(id,'translate', mode==='review'?'đang rà soát…':'đang xếp hàng dịch…');
   try{ const r=await fetch('/api/jobs/'+id+'/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok){const d=await r.json().catch(()=>({})); alert('Không chạy được: '+(d.error||r.status)); return;} lastDetailSig=null; await refresh(); }catch(e){ alert('Lỗi: '+e); } }
 async function muxJob(id){ return guardAct('mux:'+id, async()=>{
   paintRunning(id,'mux','đang render…'); await flushPaint();
@@ -1766,8 +2206,9 @@ async function muxJob(id){ return guardAct('mux:'+id, async()=>{
   const brand_logo=(document.getElementById('mux-brand-logo')||{value:'off'}).value||'off';
   const frame=(document.getElementById('mux-frame')||{value:'off'}).value||'off';
   const vbitrate=(document.getElementById('mux-vbit')||{value:'8M'}).value||'8M';
+  const hardsub_blur=(document.getElementById('mux-hs-blur')||{checked:true}).checked;
   try{
-    const r=await fetch('/api/jobs/'+id+'/mux',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio_mode,voice_vol,orig_vol,add_sub,fit,resolution,flip,zoom,motion,lut,grain,brand,brand_mode,brand_text,brand_logo,frame,vbitrate})});
+    const r=await fetch('/api/jobs/'+id+'/mux',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio_mode,voice_vol,orig_vol,add_sub,fit,resolution,flip,zoom,motion,lut,grain,brand,brand_mode,brand_text,brand_logo,frame,vbitrate,hardsub_blur})});
     const d=await r.json(); if(d&&d.error){alert('Lỗi render: '+d.error); if(st)st.textContent=''; paintIdle(id); void refresh(); return;}
     lastDetailSig=null; void refresh();
   }catch(e){ alert('Lỗi: '+e); void refresh(); }
@@ -1778,7 +2219,8 @@ async function assembleJob(id){ const st=document.getElementById('merge-st'), bx
   if(st) st.textContent=' ⏳ ghép...';
   try{ const rep=await (await fetch('/api/jobs/'+id+'/assemble?fit=true&max_speed='+spd,{method:'POST'})).json(); if(rep.error){if(st)st.textContent=' lỗi: '+rep.error; return;} if(st)st.textContent='';
     const fn=(rep.out||'dub_fit.wav').split(/[\\/]/).pop(); const v=rep.n_overlap===0?'✅ không đè':('🔴 '+rep.n_overlap+' đè');
-    bx.innerHTML=`<div class="afile">🔗 ${rep.track_dur}s · ${v} · nén ${rep.n_compressed}/${rep.n_clips} · <a href="/api/jobs/${id}/file/${fn}" target="_blank">tải</a></div><audio class="dubplayer" controls src="/api/jobs/${id}/file/${fn}?_t=${Date.now()}"></audio>`;
+    const sp=rep.max_speed_used!=null?` · tốc độ nén tối đa ${rep.max_speed_used}×`:'';
+    bx.innerHTML=`<div class="afile">🔗 ${rep.track_dur}s · ${v} · nén ${rep.n_compressed}/${rep.n_clips}${sp} · <a href="/api/jobs/${id}/file/${fn}" target="_blank">tải</a></div><audio class="dubplayer" controls src="/api/jobs/${id}/file/${fn}?_t=${Date.now()}"></audio>`;
   }catch(e){ if(st)st.textContent=' lỗi: '+e; } }
 async function cloneVoice(){
   const nameEl=document.getElementById('clone-name'), fileEl=document.getElementById('clone-file');
@@ -2103,7 +2545,7 @@ function voiceChanged(id,sel,made){ saveTtsVoice(id,sel.value); const u=document
   if(u) u.textContent=made?` · sẽ đọc lại bằng: ${sel.value}`:` · sẽ dùng: ${sel.value}`; }
 // Tốc độ đọc: <1 chậm, 1 chuẩn, >1 nhanh (ffmpeg atempo — VieNeu + OmniVoice).
 function speedOptions(sel){ const cur=String(sel||1.0);
-  return [['0.8','0.8× chậm'],['0.9','0.9×'],['1.0','1.0× chuẩn'],['1.1','1.1×'],['1.2','1.2× nhanh']]
+  return [['0.8','0.8× chậm'],['0.9','0.9×'],['1.0','1.0× chuẩn'],['1.1','1.1×'],['1.2','1.2×'],['1.25','1.25×'],['1.3','1.3×']]
     .map(([v,t])=>`<option value="${v}" ${v===cur||(cur==='1'&&v==='1.0')?'selected':''}>${t}</option>`).join(''); }
 async function saveTtsSpeed(id,v){ try{ await fetch('/api/jobs/'+id+'/tts-voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({speed:parseFloat(v)})}); }catch(e){} }
 function collectRunAllOpts(){
@@ -2129,23 +2571,65 @@ function collectRunAllOpts(){
   const brand_text=(document.getElementById('auto-brand-text')||{value:''}).value||'';
   const brand_logo=(document.getElementById('auto-brand-logo')||{value:'off'}).value||'off';
   const orig_vol=parseFloat((document.getElementById('auto-ovol')||{value:(audio_mode==='duck_bgm')?'0.22':'0.6'}).value);
+  const hardsub_blur=!!(document.getElementById('auto-hs-blur')||{checked:true}).checked;
   return {voice,speed,tts_engine,asr_engine,audio_mode,voice_vol:0.2,orig_vol,ocr,fit,resolution,translate_mode,review_backup,
-    zoom,motion,lut,grain,flip,frame,brand:brand_mode!=='off',brand_mode,brand_text,brand_logo,vbitrate};
+    zoom,motion,lut,hardsub_blur,grain,flip,frame,brand:brand_mode!=='off',brand_mode,brand_text,brand_logo,vbitrate};
 }
 
 let _queuePollTimer=null;
+function _fmtEta(sec){
+  if(sec==null||sec<0||!isFinite(sec)) return '';
+  if(sec<90) return `~${Math.round(sec)}s`;
+  if(sec<3600) return `~${Math.round(sec/60)}p`;
+  return `~${(sec/3600).toFixed(1)}h`;
+}
+let _queueHistory=[];
+let _lastQueueState=null;
+
 async function paintQueueStatus(){
   try{
     const st=await (await fetch('/api/queue/jobs')).json();
+    _lastQueueState=st;
+    _queueHistory=st.history||[];
     const el=document.getElementById('queue-status');
-    if(!el) return;
-    const recent=(st.history||[]).slice(-5).reverse()
-      .map(h=>`${h.job_id}: ${h.status}${h.detail?` — ${h.detail}`:''}`);
-    const live=(st.current||(st.queue&&st.queue.length)||st.worker)
-      ? `Queue: ${st.current||'—'} · còn ${(st.queue||[]).length}`+(st.worker?' · chạy':'')
-      : '';
-    el.title=[live,...recent].filter(Boolean).join('\n');
-    el.textContent=live;
+    const badge=document.getElementById('qbar-count');
+    const qCount=(st.queue||[]).length;
+    if(badge) badge.textContent=qCount;
+
+    if(el){
+      const cd=st.current_detail||null;
+      let live='';
+      if(st.current||(st.queue&&st.queue.length)||st.worker){
+        const parts=[];
+        if(cd&&cd.job_id){
+          const gi=cd.group_index!=null?`P${cd.group_index} `: '';
+          const stg=cd.stage?` · ${cd.stage}`:'';
+          const pct=(cd.progress!=null&&cd.progress!=='')?` ${Number(cd.progress).toFixed(0)}%`:'';
+          const eta=_fmtEta(cd.eta_sec);
+          const txt=cd.cur_text?` · ${cd.cur_text}`:'';
+          parts.push(`${gi}${(cd.title||cd.job_id).slice(0,28)}${stg}${pct}${eta?' · '+eta:''}${txt}`);
+        } else if(st.current){
+          parts.push(st.current);
+        }
+        parts.push(`còn ${qCount}`);
+        if(st.worker) parts.push('chạy');
+        live='Queue: '+parts.join(' · ');
+      }
+      const recent=(st.history||[]).slice(-5).reverse()
+        .map(h=>{
+          const ok=h.status==='done'?'✅':(h.status==='failed'?'❌':'·');
+          return `${ok} ${h.job_id}: ${h.status}${h.detail?` — ${String(h.detail).slice(0,80)}`:''}`;
+        });
+      el.title=[live || 'Hàng chờ rảnh (Bấm để mở Quản lý Hàng Đợi)', ...recent].filter(Boolean).join('\n');
+      el.textContent=live;
+    }
+
+    // Nếu modal Quản lý Hàng Đợi đang mở, tự động cập nhật bảng trực tiếp
+    const qmMask=document.getElementById('qm-mask');
+    if(qmMask && qmMask.classList.contains('on')){
+      renderQueueModal(st);
+    }
+
     if(st.worker||(st.queue&&st.queue.length)||st.current){
       // V6 F3: KHÔNG còn setInterval 2 s ở đây — hàng chờ cập nhật theo SSE /api/events
       // (static/live_sync.js gọi refresh(), refresh() gọi lại paintQueueStatus()).
@@ -2154,37 +2638,169 @@ async function paintQueueStatus(){
   }catch(e){}
 }
 
-async function runJobQueue(){
-  let ids=[...listSel];
-  if(!ids.length){ alert('Tick ít nhất 1 job ở sidebar'); return; }
-  // Tự động sắp xếp các job được chọn theo Tên Bộ và Season (Phần 1 -> Phần 2 -> Phần 3..)
-  if(ids.length > 1 && Array.isArray(cache)){
-    const idMap = new Map();
-    cache.forEach(j => { if(j && j.job_id) idMap.set(j.job_id, j); });
-    ids.sort((a, b) => {
-      const ja = idMap.get(a) || {};
-      const jb = idMap.get(b) || {};
-      const ga = (ja.group_title || ja.title || a).toLowerCase();
-      const gb = (jb.group_title || jb.title || b).toLowerCase();
-      if(ga !== gb) return ga.localeCompare(gb);
-      const sa = ja.group_index != null ? Number(ja.group_index) : 1;
-      const sb = jb.group_index != null ? Number(jb.group_index) : 1;
-      return sa - sb;
-    });
+async function openQueueModal(){
+  const m=document.getElementById('qm-mask');
+  if(m){
+    m.classList.add('on');
+    if(!cache || !cache.length){
+      try{ cache = await (await fetch('/api/jobs')).json(); }catch(_){}
+    }
+    if(_lastQueueState) renderQueueModal(_lastQueueState);
+    void paintQueueStatus();
   }
-  if(!confirm(`Chạy hàng chờ ${ids.length} job (tuần tự run-all)?\nThứ tự đã tự động sắp xếp chuẩn P1→Pn.`)) return;
-  const body={job_ids:ids,skip_done:true,...collectRunAllOpts()};
-  if(!body.voice){ alert('Chọn giọng trên thanh 1-click trước'); return; }
-  const r=await fetch('/api/queue/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const d=await r.json().catch(()=>({}));
-  if(!r.ok){ alert(d.error||r.status); return; }
-  alert(`Đã xếp ${(d.queued||[]).length} job theo đúng thứ tự P1→Pn`+(d.skipped_done&&d.skipped_done.length?` · bỏ qua done: ${d.skipped_done.length}`:''));
-  void paintQueueStatus(); void refresh();
 }
 
-async function stopJobQueue(){
-  await fetch('/api/queue/jobs/stop',{method:'POST'});
-  void paintQueueStatus(); void refresh();
+function closeQueueModal(){
+  const m=document.getElementById('qm-mask');
+  if(m) m.classList.remove('on');
+}
+
+function renderQueueModal(st){
+  if(!st) return;
+
+  const idMap = new Map();
+  if(Array.isArray(cache)){
+    cache.forEach(j => { if(j && j.job_id) idMap.set(j.job_id, j); });
+  }
+
+  const CN_MAP = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+  function getDisplayInfo(jid){
+    const j = idMap.get(jid) || {};
+    const titleVi = (j.title_vi || j.title || jid).trim();
+    const seriesName = (j.group_title || j.series || '').trim();
+    // Ưu tiên Phần trên title — group_index hay lệch badge
+    let sNo = null;
+    const mHead = titleVi.match(/^(?:phần|mùa|p)\s*(\d+)\s*[|:\-–—]/i);
+    if(mHead) sNo = parseInt(mHead[1], 10);
+    if(sNo === null){
+      const mVi = titleVi.match(/(?:^|[\s_\-\.\(:|])(?:p|phần|mùa|season|s|tập|t)\s*(\d+)/i);
+      if(mVi) sNo = parseInt(mVi[1], 10);
+    }
+    if(sNo === null && j.title){
+      const mCn = String(j.title).match(/第([一二三四五六七八九十\d]+)季/);
+      if(mCn) sNo = CN_MAP[mCn[1]] || parseInt(mCn[1], 10) || null;
+    }
+    if(sNo === null && j.group_index != null) sNo = Number(j.group_index);
+    return {
+      job_id: jid,
+      title: titleVi,
+      series: seriesName,
+      season: sNo || 1
+    };
+  }
+
+  const rawQueue = st.queue || [];
+  const qList = (st.queue_items && st.queue_items.length && st.queue_items[0].title !== st.queue_items[0].job_id)
+    ? st.queue_items
+    : rawQueue.map(getDisplayInfo);
+
+  const totalCount=qList.length + (st.current?1:0);
+  const countBadge=document.getElementById('qm-count-badge');
+  if(countBadge) countBadge.textContent = `${totalCount} job`;
+
+  // 1. Box Current Job
+  const curTitle=document.getElementById('qm-cur-title');
+  const curStatusText=document.getElementById('qm-cur-status-text');
+  const curPbar=document.getElementById('qm-cur-pbar');
+  const curStep=document.getElementById('qm-cur-step');
+  const curEta=document.getElementById('qm-cur-eta');
+
+  if(st.current){
+    const cd=st.current_detail||{};
+    const curInfo=getDisplayInfo(st.current);
+    const gi=curInfo.season ? `<span class="qm-badge p-badge">P${curInfo.season}</span>`: '';
+    const curDisplayTitle=curInfo.title || cd.title || st.current;
+    if(curStatusText) curStatusText.innerHTML=`<span class="qm-badge cur">ĐANG CHẠY</span> <button class="btn sm stop" style="padding:2px 8px;font-size:10.5px" onclick="stopJobQueue()">⏹ Dừng</button>`;
+    if(curTitle) curTitle.innerHTML=`${gi} <span>${escapeHtml(curDisplayTitle)}</span> <code style="font-size:11px;color:var(--muted)">${st.current}</code>`;
+    const pct=cd.progress!=null&&cd.progress!==''?Number(cd.progress).toFixed(0):'0';
+    if(curPbar) curPbar.style.width=`${pct}%`;
+    if(curStep) curStep.innerHTML=`Giai đoạn: <b>${escapeHtml(cd.stage||'đang chuẩn bị')}</b> (${pct}%) ${cd.cur_text?'· '+escapeHtml(cd.cur_text):''}`;
+    if(curEta) curEta.innerHTML=`ETA: <b>${_fmtEta(cd.eta_sec)||'đang tính…'}</b>`;
+  } else {
+    if(curStatusText) curStatusText.innerHTML=`<span style="color:var(--muted)">ĐANG RẢNH</span>`;
+    if(curTitle) curTitle.textContent='Không có job nào đang chạy';
+    if(curPbar) curPbar.style.width='0%';
+    if(curStep) curStep.textContent='Giai đoạn: --';
+    if(curEta) curEta.textContent='ETA: --';
+  }
+
+  // 2. Table Pending Jobs
+  const tbody=document.getElementById('qm-tbody');
+  if(!tbody) return;
+  if(!qList.length){
+    tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">Hàng chờ trống. Bạn có thể chọn video ở sidebar và bấm <b>▶ Chạy hàng chờ</b>.</td></tr>`;
+    return;
+  }
+
+  let html='';
+  qList.forEach((it, idx)=>{
+    const jid=escapeHtml(it.job_id);
+    const title=escapeHtml(it.title||it.job_id);
+    const series=it.series?`<div style="font-size:11px;color:var(--muted)">${escapeHtml(it.series)}</div>`:'';
+    const sBadge=`<span class="qm-badge p-badge">P${it.season||1}</span>`;
+    const isFirst=(idx===0);
+    const isLast=(idx===qList.length-1);
+
+    html+=`<tr>
+      <td style="text-align:center;color:var(--muted);font-weight:600">${idx+1}</td>
+      <td style="text-align:center">${sBadge}</td>
+      <td>
+        <div style="font-weight:550;color:var(--text);cursor:pointer" onclick="closeQueueModal();select('${jid}')" title="Xem chi tiết job này">${title}</div>
+        ${series}
+      </td>
+      <td><code style="font-size:11px;cursor:pointer" onclick="closeQueueModal();select('${jid}')">${jid.slice(0,10)}</code></td>
+      <td style="text-align:center">
+        <div class="qm-actions" style="justify-content:center">
+          <button type="button" title="Đưa lên đầu danh sách (Làm trước)" onclick="moveQueueJob('${jid}','top')" ${isFirst?'disabled style="opacity:0.3;cursor:not-allowed"':''}>🔝</button>
+          <button type="button" title="Di chuyển lên 1 nấc" onclick="moveQueueJob('${jid}','up')" ${isFirst?'disabled style="opacity:0.3;cursor:not-allowed"':''}>▲</button>
+          <button type="button" title="Di chuyển xuống 1 nấc" onclick="moveQueueJob('${jid}','down')" ${isLast?'disabled style="opacity:0.3;cursor:not-allowed"':''}>▼</button>
+          <button type="button" title="Đưa xuống cuối cùng" onclick="moveQueueJob('${jid}','bottom')" ${isLast?'disabled style="opacity:0.3;cursor:not-allowed"':''}>🔻</button>
+          <button type="button" class="del" title="Xoá khỏi hàng chờ" onclick="removeQueueJob('${jid}')">✕</button>
+        </div>
+      </td>
+    </tr>`;
+  });
+  tbody.innerHTML=html;
+}
+
+function _sortJobIdsLocally(ids, by){
+  if(!Array.isArray(ids) || ids.length <= 1) return ids;
+  const idMap = new Map();
+  if(Array.isArray(cache)){
+    cache.forEach(j => { if(j && j.job_id) idMap.set(j.job_id, j); });
+  }
+  const CN_MAP = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+  function getInfo(jid){
+    const j = idMap.get(jid) || {};
+    const t = j.title_vi || j.title || jid;
+    let sNo = null;
+    const mHead = String(t).match(/^(?:phần|mùa|p)\s*(\d+)\s*[|:\-–—]/i);
+    if(mHead) sNo = parseInt(mHead[1], 10);
+    if(sNo === null){
+      const mVi = String(t).match(/(?:^|[\s_\-\.\(:|])(?:p|phần|mùa|season|s|tập|t)\s*(\d+)/i);
+      if(mVi) sNo = parseInt(mVi[1], 10);
+    }
+    if(sNo === null){
+      const mCn = String(t).match(/第([一二三四五六七八九十\d]+)季/);
+      if(mCn) sNo = CN_MAP[mCn[1]] || parseInt(mCn[1], 10) || null;
+    }
+    if(sNo === null && j.group_index != null) sNo = Number(j.group_index);
+    const series = (j.group_id || j.group_title || j.title || jid).toLowerCase();
+    return { jid, series, season: sNo || 1, title: String(t).toLowerCase() };
+  }
+  const items = ids.map(getInfo);
+  if(by === 'name'){
+    items.sort((a,b) => a.title.localeCompare(b.title));
+  } else if(by === 'reverse'){
+    return [...ids].reverse();
+  } else {
+    items.sort((a,b) => {
+      if(a.series !== b.series) return a.series.localeCompare(b.series);
+      if(a.season !== b.season) return a.season - b.season;
+      return a.title.localeCompare(b.title);
+    });
+  }
+  return items.map(x => x.jid);
 }
 
 async function _requeueFallback(newOrder){
@@ -2214,6 +2830,8 @@ async function moveQueueJob(jobId, action){
     const st = await (await fetch('/api/queue/jobs')).json();
     const q = st.queue || [];
     let idx = q.indexOf(jobId);
+
+    // Chưa trong hàng chờ → add trước, rồi move (không remove+re-add cả hàng)
     if(idx === -1){
       const defaultOpts = st.opts || {};
       const addR = await fetch('/api/queue/jobs', {
@@ -2222,15 +2840,27 @@ async function moveQueueJob(jobId, action){
       });
       const addD = await addR.json().catch(()=>({}));
       if(!addR.ok){ alert(addD.error || 'Không thêm được job vào hàng chờ'); return; }
-      if(action === 'bottom'){ void paintQueueStatus(); void refresh(); return; }
+      if(action === 'bottom'){
+        _lastQueueState = addD;
+        renderQueueModal(addD);
+        void paintQueueStatus();
+        void refresh();
+        return;
+      }
       action = (action === 'down') ? 'bottom' : 'top';
     }
+
     const r = await fetch('/api/queue/jobs/move', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({job_id: jobId, action})
     });
     const newSt = await r.json().catch(()=>({}));
-    if(!r.ok || newSt.ok === false){ alert(newSt.error || 'Lỗi di chuyển'); return; }
+    if(!r.ok || newSt.ok === false){
+      alert(newSt.error || 'Lỗi di chuyển');
+      return;
+    }
+    _lastQueueState = newSt;
+    renderQueueModal(newSt);
     void paintQueueStatus();
     void refresh();
   }catch(e){
@@ -2239,6 +2869,138 @@ async function moveQueueJob(jobId, action){
   }
 }
 
+async function sortQueueJobs(by){
+  try{
+    const st = await (await fetch('/api/queue/jobs')).json();
+    const currentQueue = st.queue || [];
+    if(currentQueue.length <= 1){
+      alert('Hàng chờ trống hoặc chỉ có 1 job.');
+      return;
+    }
+    const r = await fetch('/api/queue/jobs/sort', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({by: by || 'series_season'})
+    });
+    const newSt = await r.json().catch(()=>({}));
+    if(!r.ok || newSt.ok === false){
+      alert(newSt.error || 'Lỗi sắp xếp');
+      return;
+    }
+    _lastQueueState = newSt;
+    renderQueueModal(newSt);
+    void paintQueueStatus();
+    void refresh();
+    const n = (newSt.queue || currentQueue).length;
+    const label = by === 'name' ? 'A-Z' : (by === 'reverse' ? 'đảo thứ tự' : 'Phần 1→Pn');
+    alert(`Đã sắp xếp lại ${n} job theo ${label}.`);
+  }catch(e){
+    console.error('Lỗi sắp xếp:', e);
+    alert('Lỗi sắp xếp: ' + e);
+  }
+}
+
+async function removeQueueJob(jobId){
+  try{
+    const r=await fetch('/api/queue/jobs/remove',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({job_ids:[jobId]})
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){ alert(d.error||'Lỗi xoá'); return; }
+    _lastQueueState=d;
+    renderQueueModal(d);
+    void paintQueueStatus();
+    void refresh();
+  }catch(e){ alert('Lỗi kết nối: '+e); }
+}
+
+async function queueClearConfirm(){
+  if(!confirm('Xoá sạch toàn bộ các job đang chờ trong hàng?\n(Job đang chạy vẫn tiếp tục, chỉ xoá danh sách chờ)')) return;
+  try{
+    const r=await fetch('/api/queue/jobs/clear',{method:'POST'});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){ alert(d.error||'Lỗi xoá'); return; }
+    _lastQueueState=d;
+    renderQueueModal(d);
+    void paintQueueStatus();
+    void refresh();
+  }catch(e){ alert('Lỗi kết nối: '+e); }
+}
+
+// Hàng chờ luôn chạy theo config batch (cùng nguồn với Auto-pilot/Agent); sidecar tắt → lấy thanh 1-click
+async function queueRunOpts(){
+  clearTimeout(_batchTimer); await flushBatchPush();
+  try{
+    const d=await (await fetch('/config')).json();
+    if(d&&d.opts) return {...d.opts, brand:(d.opts.brand_mode||'off')!=='off'};
+  }catch(e){}
+  if(!document.getElementById('auto-voice')){ alert('Sidecar :8802 tắt — mở 1 job để lấy cấu hình từ thanh 1-click, rồi bấm lại'); return null; }
+  return collectRunAllOpts();
+}
+
+async function runJobQueue(){
+  let ids=[...listSel];
+  if(!ids.length){ alert('Tick ít nhất 1 job ở sidebar'); return; }
+
+  // Tự động sắp xếp các job được chọn theo Tên Bộ và Season (Phần 1 -> Phần 2 -> Phần 3..)
+  if(ids.length > 1 && Array.isArray(cache)){
+    const idMap = new Map();
+    cache.forEach(j => { if(j && j.job_id) idMap.set(j.job_id, j); });
+    ids.sort((a, b) => {
+      const ja = idMap.get(a) || {};
+      const jb = idMap.get(b) || {};
+      const ga = (ja.group_title || ja.title || a).toLowerCase();
+      const gb = (jb.group_title || jb.title || b).toLowerCase();
+      if(ga !== gb) return ga.localeCompare(gb);
+      const sa = ja.group_index != null ? Number(ja.group_index) : 1;
+      const sb = jb.group_index != null ? Number(jb.group_index) : 1;
+      return sa - sb;
+    });
+  }
+
+  const opts=await queueRunOpts(); if(!opts) return;
+  const body={job_ids:ids,skip_done:true,...opts};
+  if(!body.voice){ alert('Config batch chưa có giọng'); return; }
+  if(!confirm(`Chạy hàng chờ ${ids.length} job (tuần tự run-all)?\nThứ tự đã tự động sắp xếp chuẩn P1→Pn.\nMọi job dùng chung cấu hình:\n\n${runOptsSummary(body)}`)) return;
+  const r=await fetch('/api/queue/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){ alert(d.error||r.status); return; }
+  alert(`Đã xếp ${(d.queued||[]).length} job theo đúng thứ tự P1→Pn`+(d.skipped_done&&d.skipped_done.length?` · bỏ qua done: ${d.skipped_done.length}`:''));
+  void paintQueueStatus(); void refresh();
+}
+
+function runOptsSummary(o){
+  const ov=(o.audio_mode==='duck'||o.audio_mode==='duck_bgm')?` · tiếng gốc ${o.orig_vol}`:'';
+  const _hb=o.hardsub_blur;
+  const blur=(_hb===false||_hb===0||_hb==='0'||_hb==='off'||_hb==='false'||_hb==='no')?'blur off':'blur on';
+  return `Giọng ${o.voice} · ${o.speed}× · TTS ${o.tts_engine}\n`
+    +`ASR ${o.asr_engine} · dịch ${o.translate_mode}\n`
+    +`Âm ${o.audio_mode}${ov}\n`
+    +`Render: zoom ${o.zoom} · motion ${o.motion?'on':'off'} · LUT ${o.lut?'on':'off'} · ${blur} · grain ${o.grain} · ${o.vbitrate}${o.flip?' · lật '+o.flip:''}`
+    +((o.brand_mode&&o.brand_mode!=='off')?`\nBrand ${o.brand_mode}${o.brand_text?' «'+o.brand_text+'»':''}`:'');
+}
+async function runGroupQueue(gid, title){
+  if(!gid) return;
+  const opts=await queueRunOpts(); if(!opts) return;
+  if(!opts.voice){ alert('Config batch chưa có giọng'); return; }
+  const label=title||gid;
+  if(!confirm(`Chạy cả series «${label}» theo thứ tự phần (P1→Pn)?\nMọi job dùng chung cấu hình:\n\n${runOptsSummary(opts)}`)) return;
+  const body={group_id:gid,skip_done:true,...opts};
+  const r=await fetch('/api/queue/jobs/group',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){ alert(d.error||r.status); return; }
+  alert(`Series: xếp ${(d.queued||[]).length}/${(d.group_order||[]).length} job`
+    +(d.skipped_done&&d.skipped_done.length?` · skip done ${d.skipped_done.length}`:''));
+  void paintQueueStatus(); void refresh();
+}
+
+async function stopJobQueue(){
+  try{ await fetch('/api/queue/jobs/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}); }catch(e){}
+  await fetch('/api/queue/jobs/stop',{method:'POST'});
+  void paintQueueStatus(); void refresh();
+  try{ refreshAutopilotBtn(); }catch(e){}
+}
 
 async function runAll(id){ return guardAct('all:'+id, async()=>{
   // Paint TRƯỚC mọi await (loadVoices / fetch) — tránh đơ mất phản hồi
@@ -2248,32 +3010,10 @@ async function runAll(id){ return guardAct('all:'+id, async()=>{
   const av=document.getElementById('auto-voice'), vs=document.getElementById('tts-voice');
   const stored=(lastFull&&lastFull.stages.tts)?lastFull.stages.tts.voice:null;
   const engNow=(document.getElementById('auto-engine')||{value:'vieneu'}).value;
-  const voice=(av&&av.value)||(vs&&vs.value)||stored||((VOICES&&VOICES[engNow]&&VOICES[engNow][0])?VOICES[engNow][0].id:null);
+  const body=collectRunAllOpts();
+  const voice=(av&&av.value)||(vs&&vs.value)||stored||body.voice||((VOICES&&VOICES[engNow]&&VOICES[engNow][0])?VOICES[engNow][0].id:null);
   if(!voice){ alert('Chưa chọn giọng — hãy chọn giọng (hoặc Thêm giọng) trước khi Chạy tự động. Không chạy render tiếng gốc.'); paintIdle(id); void refresh(); return; }
-  const audio_mode=(document.getElementById('auto-audio')||{value:'voice_bgm'}).value;
-  const speed=parseFloat((document.getElementById('auto-speed')||{value:'1.0'}).value);
-  const tts_engine=(document.getElementById('auto-engine')||{value:'vieneu'}).value;
-  const asr_engine=(document.getElementById('auto-asr')||{value:'nano_fa'}).value;
-  const ocr=!!(document.getElementById('auto-ocr')||{}).checked;
-  const fit=(document.getElementById('auto-fit')||{checked:true}).checked;
-  const resolution=(document.getElementById('auto-res')||{value:'source'}).value||'source';
-  const translate_mode=(document.getElementById('auto-tr-mode')||{value:'batch'}).value||'batch';
-  const review_backup=(document.getElementById('auto-review-backup')||{value:'off'}).value||'off';
-  const zAuto=(document.getElementById('auto-zoom')||{value:'1.12'}).value;
-  const zoom=(zAuto==='off'||zAuto==='1.0')?'off':(parseFloat(zAuto)||1.12);
-  const motion=!!(document.getElementById('auto-motion')||{checked:true}).checked;
-  const lut=!!(document.getElementById('auto-lut')||{checked:true}).checked;
-  const grain=(document.getElementById('auto-grain')||{value:'weak'}).value||'weak';
-  const vbitrate=(document.getElementById('auto-vbit')||{value:'8M'}).value||'8M';
-  const flip=(document.getElementById('auto-flip')||{value:''}).value||'';
-  const frame=(document.getElementById('auto-frame')||{value:'off'}).value||'off';
-  const brand_mode=(document.getElementById('auto-brand-mode')||{value:'off'}).value||'off';
-  const brand_text=(document.getElementById('auto-brand-text')||{value:''}).value||'';
-  const brand_logo=(document.getElementById('auto-brand-logo')||{value:'off'}).value||'off';
-  const brand=brand_mode!=='off';
-  const orig_vol=parseFloat((document.getElementById('auto-ovol')||{value:(audio_mode==='duck_bgm')?'0.22':'0.6'}).value);
-  const body={voice,speed,tts_engine,asr_engine,audio_mode,voice_vol:0.2,orig_vol,ocr,fit,resolution,translate_mode,review_backup,
-    zoom,motion,lut,grain,flip,frame,brand,brand_mode,brand_text,brand_logo,vbitrate};
+  body.voice=voice;
   try{
     const r=await fetch('/api/jobs/'+id+'/run-all',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!r.ok){ const d=await r.json().catch(()=>({})); busyHint(d.error||r.status); paintIdle(id); lastDetailSig=null; void refresh(); return; }
@@ -2331,24 +3071,49 @@ async function refresh(){
     const j=cache.find(x=>x.job_id===selected)||null;
     if(j){
       setJobMode(true);
-      let _dr;
-      try{ _dr=await fetch('/api/jobs/'+selected); }
+      let detRes;
+      try{ detRes=await fetch('/api/jobs/'+selected); }
       catch(e){ console.error('refresh: lỗi mạng (detail)', e); setConn(false); return; }
-      let full=await _dr.json();
-      full=applyOpt(full);
-      // Soft-path: cùng job đã dựng khung → luôn patchDetailLive (kể cả khi running)
-      // Trước đây `|| status==='running'` ép renderDetail mỗi 2s → giật toàn UI.
-      if(lastFull && lastFull.job_id===full.job_id && document.querySelector('#mid .steps')){
-        patchDetailLive(full);
+      let full=await detRes.json().catch(()=>({}));
+      if(!detRes.ok || !full || !full.job_id || !full.stages){
+        // Job đã xoá / 404 / lỗi — bỏ selection (?job=) để không spam console
+        console.warn('job detail', detRes.status, selected, full&&full.error);
+        selected=null;
+        try{
+          const u=new URL(location.href);
+          if(u.searchParams.has('job')){ u.searchParams.delete('job'); history.replaceState(null,'',u.pathname+u.search+u.hash); }
+        }catch(_e){}
+        lastDetailSig=null; lastFull=null;
+        renderDetail(null);
       } else {
-        lastDetailSig=JSON.stringify({id:full.job_id,st:full.status,step:selectedStep});
-        renderDetail(full);
+        full=applyOpt(full);
+        // Soft-path: cùng job đã dựng khung → luôn patchDetailLive (kể cả khi running)
+        // Trước đây `|| status==='running'` ép renderDetail mỗi 2s → giật toàn UI.
+        if(shellMidOk(full)){
+          patchDetailLive(full);
+        } else {
+          lastDetailSig=JSON.stringify({id:full.job_id,st:full.status,step:selectedStep});
+          renderDetail(full);
+        }
       }
     }
     else {
-      // Không tự mở khung thêm link — chỉ giữ nếu user đang composeOpen
-      if(composeOpen) applyComposeUi();
-      else { applyComposeUi(); if(lastDetailSig!==null){ lastDetailSig=null; renderDetail(null); } }
+      if(selected){
+        // Stale ?job= không còn trong list — clear URL, không spam detail 404
+        selected=null;
+        try{
+          const u=new URL(location.href);
+          if(u.searchParams.has('job')){ u.searchParams.delete('job'); history.replaceState(null,'',u.pathname+u.search+u.hash); }
+        }catch(_e){}
+        lastDetailSig=null; lastFull=null;
+        applyComposeUi();
+        if(!composeOpen) renderDetail(null);
+      } else if(composeOpen) {
+        applyComposeUi();
+      } else {
+        applyComposeUi();
+        if(lastDetailSig!==null){ lastDetailSig=null; renderDetail(null); }
+      }
     }
     void paintQueueStatus();
   }catch(e){ console.error('refresh: lỗi vẽ', e); }
@@ -2412,7 +3177,7 @@ async function saveCookie(){
   finally{ btn.disabled=false; btn.textContent=o; }
 }
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape') closeCookie();
+  if(e.key==='Escape'){ closeCookie(); closeCompose(); }
   if((e.ctrlKey||e.metaKey) && e.key==='Enter'){
     const t=e.target;
     if(t && t.id==='url'){ e.preventDefault(); addJob(); }
@@ -2462,7 +3227,7 @@ function initGutters(){
     });
   });
 }
-applyCols(); initGutters();
+applyCols(); initGutters(); applyComposeUi();
 
 // V6 F3: hết poll 2 s/5 s. Cập nhật theo SSE /api/events (static/live_sync.js): gộp ~300 ms, không chạy
 // chồng, dự phòng 30 s; SSE lỗi liên tục → poll 5 s. Không nạp được live_sync.js (server cũ) → poll 5 s.
@@ -2470,10 +3235,242 @@ async function pollLoop(){
   try{ await refresh(); }catch(e){}
   setTimeout(pollLoop, 5000);
 }
-applyComposeUi();
 // review1: busy = có job đang chạy → dự phòng 5 s (tiến độ ASR hybrid đọc từ file, không có event SSE).
 if(window.PinelineLive){ window.__plLive=window.PinelineLive.startLive({refresh, busy:()=>Array.isArray(cache)&&cache.some(j=>j&&j.status==='running')}); } else { pollLoop(); }
 loadCookieStatus(); setInterval(loadCookieStatus,30000);
+
+/* ===== Pineline V2 — Agent panel ===== */
+(function(){
+  const css = `
+  #agent-panel{position:fixed;right:14px;bottom:14px;width:min(420px,calc(100vw - 28px));height:min(520px,calc(100vh - 80px));
+    display:none;flex-direction:column;z-index:80;background:var(--panel);border:1px solid var(--line2);
+    border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.45);overflow:hidden;min-width:300px;min-height:260px;
+    max-width:calc(100vw - 20px);max-height:calc(100vh - 24px)}
+  #agent-panel.open{display:flex}
+  #agent-panel .agent-rz{
+    position:absolute;left:0;top:0;width:18px;height:18px;z-index:5;cursor:nwse-resize;
+    background:linear-gradient(135deg,var(--accent-line) 0 2px,transparent 2px 5px,var(--accent-line) 5px 7px,transparent 7px)
+  }
+  #agent-panel .agent-rz:hover{filter:brightness(1.3)}
+  #agent-panel .ah{display:flex;align-items:center;gap:8px;padding:7px 12px 7px 22px;border-bottom:1px solid var(--line);background:var(--side);cursor:default;flex:none}
+  #agent-panel .ah .drag{font-size:11px;color:var(--muted);cursor:grab;user-select:none}
+  #agent-panel .ah .drag:active{cursor:grabbing}
+  #agent-panel .ah b{font-size:13px;color:var(--accent)}
+  #agent-panel .ah .x{margin-left:auto;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 6px}
+  #agent-log{flex:1;overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;min-height:0}
+  #agent-log .bubble{padding:8px 10px;border-radius:10px;max-width:95%;white-space:pre-wrap;word-break:break-word;line-height:1.45}
+  #agent-log .u{align-self:flex-end;background:var(--accent-dim);border:1px solid var(--accent-line);color:var(--text)}
+  #agent-log .a{align-self:flex-start;background:var(--raise);border:1px solid var(--line);color:var(--text2)}
+  #agent-log .meta{font-size:10px;color:var(--muted);margin-top:4px}
+  #agent-foot{border-top:1px solid var(--line);padding:8px 10px;background:var(--side);display:flex;flex-direction:column;gap:6px;flex:none}
+  #agent-foot label{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;cursor:pointer}
+  #agent-foot .row{display:flex;gap:6px}
+  #agent-in{flex:1;resize:none;min-height:38px;max-height:90px;border-radius:8px;border:1px solid var(--line2);
+    background:var(--bg);color:var(--text);padding:8px 10px;font-family:inherit;font-size:12.5px}
+  #agent-send{border:0;border-radius:8px;background:var(--accent);color:#231a08;font-weight:700;padding:0 14px;cursor:pointer;font-family:inherit}
+  #agent-send:disabled{opacity:.5;cursor:wait}
+  #btn-autopilot{border:1px solid var(--accent-line);border-radius:8px;background:var(--accent-dim);color:var(--accent);font-weight:700;padding:4px 10px;cursor:pointer;font-family:inherit;font-size:12px}
+  #btn-autopilot.on{background:rgba(46,180,110,.2);border-color:#2eb46e;color:#2eb46e}
+  `;
+  const st=document.createElement('style'); st.textContent=css; document.head.appendChild(st);
+  const box=document.createElement('div');
+  box.id='agent-panel';
+  box.innerHTML=`
+    <div class="agent-rz" title="Kéo góc để phóng to / thu nhỏ (dbl-click = mặc định)"></div>
+    <div class="ah"><span class="drag" title="Kéo di chuyển">⠿</span><b>Pineline Agent V2</b><span style="font-size:11px;color:var(--muted)">nhúng · /ui3</span>
+      <button type="button" class="x" onclick="toggleAgent(false)" title="Đóng">×</button></div>
+    <div id="agent-log"></div>
+    <div id="agent-foot">
+      <label><input type="checkbox" id="agent-mutate"> Cho phép sửa script / hold / chạy-dừng</label>
+      <div class="row" style="align-items:center;gap:6px;flex-wrap:wrap">
+        <button type="button" id="btn-autopilot" onclick="toggleAutopilot()" title="Queue + heal tự động (sidecar :8802 / Telegram)">Auto-pilot</button>
+        <span id="autopilot-st" style="font-size:11px;color:var(--muted)">…</span>
+      </div>
+      <div class="row">
+        <textarea id="agent-in" rows="2" placeholder="Auto-pilot / status / heal — hoặc chat thường"></textarea>
+        <button type="button" id="agent-send" onclick="sendAgent()">Gửi</button>
+      </div>
+    </div>`;
+  document.body.appendChild(box);
+  initAgentPanelChrome(box);
+})();
+
+function initAgentPanelChrome(pan){
+  const KEY='pineline.agentPanel';
+  try{
+    const s=JSON.parse(localStorage.getItem(KEY)||'null');
+    if(s&&s.w) pan.style.width=s.w+'px';
+    if(s&&s.h) pan.style.height=s.h+'px';
+    if(s&&s.r!=null) pan.style.right=s.r+'px';
+    if(s&&s.b!=null) pan.style.bottom=s.b+'px';
+  }catch(e){}
+  const save=()=>{
+    try{
+      localStorage.setItem(KEY, JSON.stringify({
+        w:pan.offsetWidth, h:pan.offsetHeight,
+        r:parseFloat(getComputedStyle(pan).right)||14,
+        b:parseFloat(getComputedStyle(pan).bottom)||14
+      }));
+    }catch(e){}
+  };
+  const clamp=()=>{
+    const maxW=Math.max(300, window.innerWidth-20);
+    const maxH=Math.max(260, window.innerHeight-24);
+    let w=pan.offsetWidth, h=pan.offsetHeight;
+    w=Math.min(maxW, Math.max(300, w));
+    h=Math.min(maxH, Math.max(260, h));
+    pan.style.width=w+'px'; pan.style.height=h+'px';
+    let r=parseFloat(pan.style.right)||14, b=parseFloat(pan.style.bottom)||14;
+    r=Math.min(Math.max(0,r), Math.max(0, window.innerWidth-w-8));
+    b=Math.min(Math.max(0,b), Math.max(0, window.innerHeight-h-8));
+    pan.style.right=r+'px'; pan.style.bottom=b+'px';
+  };
+  const rz=pan.querySelector('.agent-rz');
+  rz.addEventListener('mousedown', e=>{
+    e.preventDefault(); e.stopPropagation();
+    const sx=e.clientX, sy=e.clientY, sw=pan.offsetWidth, sh=pan.offsetHeight;
+    const move=ev=>{
+      const w=Math.min(window.innerWidth-20, Math.max(300, sw+(sx-ev.clientX)));
+      const h=Math.min(window.innerHeight-24, Math.max(260, sh+(sy-ev.clientY)));
+      pan.style.width=w+'px'; pan.style.height=h+'px';
+    };
+    const up=()=>{ document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up); clamp(); save(); };
+    document.addEventListener('mousemove',move); document.addEventListener('mouseup',up);
+  });
+  rz.addEventListener('dblclick', e=>{
+    e.preventDefault();
+    pan.style.width=''; pan.style.height=''; pan.style.right='14px'; pan.style.bottom='14px';
+    try{ localStorage.removeItem(KEY); }catch(err){}
+  });
+  const drag=pan.querySelector('.ah .drag');
+  if(drag){
+    drag.addEventListener('mousedown', e=>{
+      e.preventDefault();
+      const sx=e.clientX, sy=e.clientY;
+      const sr=parseFloat(getComputedStyle(pan).right)||14;
+      const sb=parseFloat(getComputedStyle(pan).bottom)||14;
+      const move=ev=>{
+        pan.style.right=Math.max(0, sr-(ev.clientX-sx))+'px';
+        pan.style.bottom=Math.max(0, sb-(ev.clientY-sy))+'px';
+      };
+      const up=()=>{ document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up); clamp(); save(); };
+      document.addEventListener('mousemove',move); document.addEventListener('mouseup',up);
+    });
+  }
+  window.addEventListener('resize', ()=>{ if(pan.classList.contains('open')) clamp(); });
+}
+
+const agentHistory=[];
+const AP='http://127.0.0.1:8802';
+function isAutopilotCmd(msg){
+  const t=(msg||'').trim().toLowerCase();
+  if(!t) return false;
+  return /^(auto[-\s]?pilot|\/on|\/off|\/status|\/heal|\/tick|\/stop|\/help|\/config|\/set|\/reset|\/feed|\/running|\/jobs|\/restartserver|\/films?)(\s|$)/.test(t)
+    || t==='status'||t==='heal'||t==='on'||t==='off';
+}
+async function refreshAutopilotBtn(){
+  const btn=document.getElementById('btn-autopilot');
+  const st=document.getElementById('autopilot-st');
+  try{
+    const d=await (await fetch(AP+'/status')).json();
+    const on=!!(d.state&&d.state.enabled);
+    if(btn){ btn.classList.toggle('on', on); btn.textContent=on?'Auto-pilot ON':'Auto-pilot'; }
+    if(st){
+      const c=(d.brief&&d.brief.counts)||{};
+      st.textContent=(on?'ON':'OFF')+` · run ${c.running||0} fail ${c.failed||0}`;
+    }
+  }catch(e){
+    if(btn){ btn.classList.remove('on'); btn.textContent='Auto-pilot'; }
+    if(st) st.textContent='sidecar tắt — chạy run_tele_cmd.bat';
+  }
+}
+async function toggleAutopilot(){
+  try{
+    const d=await (await fetch(AP+'/status')).json();
+    const on=!!(d.state&&d.state.enabled);
+    const r=await (await fetch(AP+(on?'/off':'/on'),{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).json();
+    agentPush('a', r.text||(on?'Auto-pilot OFF':'Auto-pilot ON'));
+  }catch(e){
+    agentPush('a','Sidecar :8802 chưa chạy. Mở run_tele_cmd.bat (không cần restart Pineline).');
+  }
+  refreshAutopilotBtn();
+}
+function toggleAgent(force){
+  const p=document.getElementById('agent-panel');
+  const on=force===true?true:force===false?false:!p.classList.contains('open');
+  p.classList.toggle('open', on);
+  if(on){
+    const log=document.getElementById('agent-log');
+    if(!log.dataset.greeted){
+      log.dataset.greeted='1';
+      agentPush('a','Xin chào — Auto-pilot / Telegram /heal. Tick mutate nếu sửa script. Nói "Auto-pilot" để bật.');
+      refreshAgentSnapshot();
+    }
+    refreshAutopilotBtn();
+    document.getElementById('agent-in').focus();
+  }
+}
+function agentPush(who, text, meta){
+  const log=document.getElementById('agent-log');
+  const d=document.createElement('div');
+  d.className='bubble '+who;
+  d.textContent=text;
+  if(meta){
+    const m=document.createElement('div'); m.className='meta'; m.textContent=meta; d.appendChild(m);
+  }
+  log.appendChild(d); log.scrollTop=log.scrollHeight;
+}
+async function refreshAgentSnapshot(){
+  try{
+    const r=await fetch('/api/agent/status');
+    const d=await r.json();
+    if(!d.ok) return;
+    const c=d.snapshot&&d.snapshot.counts||{};
+    agentPush('a', `Snapshot: running ${c.running||0} · pending ${c.pending||0} · failed ${c.failed||0} · done ${c.done||0} · need_queue ${c.need_queue||0}`);
+  }catch(e){}
+  refreshAutopilotBtn();
+}
+async function sendAgent(){
+  const ta=document.getElementById('agent-in');
+  const msg=(ta.value||'').trim();
+  if(!msg) return;
+  const mutate=!!document.getElementById('agent-mutate').checked;
+  const btn=document.getElementById('agent-send');
+  ta.value=''; agentPush('u', msg);
+  agentHistory.push({role:'user', content:msg});
+  btn.disabled=true;
+  try{
+    if(isAutopilotCmd(msg)){
+      const r=await fetch(AP+'/cmd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:msg})});
+      const d=await r.json();
+      agentPush('a', d.reply||d.text||'(ok)', 'autopilot');
+      agentHistory.push({role:'assistant', content:d.reply||''});
+      refreshAutopilotBtn();
+      return;
+    }
+    const r=await fetch('/api/agent/chat',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:msg, history:agentHistory.slice(0,-1), allow_mutate:mutate, max_steps:8})
+    });
+    const d=await r.json();
+    if(!r.ok || d.ok===false){
+      agentPush('a', 'Lỗi: '+(d.error||r.status)+'\n(Nếu vừa cập nhật code — restart Pineline khi mux rảnh.)');
+    }else{
+      const meta=(d.model||'')+(d.steps&&d.steps.length?` · ${d.steps.length} tool`:'');
+      agentPush('a', d.reply||'(trống)', meta);
+      agentHistory.push({role:'assistant', content:d.reply||''});
+      if(agentHistory.length>20) agentHistory.splice(0, agentHistory.length-20);
+    }
+  }catch(e){
+    agentPush('a', 'Lỗi mạng: '+e+(isAutopilotCmd(msg)?' — chạy run_tele_cmd.bat':''));
+  }finally{
+    btn.disabled=false;
+  }
+}
+document.getElementById('agent-in').addEventListener('keydown',e=>{
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendAgent(); }
+});
+setInterval(()=>{ const p=document.getElementById('agent-panel'); if(p&&p.classList.contains('open')) refreshAutopilotBtn(); }, 15000);
 </script>
 </body>
 </html>

@@ -38,6 +38,7 @@ def summarize(job_id: str, data: dict) -> dict[str, Any]:
     else:
         status = "pending"
     running = next((n for n, v in st.items() if v == "running"), None)
+    failed = next((n for n, v in st.items() if v == "failed"), None)
     cur = (stages.get(running) or {}).get("cur_text") if running else None
     req = data.get("request") or {}
     return {
@@ -49,7 +50,16 @@ def summarize(job_id: str, data: dict) -> dict[str, Any]:
         "cur_text": (cur or "")[:160],
         "held_at": agent.get("held_at"),
         "hold_reason": (agent.get("hold_reason") or "")[:160],
-        "group_id": data.get("group_id"),
+        "group_id": data.get("group_id") or req.get("group_id"),
+        # 2026-11-20: danh sách job / hàng chờ trên /v6/ cần bộ phim, tập, bước lỗi (không % — % đổi liên tục → job.touched)
+        "group_title": data.get("group_title_vi") or req.get("group_title") or "",
+        "group_title_orig": req.get("group_title") or "",
+        "group_index": req.get("group_index"),
+        "group_total": req.get("group_total"),
+        "failed_stage": failed,
+        "error": ((stages.get(failed) or {}).get("error") or "")[:400] if failed else "",
+        # 2026-11-20: _auto_gpu dừng giữa chừng không lỗi/HOLD (vd dịch chưa đủ) → lý do hiện ở cột «Đang làm»
+        "stop_note": (str(((data.get("last_stop") or {}).get("why")) or "")[:200]) if status == "pending" else "",
         "updated_at": data.get("updated_at"),
     }
 

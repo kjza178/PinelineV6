@@ -7,19 +7,292 @@
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<header>
-  <h1>Pineline V6</h1>
-  <span id="inst"></span>
-  <span id="conn" class="conn off">mất kết nối</span>
-  <input id="q" placeholder="Lọc job…">
-  <span id="count"></span>
-</header>
-<main>
-  <table>
-    <thead><tr><th>Job</th><th>Trạng thái</th><th>download</th><th>asr</th><th>translate</th><th>tts</th><th>mux</th><th>Ghi chú</th></tr></thead>
-    <tbody id="rows"></tbody>
-  </table>
-</main>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-jobs" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></symbol>
+  <symbol id="i-disk" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-films" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4"/></symbol>
+  <symbol id="i-agent" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/><path d="M9 11h.01M15 11h.01"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4M12 17h.01"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="logo">P</span><div class="brand-t"><b>Pineline</b><small id="inst">V6</small></div></div>
+    <nav class="side-nav" aria-label="Điều hướng chính">
+      <button class="nav-it on" data-view="jobs"><svg><use href="#i-jobs"/></svg><span>Công việc</span><em id="nav-running" hidden></em></button>
+      <button class="nav-it" data-view="disk"><svg><use href="#i-disk"/></svg><span>Phim chờ làm</span></button>
+      <button class="nav-it" data-view="films"><svg><use href="#i-films"/></svg><span>Phim đã làm</span></button>
+      <button class="nav-it" data-view="agent"><svg><use href="#i-agent"/></svg><span>Trợ lý AI</span></button>
+      <button class="nav-it" data-view="settings"><svg><use href="#i-settings"/></svg><span>Cài đặt</span></button>
+    </nav>
+    <button id="btn-conf" class="side-alert" hidden title="AI ở một tập đề xuất tên / xưng hô khác bảng nhân vật đã chốt của bộ — bấm để chọn">
+      <svg><use href="#i-warn"/></svg><span>Xung đột tên nhân vật</span><b id="conf-n"></b></button>
+    <div class="side-foot">
+      <div class="side-links">
+        <a href="/studio" title="Studio (giao diện web cũ)">Studio <svg><use href="#i-ext"/></svg></a>
+        <a href="/hongguo2" title="Hongguo — tải phim">Hongguo <svg><use href="#i-ext"/></svg></a>
+      </div>
+      <div class="conn-row"><span id="conn" class="conn off">Mất kết nối</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- ───────── Công việc ───────── -->
+    <section class="view" id="view-jobs">
+      <header class="page-head">
+        <div><h1>Công việc</h1><p id="count" class="sub"></p></div>
+        <span class="grow"></span>
+        <label class="search"><svg><use href="#i-search"/></svg><input id="q" placeholder="Tìm theo tên phim…" aria-label="Tìm job"></label>
+        <button id="btn-new" class="btn primary"><svg><use href="#i-plus"/></svg>Thêm job</button>
+      </header>
+
+      <section id="queuebar" class="queuebar">
+        <div class="q-info"><span class="q-dot" id="q-dot"></span><div><b>Hàng chờ</b><span id="q-state">—</span></div></div>
+        <span class="grow"></span>
+        <span id="sel-count" class="sub"></span>
+        <button id="btn-enqueue" class="btn primary" disabled>Chạy job đã chọn</button>
+        <button id="btn-dequeue" class="btn" disabled>Bỏ khỏi hàng chờ</button>
+        <button id="btn-q-resume" class="btn primary" hidden title="Đã xem lỗi — gỡ tạm dừng và chạy tiếp các job còn lại">Chạy tiếp hàng chờ</button>
+        <button id="btn-q-panel" class="btn ghost" title="Xem / đổi thứ tự các job đang chờ chạy">Thứ tự hàng chờ</button>
+        <button id="btn-q-log" class="btn ghost" title="Job nào đã chạy, lúc nào, kết quả ra sao">Nhật ký</button>
+        <button id="btn-q-stop" class="btn danger ghost" disabled title="Dừng job đang chạy và xoá hàng chờ">Dừng tất cả</button>
+      </section>
+
+      <section id="qpanel" class="card qpanel" hidden>
+        <div class="qp-head"><b>Thứ tự hàng chờ</b><span class="sub" id="qp-sub"></span><span class="grow"></span>
+          <button type="button" class="btn sm" id="qp-sort" title="Xếp lại theo bộ phim → mùa → tập">Sắp theo bộ / tập</button>
+          <button type="button" class="btn sm ghost" id="qp-close">Đóng</button></div>
+        <ol id="qp-list"></ol>
+      </section>
+
+      <div class="toolbar job-tools">
+        <div class="seg" id="job-filter" role="radiogroup" aria-label="Lọc theo trạng thái"></div>
+        <span class="grow"></span>
+        <button type="button" class="btn" id="btn-retry-failed" hidden title="Xếp lại vào hàng chờ mọi job đang lỗi (làm tiếp từ bước lỗi)">Chạy lại job lỗi</button>
+        <button type="button" class="btn danger ghost" id="btn-del-sel" disabled title="Xoá vĩnh viễn thư mục các job đã chọn">Xoá job đã chọn</button>
+      </div>
+
+      <div class="split">
+        <div id="list" class="card">
+          <table class="jobs">
+            <thead><tr><th class="ck"><input type="checkbox" id="ck-all" title="Chọn tất cả job đang hiện"></th><th>Phim</th><th class="c-steps">Tiến độ</th><th class="c-st">Trạng thái</th><th>Đang làm</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <div id="empty" class="empty" hidden>
+            <svg><use href="#i-jobs"/></svg>
+            <h3>Chưa có job nào</h3>
+            <p>Dán link video hoặc chọn file trên máy để bắt đầu lồng tiếng.</p>
+            <button class="btn primary" data-open="new"><svg><use href="#i-plus"/></svg>Thêm job đầu tiên</button>
+          </div>
+        </div>
+        <aside id="detail" class="card" hidden></aside>
+      </div>
+    </section>
+
+    <!-- ───────── Thư viện phim ───────── -->
+    <!-- ───────── Phim chờ làm (thư viện Hongguo 2 + ổ — services/disk_library) ───────── -->
+    <section class="view" id="view-disk" hidden>
+      <header class="page-head">
+        <div><h1>Phim chờ làm</h1><p id="disk-stats" class="sub">Phim đã tải về. Chọn phim rồi «Tạo job» để đưa vào hàng chờ.</p></div>
+        <span class="grow"></span>
+        <button type="button" class="btn" id="disk-rescan" title="Đọc lại thư viện Hongguo 2 và thư mục phim">Quét lại</button>
+      </header>
+      <div class="toolbar">
+        <label class="search"><svg><use href="#i-search"/></svg><input id="disk-q" placeholder="Tìm theo tên phim (Trung / Việt)…"></label>
+        <div class="seg" id="disk-view" role="radiogroup" aria-label="Kiểu xem"><label><input type="radio" name="disk-view" value="grid" checked>Lưới</label><label><input type="radio" name="disk-view" value="list">Danh sách</label></div>
+        <select id="disk-state" aria-label="Lọc trạng thái"><option value="todo">Chưa làm</option><option value="ready">Sẵn sàng tạo job</option><option value="need_merge">Cần gộp tập</option><option value="done">Đã làm</option><option value="">Tất cả</option></select>
+        <select id="disk-block" aria-label="Lọc bản quyền"><option value="">Bản quyền: tất cả</option><option value="unknown">Chưa test</option><option value="clean">Sạch</option><option value="bad">Bị chặn / claim</option><option value="testing">Đang test</option></select>
+        <span class="grow"></span>
+        <span id="disk-picked" class="sub"></span>
+        <button type="button" class="btn ghost" id="disk-clear" hidden>Bỏ chọn</button>
+        <button type="button" class="btn danger" id="disk-del-sel" hidden>Xoá</button>
+        <button type="button" class="btn" id="disk-test-sel" hidden title="Test bản quyền hàng loạt trên kênh test (chạy nền, lần lượt)">Test bản quyền</button>
+        <button type="button" class="btn" id="disk-merge-sel" disabled>Gộp tập đã chọn</button>
+        <button type="button" class="btn primary" id="disk-add-sel" disabled>Tạo job đã chọn</button>
+      </div>
+      <div id="disk-grid" class="lib-grid"></div>
+      <p class="sub small films-foot" id="disk-foot"></p>
+    </section>
+
+    <section class="view" id="view-films" hidden>
+      <header class="page-head">
+        <div><h1>Phim đã làm</h1><p id="films-stats" class="sub"></p></div>
+        <span class="grow"></span>
+        <a class="btn ghost" id="films-csv" href="/films.csv" download title="Tải danh sách đang lọc ra file CSV (mở bằng Excel)">Tải CSV</a>
+        <button type="button" class="btn ghost" id="films-purge" title="Xoá khỏi thư viện các phim mà thư mục job không còn trên ổ" hidden>Dọn phim mất thư mục</button>
+        <button type="button" class="btn" id="films-sync" title="Đọc lại mọi job để cập nhật thư viện">Đồng bộ</button>
+      </header>
+      <div class="card pub-bar">
+        <div class="pub-l">
+          <b>Đăng YouTube</b>
+          <label class="switch"><input type="checkbox" id="pub-auto"><span></span>Tự đăng khi render xong</label>
+          <label class="inline">Chế độ <select id="films-privacy"><option value="unlisted">Không công khai</option><option value="private">Riêng tư</option><option value="public">Công khai</option></select></label>
+          <label class="inline">Hẹn giờ <select id="pub-sched"><option value="0">Đăng ngay</option><option value="1">Sau 1 giờ</option><option value="2">Sau 2 giờ</option><option value="3">Sau 3 giờ</option><option value="6">Sau 6 giờ</option><option value="12">Sau 12 giờ</option><option value="24">Sau 1 ngày</option></select></label>
+          <span id="pub-note" class="mut small"></span>
+        </div>
+        <div class="pub-r">
+          <button type="button" class="btn sm ghost" id="pub-skip" title="Bỏ qua video đang tải lên YouTube (file lỗi / quá dài)">Bỏ qua video đang đăng</button>
+          <button type="button" class="btn sm" id="pub-scan" title="Đăng mọi phim đã xong mà chưa có trên YouTube">Đăng tất cả phim chưa đăng</button>
+          <button type="button" class="btn sm" id="films-check-all" title="Kiểm lại tình trạng bản quyền (chặn / claim) của mọi video đã đăng">Kiểm bản quyền tất cả</button>
+        </div>
+      </div>
+      <div class="toolbar">
+        <label class="search"><svg><use href="#i-search"/></svg><input id="films-q" placeholder="Tìm theo tên phim / mã job…"></label>
+        <select id="films-status" aria-label="Lọc trạng thái"><option value="">Mọi trạng thái</option><option value="pending">Chờ</option><option value="running">Đang làm</option><option value="not_uploaded">Xong, chưa đăng</option><option value="uploaded">Đã đăng</option><option value="failed">Lỗi</option></select>
+        <select id="films-block" aria-label="Lọc bản quyền"><option value="">Bản quyền: tất cả</option><option value="clean">Sạch</option><option value="has_block">Bị chặn / claim</option><option value="partially_blocked">Chặn một phần</option><option value="unknown">Chưa kiểm</option></select>
+        <label class="check"><input type="checkbox" id="films-hide-gone"> Ẩn phim mất thư mục</label>
+      </div>
+      <div class="card scroll"><table class="data"><thead><tr><th>Phim</th><th>Trạng thái</th><th>Thời lượng</th><th>Xong lúc</th><th>YouTube</th><th>Bản quyền</th><th></th></tr></thead><tbody id="films-rows"></tbody></table></div>
+      <p class="sub small films-foot">Gộp job, metadata / thumbnail, hàng chờ upload, kênh test: còn ở <a href="/films/ui" target="_blank" rel="noopener">trang Đăng YouTube (cũ) ↗</a> — sẽ chuyển dần vào đây.</p>
+    </section>
+
+    <!-- ───────── Trợ lý AI ───────── -->
+    <section class="view" id="view-agent" hidden>
+      <header class="page-head">
+        <div><h1>Trợ lý AI</h1><p class="sub">Hỏi về job, hàng chờ, lỗi. Mặc định trợ lý chỉ xem, không thao tác.</p></div>
+        <span class="grow"></span>
+        <button type="button" class="btn ghost" id="agent-clear">Cuộc trò chuyện mới</button>
+      </header>
+      <div class="chat card">
+        <div id="agent-log" aria-live="polite">
+          <div class="chat-hello">
+            <p>Thử hỏi:</p>
+            <div class="chips">
+              <button type="button" class="chip" data-ask="Job nào đang lỗi và vì sao?">Job nào đang lỗi và vì sao?</button>
+              <button type="button" class="chip" data-ask="Tóm tắt hàng chờ hiện tại">Tóm tắt hàng chờ hiện tại</button>
+              <button type="button" class="chip" data-ask="Hôm nay đã làm xong những phim nào?">Hôm nay đã làm xong những phim nào?</button>
+            </div>
+          </div>
+        </div>
+        <form id="form-agent" class="chat-input">
+          <textarea id="agent-msg" rows="2" placeholder="Nhập câu hỏi… (Ctrl+Enter để gửi)"></textarea>
+          <div class="chat-bar">
+            <label class="switch"><input type="checkbox" id="agent-mutate"><span></span>Cho phép thao tác (xếp hàng, dừng job)</label>
+            <span class="grow"></span>
+            <button type="submit" class="btn primary" id="agent-send">Gửi</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ───────── Cài đặt ───────── -->
+    <section class="view" id="view-settings" hidden>
+      <header class="page-head"><div><h1>Cài đặt</h1><p class="sub" id="cfg-meta">Áp dụng cho các job chạy sau khi lưu.</p></div></header>
+      <div class="set-wrap">
+        <nav class="set-nav" aria-label="Mục cài đặt">
+          <button class="set-it on" data-pane="ai">AI dịch</button>
+          <button class="set-it" data-pane="voice">Giọng đọc</button>
+          <button class="set-it" data-pane="audio">Âm thanh</button>
+          <button class="set-it" data-pane="video">Hình ảnh</button>
+          <button class="set-it" data-pane="brand">Thương hiệu</button>
+          <button class="set-it" data-pane="bili">Bilibili</button>
+          <button class="set-it" data-pane="paths">Thư mục</button>
+          <button class="set-it" data-pane="advanced">Nâng cao</button>
+        </nav>
+        <div class="set-body">
+          <div class="pane" data-pane="ai" id="ai-simple"></div>
+          <div class="pane" data-pane="bili" hidden>
+            <h2>Bilibili</h2><p class="sub">Cookie đăng nhập để tải chất lượng cao (1080P / 4K, video cần đăng nhập). Chỉ lưu trên máy này (thư mục cookies), không lên git.</p>
+            <div class="sec"><h3>Trạng thái</h3><div id="bili-st" class="sub">Đang kiểm…</div></div>
+            <div class="sec"><h3>Dán cookie</h3>
+              <p class="sub">Trình duyệt đã đăng nhập bilibili.com → tiện ích Cookie-Editor → Export (JSON) → dán vào đây. Hoặc chuỗi <code>SESSDATA=…; bili_jct=…; DedeUserID=…</code>.</p>
+              <textarea id="bili-cookie" rows="5" placeholder='[{"name":"SESSDATA","value":"…"}, …]   hoặc   SESSDATA=…; bili_jct=…'></textarea>
+              <p id="bili-err" class="err" hidden></p>
+              <div class="save-bar"><button type="button" class="btn ghost danger" id="bili-clear">Xoá cookie</button><span class="grow"></span>
+                <button type="button" class="btn" id="bili-check">Kiểm tra lại</button><button type="button" class="btn primary" id="bili-save">Lưu cookie</button></div>
+            </div>
+          </div>
+          <div class="pane" data-pane="paths" hidden>
+            <h2>Thư mục</h2><p class="sub">Thư mục trên máy này. Lưu vào pineline.config.json, có hiệu lực ngay.</p>
+            <form id="form-paths"><div id="paths-body"></div>
+              <p id="paths-err" class="err" hidden></p>
+              <div class="save-bar"><span class="grow"></span><button type="submit" class="btn primary" id="paths-ok">Lưu thư mục</button></div>
+            </form>
+          </div>
+          <div class="pane" data-pane="advanced" hidden>
+            <h2>Nâng cao</h2><p class="sub">Chọn AI riêng cho từng việc, địa chỉ API và các tuỳ chọn ít dùng.</p>
+            <div class="callout warn"><b>Dành cho lúc cần chỉnh sâu.</b> Thông thường chỉ cần mục «AI dịch». Sửa ở đây có thể làm job chạy sai model.</div>
+            <form id="form-ai">
+              <div id="ai-body"></div>
+              <p id="ai-err" class="err" hidden></p>
+              <div class="save-bar"><span class="grow"></span><button type="submit" class="btn primary" id="ai-ok">Lưu cấu hình AI nâng cao</button></div>
+            </form>
+          </div>
+          <form id="form-cfg" class="cfg-form">
+            <div id="cfg-body"></div>
+            <div class="save-bar" id="cfg-bar" hidden>
+              <span id="cfg-dirty" class="sub">Có thay đổi chưa lưu</span><span class="grow"></span>
+              <p id="cfg-err" class="err" hidden></p>
+              <button type="button" class="btn ghost" id="cfg-cancel">Hoàn tác</button>
+              <button type="submit" class="btn primary" id="cfg-ok">Lưu thay đổi</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="msg" role="status" hidden></div>
+<datalist id="dl-models"></datalist>
+
+<dialog id="dlg-new" class="wide">
+  <form method="dialog" id="form-new">
+    <div class="dlg-head"><h2>Thêm job</h2><span class="grow"></span><button type="button" class="btn ghost" id="new-cancel">Đóng</button></div>
+    <div class="seg new-tabs" role="tablist"><label><input type="radio" name="new-tab" value="link" checked>Link</label><label><input type="radio" name="new-tab" value="local">File trên máy</label></div>
+    <div id="new-link">
+      <p class="sub">Bilibili (video, video nhiều tập, hợp tập, series, link b23.tv), Douyin… Dán link rồi «Kiểm tra» để xem và chọn tập.</p>
+      <div class="row new-row"><input id="new-src" autocomplete="off" placeholder="https://www.bilibili.com/video/BV…">
+        <button type="submit" class="btn primary" id="new-ok">Kiểm tra</button></div>
+    </div>
+    <div id="new-local" hidden>
+      <p class="sub">Chọn video hoặc cả thư mục (mỗi thư mục thành một nhóm, mỗi video một job). Có thể dán đường dẫn.</p>
+      <div class="row new-row"><button type="button" class="btn" id="new-pick-files">Chọn file video…</button><button type="button" class="btn" id="new-pick-dirs">Chọn thư mục…</button>
+        <input id="new-path" autocomplete="off" placeholder="hoặc dán đường dẫn: D:\phim\tap01.mp4"><button type="button" class="btn" id="new-path-add">Thêm</button></div>
+      <div id="new-picked"></div>
+      <label class="check"><input type="checkbox" id="new-move"> Chuyển file vào thư mục job thay vì chép (tiết kiệm ổ, file gốc biến mất)</label>
+      <div class="actions"><span class="grow"></span><button type="button" class="btn primary" id="new-local-ok" disabled>Tạo job</button></div>
+    </div>
+    <p id="new-err" class="err" hidden></p>
+    <div id="new-prev" hidden></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-log" class="wide">
+  <div class="dlg-head"><h2>Nhật ký hàng chờ</h2><span class="grow"></span><button type="button" class="btn ghost" id="log-close">Đóng</button></div>
+  <div class="scroll"><table class="data"><thead><tr><th>Lúc</th><th>Kết quả</th><th>Phim</th><th>Chi tiết</th></tr></thead><tbody id="log-rows"></tbody></table></div>
+</dialog>
+
+<dialog id="dlg-conf" class="wide">
+  <div class="dlg-head"><h2>Xung đột tên nhân vật</h2><span class="grow"></span><button type="button" class="btn ghost" id="conf-close">Đóng</button></div>
+  <p class="sub">Bảng nhân vật của mỗi bộ phim không bị tập mới tự ghi đè. Khi AI ở một tập đề xuất khác bản đã chốt, hệ thống giữ bản cũ và hỏi bạn ở đây.
+    «Dùng bản mới» áp cho các tập dịch sau.</p>
+  <div class="scroll"><table class="data"><thead><tr><th>Bộ phim</th><th>Mục</th><th>Đang dùng</th><th>Đề xuất mới</th><th>Từ tập</th><th></th></tr></thead><tbody id="conf-rows"></tbody></table></div>
+</dialog>
+
+<dialog id="dlg-test">
+  <div class="dlg-head"><h2>Test bản quyền YouTube</h2><span class="grow"></span><button type="button" class="btn ghost" id="test-close">Đóng</button></div>
+  <p class="sub">Cắt mẫu 90 giây (từ giây 60), đăng «Không công khai» lên kênh test rồi chờ YouTube quét Content ID (~5 phút) — biết phim có bị chặn trước khi làm.</p>
+  <div class="test-film"><b id="test-title"></b><div class="mut small" id="test-name"></div></div>
+  <div class="test-st"><span>Kết quả:</span> <span id="test-badge" class="tag"></span> <span id="test-when" class="mut small"></span></div>
+  <p id="test-reason" class="sub" hidden></p>
+  <p id="test-link" class="small" hidden></p>
+  <div id="test-acc"></div>
+  <label class="check"><input type="checkbox" id="test-autodel"> Xoá video test trên YouTube sau khi có kết quả</label>
+  <div class="actions">
+    <button type="button" class="btn" id="test-recheck" hidden>Kiểm lại ngay</button>
+    <button type="button" class="btn primary" id="test-run">Bắt đầu test</button>
+  </div>
+  <details class="more"><summary>Tự đánh dấu kết quả</summary><div class="inner"><div class="row" id="test-mark">
+    <button type="button" class="btn sm" data-mark="clean">Sạch</button><button type="button" class="btn sm" data-mark="partially_blocked">Chặn 1 phần</button>
+    <button type="button" class="btn sm" data-mark="blocked">Bị chặn</button><button type="button" class="btn sm" data-mark="claim">Claim nhạc</button>
+    <button type="button" class="btn sm ghost" data-mark="unknown">Xoá kết quả</button></div></div></details>
+</dialog>
+
 <script src="app.js"></script>
 </body>
 </html>

@@ -1,6 +1,338 @@
 # CHANGELOG — V6
 
+## 2026-11-21
+- **Hàng chờ nói job đang LÀM GÌ / CHỜ GÌ**: `job_queue.set_phase` — thanh hàng chờ + cột «Đang làm» hiện bước hiện tại
+  (chuẩn bị, tải nguồn, chờ tới lượt GPU, ASR, dịch, soát, kiểm chất lượng, cổng QA, TTS, render, part i/N…) và khi
+  job GIỮ GHẾ: lý do + «tự thử lại sau ~N phút» hoặc «CHỜ NGƯỜI DUYỆT — bấm Chạy tiếp». Trước: chỉ «Đang chạy «…»» dù
+  job đang đứng chờ → «bấm chạy mà không có gì xảy ra».
+- Bước Dịch «Chờ» không còn bị ghi đè thành «đủ bản dịch» (che lý do thật: soát dở / AI lỗi / HOLD) — chỉ khi đã xong.
+- **Chỉ còn 3 loại AI: nhà cung cấp API (deepseek/…, alibaba/…), Aurora (chatgpt/…), AI trên máy (local)**. Bỏ hoàn
+  toàn router 9router / LAN: `LLM_BASE_URL`, `AGENT_BASE_URL`, `CLOUD_LLM_*` KHÔNG còn được đọc; model `ollama/…-cloud`
+  báo đổi model; `LLM_MODEL` kiểu 9router → «local». Sửa lỗi Trợ lý AI «local» gọi nhầm `127.0.0.1:3377` (config cũ
+  `AGENT_BASE_URL` trỏ cổng Aurora) → nay luôn tới llama-server (`LLAMA_BASE_URL`, Cài đặt → AI → AI trên máy).
+  `check_env` báo khoá thừa còn trong pineline.config.json.
+- **Bấm «Chạy» là chạy thật**: gỡ dấu tạm dừng HỆ THỐNG tự đặt trên job (chờ thử lại soát, soát lỗi 3 lượt
+  `review_failed`, chờ part) + bộ đếm lượt thử — trước: dấu cũ còn → dịch xong lại dừng / nhảy thẳng review_failed.
+  HOLD QA / người đặt vẫn giữ (nút «Chạy tiếp»). Hàng chờ đang tạm dừng (nhiều job lỗi liên tiếp, giữ qua restart) →
+  bấm Chạy gỡ tạm dừng luôn.
+- **AI dịch lỗi (hết tiền / key sai / mất mạng) có dự phòng tự động**: chuỗi `SIMPLE_FALLBACK_MODEL` → AI trên máy
+  (llama-server, nếu đang chạy; `SIMPLE_LOCAL_FALLBACK=0` để tắt) cho cả soát/dịch, vá và lập bảng nhân vật. Model
+  vừa hỏng bị bỏ qua trong lượt đó (lô sau đi thẳng dự phòng, không chờ thử lại mỗi lô); lượt sau dò lại model chính.
+- **Đổi model / key trong Cài đặt có hiệu lực ngay**: lô dịch kế tiếp dùng model mới (model bị thay trong Cài đặt),
+  job đang chờ thử lại soát / soát lỗi 3 lượt được xếp chạy lại ngay (`services/translate_wake`).
+- **Làm tiếp sau lỗi / restart**: luồng dịch vốn giữ câu đã dịch (chỉ gửi AI câu còn thiếu — có test); nay ghi rõ
+  «làm tiếp: đã dịch N/M câu, chỉ dịch K câu còn lại» thay vì trông như dịch lại từ đầu.
+
+## 2026-11-20
+- **Thư viện báo «lỗi» dù job đã xong**: `core/film_db._status_of` chỉ xét 5 bước chính và «render xong» thắng (trước:
+  bước phụ còn dấu failed cũ → lỗi). films.db cập nhật ngay khi trạng thái job đổi (write hook), không chờ mở tab
+  Thư viện / cờ feeder.
+- **Tên bộ phim trên danh sách job**: tên hợp tập Bilibili (tiếng Trung) được dịch sang Việt cùng lúc dịch tiêu đề
+  (`group_title_vi`, 1 lần cho cả bộ; theo cờ instance `title_translate`), hiện 1 dòng cắt gọn, rê chuột xem đủ + bản gốc.
+- **Tổng quan job hiện số câu**: thẻ ASR «N câu · thời lượng đã nghe · engine», Dịch «N câu · thiếu M», Lồng tiếng
+  «thiếu tiếng M câu» (đọc `n_segments`/`n_missing` sẵn có trong manifest).
+- **Job cha auto-split (video ≥3h) báo lỗi đúng chỗ**: trước đây khi các part chưa xong, job cha hiện «Lỗi ở Nhận dạng
+  tiếng (ASR): pipeline kết thúc nhưng output chưa hoàn chỉnh» dù ASR của part đã xong. Nay lỗi nằm ở bước Ghép và kể
+  từng part chưa xong + lý do (`p02 dừng ở Dịch: …`, `p03 lỗi ở Lồng tiếng: …`); chạy lại job cha gỡ dấu «ASR lỗi» cũ.
+  `_auto_gpu` dừng giữa chừng không lỗi/HOLD (dịch chưa đủ, cổng dịch chưa qua, lỗi giữa 2 bước) giờ ghi `last_stop`
+  vào manifest → cột «Đang làm» hiện «Đã dừng: …» (`state/index.summarize` thêm `stop_note`).
+- **Port fix V5 17–20/11** (`docs/fixes/2026-11-20-port-v5-11-17-to-20.md`): Dừng job không còn treo hàng chờ khi job
+  xếp sau job khác trên GPU; vá xong còn sót chữ Hán / câu trống → 1 lượt vá bằng model dự phòng (thay vì park); lập bảng
+  nhân vật lỗi → model dự phòng; Trợ lý hiểu id job rút gọn (`9aa089_p01`). Chưa port: prompt thumbnail mới, kiểm tập khi
+  gộp (`hg_merge_check`).
+- **Công việc — quản lý job + hàng chờ**: thanh lọc trạng thái có đếm (Tất cả / Đang chạy / Hàng chờ / Lỗi / Tạm dừng /
+  Chưa chạy / Xong; nhớ lựa chọn); bảng xếp job trong hàng chờ theo đúng thứ tự sẽ chạy («chờ #n»), hiện bộ phim + tập
+  (`tập 2/10`), job lỗi hiện bước lỗi + lý do ngay trên dòng; **«Thứ tự hàng chờ»**: đưa lên đầu / lên / xuống / gỡ từng
+  job, «Sắp theo bộ / tập»; **«Chạy lại N job lỗi»** (làm tiếp từ bước lỗi); **«Xoá job đã chọn»** (nhiều job, hỏi xác nhận,
+  không xoá job đang chạy). `state/index.summarize` thêm group_title / group_index / group_total / failed_stage / error.
+- **Tab «Lời thoại»** (trước «Bản dịch") hiện **lời gốc ASR** khi job chưa dịch: `/api/v6/jobs/{id}/script` không có
+  script.json → trả câu Trung từ asr.json (`source: "asr"`), có tìm kiếm; trước chỉ báo «chưa có bản dịch».
+- **Dịch có model dự phòng** `SIMPLE_FALLBACK_MODEL` (Cài đặt → AI dịch → «Dự phòng khi AI dịch chính lỗi»): lô nào model
+  chính hỏng hẳn (mất mạng, hết tiền / quota, key sai, 5xx sau khi cloud_retry đã thử lại) → dịch bằng model dự phòng.
+  Lô hỏng JSON vẫn để luồng soát tự thử lại (không đổi model); Dừng không chuyển dự phòng.
+- **Sửa Trợ lý AI chọn «local»**: model AI trên máy (`local` / `llama` / `llama/…`) gọi llama-server ở Cài đặt → AI trên
+  máy (`LLAMA_BASE_URL`) — trước gửi tới `AGENT_BASE_URL` / `LLM_BASE_URL` (config cũ trỏ cổng / máy khác) nên lỗi, rồi
+  rơi sang dự phòng Aurora :3377 và chỉ báo lỗi Aurora. Nay lỗi ghi đủ «model chính | dự phòng». `AGENT_BASE_URL` đặt
+  riêng vẫn được tôn trọng.
+
+
+## 2026-11-19
+- **V6 portable — bỏ phụ thuộc máy cũ (V2/V5, ổ D:/Z:)** khi chạy:
+  - `instances/v6.json`: `work_root` = `./work`, `temp` = `./scratch/tmp` (tính từ gốc cây; trước D:/PinelineV6_work).
+    Máy muốn để job ở ổ khác: `instances/v6.local.json` (không vào git, đè khoá bất kỳ), vd
+    `{"work_root": "E:/PinelineV6_work", "temp": "E:/PinelineV6_tmp"}`. `run_v6` tự tạo work_root/temp.
+  - FireRed: `config.json` bỏ `FIRERED_ROOT=Z:/PinelineV2/...`, `FIRERED_MODELS=D:/AI_CACHE/firered`; `core.machine.firered_paths`
+    gặp đường dẫn không tồn tại (config chép từ máy khác) → bản `vendor/FireRedASR2S` + `pretrained_models` trong cây.
+    `install_firered_asr.bat` / `download_firered_models.py` tải model vào `vendor/FireRedASR2S/pretrained_models`.
+  - `scripts/setup_f1_links.bat`: không còn junction sang `Z:\PinelineV5` / `D:\PinelineV6_work`; tạo `work`,
+    `scratch\tmp`; tuỳ chọn chép `models\`, `cookies\` từ thư mục nguồn (`setup_f1_links.bat E:\PineLineV6`).
+  - `check_env`: kiểm work_root/temp của instance (thay `ROOT/work`).
+- **Chặn LAN ở mọi đường gọi LLM** (không chỉ dự phòng): `AURORA_BASE_URL`/`CHATGPT_BASE_URL`, `LLAMA_BASE_URL`, Ollama
+  (`OLLAMA_BASE_URL`), Meta Studio, nút «Thử kết nối LLM» (khi lấy từ config), `engines.llm.BASE_URL`, `check_env`.
+  Địa chỉ 192.168.x/10.x/172.16–31.x → bỏ (log 1 lần), dùng local; mở lại `ALLOW_LAN_LLM=1`. URL gõ tay khi thử kết nối giữ nguyên.
+  `check_env`: báo rõ LLM_BASE_URL LAN bị bỏ, model `ollama/…-cloud` (9router) không còn chạy được.
+
+## 2026-11-17
+- **Sửa: job dịch dở bị đẩy sang luồng cũ (NMT + `local`) thay vì DeepSeek.** Job có sẵn `script.json` (chép từ V2 /
+  dịch dở) bị `translate_simple.cfg.job_pipeline` ĐOÁN là luồng cũ (`translate_pipeline_why=inferred`) → `run_translate`
+  chạy NMT rồi dịch bằng `TRANSLATE_MODEL` (preset «Khuyến nghị» đặt `local` cho «Dịch phụ») → gemma :18082, lô parse lỗi.
+  Giờ không suy legacy nữa; dấu «legacy/inferred» cũ được tính lại theo mặc định instance (simple → model «Soát & dịch
+  chính»). Luồng cũ chỉ khi instance/config chọn `translate_pipeline=legacy`. Simple làm tiếp trên script.json cũ.
+- **Bỏ hẳn NMT** (`engines/mt_zh_vi`, HachimiMT) khỏi `run_translate` (luồng cũ) — `MT_ZH_VI=1` trong config cũ không
+  còn tác dụng; hết log «[mt-zh-vi] bỏ qua: [WinError 3] … 'E:\\'». `check_env` không kiểm thư mục model MT nữa.
+- **Không gọi máy LAN làm dự phòng:** mặc định `AURORA_FALLBACK_URLS` = trống (trước LAN-cũ);
+  URL LAN (192.168.x/10.x/172.16–31.x) trong `AURORA_FALLBACK_URLS`, `CLOUD_LLM_BASE_URL`, `LLM_BASE_URL`,
+  `AGENT_BASE_URL` bị bỏ qua (LLM chung → llama 127.0.0.1:8083), có log cảnh báo 1 lần. Bật lại: `ALLOW_LAN_LLM=1`.
+  docs/fixes/2026-11-17-no-nmt-no-lan.md
+
+## 2026-11-16
+- **FireRed nhanh hơn** (thay vì TensorRT-LLM — xem lý do trong phiên): tắt LID mặc định (nhận dạng ngôn ngữ từng câu,
+  model 3,3 GB, kết quả không dùng; bật lại `FIRERED_LID=1`), ASR theo lô trên GPU `FIRERED_ASR_BATCH` (mặc định 4; trước
+  1 câu / lượt), dấu câu theo lô `FIRERED_PUNC_BATCH` (16). Hết VRAM → tự giảm lô một nửa rồi chạy lại đoạn đó.
+- Sửa (vá vendor FireRed): chạy BF16 (`FIRERED_USE_HALF`, mặc định bật) → `torchaudio.forced_align` báo «log_probs must be
+  float64, float32 or float16» mỗi câu → mất mốc thời gian TỪNG CHỮ (FireRed chia đều trong câu; mốc câu từ VAD vẫn đúng).
+  `vendor/FireRedASR2S/.../fireredasr_aed.py` ép `.float()` trước forced_align.
+- **Sửa: FireRed «No module named fireredasr2s.fireredasr2.models»** trên máy cài từ git: `.gitignore` dòng `models/`
+  (định bỏ thư mục model lớn ở gốc) loại luôn code Python `vendor/FireRedASR2S/fireredasr2s/{fireredasr2,fireredlid,
+  fireredpunc}/models/` → bản vendor trong repo thiếu code, script cài thấy thư mục đã có nên không clone lại. Đã bổ
+  sung 3 thư mục từ FireRedTeam/FireRedASR2S (Apache-2.0, cùng phiên bản với phần còn lại), `.gitignore` → `/models/`.
+  `core.machine.firered_status` báo khi mã nguồn thiếu code models (Cài đặt / check_env).
+- Bộ cài: `requirements-main.txt` thêm google-auth / google-auth-oauthlib / google-api-python-client (thiếu → «No module
+  named google.oauth2», router films không nạp: Phim đã làm, Test bản quyền, đăng YouTube hỏng), psutil, huggingface_hub,
+  pypinyin. `install.py` mặc định `--cuda cu128` (cu121 không chạy RTX 50 / bản torch mới). `install_funasr_safe.bat`
+  dùng cùng python với server, không `--user` trong venv, không ép torch 2.11 — chỉ cài lại torch CUDA khi bị kéo về CPU.
+  `check_env` báo thêm thiếu google / psutil / funasr / FireRed.
+- **Sửa: «No module named demucs»** — `run_v6.bat` chạy server bằng `python` hệ thống, không phải venv `pineline_env`
+  của install.py → thiếu demucs, ASR bỏ bước tách giọng. Nay `scripts\pick_python.bat` chọn python chung cho
+  run_v6 / run_sidecar_v6 / install_firered_asr: PINELINE_PYTHON > `.pineline_env_path` (install.py ghi) >
+  `..\pineline_env` > `pineline_env` > python hệ thống (in ra python đang dùng). `check_env` báo thiếu demucs /
+  faster_whisper / yt_dlp kèm lệnh cài.
+- **Sửa: install.py ghi ĐÈ pineline.config.json** (mất key API, FIRERED_*, cài đặt AI…) → nay gộp vào file cũ, sao lưu
+  `pineline.config.before_install.json` trước khi ghi.
+- **Tải Bilibili bằng bộ tải gốc** (`engines/bili`, chuyển từ «bilibili_downloader» của chủ dự án) thay yt-dlp: ký WBI →
+  playurl DASH → bỏ MCDN / Akamai, đổi host sang cụm UPOS, đo tốc độ chọn node → tải đa luồng theo Range, mỗi đoạn thử các
+  mirror, **tải tiếp được** khi dừng / lỗi (`*.parts.json`), link CDN hết hạn thì xin link mới → ffmpeg ghép `-c copy`.
+  Chọn luồng: cao nhất ≤ trần (DOWNLOAD_MAX_HEIGHT / phim dài tự hạ như cũ), ưu tiên AVC (HEVC nếu DOWNLOAD_PREFER_HEVC),
+  không lấy AV1; tiếng bitrate cao nhất. Lỗi → tự rơi về yt-dlp; tắt hẳn: `BILI_NATIVE=0`. Bóc multi-P / hợp tập / series
+  bằng API (đủ tên tập). Cookie Bilibili: `cookies/bilibili_cookies.txt` (Netscape — yt-dlp dùng chung).
+- **Hộp «Thêm job» làm lại**: thẻ **Link** — dán link → «Kiểm tra» → xem tên, loại (video / nhiều tập / hợp tập / series),
+  danh sách tập + thời lượng, tập nào đã có job, trạng thái đăng nhập Bilibili (dán cookie ngay trong hộp) → chọn tập →
+  «Tạo N job» (nhiều tập gom nhóm). Thẻ **File trên máy** — «Chọn file video…» (hộp chọn của Windows, chọn nhiều),
+  «Chọn thư mục…», dán đường dẫn. Cài đặt → **Bilibili**: dán / kiểm / xoá cookie (hiện tên tài khoản, VIP).
+  `services/add_jobs.py`, `app/routes/add_jobs.py`, `tools/pick_files_dialog.py`.
+- **ASR FireRed lỗi trên máy mới** («firered_asr.py lỗi (mã 1)» không rõ vì sao): (1) lỗi engine nay kèm lý do thật
+  (dòng `XxxError: …` cuối trong log con — `server._engine_reason`; tiền tố «… lỗi (mã N)» giữ nguyên); (2) Cài đặt →
+  Giọng đọc: chọn «FireRed ASR» mà máy chưa cài → cảnh báo đỏ ngay dưới ô (`/api/v6/config` → `asr_status`,
+  `core.machine.firered_status`); (3) đường dẫn FireRed một nguồn `core.machine.firered_paths` — chưa đặt FIRERED_MODELS
+  thì tìm cả `D:\AI_CACHE\firered` (chỗ script cài tải về); `scripts/install_firered_asr.bat` ghi FIRERED_ROOT /
+  FIRERED_MODELS vào config (trước chỉ in ra, còn in sai «Z:/Pineline/…»); `check_env` dùng cùng hàm kiểm.
+- Giọng đọc: file ghi âm chép tay vào `voices/clone_refs|f5_refs|vieneu_bac` mà chưa có tên trong danh sách (vd V7.wav
+  từ máy cũ) → Cài đặt → Giọng đọc báo «N file giọng chưa có trong danh sách», đặt tên + lời mẫu → «Thêm» (không chép /
+  đổi file). `/api/v6/voices/register`.
+- **Giọng đọc trên máy mới:** Cài đặt → Giọng đọc có mục «Giọng clone trên máy này»: liệt kê giọng dùng được / **thiếu file
+  mẫu** (git mang danh sách tên nhưng không mang wav), nghe thử, xoá mục hỏng; **tạo giọng mới** từ file ghi âm 3–8s
+  (không cần mở một job) + ô «lời trong file mẫu» (máy chưa có model nhận dạng thì trước đây lời mẫu rỗng → clone kém;
+  `/api/clone-voice` nhận thêm `text`). Hướng dẫn chép thư mục voices từ máy cũ bằng `scripts/import_voices.py`.
+  `services/voices.py`, `/api/v6/voices`.
+- **Kênh test trên máy mới (không có V2):** hộp «Test bản quyền» → «Thêm tài khoản»: chọn / dán file OAuth client JSON
+  (Google Cloud Console; «web» hoặc «installed»), hoặc «Dùng file này» với client_secret*.json tìm thấy trong thư mục
+  yt_uploader → ghi `data/test_channel/projects.json` (trước không code nào tạo file này) → «Đăng nhập». Hộp hiện đúng
+  redirect URI cần khai báo. `services/test_channel_setup.py`, `/api/v6/test-channel/{candidates,projects}`; không trả
+  client_secret ra ngoài.
+- Sửa: films.db MỚI tạo thiếu cột `library_blocks.recheck_at` (migrate chạy trước khi tạo bảng) → lần ghi kết quả test
+  bản quyền đầu tiên lỗi «no such column: recheck_at». Cột nay có sẵn trong SCHEMA.
+- **Sửa: đăng nhập kênh test bấm không chạy trong app desktop.** WebView2 của app chặn link mở tab mới (`target=_blank`)
+  → mọi link như vậy trong /v6/ nay mở bằng trình duyệt ngoài qua server (`POST /api/v6/open-external`, chỉ Google /
+  YouTube / localhost). Hộp «Test bản quyền» tự đăng nhập: danh sách tài khoản (projects) + nút «Đăng nhập» → mở trang
+  Google trong trình duyệt; xong callback báo app qua SSE `test_channel.changed` (hộp tự cập nhật). Không mở được trình
+  duyệt → hiện link để chép.
+- Cấu hình kênh test (`data/test_channel`: projects, token Google) nằm riêng từng cây — V6 chưa có thì luôn «chưa đăng
+  nhập». `scripts\import_test_channel_v2.bat` chép từ V2 (không ghi đè, xem trước). `data/test_channel/` vào .gitignore
+  (chứa client_secret + token).
+- **Cài đặt AI trên máy** (Cài đặt → AI dịch → «AI trên máy»; `core/local_ai.py`, `/api/v6/ai/local`) — trước gắn cứng /
+  chỉ đặt bằng biến môi trường: địa chỉ llama-server (LLAMA_BASE_URL), địa chỉ Ollama (OLLAMA_BASE_URL — trước chỉ env
+  LOCAL_LLM_BASE_URL, vẫn tôn trọng), số phần dịch cùng lúc riêng cho local (LOCAL_CONCURRENCY — trước dùng chung
+  SIMPLE_WORKERS với Aurora), trần token (LOCAL_MAX_TOKENS), bật/tắt «suy nghĩ» (LLM_ENABLE_THINKING), context Ollama
+  (LLM_NUM_CTX); hiện llama-server có chạy không + model đang mở. Thẻ Aurora: ô địa chỉ Aurora (AURORA_BASE_URL).
+  Mọi nơi đọc LÚC GỌI (không cần restart). Chưa đặt LOCAL_* → giữ hành vi cũ (SIMPLE_*).
+- **Test bản quyền YouTube trong «Phim chờ làm»** (chuyển từ hộp «Kiểm tra Bản Quyền» của trang Phim cũ): nhãn kết quả
+  trên từng phim (Chưa test / Đang test / Sạch / Chặn 1 phần / Bị chặn / Claim / Test lỗi), lọc theo bản quyền, nút
+  «Test BQ» mở hộp: chọn tài khoản kênh test, cắt mẫu 90s → đăng Không công khai → Content ID; «Kiểm lại ngay»; tự đánh
+  dấu kết quả. Chọn nhiều phim → «Test bản quyền N phim» (chạy nền). Kết quả recheck (~5 phút) về qua SSE `library.block`
+  (core/film_db.upsert_library_block), không polling. Đăng nhập kênh test vẫn ở trang Đăng YouTube (cũ).
+- Sửa: cắt mẫu test (tools/lib_check) đọc thư mục thư viện LÚC GỌI (`lib_root()`, theo thư mục Hongguo 2 / Cài đặt) —
+  trước cố định lúc server khởi động. Nút dừng test hàng loạt gọi đúng module với nút bắt đầu (tools.test_channel).
+
+## 2026-11-15
+- Phim chờ làm: chọn **kiểu xem Lưới / Danh sách** (danh sách = bảng có ảnh nhỏ, ô chọn + «chọn tất cả»); app nhớ lựa chọn.
+- Phim chờ làm: nút **Xoá** (từng phim hoặc chọn nhiều) — xoá HẲN thư mục phim khỏi ổ sau khi hỏi xác nhận (kèm dung
+  lượng), như «Xoá» trang Phim cũ; chặn khi bộ đang gộp hoặc còn job chưa xong đang đọc file trong đó; xoá xong làm mới
+  thư viện Hongguo 2. Nút **Dọn tập lẻ** cho bộ đã gộp (chỉ khi file gộp đủ nội dung, chuyển vào thùng rác thư viện).
+- **«Phim chờ làm»** (đổi từ «Phim trên ổ»): nguồn chính = **thư viện Hongguo 2** (tên Trung, series_id, thư mục lưu,
+  poster) như tab Library của Hongguo 2; máy chưa có / chưa mở Hongguo 2 → quét LIBRARY_DIR. Dạng lưới poster, tên
+  tiếng Việt (dịch có cache), mới tải lên đầu, bấm poster để chọn nhiều phim → «Tạo N job».
+- **«Phim trên ổ» (mới, giao diện chính)** — thay tab «Thư viện chưa làm» đã bỏ cùng Hongguo 1: quét THẲNG thư mục thư
+  viện (Cài đặt → Thư mục, vd `D:\Lib`), không cần Hongguo trả lời. Mỗi bộ: số tập, dung lượng, trạng thái (sẵn sàng /
+  cần gộp tập / đang gộp / đã làm). «Tạo job» (một hoặc nhiều bộ) → tạo job + xếp hàng theo cấu hình chung, gom nhóm
+  theo bộ như tab cũ. «Gộp tập» chạy nền tuần tự (cùng độ phân giải: giữ nguyên chất lượng; lệch: chuẩn hoá 1080p),
+  không xoá tập lẻ; báo xong / lỗi qua SSE. `services/disk_library.py`, `/api/v6/disk-library*`.
+  «Thư viện phim» đổi tên **«Phim đã làm»**.
+- **Thư viện phim gom về giao diện chính (`/v6/`)**: thêm thanh «Đăng YouTube» (tự đăng khi render xong — công tắc khoá
+  và ghi rõ khi instance tắt `auto_publish`; chế độ; hẹn giờ; đăng tất cả phim chưa đăng; bỏ qua video đang đăng), cột +
+  bộ lọc «Bản quyền», nút «Kiểm» từng video / «Kiểm bản quyền tất cả», «Dọn phim mất thư mục», «Ẩn phim mất thư mục»,
+  «Tải CSV». Cài đặt có mục mới **«Thư mục»** (thư viện phim, yt_uploader, mẫu cắt thử — `/api/v6/paths`, core/machine).
+- Trang Phim cũ (`/films/ui`): **gỡ hộp «Cài Đặt Hệ Thống V4»** (ghi đè khoá AI / model của /v6/; thư mục → /v6/ Cài
+  đặt → Thư mục); nút Cài đặt dẫn về /v6/; sửa «Lỗi: Không đọc được dữ liệu» (`GET /films` thiếu `ok`). Trang này chỉ
+  còn giữ công cụ chưa chuyển: gộp job, metadata / thumbnail, hàng chờ upload, kênh test.
+- **Cài đặt → Âm thanh sửa sai khoá**: thanh «Âm lượng giọng Việt» trước gắn vào `voice_vol` — render dùng khoá này cho
+  GIỌNG TRUNG nền (chỉ chế độ «Nhạc gốc + giọng Trung nhỏ»), kéo không đổi gì giọng Việt. Nay: «Giọng Việt» =
+  `RENDER_DUB_VOL` (mặc định 125%), «Nhạc nền thư viện» = `RENDER_BGM_VOL`, «Nhạc kho» / «Tiếng động gốc» (sfx_lib),
+  «Tiếng gốc nền» = `orig_vol`, «Giọng Trung nền» = `voice_vol`; chỉ hiện mức mà chế độ âm nền đang chọn dùng
+  (`core/audio_levels.py`, `/api/v6/config` nhận `levels`). 3 chế độ giữ nhạc gốc gom vào mục gập «dễ dính bản quyền».
+  Render `duck_bgm`: tiếng gốc > 28% trước bị hạ thẳng về 18% → nay giữ ở trần 28%.
+- Cài đặt: bỏ «Kiểu dịch (luồng cũ)», «Soát dự phòng Aurora (luồng cũ)» khỏi giao diện (luồng V6 tự chọn cỡ lô).
+  Giọng đọc: nút «▶ Nghe thử» cạnh giọng mặc định. Thư viện phim: nút «Xoá» dòng không còn là job (vd dòng test cũ).
+- **Trang chủ `/` = giao diện mới (`/v6/`)**; Studio ở `/studio` (cũng `/ui3`) và có nút «← Giao diện mới»; trang Phim
+  có «⬅ Giao diện chính». App desktop build trước 14/11 tối mở `/ui3` (Studio) — build lại (`desktop\build.bat`) để mở `/v6/`.
+- **Hongguo 2 không còn giới hạn số phim** (cần restart :8806; trang /hongguo2 tải lại):
+  - Sửa: Browse MẤT phim giữa các trang — engine trả ~20 thẻ/lần, code gom cho đủ 24 rồi CẮT phần thừa nhưng vị trí trang
+    sau đã nằm sau phần bị cắt (mỗi trang mất ~15 phim). Nay trả hết thẻ đã gom.
+  - Ranking: bỏ trần 100; phân trang bằng rank.more (bộ nhớ đệm theo bảng); nút «Xem thêm».
+  - New: nút «Xem thêm» (trước chỉ 48 phim).
+- **Bỏ hẳn Hongguo 1** (cần restart :8806) — `agents/hongguo_bridge.py` không còn nhánh HTTP :8000 (`_req`, token, `/dl/*`),
+  không còn chọn backend (`HG_BACKEND`, `agents/hg_ui_ctx.py` xoá, khoá máy `HONGGUO_BASE_URL` xoá); mọi `/api/hg/*` và
+  `/api/hg2/*` dùng Hongguo 2. Gộp tập: tại chỗ bằng ffmpeg `-c copy` (`merge_series_copy`) thay cho Hongguo 1 gộp hộ.
+  Agent Hongguo bật engine Hongguo 2 thay vì mở Downloader 1.x. `check_env` / Second Brain dò Hongguo 2.
+- **Trang Phim bỏ tab «Thư viện chưa làm» + «Mùa mới»** (phụ thuộc Hongguo 1; không quét thư viện trên ổ độc lập).
+- **Nút trang Phim / Studio trước chỉ sidecar có → server V6 phục vụ**: Tra Baike, Tạo ảnh AI, Lưu / nạp cấu hình batch
+  (`/config`), Dừng test kênh — `app/routes/ui_compat.py` (route mỏng) + `services/ui_tools.py` (sidecar dùng lại cùng
+  hàm). Studio: Dừng → `/api/queue/jobs/stop`.
+- **Sửa: mọi `/api/hg/*` bị ép sang Hongguo 1 (:8000, đã ngừng)** (cần restart :8806) — trang Phim «Thư viện chưa làm»,
+  «Mùa mới», gửi tải; Studio thư viện / Merge; feeder tự thêm job đều 502. Nay theo `HG_BACKEND` (mặc định auto =
+  Hongguo 2). Sơ đồ hoạt động toàn bộ UI: docs/design/2026-11-15-ui-map.md (`scripts/ui_map.py`).
+- **Giao diện desktop làm lại** (cần restart :8806; app desktop chỉ cần mở lại — giao diện tải từ server):
+  thanh bên trái (Công việc · Thư viện phim · Trợ lý AI · Cài đặt) thay cho hàng nút + hộp thoại; bảng job gọn (tên,
+  thanh tiến độ 5 bước, trạng thái tiếng Việt, việc đang làm); **một màn hình Cài đặt** gộp «Cài đặt» + «Cài đặt AI»:
+  AI dịch (chọn nhà cung cấp → dán key → Kiểm tra → Áp dụng; tốc độ Tiết kiệm/Cân bằng/Tối đa; danh sách «AI đang làm gì»),
+  Giọng đọc, Âm thanh, Hình ảnh, Thương hiệu — mỗi tuỳ chọn có nhãn + một dòng giải thích, thanh trượt / lựa chọn có
+  mô tả / công tắc, không hiện tên khoá; bảng model từng chức năng, địa chỉ API, tuỳ chọn luồng cũ dồn vào «Nâng cao».
+  Trợ lý AI thành một màn hình chat có câu hỏi gợi ý. Thư viện phim thành một màn hình.
+- **Cài đặt AI chỉ hiện chức năng luồng V6 dùng thật** — «Pass sửa tên», «Pass xưng hô» (cơ chế V2), «Bổ sung cặp xưng hô»,
+  «Phân tích xưng hô cả phim» (thử nghiệm đang tắt), «Soát luồng cũ» gấp vào mục «Luồng cũ / thử nghiệm». Agent «rà soát»
+  trên job V6 KHÔNG chạy pass tên / xưng hô cũ nữa (soát lại V6 tự xử lý theo plan + kiểm + vá).
+- **Sửa: desktop dính giao diện cũ sau khi cập nhật** — file giao diện trả kèm `Cache-Control: no-cache` (WebView2 / trình
+  duyệt hỏi lại server mỗi lần, có ETag nên rẻ).
+- **Trang UI gọn lại** (cần restart :8806; desktop build lại để nav mới) — theo chủ dự án:
+  Studio (UI3, `index3.html`) đổi tên thành `index.html` = trang chính `/`; UI0 cũ và UI4 bỏ; Hongguo 1 (`hongguo.html`)
+  bỏ, dùng Hongguo 2. Đường cũ không gãy: `/ui3` `/index3.html` `/studio` = `/`; `/ui4` → `/`; `/hongguo` `/ui-hg` →
+  `/hongguo2` (chuyển hướng, giữ query). Nút «Phim» trỏ `/films/ui` cùng máy chủ (trước trỏ sidecar :8802 → V6 tắt
+  sidecar nên trang Phim không mở). Thanh nav Studio: UI3 · HG · Phim · Agent.
+  Chưa: Hongguo 2 chưa đọc `?sid=&q=` (link «HG» từ trang Phim mở Hongguo 2 nhưng không tự tìm sẵn).
+- **Rà model theo khuyến nghị** (cần restart :8806 + build lại app):
+  - Sửa: Agent / Agent dự phòng chọn Aurora (`chatgpt/…`) hoặc Ollama (`local/<tên>`) bị gửi nhầm tới llama :8083 →
+    không chạy. Nay qua `engines.llm.chat` bằng giao thức JSON {tool,args}|{final}.
+  - Sửa: plan dự phòng (khi model plan lỗi) dùng `SIMPLE_MODEL` thay vì `TRANSLATE_MODEL` (máy đặt model local nhỏ
+    cho dịch phụ → Aurora lỗi là cả bảng nhân vật do model 12B lập).
+  - «Cài đặt AI» thêm bộ cài sẵn «Khuyến nghị»: DeepSeek cho soát/dịch, pass tên, pass xưng hô, Agent; Aurora cho plan
+    (`PLAN_MODE=file`) + Agent dự phòng; local cho dịch chữ trên hình và sửa job treo.
+- **A14 song song theo nhà cung cấp + cỡ lô tự tính** (cần restart :8806 + build lại app) — DeepSeek/Alibaba gửi
+  32 lô cùng lúc (chỉnh «Song song» ở dòng nhà cung cấp trong «Cài đặt AI»; Aurora/local vẫn 8). Cỡ lô = số câu ÷ số
+  request song song (40–200 câu, không vượt «Trần output») → cả phim xong trong ~1 đợt. Lô 200 câu cần trần output
+  ~18 000 token: đặt «Trần output» DeepSeek ≥ 20 000 nếu model hỗ trợ (mặc định 8 192 → lô tối đa 84 câu).
+- **A13 phim rất dài + giảm token** (cần restart :8806 + build lại app) — chế độ cả phim (DeepSeek/Alibaba):
+  phần đầu gọn (bỏ cột giây); phim có phần đầu > `SIMPLE_FULL_MAX_TOKENS` (mặc định 40 000, ~1 500–2 000 câu) → chia
+  CHƯƠNG, mỗi chương phần đầu riêng (plan lọc theo chương + câu của chương ± `SIMPLE_CHAPTER_MARGIN`=100 câu), lô không
+  vắt chương; lô đầu mỗi chương chạy trước để làm nóng cache rồi mới gửi đồng loạt; lô mặc định 80 câu, tự thu nhỏ cho
+  vừa trần output (~90 token/câu); trần output chỉnh theo nhà cung cấp trong «Cài đặt AI» (`DEEPSEEK_MAX_TOKENS`).
+- **A12 bảng nhân vật của bộ không bị ghi đè âm thầm** (cần restart :8806 + build lại app) — docs/fixes/2026-11-15-series-glossary-conflicts.md.
+  Trước: mỗi lần lập plan tập mới, bảng THÔ của tập đó đè lên bảng bộ (tên, giới tính, xưng hô, thuật ngữ) → một tập
+  AI đoán sai tên là mọi tập sau sai theo. Nay: khác bản đã chốt → giữ bản cũ, ghi xung đột; desktop nút «Xung đột tên».
+- **A11 luồng dịch V6 bỏ hẳn NMT** (cần restart :8806 + build lại app) — bước 1 chỉ lập plan; AI (DeepSeek, Aurora…)
+  dịch thẳng từ câu Trung ở bước soát, có plan + ngữ cảnh. Không còn nạp model NMT lên GPU ở luồng V6 (kể cả khi
+  `MT_ZH_VI=1`). Bản Việt có sẵn từ lần chạy trước vẫn giữ và được soát. Luồng cũ `TRANSLATE_PIPELINE=legacy` giữ NMT.
+  Hệ quả: «nhận nháp chưa soát» chỉ còn tác dụng với câu đã có bản Việt từ trước — câu AI không trả được → job chờ thử lại.
+- **A8 soát theo ngữ cảnh cả phim** (cần restart :8806) — model DeepSeek/Alibaba: mọi lô soát và vá gửi CÙNG một phần
+  đầu (plan đầy đủ + toàn bộ câu Trung, không có VI) → nhà cung cấp cache được, model thấy cả phim; lô 60 câu (ít lần
+  gọi hơn). Model khác giữ y cách cũ (lô 30, ±4 câu). Khoá `SIMPLE_CONTEXT`, `SIMPLE_FULL_BATCH`, `SIMPLE_FULL_MAX_TOKENS`.
+- **A10 vì sao câu bị sửa** (cần restart :8806 + build lại app) — mỗi câu soát ghi giữ nháp / máy đã sửa / dịch mới
+  kèm lý do model trả; tab Bản dịch: nhãn, lọc «Máy đã sửa», nút «Lịch sử» (nháp → soát → vá → hậu kỳ, cũ → mới).
+- **Sửa:** Cài đặt AI khoá «Phân tích xưng hô» chỉ cho Aurora cả khi `PRONOUN_ANALYZE_MODE=full/fast` (không cần upload).
+- **Không ghi cứng tên model DeepSeek/Alibaba** (cần restart :8806 + build lại app) — `deepseek-chat` /
+  `deepseek-reasoner` đã bị DeepSeek khai tử (sau 24/07/2026) mà bộ cài sẵn đang dùng. Nay: nút «Lấy danh sách model»
+  ở dòng nhà cung cấp (GET /models bằng key, nạp vào ô gợi ý); bộ cài sẵn DeepSeek/Alibaba hỏi danh sách thật rồi chọn
+  bản «flash»; `deepseek/` thiếu tên bị từ chối. API `POST /api/v6/ai/models`. docs/design/2026-11-15-ai-providers.md.
+- **Cài đặt AI trên desktop** (cần restart :8806 + build lại app) — nút «Cài đặt AI»: bảng từng chức năng (soát/dịch simple,
+  plan nhân vật, tên, đại từ, ghép cặp, dịch V5, Agent + dự phòng, hang fix, phân tích đại từ, meta, thumbnail) → khoá cấu hình
+  → model ĐANG DÙNG thật + nguồn; nút «Thử»; bộ cài sẵn DeepSeek/Alibaba/Aurora/Local; nhà cung cấp (URL, key chỉ ghi, hiện
+  `****1234`). Một nguồn: `core/ai_models.py`, API `GET/POST /api/v6/ai`, `POST /api/v6/ai/test`. Từ chối model 9router và
+  model không phải Aurora cho chức năng cần upload file.
+- **Sửa:** plan nhân vật chế độ `sample` bỏ qua `PLAN_MODEL`; `PLAN_MODE=file` với model không phải Aurora → tự dùng sample;
+  `core.config.save_config` không tồn tại (trang cài đặt cũ `/api/settings` lỗi khi lưu); OCR dịch chữ trên hình và Context
+  Studio đọc model lúc import / chỉ env → đọc cấu hình lúc gọi; hang fix hết model cứng.
+- **Nhà cung cấp AI qua API: DeepSeek + Alibaba (Qwen)** — `engines/providers/` (mỗi nhà một file, lõi chung `_openai.py`).
+  Dùng bằng tiền tố model: `deepseek/<tên>`, `alibaba/<tên>`; key `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`.
+  Áp cho mọi chức năng gọi `llm.chat` và cho Agent (có gọi công cụ). **Bỏ 9router khỏi mặc định**: `LLM_BASE_URL` mặc định
+  llama local, model `ollama/…-cloud` chỉ chạy khi cấu hình rõ. Thiết kế + giới hạn: docs/design/2026-11-15-ai-providers.md.
+  Cần restart :8806; chủ dự án tự đổi các khoá trong `pineline.config.json` đang trỏ 9router.
+
+## 2026-11-14
+- **Sửa theo review** (cần restart :8806) — docs/fixes/2026-11-14-review-fixes.md: films.db dùng chung không còn bị
+  instance này đánh dấu / xoá job của instance khác (cột `work_root`); ghi nhật ký hàng chờ ra luồng riêng (không giữ
+  khoá); Thư viện phim chỉ đồng bộ khi cũ > 2 phút + nút «Đồng bộ»; feeder tính đường dẫn trạng thái lúc gọi; bỏ nuốt lỗi
+  im lặng; `/api/health` dùng helper dung lượng có sẵn. Test không còn ghi vào `data/films.db` thật.
+- **Desktop đợt 2** (cần restart :8806 + build lại app): sửa câu Trung (✎ trong tab Bản dịch); tab Giọng đọc có «Nghe mẫu»
+  và «Thêm giọng clone» (upload file mẫu); nút **Thư viện phim** (đồng bộ, tìm/lọc, mở job, «Đăng YouTube» có hỏi + chọn chế độ);
+  nút **Agent** (chat, mặc định chỉ đọc); app Tauri hỏi xác nhận khi đóng lúc còn job chạy (hộp thoại Windows, crate `rfd`).
+  `/api/health` thêm `running`, `routers`.
+- **Sửa:** trang Phim cũ `/films` hỏng do route trùng (luôn trả HTML); film_db / auto_publisher / feeder / meta_studio /
+  batch_config đọc work root của INSTANCE thay vì cứng `ROOT/work` — docs/fixes/2026-11-14-films-route-work-root.md.
+- **Desktop: sửa bản dịch, giọng đọc, cài đặt** (cần restart :8806 + build lại app). Khung chi tiết job có 4 tab:
+  Tổng quan · **Bản dịch** (lọc câu bị cờ / chưa soát / trống / sửa tay, tìm, sửa câu Việt, nghe và đọc lại từng câu) ·
+  **Giọng đọc** (giọng / tốc độ / bộ đọc của job) · **Kết quả** (xem video, tải phụ đề). Nút **Cài đặt**: sửa cấu hình batch
+  (API mới `GET/POST /api/v6/config`; trước chỉ sửa được qua sidecar). API mới `GET /api/v6/jobs/{id}/script` (chỉ đọc).
+  Vẫn 0 request khi để yên. Sửa kèm: `POST /api/jobs/{id}/script-line` ghi atomic và trả 409 khi đang dịch (trước: câu sửa
+  tay bị engine ghi đè lúc dịch xong).
+- **Hàng chờ 24/7 R7.3–R7.5** (cần restart :8806) — docs/fixes/2026-11-14-queue-24x7.md: 3 job lỗi liên tiếp → hàng chờ
+  TẠM DỪNG + báo (`QUEUE_MAX_CONSEC_FAIL`, 0 = tắt), gỡ bằng «Chạy tiếp hàng chờ»; nhật ký hàng chờ ra file + nút «Nhật ký»;
+  tuỳ chọn `QUEUE_HOLD_YIELD_SEC` (mặc định 0 = như cũ) cho job HOLD cần người nhường ghế. Thay đổi từ sidecar/CLI lên UI
+  trong ~1 s (trước tới 30 s). `/api/health` có hàng chờ, ổ đĩa, phiên bản, cảnh báo. Desktop: nút «Làm lại» một bước có xác nhận.
+- **Hàng chờ R7.1–R7.2** (cần restart :8806) — docs/fixes/2026-11-14-queue-worker-robust.md: ghi `_job_queue.json`
+  lỗi (đĩa đầy / file bị khoá) không còn giết luồng worker (trước: mọi job phía sau đứng im lặng) — thử lại, ghi log,
+  `persist_ok` trong `/api/queue/jobs`, UI desktop cảnh báo; job đang giữ ghế chạy lại trước dù hàng chờ bị sắp lại.
+- **Render R6.1** (cần restart :8806): ffmpeg 8 đã bỏ `-filter_complex_script` → mọi lần render sẽ lỗi «Unrecognized
+  option» trên máy nâng ffmpeg. `engines/render.py` `filter_script_opt()` dò một lần và dùng `-/filter_complex` khi
+  ffmpeg nhận (≥ 7), không thì giữ tên cũ. Lộ ra nhờ CI chạy trên Windows với ffmpeg mới nhất.
+- **Kế hoạch + mô hình làm việc:** `docs/ROADMAP.md` (G0 chạy thật → G1 độ bền 24/7 → G2 desktop đủ chức năng → G3 cấu trúc),
+  `docs/WORKING_MODEL.md` (vòng làm việc, 3 mức «đã kiểm», bảng chờ kiểm trên Windows, lịch rà từng khu vực);
+  `CLAUDE.md` sửa cho đúng hiện trạng (lõi vẫn là server.py, chưa cutover, chưa chạy job thật).
+- **CI** (`.github/workflows/ci.yml`): pytest Ubuntu + Windows, `cargo check` desktop. Bộ test 0 fail trên Linux
+  (sửa 3 kiểm thử lệch nền tảng; khoá một-bản của sidecar nay có tác dụng cả ngoài Windows).
+- **Dịch simple R1.1–R1.4** (cần restart :8806) — docs/fixes/2026-11-14-translate-simple-r1.md: «Soát lại» khi cloud
+  chết không còn báo xong giả; plan hỏng không bị lưu/dùng lại, job park chờ lập lại (`SIMPLE_REQUIRE_PLAN`, mặc định 1);
+  lỗi code → stage failed ngay + `translate_error.log` (không park 15 phút); giờ stage dịch ISO UTC.
+- **Desktop R2.1–R2.2** (cần build lại app, **chưa kiểm trên Windows**) — docs/fixes/2026-11-14-desktop-kill-tree-early-exit.md:
+  đóng app giết cả cây tiến trình (`taskkill /T /F`); backend chết lúc khởi động báo ngay kèm đường dẫn log.
+- **UI desktop `/v6/` có chức năng** (`desktop/ui/` viết lại — trước chỉ là bảng xem): thêm job (link / đường dẫn máy),
+  tick nhiều job → Xếp hàng chạy / Gỡ khỏi hàng chờ, Dừng hàng chờ; khung chi tiết job: Chạy tiếp (gỡ HOLD), Xếp hàng
+  chạy, Dừng, chạy/chạy lại từng bước, Mở thư mục, Xoá job. Vẫn 1 kết nối SSE, **để yên = 0 request** (đo: 20 s không
+  request nào; `/ui3` ~6 request/30 s). Chỉ gọi API khi bấm nút, mở chi tiết, hoặc job đang mở / hàng chờ đổi theo event.
+  Chưa có: sửa lời thoại, chọn giọng, cấu hình render, Phim, Hongguo (link sang trang cũ).
+  Tauri vẫn mở `/v6/` mặc định; đổi trang: env `PINELINE_DESKTOP_PATH` hoặc `"desktop_path"` trong instance JSON.
+  `DELETE /api/jobs/{id}` báo index ngay (trước: job đã xoá còn trong danh sách tới 30 s). Màn chờ ghi đúng 180 s.
+  Kiểm ở cloud bằng Chromium + backend instance test; **chưa chạy trong cửa sổ Tauri/WebView2 và chưa với job thật**.
+  Cần restart :8806 (server.py) + build lại app (`desktop\dev.bat`).
+- Fix UI cũ `/` (`index.html`): thiếu khai báo `selectedStep`, `panelJobId`, `lastPanelSig` → console «refresh: lỗi vẽ
+  ReferenceError: selectedStep is not defined», khung chi tiết job không vẽ. Thêm `let … = null` (như `index3.html`).
+  Lỗi có sẵn từ V4/V5. Không cần restart — hard refresh trang (Ctrl+F5).
+
 ## 2026-11-13
+- Fix review 4 bug (cloud, **chờ restart :8806** + chạy `verify_all.bat` trên Windows) — docs/fixes/2026-11-13-review-sse-timestamp-testdata-bat.md:
+  (1) SSE `/api/events` chuyển generator async (`events.bus.subscribe_async`/`sse_stream`) — bản đồng bộ giữ 1 thread
+  threadpool/client, ~40 kết nối là server đứng; (2) `started_at`/`finished_at` thống nhất ISO UTC (`core/timeutil.py`;
+  `state.job_state`, heal `server.py`, `engines/render_job.py`), `film_db`/feeder/ETA đọc được dữ liệu cũ lẫn epoch;
+  (3) `agents/auto_publisher.py` tính file runtime theo `DATA_DIR` lúc gọi + test dùng films.db tạm → pytest không còn
+  ghi `data/` thật; bỏ theo dõi git `data/auto_publish_queue.json` + `auto_publish_state.json` (chứa rác test `job2`);
+  (4) `.gitattributes` ép `*.bat` CRLF. `.gitignore` thêm `pineline.config.json`/token/cookies (file CHƯA gỡ khỏi git).
 - Port V2 → V6 (agent R6, từ V2 agent N): brain/heal/watch bỏ job ĐÃ XONG (`agents.agent_hold.job_finished` — đã đăng,
   parent đã ghép Full, part của parent đó, mux+output); 3 detector heal gốc; tin tạm dừng đúng loại (park tự thử lại ⏸ ≠
   HOLD cần người ⛔); «Chạy tiếp»/chạy tay/job xong gỡ khoá park. docs/fixes/2026-11-13-port-brain-finished-hold.md

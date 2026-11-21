@@ -560,6 +560,19 @@ def _plan_mode() -> str:
     return (_cfg_get("PLAN_MODE", "file") or "file").strip().lower()
 
 
+def plan_model() -> str:
+    """Model lập plan (PLAN_MODEL). fix 2026-11-15: chế độ sample trước đây bỏ qua PLAN_MODEL (dùng LLM_MODEL)."""
+    return (_cfg_get("PLAN_MODEL") or _cfg_get("LLM_MODEL") or "chatgpt/gpt-5-6-mini").strip()
+
+
+def plan_mode_effective() -> str:
+    """Chế độ lập plan thực chạy: «file» cần upload → chỉ Aurora (chatgpt/… aurora/…); model khác → «sample»."""
+    mode = _plan_mode()
+    if mode in ("file", "upload", "srt") and not plan_model().lower().startswith(("chatgpt/", "aurora/")):
+        return "sample"
+    return "file" if mode in ("file", "upload", "srt") else "sample"
+
+
 def _plan_json_schema(target: str) -> str:
     return f"""Trả JSON đúng cấu trúc:
 {{
@@ -832,8 +845,12 @@ def _build_plan_sample(
         + _plan_json_schema(target)
     )
 
-    primary_model = model or _cfg_get("LLM_MODEL") or None
-    fallback_model = _tmodel() or primary_model or "local"
+    primary_model = model or plan_model() or None
+    # fix 2026-11-15: dự phòng ưu tiên model soát chính (SIMPLE_MODEL, vd DeepSeek) — trước đây là TRANSLATE_MODEL,
+    # mà máy đặt model local nhỏ cho việc dịch phụ → Aurora lỗi là bảng nhân vật cả tập do model 12B lập.
+    fallback_model = ((_cfg_get("SIMPLE_MODEL") or "").strip() or _tmodel() or primary_model or "local")
+    if fallback_model == primary_model:
+        fallback_model = _tmodel() or primary_model or "local"
     data: dict = {}
     print(f"[plan] sample-mode model={primary_model or 'default'}…", flush=True)
     try:
@@ -883,9 +900,9 @@ def build_plan(
     work_dir: str | Path | None = None,
 ) -> dict:
     """Lập glossary: mặc định upload full ZH SRT (PLAN_MODE=file); fallback sample."""
-    mode = _plan_mode()
+    mode = plan_mode_effective()      # model không phải Aurora → bỏ qua file-mode (không gọi thử vô ích)
     data: dict = {}
-    if mode in ("file", "upload", "srt") and work_dir:
+    if mode == "file" and work_dir:
         try:
             data = _build_plan_from_file(
                 Path(work_dir), segments, target, model, name_hints, series_plan,
@@ -899,7 +916,37 @@ def build_plan(
             print(f"[plan] file-mode lỗi ({e_file}) → fallback sample", flush=True)
             data = {}
     if not data or not (data.get("characters") or data.get("terms")):
-        data = _build_plan_sample(segments, target, model, name_hints, series_plan)
+        # port V5 2026-11-20 (main + backup): plan bằng model chính lỗi / rỗng → thử model dự phòng
+        # (PLAN_MODEL_BACKUP, không đặt thì SIMPLE_FALLBACK_MODEL — cùng dự phòng với bước dịch). Trước: plan rỗng
+        # → dịch không có bảng nhân vật / xưng hô.
+        tries = [model]
+        prim = model or _cfg_get("PLAN_MODEL") or ""
+        bk = str(_cfg_get("PLAN_MODEL_BACKUP") or _cfg_get("SIMPLE_FALLBACK_MODEL") or "").strip()
+        if bk and bk != prim:
+            tries.append(bk)
+        try:   # 2026-11-21: cuối chuỗi — AI trên máy nếu đang chạy (như bước dịch; SIMPLE_LOCAL_FALLBACK=0 để tắt)
+            from engines.translate_simple import cfg as _ts_cfg
+            if "local" in _ts_cfg.fallback_models(prim) and "local" not in tries:
+                tries.append("local")
+        except Exception as e_lf:  # noqa: BLE001
+            print(f"[plan] dò AI trên máy làm dự phòng lỗi: {e_lf}", flush=True)
+        data = {}
+        for k, m_try in enumerate(tries):
+            try:
+                data = _build_plan_sample(segments, target, m_try, name_hints, series_plan) or {}
+            except Exception as e_sm:  # noqa: BLE001
+                print(f"[plan] sample-mode model={m_try or 'mặc định'} lỗi: {type(e_sm).__name__}: {e_sm}", flush=True)
+                data = {}
+            if data.get("characters") or data.get("terms") or data.get("pronouns"):
+                if k:
+                    print(f"[plan] dùng model dự phòng {m_try} (model chính lỗi / rỗng)", flush=True)
+                    data.setdefault("_meta", {})
+                    if isinstance(data["_meta"], dict):
+                        data["_meta"]["plan_model_role"] = "backup"
+                        data["_meta"]["plan_model"] = m_try
+                break
+            if k + 1 < len(tries):
+                print(f"[plan] model={m_try or 'mặc định'} không ra plan → thử dự phòng {tries[k + 1]}", flush=True)
 
     data = _normalize_plan_data(data)
     try:
@@ -3787,53 +3834,8 @@ def run_translate(
             print(f"[fill] prefill {n_triv} câu cười/thán từ", flush=True)
 
         todo = [s for s in segments if not done.get(s["i"], {}).get("vi")]
-        # NMT = DỊCH CHÍNH (mặc định). LLM chỉ vá sót + run_review rà soát.
-        # Auto model: modern/mixed → base 60-zh-vi; xianxia/cổ → QT
-        try:
-            import engines.mt_zh_vi as mt_zh_vi
-            if mt_zh_vi.enabled() and todo:
-                mid = mt_zh_vi.resolve_model_id(plan)
-                flavor = "QT" if "qt" in mid.lower() else "base"
-                primary = mt_zh_vi.primary_mode()
-                print(
-                    f"[mt-zh-vi] {'PRIMARY' if primary else 'hint'} "
-                    f"{len(todo)} câu · {flavor} · {mid}",
-                    flush=True,
-                )
-                drafts = mt_zh_vi.draft_rows(
-                    [{"i": s["i"], "text": s.get("text") or ""} for s in todo],
-                    plan=plan,
-                )
-                if primary:
-                    n_mt = 0
-                    for s in todo:
-                        vi = (drafts.get(s["i"]) or "").strip()
-                        if not vi or _has_cjk(vi):
-                            continue
-                        zh = clean_zh_spam(s.get("text") or "") or (s.get("text") or "")
-                        done[s["i"]] = {
-                            "i": s["i"], "start": s["start"], "end": s["end"],
-                            "zh": zh, "vi": normalize_vi_thousands(vi), "mt": 1,
-                        }
-                        n_mt += 1
-                    # khóa cứng ngay trên bản NMT (tên/danh hiệu type=lock)
-                    try:
-                        apply_hard_term_locks(list(done.values()), plan)
-                    except Exception as e_lock:  # noqa: BLE001
-                        print(f"[mt-zh-vi] hard-lock skip: {e_lock}", flush=True)
-                    todo = [s for s in segments if not done.get(s["i"], {}).get("vi")]
-                    print(
-                        f"[mt-zh-vi] NMT chính {n_mt} câu · còn {len(todo)} câu "
-                        f"LLM vá (CJK/trống) · review sau = {_rmodel()}",
-                        flush=True,
-                    )
-                else:
-                    for s in todo:
-                        if s["i"] in drafts:
-                            s["mt_vi"] = drafts[s["i"]]
-                    print(f"[mt-zh-vi] gắn hint {len(drafts)} câu → LLM dịch", flush=True)
-        except Exception as e_mt:  # noqa: BLE001
-            print(f"[mt-zh-vi] bỏ qua: {e_mt}", flush=True)
+        # 2026-11-17: V6 bỏ hẳn NMT (engines/mt_zh_vi, HachimiMT) — kể cả luồng cũ. Trước đây MT_ZH_VI=1 trong config
+        # cũ (chép từ V2) làm NMT dịch chính / gắn hint, thiếu model thì «[mt-zh-vi] bỏ qua: [WinError 3] E:\\».
 
         # Vá câu trống: luôn batch (oneshot hay sót/CJK với gemma)
         if mode is None and todo and len(todo) <= 80:

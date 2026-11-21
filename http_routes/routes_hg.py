@@ -1,4 +1,5 @@
-"""Cầu nối Hongguo Downloader (local :8000): /api/hg/*.
+"""Cầu nối Hongguo 2 (engine RPC — agents/hongguo_bridge): /api/hg/* (trang Hongguo 2 gọi /api/hg2/* → rewrite).
+2026-11-15: Hongguo 1 (Downloader HTTP :8000) đã bỏ hẳn — không còn chọn backend theo trang.
 
 Tách từ server.py (đợt 7). Chỉ được nạp từ cuối server.py (sau khi mọi hàm/model lõi đã
 định nghĩa): truy cập server qua `S.<tên>` để patch `server.<tên>` trong test vẫn có tác dụng."""
@@ -20,27 +21,7 @@ from fastapi import APIRouter, Depends, Request
 import server as S
 
 
-async def _bind_hg_ui_backend(request: Request) -> None:
-    """Backend theo namespace (middleware gắn request.state.hg_ui) — fallback header.
-
-    Phải async: Depends sync chạy threadpool → ContextVar không tới endpoint.
-    /api/hg  = classic HTTP only · /api/hg2 = RPC (WinUI) — tách hoàn toàn.
-    """
-    import agents.hg_ui_ctx as ctx
-    forced = getattr(request.state, "hg_ui", None)
-    if forced in ("1", "classic", "http"):
-        ctx.force("http")
-        return
-    if forced in ("2", "hg2", "rpc"):
-        ctx.force("rpc")
-        return
-    ctx.apply(
-        request.headers.get("x-hg-ui") or request.query_params.get("hg_ui"),
-        request.headers.get("referer"),
-    )
-
-
-router = APIRouter(dependencies=[Depends(_bind_hg_ui_backend)])
+router = APIRouter()
 
 __all__ = [
     "HgRankEpsIn",
@@ -576,7 +557,7 @@ def hg_preview(
     quality: str = "",
     base: str | None = None,
 ):
-    """Xem thử 1 tập — :8000 /dl/preview hoặc RPC playback.prepare → stream local."""
+    """Xem thử 1 tập — Hongguo 2 playback.prepare → stream local."""
     import importlib
     import agents.hongguo_bridge as hg
     hg = importlib.reload(hg)
@@ -703,7 +684,7 @@ def hg_img(url: str | None = None, u: str | None = None, base: str | None = None
 
 @router.get("/api/hg/poster")
 def hg_poster(name: str, base: str | None = None):
-    """Poster thư viện: /dl/poster (auth) hoặc file local poster.jpg.
+    """Poster thư viện: file poster.jpg trong thư mục bộ phim.
 
     Thiếu poster → 404 (không 502). Tên junk (job_id / downloads) cũng 404,
     tránh spam Bad Gateway khi Films UI dùng hg_name sai.
@@ -803,19 +784,6 @@ def hg_library_update(body: dict | None = None):
     names = body.get("names")
     try:
         return hg.library_update(_hg_base(body.get("base")), names=names)
-    except Exception as e:  # noqa: BLE001
-        return _hg_err(e)
-
-
-@router.post("/api/hg/library/seasons/decline")
-def hg_seasons_decline(body: dict | None = None):
-    import importlib
-    import agents.hongguo_bridge as hg
-    hg = importlib.reload(hg)
-    body = body or {}
-    series_ids = list(body.get("series_ids") or [])
-    try:
-        return hg.seasons_decline(series_ids, _hg_base(body.get("base")))
     except Exception as e:  # noqa: BLE001
         return _hg_err(e)
 

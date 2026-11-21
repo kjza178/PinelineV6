@@ -55,6 +55,10 @@ LLM_FILE_FIRST_KEYS = frozenset({
     "LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "TRANSLATE_MODEL", "REVIEW_MODEL",
     "NAME_MODEL", "PRONOUN_MODEL", "CHATGPT_BASE_URL", "CHATGPT_MODEL", "CHATGPT_API_KEY",
     "AURORA_BASE_URL", "CLOUD_LLM_BASE_URL", "CLOUD_LLM_API_KEY", "PRONOUN_ANALYZE", "PRONOUN_ANALYZE_MODEL", "PRONOUN_ANALYZE_CHUNK",
+    # Nhà cung cấp API (engines/providers) — sửa file có hiệu lực ngay, env cũ của shell không đè
+    "DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL", "DASHSCOPE_API_KEY", "ALIBABA_API_KEY", "ALIBABA_BASE_URL",
+    "ALIBABA_ENABLE_THINKING", "DEEPSEEK_MAX_TOKENS", "ALIBABA_MAX_TOKENS", "DEEPSEEK_CONCURRENCY",
+    "ALIBABA_CONCURRENCY", "SIMPLE_MODEL", "SIMPLE_FALLBACK_MODEL", "PLAN_MODEL", "AGENT_MODEL", "AGENT_FALLBACK_MODEL", "HANG_FIX_MODEL",
     # Fan-out REVIEW Aurora: sửa file có hiệu lực ngay (không cần restart)
     "REVIEW_PARALLEL", "REVIEW_PARALLEL_DEFAULT", "REVIEW_PARALLEL_MAX",
     "REVIEW_BACKUP", "REVIEW_PASS1_MAX_UPLOAD_BYTES", "REVIEW_PASS1_CHUNK_CUES",
@@ -125,17 +129,84 @@ def get(key: str, default: str | None = None) -> str | None:
     return default
 
 
+def save_config(updates: dict) -> dict:
+    """Ghi các khoá vào pineline.config.json (giữ nguyên khoá khác) rồi nạp lại. Giá trị None / "" = XOÁ khoá
+    (về mặc định / chuỗi dự phòng). Ghi atomic. Trả cấu hình mới.
+
+    fix 2026-11-15: http_routes/routes_uploader_settings gọi hàm này nhưng nó chưa từng tồn tại (V4/V5/V6) → lưu
+    cài đặt ở trang cũ luôn lỗi 500."""
+    from core.fileio import atomic_write_json
+    _load_cfg(force=True)
+    data = dict(_CFG) if isinstance(_CFG, dict) else {}
+    for k, v in (updates or {}).items():
+        k = str(k).strip()
+        if not k:
+            continue
+        if v is None or (isinstance(v, str) and not v.strip()):
+            data.pop(k, None)
+            os.environ.pop(k, None)      # inject_env có thể đã chép giá trị cũ vào env lúc khởi động
+        else:
+            data[k] = v.strip() if isinstance(v, str) else v
+            if k in os.environ:          # env cũ không được đè giá trị vừa lưu
+                os.environ[k] = str(data[k])
+    atomic_write_json(_cfg_file, data, fsync=True)
+    _load_cfg(force=True)
+    return dict(_CFG)
+
+
+_LOCAL_LLM_BASE = "http://127.0.0.1:8083/v1"
+
+
+def _no_lan_base(key: str, raw) -> str:
+    """URL LLM chung; địa chỉ LAN (vd 9router LAN cũ) → llama local, trừ khi ALLOW_LAN_LLM=1."""
+    base = (str(raw or "").strip() or _LOCAL_LLM_BASE).rstrip("/")
+    try:
+        from core import machine as _m
+        return _m.no_lan(key, base, _LOCAL_LLM_BASE)
+    except Exception:  # noqa: BLE001
+        return base
+
+
+def _default_llm_model() -> str:
+    """Model mặc định khi lời gọi không nêu model (LLM_MODEL). Model router cloud 9router cũ (ollama/…-cloud) → «local»."""
+    m = str(get("LLM_MODEL") or "").strip()
+    ml = m.lower()
+    if not m or ml.startswith("ollama/") or "-cloud" in ml or ml.endswith(":cloud"):
+        return "local"
+    return m
+
+
+def _llama_base() -> str:
+    try:
+        from core import machine as _m
+        return _m.llama_base_url()
+    except Exception as e:  # noqa: BLE001
+        print(f"[config] đọc LLAMA_BASE_URL lỗi: {e}", flush=True)
+        return _LOCAL_LLM_BASE
+
+
+def _no_lan_aurora() -> str:
+    try:
+        from core import machine as _m
+        return (_m.no_lan("AURORA_BASE_URL", (get("AURORA_BASE_URL") or "").rstrip("/"))
+                or _m.no_lan("CHATGPT_BASE_URL", (get("CHATGPT_BASE_URL") or "").rstrip("/")))
+    except Exception:  # noqa: BLE001
+        return (get("AURORA_BASE_URL") or get("CHATGPT_BASE_URL") or "").rstrip("/")
+
+
 def llm_settings() -> dict:
     """LLM cho job (dịch/review) — đọc lúc gọi để sửa pineline.config.json có hiệu lực không cần restart."""
     return {
-        "base": (get("LLM_BASE_URL") or "http://192.168.31.247:20128/v1").rstrip("/"),
-        "key": get("LLM_API_KEY") or "",
-        "model": get("LLM_MODEL") or "ollama/gemma4:31b-cloud",
+        # 2026-11-21: chỉ 3 loại AI (nhà cung cấp / Aurora / AI trên máy) — base chung = llama-server trên máy;
+        # LLM_BASE_URL (9router LAN cũ) không còn đọc.
+        "base": _llama_base(),
+        "key": "sk-local",
+        "model": _default_llm_model(),
         "translate_model": get("TRANSLATE_MODEL") or None,
         "review_model": get("REVIEW_MODEL") or None,
         "name_model": get("NAME_MODEL") or None,
         "pronoun_model": get("PRONOUN_MODEL") or None,
-        "chatgpt_base": (get("AURORA_BASE_URL") or get("CHATGPT_BASE_URL") or "").rstrip("/"),
+        "chatgpt_base": _no_lan_aurora(),
         "chatgpt_model": get("CHATGPT_MODEL") or "gpt-5-6-mini",
     }
 
@@ -158,12 +229,13 @@ def pass_llm_model(kind: str = "pronoun") -> str | None:
 
 def agent_llm() -> dict:
     """LLM cho agent chat / feeder: AGENT_* rồi LLM_* (cả hai file trước env)."""
-    base = (get("AGENT_BASE_URL") or get("LLM_BASE_URL") or "http://127.0.0.1:8083/v1").rstrip("/")
-    model = get("AGENT_MODEL") or get("LLM_MODEL") or "ollama/gemma4:31b-cloud"
+    # 2026-11-21: AGENT_BASE_URL / LLM_BASE_URL bỏ — model «local» của trợ lý luôn tới llama-server trên máy
+    # (trước: config cũ AGENT_BASE_URL=:3377 (cổng Aurora) → «local» gửi nhầm sang Aurora, lỗi kết nối).
+    model = get("AGENT_MODEL") or "local"
     fb = (get("AGENT_FALLBACK_MODEL") or "").strip()
     return {
-        "base": base,
-        "key": get("AGENT_API_KEY") or get("LLM_API_KEY") or "sk-local",
+        "base": _llama_base(),
+        "key": "sk-local",
         "model": model,
         "fallback": fb if fb and fb != model else "",
     }

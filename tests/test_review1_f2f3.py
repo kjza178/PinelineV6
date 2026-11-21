@@ -276,7 +276,7 @@ def test_r5_live_sync_review(tmp_path):
     assert o["idle25s"] == 0, o
 
 
-@pytest.mark.parametrize("ui", ("index3.html", "index.html"))
+@pytest.mark.parametrize("ui", ("index.html",))
 def test_r5_ui_passes_busy(ui):
     s = (ROOT / ui).read_text(encoding="utf-8")
     assert "PinelineLive.startLive({refresh, busy:()=>" in s

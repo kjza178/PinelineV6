@@ -1,8 +1,11 @@
 """kill_with_parent_cmd không được kill tiến trình gọi nó dù nằm trong cây con của tiến trình bị kill."""
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -30,6 +33,7 @@ def test_kill_dead_process_is_noop():
     mw.kill_with_parent_cmd(proc)
 
 
+@pytest.mark.skipif(os.name != "nt", reason="dùng cmd.exe bọc tiến trình — chỉ Windows")
 def test_kill_wrapper_after_child(tmp_path):
     """Mô phỏng restart: procs() trả cả cmd bọc + python con; kill con trước rồi tới cmd đã thoát."""
     import psutil

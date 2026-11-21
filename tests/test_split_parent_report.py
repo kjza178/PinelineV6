@@ -1,0 +1,93 @@
+"""2026-11-20: job cha auto-split lỗi → nói part nào chưa xong, vì sao (trước: «Lỗi ở ASR: pipeline kết thúc…»)."""
+import json
+from pathlib import Path
+
+import pytest
+
+import server
+from state.index import summarize
+
+
+class _SyncExecutor:
+    def submit(self, fn):
+        fn()
+
+
+def _write(wd: Path, data: dict) -> Path:
+    wd.mkdir(parents=True, exist_ok=True)
+    (wd / "manifest.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    return wd
+
+
+@pytest.fixture(autouse=True)
+def _iso(tmp_path, monkeypatch):
+    monkeypatch.setattr(server, "WORK_ROOT", tmp_path)
+    monkeypatch.setattr(server.job_queue, "WORK_ROOT", tmp_path)
+    server._STOP_JOBS.clear()
+    server._STAGE_BUSY.clear()
+    yield
+    server._STOP_JOBS.clear()
+    server._STAGE_BUSY.clear()
+
+
+def _part(tmp_path, sid, **extra):
+    st = {"download": {"status": "done"}, "asr": {"status": "done"}, "translate": {"status": "done"},
+          "tts": {"status": "pending"}, "mux": {"status": "pending"}}
+    st.update(extra.pop("stages", {}))
+    return _write(tmp_path / sid, {"request": {"parent_job_id": "abc"}, "stages": st, **extra})
+
+
+def test_report_lists_unfinished_parts_with_reason(tmp_path):
+    _part(tmp_path, "abc_p02", last_stop={"stage": "translate", "why": "còn 3 câu VI trống"})
+    _part(tmp_path, "abc_p03", stages={"tts": {"status": "failed", "error": "CUDA OOM"}})
+    _part(tmp_path, "abc_p04")
+    rep = server._split_parts_report(["abc_p02", "abc_p03", "abc_p04"])
+    assert "p02 dừng ở Dịch: còn 3 câu VI trống" in rep
+    assert "p03 lỗi ở Lồng tiếng: CUDA OOM" in rep
+    assert "p04 chưa chạy tới Lồng tiếng" in rep
+
+
+def test_split_parent_failure_is_mux_not_asr(tmp_path, monkeypatch):
+    parent = _write(tmp_path / "abc", {
+        "request": {"url": "https://example.invalid/v", "target": "vi"},
+        "stages": {"download": {"status": "done"}, "asr": {"status": "failed", "error": "cũ"},
+                   "tts": {"status": "pending", "voice": "v"}},
+        "split_info": {"sub_job_ids": ["abc_p01", "abc_p02"]}})
+    _part(tmp_path, "abc_p01")
+    _part(tmp_path, "abc_p02", last_stop={"stage": "translate", "why": "dịch chưa đủ"})
+    video = parent / "source.mp4"
+    video.write_bytes(b"v")
+    monkeypatch.setattr(server.job_queue, "is_wired_done", lambda _wd: False)
+    monkeypatch.setattr(server, "list_clone_voices", lambda: ["v"])
+    monkeypatch.setattr(server, "_job_any_busy", lambda _j: None)
+    monkeypatch.setattr(server, "_manifest_running", lambda _wd: None)
+    monkeypatch.setattr(server, "_claim_stage", lambda *_a: True)
+    monkeypatch.setattr(server, "_next_incomplete_stage", lambda _wd: "asr")
+    monkeypatch.setattr(server, "_find_video", lambda _wd: video)
+    monkeypatch.setattr(server, "_check_and_run_auto_split_parts", lambda *a, **k: True)
+    monkeypatch.setattr(server, "_gpu", _SyncExecutor())
+
+    status, detail = server._queue_run_one("abc", {})
+    assert status == "failed"
+    assert "part chưa xong" in detail and "p02 dừng ở Dịch: dịch chưa đủ" in detail
+    saved = json.loads((parent / "manifest.json").read_text(encoding="utf-8"))
+    assert saved["stages"]["mux"]["status"] == "failed"
+    assert (saved["stages"].get("asr") or {}).get("status") != "failed"
+
+
+def test_note_stop_roundtrip_and_summary(tmp_path):
+    wd = _part(tmp_path, "abc_p05")
+    server._note_stop(wd, "translate", "còn 2 câu VI trống")
+    data = json.loads((wd / "manifest.json").read_text(encoding="utf-8"))
+    assert data["last_stop"]["why"] == "còn 2 câu VI trống"
+    assert summarize("abc_p05", data)["stop_note"] == "còn 2 câu VI trống"
+    server._clear_stop(wd)
+    data = json.loads((wd / "manifest.json").read_text(encoding="utf-8"))
+    assert "last_stop" not in data
+    assert summarize("abc_p05", data)["stop_note"] == ""
+
+
+def test_ui_shows_stage_sentence_counts():
+    js = (Path(__file__).resolve().parents[1] / "desktop" / "ui" / "app.js").read_text(encoding="utf-8")
+    assert "function stageFacts(" in js and "stageFacts(s, st)" in js
+    assert "st.n_segments" in js

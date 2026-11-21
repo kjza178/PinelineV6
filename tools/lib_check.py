@@ -25,7 +25,21 @@ import engines.check_block as check_block
 import core.film_db as film_db
 
 ROOT = Path(__file__).resolve().parents[1]
-LIB_ROOT = Path(os.getenv("LIB_ROOT") or _machine.library_dir())
+LIB_ROOT = Path(os.getenv("LIB_ROOT") or _machine.library_dir())   # giá trị lúc import — chỉ để tương thích
+
+
+def lib_root() -> Path:
+    """Thư mục thư viện LÚC GỌI (fix 2026-11-16: trước cứng LIB_ROOT lúc import → đổi thư mục ở Cài đặt phải restart, và
+    phim Hongguo 2 lưu chỗ khác LIBRARY_DIR thì «Test bản quyền» báo không thấy video). Env LIB_ROOT (test) > thư mục
+    thư viện đang dùng của «Phim chờ làm» (Hongguo 2 → LIBRARY_DIR)."""
+    if os.getenv("LIB_ROOT"):
+        return Path(os.environ["LIB_ROOT"])
+    try:
+        from services.disk_library import lib_dir
+        return lib_dir()
+    except Exception as e:  # noqa: BLE001
+        print(f"[lib_check] lấy thư mục thư viện lỗi: {e} → LIBRARY_DIR", flush=True)
+        return _machine.library_dir()
 SAMPLE_DIR = Path(_machine.setting("LIB_SAMPLE_DIR", "") or r"Z:\PinelineV2\data\samples")
 YT_DIR = _machine.yt_uploader_dir()
 YT_QUEUE = YT_DIR / "queue_state.json"
@@ -77,7 +91,7 @@ def resolve_title_vi(name: str, title_vi: str = "") -> str:
 
 def find_source_video(name: str) -> Path | None:
     """Tìm file video nguồn cho thư mục season trong D:\\Lib."""
-    folder = LIB_ROOT / name
+    folder = lib_root() / name
     if not folder.is_dir():
         return None
     # 1. Tìm file merged trước
@@ -95,7 +109,7 @@ def cut_sample(name: str, start_sec: int = 60, dur_sec: int = 90, title_vi: str 
     """Cắt một đoạn clip mẫu siêu nhanh (90s) từ video gốc để up test, kèm tên tiếng Việt dễ nhận biết."""
     src = find_source_video(name)
     if not src or not src.is_file():
-        return {"ok": False, "error": f"Không tìm thấy video nguồn trong {LIB_ROOT / name}"}
+        return {"ok": False, "error": f"Không tìm thấy video nguồn trong {lib_root() / name}"}
 
     SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -385,8 +399,9 @@ def batch_enqueue_untested_lib(names: list[str] | None = None, limit: int = 50, 
     if not names:
         tested = film_db.list_library_blocks()
         candidates = []
-        if LIB_ROOT.is_dir():
-            for f in sorted(LIB_ROOT.iterdir(), key=lambda x: x.stat().st_mtime if x.exists() else 0, reverse=True):
+        root = lib_root()
+        if root.is_dir():
+            for f in sorted(root.iterdir(), key=lambda x: x.stat().st_mtime if x.exists() else 0, reverse=True):
                 if f.is_dir():
                     st = (tested.get(f.name) or {}).get("status")
                     if not st or st == "unknown":

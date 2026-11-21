@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-UIS = ("index3.html", "index.html")
+UIS = ("index.html",)   # 2026-11-15: index3.html (Studio) đổi thành index.html
 
 
 def _script(name: str) -> str:
@@ -166,6 +166,12 @@ def test_bus_throttles_job_touched():
 
 def test_tauri_opens_v6_ui():
     rs = (ROOT / "desktop" / "src-tauri" / "src" / "main.rs").read_text(encoding="utf-8")
-    assert 'format!("http://127.0.0.1:{port}/v6/")' in rs
+    # 2026-11-14: mặc định mở UI desktop /v6/ (có thao tác job + hàng chờ); đổi trang qua env / instance.
+    assert 'format!("http://127.0.0.1:{port}{page}")' in rs and "_v={bust}" in rs   # 2026-11-15: chống cache WebView2
+    assert '"/v6/".to_string()' in rs and "PINELINE_DESKTOP_PATH" in rs and '"desktop_path"' in rs
+    # UI desktop phải có thao tác (không chỉ bảng xem) và chỉ gọi API khi có việc — không vòng hẹn giờ.
     js = (ROOT / "desktop" / "ui" / "app.js").read_text(encoding="utf-8")
+    # 2026-11-16: hộp Thêm job tạo job từ file / thư mục trên máy qua /api/jobs/local-batch (thay local-path)
+    for needle in ('"/api/queue/jobs"', '"/api/jobs/local-batch"', "/api/agent/resume/", "/stop`", '"DELETE"'):
+        assert needle in js, f"UI desktop thiếu thao tác {needle}"
     assert 'new EventSource("/api/events")' in js and "setInterval" not in js

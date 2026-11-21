@@ -19,7 +19,9 @@ _to_delete/
 *.tgz
 
 # Large models & media (use Git LFS if they must be versioned)
-models/
+# CHỈ thư mục models/ ở gốc dự án (fix 2026-11-16: «models/» trần loại luôn code Python vendor/FireRedASR2S/**/models
+# → FireRed «No module named fireredasr2s.fireredasr2.models» trên máy cài từ git)
+/models/
 *.th
 *.pth
 *.onnx
@@ -31,3 +33,28 @@ models/
 *.mkv
 *.flac
 
+
+# Secret — không bao giờ commit (key/token chỉ nằm trong file local)
+pineline.config.json
+token*.json
+client_secret*.json
+data/test_channel/
+cookies/
+cookies*.txt
+.env
+.env.*
+
+# Trạng thái runtime (sinh lại khi chạy)
+data/auto_publish_queue.json
+data/auto_publish_state.json
+data/.auto_publish_*
+data/.upload_*.lock
+
+# Dữ liệu runtime do agent_feeder tạo khi chạy
+data/series_meta/
+.pineline_env_path
+
+# Cấu hình RIÊNG của máy (2026-11-19): đè instances/<tên>.json, git pull không đụng
+instances/*.local.json
+# Model FireRed tải về (scripts/install_firered_asr.bat) — lớn, không commit
+vendor/FireRedASR2S/pretrained_models/
