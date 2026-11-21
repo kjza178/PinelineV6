@@ -920,9 +920,16 @@ def build_plan(
         # (PLAN_MODEL_BACKUP, không đặt thì SIMPLE_FALLBACK_MODEL — cùng dự phòng với bước dịch). Trước: plan rỗng
         # → dịch không có bảng nhân vật / xưng hô.
         tries = [model]
+        prim = model or _cfg_get("PLAN_MODEL") or ""
         bk = str(_cfg_get("PLAN_MODEL_BACKUP") or _cfg_get("SIMPLE_FALLBACK_MODEL") or "").strip()
-        if bk and bk != (model or _cfg_get("PLAN_MODEL") or ""):
+        if bk and bk != prim:
             tries.append(bk)
+        try:   # 2026-11-21: cuối chuỗi — AI trên máy nếu đang chạy (như bước dịch; SIMPLE_LOCAL_FALLBACK=0 để tắt)
+            from engines.translate_simple import cfg as _ts_cfg
+            if "local" in _ts_cfg.fallback_models(prim) and "local" not in tries:
+                tries.append("local")
+        except Exception as e_lf:  # noqa: BLE001
+            print(f"[plan] dò AI trên máy làm dự phòng lỗi: {e_lf}", flush=True)
         data = {}
         for k, m_try in enumerate(tries):
             try:

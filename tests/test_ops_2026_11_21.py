@@ -1,0 +1,189 @@
+"""2026-11-21 vận hành: (1) bấm Chạy gỡ dấu park hệ thống + gỡ tạm dừng hàng chờ; (2) AI dịch hỏng → chuỗi dự phòng
+(model dự phòng → AI máy), model hỏng bị bỏ qua tạm, đổi model trong Cài đặt áp dụng ngay + đánh thức job chờ soát;
+(3) chạy lại sau lỗi/restart chỉ dịch câu còn thiếu."""
+import json
+import re
+from pathlib import Path
+
+import pytest
+
+from engines.translate_simple import cfg, stage_review
+
+
+def _cfg(monkeypatch, d):
+    monkeypatch.setattr(cfg, "get", lambda k, default=None: d.get(k, default))
+
+
+def _no_retry(monkeypatch):
+    import engines.cloud_retry as cr
+    monkeypatch.setattr(cr, "call_with_cloud_retry", lambda fn, **kw: fn())
+
+
+def _chat(monkeypatch, bad: set, used: list):
+    import engines.llm as llm
+
+    def chat(msgs, model=None, **kw):
+        used.append(model)
+        if model in bad:
+            raise ConnectionError(f"{model} 402 Insufficient Balance")
+        return json.dumps({"lines": [{"i": 1, "vi": f"ok từ {model}"}]})
+    monkeypatch.setattr(llm, "chat", chat)
+
+
+# ── (2) chuỗi dự phòng ──
+def test_fallback_chain_configured_then_local(monkeypatch):
+    _cfg(monkeypatch, {"SIMPLE_FALLBACK_MODEL": "alibaba/qwen-plus"})
+    cfg._LOCAL_PROBE.update(t=float("inf"), ok=True)
+    assert cfg.fallback_models("deepseek/x") == ["alibaba/qwen-plus", "local"]
+    _cfg(monkeypatch, {"SIMPLE_FALLBACK_MODEL": "alibaba/qwen-plus", "SIMPLE_LOCAL_FALLBACK": "0"})
+    assert cfg.fallback_models("deepseek/x") == ["alibaba/qwen-plus"]
+    _cfg(monkeypatch, {})
+    assert cfg.fallback_models("local") == []                     # chính đã là AI máy → không lặp
+    cfg._LOCAL_PROBE.update(t=float("inf"), ok=False)
+    assert cfg.fallback_models("deepseek/x") == [] and cfg.fallback_model("deepseek/x") is None
+
+
+def test_no_backup_configured_uses_local_llama(monkeypatch):
+    _cfg(monkeypatch, {})
+    cfg._LOCAL_PROBE.update(t=float("inf"), ok=True)
+    _no_retry(monkeypatch)
+    used = []
+    _chat(monkeypatch, {"deepseek/x"}, used)
+    out = stage_review.call_llm("s", "u", {1}, model="deepseek/x")
+    assert out[1]["vi"] == "ok từ local" and used == ["deepseek/x", "local"]
+
+
+def test_dead_primary_skipped_for_next_lots(monkeypatch):
+    _cfg(monkeypatch, {"SIMPLE_FALLBACK_MODEL": "alibaba/qwen-plus"})
+    _no_retry(monkeypatch)
+    used = []
+    _chat(monkeypatch, {"deepseek/x"}, used)
+    stage_review.call_llm("s", "u", {1}, model="deepseek/x")
+    stage_review.call_llm("s", "u", {1}, model="deepseek/x")
+    assert used == ["deepseek/x", "alibaba/qwen-plus", "alibaba/qwen-plus"]   # lô 2 không chờ model hỏng lại
+
+
+def test_backup_also_dead_falls_to_local(monkeypatch):
+    _cfg(monkeypatch, {"SIMPLE_FALLBACK_MODEL": "alibaba/qwen-plus"})
+    cfg._LOCAL_PROBE.update(t=float("inf"), ok=True)
+    _no_retry(monkeypatch)
+    used = []
+    _chat(monkeypatch, {"deepseek/x", "alibaba/qwen-plus"}, used)
+    assert stage_review.call_llm("s", "u", {1}, model="deepseek/x")[1]["vi"] == "ok từ local"
+    assert used == ["deepseek/x", "alibaba/qwen-plus", "local"]
+
+
+def test_all_dead_raises(monkeypatch):
+    _cfg(monkeypatch, {"SIMPLE_FALLBACK_MODEL": "alibaba/qwen-plus"})
+    _no_retry(monkeypatch)
+    _chat(monkeypatch, {"deepseek/x", "alibaba/qwen-plus"}, [])
+    with pytest.raises(ConnectionError):
+        stage_review.call_llm("s", "u", {1}, model="deepseek/x")
+
+
+def test_settings_change_applies_to_next_lot(monkeypatch):
+    conf = {"SIMPLE_MODEL": "deepseek/x"}
+    _cfg(monkeypatch, conf)
+    _no_retry(monkeypatch)
+    used = []
+    _chat(monkeypatch, set(), used)
+    stage_review.call_llm("s", "u", {1}, model="deepseek/x")
+    conf["SIMPLE_MODEL"] = "alibaba/qwen-plus"                 # người dùng đổi trong Cài đặt giữa chừng
+    stage_review.call_llm("s", "u", {1}, model="deepseek/x")      # pipeline vẫn cầm model cũ
+    stage_review.call_llm("s", "u", {1}, model="deepseek/x")
+    stage_review.call_llm("s", "u", {1}, model="local")           # dự phòng gọi có chủ đích → giữ nguyên
+    assert used == ["deepseek/x", "alibaba/qwen-plus", "alibaba/qwen-plus", "local"]
+
+
+# ── (3) làm tiếp sau lỗi / restart ──
+def test_rerun_only_translates_missing_and_says_so(tmp_path, monkeypatch):
+    import engines.llm as llm
+    import engines.translate as T
+    from engines.translate_simple import pipeline
+    wd = tmp_path / "job"
+    wd.mkdir()
+    segs = [{"i": i, "start": i * 2.0, "end": i * 2 + 1.5, "text": f"你好世界第{i}句"} for i in range(40)]
+    (wd / "asr.json").write_text(json.dumps(segs, ensure_ascii=False), encoding="utf-8")
+    (wd / "manifest.json").write_text(json.dumps({"stages": {"asr": {"status": "done"}}}), encoding="utf-8")
+    monkeypatch.setattr(T, "build_plan", lambda segments, **k: {"characters": [{"name": "A", "vi": "A"}],
+                                                                  "terms": [], "pronouns": [], "scenes": []})
+    _no_retry(monkeypatch)
+    real_get = cfg.get
+    monkeypatch.setattr(cfg, "get", lambda k, d=None: {"SIMPLE_BATCH": "10", "SIMPLE_LOCAL_FALLBACK": "0",
+                                                       "SIMPLE_FALLBACK_MODEL": ""}.get(k, real_get(k, d)))
+    st = {"n": 0, "fail_after": 1, "ids": []}
+
+    def chat(msgs, model=None, **kw):
+        ids = [int(x) for x in re.findall(r'"i"\s*:\s*(\d+)', msgs[-1]["content"])]
+        st["n"] += 1
+        if st["fail_after"] is not None and st["n"] > st["fail_after"]:
+            raise ConnectionError("402 Insufficient Balance")
+        st["ids"] += ids
+        return json.dumps({"lines": [{"i": i, "vi": f"Câu {i}", "conf": 0.95} for i in ids]})
+    monkeypatch.setattr(llm, "chat", chat)
+    pipeline.run(wd, "Tiếng Việt")
+    done1 = sum(1 for r in json.loads((wd / "script.json").read_text(encoding="utf-8")) if r.get("rv"))
+    assert 0 < done1 < 40
+    assert stage_review._DEAD                                     # lượt 1: model bị đánh dấu hỏng
+    st.update(fail_after=None, ids=[])
+    msgs = []
+    pipeline.run(wd, "Tiếng Việt", progress=msgs.append)
+    assert len(set(st["ids"])) == 40 - done1                      # chỉ gửi AI câu còn thiếu
+    assert any(m.startswith(f"làm tiếp: đã dịch {done1}/40") for m in msgs)
+
+
+# ── (1) bấm Chạy ──
+@pytest.fixture
+def srv(tmp_path, monkeypatch):
+    import server
+    monkeypatch.setattr(server, "WORK_ROOT", tmp_path)
+    monkeypatch.setattr(server.job_queue, "WORK_ROOT", tmp_path)
+    server._STAGE_BUSY.clear()
+    return server
+
+
+def _mk(tmp_path, jid, agent):
+    wd = tmp_path / jid
+    wd.mkdir()
+    (wd / "manifest.json").write_text(json.dumps({"agent": agent, "stages": {}, "last_stop": {"why": "x"}}),
+                                      encoding="utf-8")
+    return wd
+
+
+def _agent(wd):
+    return json.loads((wd / "manifest.json").read_text(encoding="utf-8"))
+
+
+def test_user_run_clears_system_parks_only(srv, tmp_path):
+    a = _mk(tmp_path, "a", {"held_at": "review_failed", "hold_after_translate": True, "review_retries": 4,
+                            "hold_reason": "REVIEW thất bại"})
+    b = _mk(tmp_path, "b", {"held_at": "waiting_review", "review_retry_at": 9e9, "simple_park": True})
+    c = _mk(tmp_path, "c", {"held_at": "qa_brain", "qa_blocked": True})
+    assert srv._clear_system_park(a) and srv._clear_system_park(b)
+    da, db = _agent(a), _agent(b)
+    assert "held_at" not in da["agent"] and da["agent"]["hold_after_translate"] is False
+    assert "review_retries" not in da["agent"] and "last_stop" not in da
+    assert "held_at" not in db["agent"] and "review_retry_at" not in db["agent"]
+    assert not srv._clear_system_park(c)
+    assert _agent(c)["agent"]["held_at"] == "qa_brain" and _agent(c)["agent"]["qa_blocked"] is True
+
+
+def test_user_run_resumes_paused_queue(srv, tmp_path, monkeypatch):
+    _mk(tmp_path, "a", {})
+    calls = []
+    monkeypatch.setattr(srv.job_queue, "queue_add",
+                        lambda ids, **k: {"ok": True, "queued": ids, "paused": {"reason": "3 lỗi liên tiếp"}})
+    monkeypatch.setattr(srv.job_queue, "queue_resume", lambda: calls.append(1) or {"ok": True, "resumed": True})
+    r = srv.api_queue_jobs_add(srv.JobQueueReq(job_ids=["a"]))
+    assert calls == [1] and r["resumed_from_pause"] is True
+
+
+def test_ai_change_wakes_review_parks(srv, tmp_path, monkeypatch):
+    from services import translate_wake
+    _mk(tmp_path, "a", {"held_at": "waiting_review", "review_retry_at": 9e9})
+    _mk(tmp_path, "b", {"held_at": "qa_brain", "qa_blocked": True})
+    added = []
+    monkeypatch.setattr(srv.job_queue, "queue_add", lambda ids, **k: added.extend(ids) or {"queued": ids})
+    assert translate_wake.on_ai_changed(["PLAN_MODE"]) == []          # không phải model/key → không đụng
+    assert translate_wake.on_ai_changed(["SIMPLE_MODEL"]) == ["a"]
+    assert added == ["a"] and "held_at" not in _agent(tmp_path / "a")["agent"]

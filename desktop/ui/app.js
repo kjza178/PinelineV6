@@ -1358,7 +1358,11 @@ function fallbackSec() {
   if (ai.local.llama.length && main !== "local") opts.push(["local", `AI trên máy · ${ai.local.llama[0]}`]);
   if (ai.aurora.configured) opts.push(["chatgpt/gpt-5-6-mini", "Aurora · gpt-5-6-mini"]);
   if (cur && !opts.some(([v]) => v === cur)) opts.push([cur, cur]);
-  const warn = !cur ? '<div class="callout warn">Chưa có dự phòng: AI dịch chính lỗi hẳn thì lô đó hỏng, job phải chạy lại sau.</div>' : "";
+  // 2026-11-21: sau model dự phòng (hoặc khi chưa chọn) luồng dịch tự dùng AI trên máy nếu llama-server đang chạy
+  const warn = !cur ? (ai.local.llama.length && main !== "local"
+    ? `<div class="callout">Chưa chọn dự phòng — AI dịch chính lỗi hẳn thì tự dùng <b>AI trên máy</b> (${esc(ai.local.llama[0])}) cho tới khi model chính chạy lại.</div>`
+    : '<div class="callout warn">Chưa có dự phòng và AI trên máy không chạy: AI dịch chính lỗi hẳn thì job dừng chờ (tự thử lại sau 5 phút).</div>')
+    : (ai.local.llama.length && main !== "local" && cur !== "local" ? '<div class="sub">Dự phòng cũng lỗi → tự dùng AI trên máy.</div>' : "");
   return `<div class="sec"><h3>Dự phòng khi AI dịch chính lỗi</h3>
     <p class="sub">Đang dịch bằng <b>${esc(main || "?")}</b>. Dùng khi: lô dịch lỗi hẳn (sau khi đã tự thử lại), lập bảng nhân vật lỗi, hoặc vá xong vẫn sót chữ Hán / câu trống — nên chọn nhà cung cấp khác.</p>${warn}
     <div class="field"><div class="lbl"><b>Model dự phòng</b><span>Chỉ hiện nhà cung cấp đã có key, AI trên máy đang chạy, Aurora đã cấu hình.</span></div>

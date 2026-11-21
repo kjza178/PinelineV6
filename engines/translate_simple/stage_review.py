@@ -224,41 +224,75 @@ def call_llm(system: str, user: str, want: set[int], *, model: str | None, stop_
         msgs.append({"role": "user", "content": prefix})
     msgs.append({"role": "user", "content": user})
 
-    def _once():
-        out = chat(msgs,
-                   model=model, temperature=cfg.temperature(), json_mode=True,
-                   max_tokens=cfg.out_cap(model), timeout=cfg.timeout())
-        res = parse_lines(out, want)
-        if pair_sink is not None:
-            pair_sink.extend(parse_new_pairs(out))
-        return res
+    live = cfg.live_model(model)
+    if live and live != model:
+        print(f"{label} Cài đặt đổi model soát {model} → {live} (áp dụng từ lô này)", flush=True)
+        model = live
 
-    try:
-        return cloud_retry.call_with_cloud_retry(
-            _once, model=model, label=label, what=f"lô {len(want)} câu", stop_check=stop_check,
-            cfg_get=cfg.get,
-        )
-    except BadOutput:
-        raise                                   # lô hỏng JSON: luồng soát tự thử lại lô (review-retry), không đổi model
-    except Exception as e:  # noqa: BLE001
-        fb = cfg.fallback_model(model)
-        if not fb or "stopped by user" in str(e) or isinstance(e, cloud_retry.CloudRetryStopped):
-            raise
-        # 2026-11-20: model chính hỏng hẳn (đã qua cloud_retry) → model dự phòng cho lô này (SIMPLE_FALLBACK_MODEL)
-        print(f"{label} model {model} lỗi ({type(e).__name__}: {str(e)[:160]}) → dùng dự phòng {fb} cho lô "
-              f"{len(want)} câu", flush=True)
-
-        def _once_fb():
-            out = chat(msgs, model=fb, temperature=cfg.temperature(), json_mode=True,
-                       max_tokens=cfg.out_cap(fb), timeout=cfg.timeout())
+    def _call(m):
+        def _once():
+            out = chat(msgs, model=m, temperature=cfg.temperature(), json_mode=True,
+                       max_tokens=cfg.out_cap(m), timeout=cfg.timeout())
             res = parse_lines(out, want)
             if pair_sink is not None:
                 pair_sink.extend(parse_new_pairs(out))
             return res
         return cloud_retry.call_with_cloud_retry(
-            _once_fb, model=fb, label=label, what=f"lô {len(want)} câu (dự phòng)", stop_check=stop_check,
-            cfg_get=cfg.get,
+            _once, model=m, label=label, what=f"lô {len(want)} câu" + ("" if m == model else " (dự phòng)"),
+            stop_check=stop_check, cfg_get=cfg.get,
         )
+
+    last_err: Exception | None = None
+    if not _is_dead(model):
+        try:
+            return _call(model)
+        except BadOutput:
+            raise                               # lô hỏng JSON: luồng soát tự thử lại lô (review-retry), không đổi model
+        except Exception as e:  # noqa: BLE001
+            if "stopped by user" in str(e) or isinstance(e, cloud_retry.CloudRetryStopped):
+                raise
+            last_err = e
+            _mark_dead(model, e)
+    chain = cfg.fallback_models(model)
+    if not chain:
+        if last_err is None:
+            raise RuntimeError(f"model {model} vừa lỗi (đang tạm bỏ qua) và chưa có model dự phòng — "
+                               f"chọn «Dự phòng» trong Cài đặt → AI dịch hoặc bật AI trên máy")
+        raise last_err
+    for fb in chain:
+        if _is_dead(fb):
+            continue
+        # 2026-11-20/21: model chính hỏng hẳn (đã qua cloud_retry) → chuỗi dự phòng (SIMPLE_FALLBACK_MODEL → AI máy)
+        why = f"lỗi ({type(last_err).__name__}: {str(last_err)[:160]})" if last_err else "vừa lỗi, đang tạm bỏ qua"
+        print(f"{label} model {model} {why} → dùng dự phòng {fb} cho lô {len(want)} câu", flush=True)
+        try:
+            return _call(fb)
+        except BadOutput:
+            raise
+        except Exception as e:  # noqa: BLE001
+            if "stopped by user" in str(e) or isinstance(e, cloud_retry.CloudRetryStopped):
+                raise
+            last_err = e
+            _mark_dead(fb, e)
+    raise last_err or RuntimeError("mọi model (chính + dự phòng) đều đang lỗi")
+
+
+# 2026-11-21: model vừa hỏng hẳn (hết tiền, key sai, mất mạng sau khi đã thử lại) → các lô sau đi thẳng sang dự phòng
+# trong DEAD_SEC thay vì lô nào cũng chờ model chính hỏng lại (mỗi lô mất vài phút thử lại). Hết hạn → thử lại chính.
+DEAD_SEC = 600.0
+_DEAD: dict[str, float] = {}
+
+
+def _is_dead(m: str | None) -> bool:
+    import time as _t
+    return bool(m) and _DEAD.get(str(m), 0.0) > _t.time()
+
+
+def _mark_dead(m: str | None, e: Exception) -> None:
+    import time as _t
+    if m:
+        _DEAD[str(m)] = _t.time() + DEAD_SEC
+        print(f"[simple] tạm bỏ model {m} {int(DEAD_SEC // 60)} phút: {type(e).__name__}: {str(e)[:120]}", flush=True)
 
 
 def make_jobs(rows: list[dict], todo_idx: list[int], batch: int, ctx: int) -> list[dict]:

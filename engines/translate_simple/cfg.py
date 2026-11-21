@@ -382,11 +382,65 @@ def zh_namefix_min() -> float:
     return _float("SIMPLE_ZH_NAMEFIX_MIN", 0.75, 0.5, 1.0)
 
 
-def fallback_model(primary: str | None = None) -> str | None:
-    """SIMPLE_FALLBACK_MODEL: model dự phòng khi model Soát & dịch chính hỏng (mất mạng, hết tiền/quota, key sai, 5xx
-    sau khi đã thử lại). Trống / trùng model chính → không có (2026-11-20)."""
+_LOCAL_PROBE: dict = {"t": 0.0, "ok": False}
+
+
+def _local_llm_up() -> bool:
+    """llama-server trên máy có model đang chạy không (dò GET /models, nhớ 60 s)."""
+    import time as _t
+    if _t.time() - _LOCAL_PROBE["t"] < 60:
+        return bool(_LOCAL_PROBE["ok"])
+    ok = False
+    try:
+        from core import machine
+        from engines.llm import get_llama_models
+        ok = bool(get_llama_models(machine.llama_base_url()))
+    except Exception as e:  # noqa: BLE001
+        print(f"[simple] dò AI trên máy lỗi: {e}", flush=True)
+    _LOCAL_PROBE.update(t=_t.time(), ok=ok)
+    return ok
+
+
+def fallback_models(primary: str | None = None) -> list[str]:
+    """Chuỗi dự phòng khi model Soát & dịch chính hỏng (hết tiền/quota, key sai, mất mạng, 5xx sau khi đã thử lại):
+    1) SIMPLE_FALLBACK_MODEL (Cài đặt → AI dịch → «Dự phòng»);
+    2) 2026-11-21: AI trên máy («local» = llama-server) nếu đang chạy — SIMPLE_LOCAL_FALLBACK=0 để tắt.
+    Bỏ model trùng model chính."""
+    out: list[str] = []
     m = str(get("SIMPLE_FALLBACK_MODEL", "") or "").strip()
-    return m if m and m != (primary or "") else None
+    if m and m != (primary or ""):
+        out.append(m)
+    loc_on = str(get("SIMPLE_LOCAL_FALLBACK", "1") or "1").strip().lower() not in ("0", "false", "no", "off")
+    try:
+        from core.local_ai import is_local_model
+        prim_local = is_local_model(primary) or any(is_local_model(x) for x in out)
+    except Exception:  # noqa: BLE001
+        prim_local = False
+    if loc_on and not prim_local and _local_llm_up():
+        out.append("local")
+    return out
+
+
+def fallback_model(primary: str | None = None) -> str | None:
+    """Model dự phòng đầu tiên (xem fallback_models) hoặc None."""
+    fb = fallback_models(primary)
+    return fb[0] if fb else None
+
+
+_LIVE: dict = {"seen": None, "switch": {}}
+
+
+def live_model(current: str | None) -> str | None:
+    """2026-11-21: đổi «Soát & dịch» (SIMPLE_MODEL) trong Cài đặt khi job đang dịch → lô kế tiếp dùng model mới
+    (trước: giữ model lúc bắt đầu tới hết lượt). Chỉ đổi model ĐÃ BỊ THAY trong Cài đặt — model dự phòng gọi có chủ
+    đích (vá bằng dự phòng) giữ nguyên."""
+    m = str(get("SIMPLE_MODEL", "") or "").strip()
+    seen = _LIVE["seen"]
+    if m and seen is not None and m != seen:
+        _LIVE["switch"] = {k: m for k in (*_LIVE["switch"].keys(), seen) if k != m}
+    if m:
+        _LIVE["seen"] = m
+    return _LIVE["switch"].get(current or "", current)
 
 
 def review_model(work_dir=None) -> str | None:

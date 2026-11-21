@@ -266,6 +266,9 @@ def _v6_router(inst: Instance) -> APIRouter:
             raise HTTPException(400, str(e)) from e
         if out.get("changed"):
             bus.publish("config.changed", {"changed": out["changed"]})
+            # 2026-11-21: đổi model/key → job đang chờ thử lại soát chạy lại ngay (services, không logic ở route)
+            from services import translate_wake
+            out["woke"] = translate_wake.on_ai_changed(out["changed"])
         return out
 
     @r.post(V6_PREFIX + "/ai/models")

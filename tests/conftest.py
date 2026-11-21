@@ -41,3 +41,19 @@ def _isolate_film_db(monkeypatch, tmp_path_factory):
     if Path(fdb.DB_PATH) == real:
         monkeypatch.setattr(fdb, "DB_PATH", tmp_path_factory.getbasetemp() / "films_isolated.db")
     yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_translate_ai_state():
+    """2026-11-21: luồng dịch nhớ «model vừa hỏng» (stage_review._DEAD), «đổi model theo Cài đặt» (cfg._LIVE) và kết
+    quả dò AI trên máy (cfg._LOCAL_PROBE) giữa các lần gọi — test phải độc lập, và KHÔNG được dò llama-server thật
+    (máy dev Windows có llama chạy → test «không có dự phòng» sẽ lệch). Test cần AI máy tự đặt _LOCAL_PROBE."""
+    from engines.translate_simple import cfg as ts_cfg
+    from engines.translate_simple import stage_review as ts_rv
+    ts_rv._DEAD.clear()
+    ts_cfg._LIVE.update(seen=None, switch={})
+    ts_cfg._LOCAL_PROBE.update(t=float("inf"), ok=False)
+    yield
+    ts_rv._DEAD.clear()
+    ts_cfg._LIVE.update(seen=None, switch={})
+    ts_cfg._LOCAL_PROBE.update(t=0.0, ok=False)

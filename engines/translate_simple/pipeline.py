@@ -287,6 +287,7 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
             _set_stage(wd, cur_text=f"simple · {msg}"[:200])
 
     t0 = time.time()
+    stage_review._DEAD.clear()     # 2026-11-21: «model vừa hỏng» chỉ nhớ trong 1 lượt — lượt thử lại dò lại model chính
     _set_stage(wd, status="running", started_at=_now(), mode="simple", cur_text="simple · bắt đầu",
                n_total=len(segments))
     zh_rep = None
@@ -309,6 +310,11 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
     _heal_zh_stutter(store)
     n_junk = _mark_junk(store)
     store.note("start", None, f"simple run force={force} rereview={rereview} n_asr={len(segments)}")
+    # 2026-11-21: chạy lại sau lỗi / restart → nói rõ là LÀM TIẾP (câu đã soát giữ nguyên, chỉ gửi AI câu còn thiếu)
+    n_have = sum(1 for r in store.rows if r.get("rv") and not r.get("junk"))
+    if n_have and not (force or rereview):
+        prog(f"làm tiếp: đã dịch {n_have}/{len(store.rows)} câu, chỉ dịch {len(store.rows) - n_have} câu còn lại",
+             force_write=True)
     model = cfg.review_model(wd)
     try:
         # 2) plan (V6 không dịch thô NMT — AI dịch thẳng ở bước soát)

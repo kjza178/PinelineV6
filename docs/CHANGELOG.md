@@ -1,5 +1,18 @@
 # CHANGELOG — V6
 
+## 2026-11-21
+- **Bấm «Chạy» là chạy thật**: gỡ dấu tạm dừng HỆ THỐNG tự đặt trên job (chờ thử lại soát, soát lỗi 3 lượt
+  `review_failed`, chờ part) + bộ đếm lượt thử — trước: dấu cũ còn → dịch xong lại dừng / nhảy thẳng review_failed.
+  HOLD QA / người đặt vẫn giữ (nút «Chạy tiếp»). Hàng chờ đang tạm dừng (nhiều job lỗi liên tiếp, giữ qua restart) →
+  bấm Chạy gỡ tạm dừng luôn.
+- **AI dịch lỗi (hết tiền / key sai / mất mạng) có dự phòng tự động**: chuỗi `SIMPLE_FALLBACK_MODEL` → AI trên máy
+  (llama-server, nếu đang chạy; `SIMPLE_LOCAL_FALLBACK=0` để tắt) cho cả soát/dịch, vá và lập bảng nhân vật. Model
+  vừa hỏng bị bỏ qua trong lượt đó (lô sau đi thẳng dự phòng, không chờ thử lại mỗi lô); lượt sau dò lại model chính.
+- **Đổi model / key trong Cài đặt có hiệu lực ngay**: lô dịch kế tiếp dùng model mới (model bị thay trong Cài đặt),
+  job đang chờ thử lại soát / soát lỗi 3 lượt được xếp chạy lại ngay (`services/translate_wake`).
+- **Làm tiếp sau lỗi / restart**: luồng dịch vốn giữ câu đã dịch (chỉ gửi AI câu còn thiếu — có test); nay ghi rõ
+  «làm tiếp: đã dịch N/M câu, chỉ dịch K câu còn lại» thay vì trông như dịch lại từ đầu.
+
 ## 2026-11-20
 - **Thư viện báo «lỗi» dù job đã xong**: `core/film_db._status_of` chỉ xét 5 bước chính và «render xong» thắng (trước:
   bước phụ còn dấu failed cũ → lỗi). films.db cập nhật ngay khi trạng thái job đổi (write hook), không chờ mở tab

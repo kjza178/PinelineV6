@@ -3037,11 +3037,85 @@ def jobs_group(body: JobGroupReq):
     return JSONResponse({"error": f"action '{act}' không hỗ trợ"}, status_code=400)
 
 
+_SYSTEM_PARKS = ("waiting_review", "review_failed", "split_parts")
+
+
+def _clear_system_park(work_dir: Path) -> bool:
+    """2026-11-21: người dùng bấm «Chạy» = muốn chạy tiếp → gỡ dấu tạm dừng HỆ THỐNG tự đặt (chờ thử lại soát,
+    soát lỗi 3 lượt, chờ part) + bộ đếm lượt thử. Trước: dấu cũ còn → chạy xong dịch lại dừng ngay / review_failed
+    luôn (đếm lượt đã vượt) → «bấm Chạy mà các bước không tự chạy tiếp». HOLD QA / người đặt giữ nguyên (nút
+    «Chạy tiếp»)."""
+    out = {"cleared": False}
+
+    def _fn(d):
+        ag = d.get("agent")
+        if not isinstance(ag, dict):
+            d.pop("last_stop", None)
+            return
+        held = ag.get("held_at")
+        if held in _SYSTEM_PARKS or ag.get("simple_park") or ag.get("review_retries"):
+            if held == "review_failed":
+                ag["hold_after_translate"] = False
+            for k in ("review_retries", "review_retry_at", "simple_park", "split_wait_parts"):
+                ag.pop(k, None)
+            if held in _SYSTEM_PARKS:
+                ag.pop("held_at", None)
+                ag.pop("hold_reason", None)
+            out["cleared"] = True
+        d.pop("last_stop", None)
+    try:
+        js.mutate(work_dir, _fn)
+    except Exception as e:  # noqa: BLE001
+        print(f"[queue] gỡ dấu park {Path(work_dir).name} lỗi: {e}", flush=True)
+    if out["cleared"]:
+        _job_cache.pop(str(work_dir), None)
+        print(f"[queue] {Path(work_dir).name}: người dùng bấm Chạy → gỡ dấu chờ/thử lại của hệ thống", flush=True)
+    return out["cleared"]
+
+
+def _wake_translate_parks(reason: str = "") -> list[str]:
+    """2026-11-21: đổi model / key AI trong Cài đặt → job đang chờ thử lại soát (hoặc đã soát lỗi 3 lượt) chạy lại
+    NGAY với cấu hình mới, không đợi hết 5 phút / không kẹt HOLD review_failed."""
+    woke: list[str] = []
+    if not WORK_ROOT.is_dir():
+        return woke
+    for d in WORK_ROOT.iterdir():
+        mf = d / "manifest.json"
+        if not mf.is_file():
+            continue
+        try:
+            ag = (json.loads(mf.read_text(encoding="utf-8")).get("agent") or {})
+        except (OSError, ValueError) as e:
+            print(f"[ai] đọc {d.name} lỗi: {e}", flush=True)
+            continue
+        if ag.get("held_at") not in ("waiting_review", "review_failed"):
+            continue
+        if _job_any_busy(d.name):
+            continue
+        if _clear_system_park(d):
+            woke.append(d.name)
+    if woke:
+        queued: list[str] = []
+        for jid in woke:      # như «Chạy tiếp»: opts ghim của job (core.job_opts), không dựng tay
+            try:
+                r = job_queue.queue_add([jid], opts=job_opts.for_job(WORK_ROOT / jid, {}, fill_voice=False),
+                                        skip_done=True)
+                queued += list(r.get("queued") or [])
+            except Exception as e:  # noqa: BLE001
+                print(f"[ai] xếp lại {jid} lỗi: {e}", flush=True)
+        print(f"[ai] {reason or 'cấu hình AI đổi'} → chạy lại {len(woke)} job chờ soát: {woke} · vào hàng {queued}",
+              flush=True)
+    return woke
+
+
 @app.post("/api/queue/jobs")
 def api_queue_jobs_add(req: JobQueueReq):
     ids = [str(x).strip() for x in (req.job_ids or []) if str(x).strip()]
     if not ids:
         return JSONResponse({"error": "chọn ≥1 job"}, status_code=400)
+    for jid in ids:
+        if (WORK_ROOT / jid / "manifest.json").is_file() and not _job_any_busy(jid):
+            _clear_system_park(WORK_ROOT / jid)
     # Trường client không gửi lấy theo config batch (không phải mặc định cứng voice_bgm/0.6/8M của model)
     # V6 F2: chụp opts lúc xếp hàng = trường gửi > queue_opts ghim của TỪNG job > config batch
     explicit = {**req.model_dump(exclude_unset=True, exclude={"job_ids", "skip_done", "opts"}),
@@ -3049,9 +3123,15 @@ def api_queue_jobs_add(req: JobQueueReq):
     batch = job_opts.load_batch()
     opts = job_opts.resolve(explicit, None, batch, fill_voice=False)
     try:
-        return job_queue.queue_add(
+        r = job_queue.queue_add(
             ids, opts=opts, skip_done=bool(req.skip_done),
             opts_for=lambda jid: job_opts.for_job(WORK_ROOT / jid, explicit, batch=batch, fill_voice=False))
+        # 2026-11-21: hàng chờ đang TẠM DỪNG (nhiều job lỗi liên tiếp, giữ qua restart) → job vào hàng nhưng không
+        # chạy. Người dùng bấm Chạy = đã xem → gỡ tạm dừng và chạy.
+        if isinstance(r, dict) and r.get("paused") and r.get("queued"):
+            rr = job_queue.queue_resume()
+            r = {**r, **rr, "resumed_from_pause": True}
+        return r
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"error": str(e)}, status_code=400)
 
