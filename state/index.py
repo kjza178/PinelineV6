@@ -60,6 +60,9 @@ def summarize(job_id: str, data: dict) -> dict[str, Any]:
         "error": ((stages.get(failed) or {}).get("error") or "")[:400] if failed else "",
         # 2026-11-20: _auto_gpu dừng giữa chừng không lỗi/HOLD (vd dịch chưa đủ) → lý do hiện ở cột «Đang làm»
         "stop_note": (str(((data.get("last_stop") or {}).get("why")) or "")[:200]) if status == "pending" else "",
+        # 2026-11-21: kênh YouTube sẽ tự đăng khi render xong (mỗi job một kênh)
+        "publish_to": ((data.get("publish_to") or {}).get("channel") or "") if isinstance(data.get("publish_to"), dict) else "",
+        "yt_url": data.get("yt_url") or "",
         "updated_at": data.get("updated_at"),
     }
 

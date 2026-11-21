@@ -352,6 +352,18 @@ def set_queue_opts(wd, opts: dict, *, merge: bool = False) -> dict:
     return _update(wd, fn)
 
 
+def set_publish_target(wd, account_id: str | None, *, privacy: str | None = None,
+                       schedule_hours: float | None = None, channel: str = "") -> dict:
+    """2026-11-21: kênh YouTube tự đăng khi job render xong (mỗi job một kênh). account_id None/"" = bỏ."""
+    def fn(d):
+        if not account_id:
+            d.pop("publish_to", None)
+            return
+        d["publish_to"] = {"account_id": account_id, "channel": channel or account_id,
+                           "privacy": privacy or None, "schedule_hours": schedule_hours, "at": _now()}
+    return _update(wd, fn)
+
+
 def set_agent(wd, **fields) -> dict:
     """Khoá khác trong manifest.agent (review_request, qa_gate, …)."""
     def fn(d):

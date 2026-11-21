@@ -92,3 +92,39 @@ def test_meta_falls_back_from_aurora_to_main_ai(monkeypatch):
     monkeypatch.setattr(cfg, "fallback_models", lambda m: [])
     monkeypatch.setattr(llm, "chat", lambda msgs, model=None, **k: f"ok:{model}")
     assert meta_studio._call_chatgpt([{"role": "user", "content": "hi"}]) == "ok:deepseek/x"
+
+
+# ── mỗi job một kênh: gán trước, render xong tự đăng ──
+def _job(root, jid, **data):
+    wd = root / jid
+    wd.mkdir(parents=True)
+    (wd / "manifest.json").write_text(json.dumps({"stages": {}, **data}), encoding="utf-8")
+    return wd
+
+
+def test_targets_per_job_and_publish_on_done(store, tmp_path, monkeypatch):
+    from services import yt_publish
+    import agents.auto_publisher as ap
+    import core.job_queue as jq
+    from state.index import summarize
+    work = tmp_path / "work"
+    monkeypatch.setattr(yt_publish, "_work_dir", lambda jid: work / jid)
+    monkeypatch.setattr(yt_publish, "_uploaded_url", lambda jid: "")
+    monkeypatch.setattr(jq, "is_wired_done", lambda wd: wd.name == "done1")
+    _add(store, "UC1", "Kênh A")
+    _add(store, "UC2", "Kênh B")
+    for j in ("a", "b", "done1"):
+        _job(work, j)
+    calls = []
+    monkeypatch.setattr(ap, "enqueue_publish", lambda jid, **k: calls.append((jid, k["account_id"])) or {"ok": True})
+    r = yt_publish.set_targets(["a"], "UC1")
+    r2 = yt_publish.set_targets(["b", "done1"], "UC2", privacy="private")
+    assert r["set"] == ["a"] and r2["published_now"] == ["done1"] and calls == [("done1", "UC2")]
+    data = json.loads((work / "a" / "manifest.json").read_text(encoding="utf-8"))
+    assert summarize("a", data)["publish_to"] == "Kênh A"
+    assert yt_publish.publish_on_done("a") is True and calls[-1] == ("a", "UC1")
+    yt_publish.set_targets(["b"], None)                     # bỏ gán
+    assert "publish_to" not in json.loads((work / "b" / "manifest.json").read_text(encoding="utf-8"))
+    assert yt_publish.publish_on_done("b") is False
+    with pytest.raises(ValueError):
+        yt_publish.set_targets(["a"], "UC_khong_co")

@@ -72,6 +72,8 @@
       <div class="toolbar job-tools">
         <div class="seg" id="job-filter" role="radiogroup" aria-label="Lọc theo trạng thái"></div>
         <span class="grow"></span>
+        <select id="job-pub" aria-label="Kênh YouTube tự đăng khi job xong" title="Kênh YouTube sẽ tự đăng khi job render xong (mỗi job một kênh)"><option value="">Đăng lên kênh…</option></select>
+        <button type="button" class="btn" id="btn-pub-sel" disabled title="Gán kênh đã chọn cho các job đã tích: render xong tự đăng lên kênh đó">Gán kênh đăng</button>
         <button type="button" class="btn" id="btn-retry-failed" hidden title="Xếp lại vào hàng chờ mọi job đang lỗi (làm tiếp từ bước lỗi)">Chạy lại job lỗi</button>
         <button type="button" class="btn danger ghost" id="btn-del-sel" disabled title="Xoá vĩnh viễn thư mục các job đã chọn">Xoá job đã chọn</button>
       </div>

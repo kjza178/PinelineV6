@@ -4975,6 +4975,14 @@ def _queue_run_one(job_id: str, opts: dict) -> tuple[str, str]:
             except Exception as e_heal:  # noqa: BLE001
                 print(f"[auto-split] heal parent stages {job_id}: {e_heal}", flush=True)
         if job_queue.is_wired_done(work_dir):
+            # 2026-11-21: job được gán kênh đăng («Đăng lên kênh…») → tự đăng lên ĐÚNG kênh đó khi xong (người dùng
+            # chọn rõ từng job → không cần cờ auto_publish của instance); không gán → hành vi cũ theo cờ.
+            try:
+                from services import yt_publish
+                if yt_publish.publish_on_done(job_id):
+                    return "done", "hoàn tất — đã xếp đăng YouTube lên kênh đã gán"
+            except Exception as e_pt:  # noqa: BLE001
+                print(f"[auto-publish] {job_id}: đăng theo kênh đã gán lỗi: {e_pt}", flush=True)
             if _instance_flag("auto_publish"):    # V6: instance tắt auto_publish → không tự upload
                 try:
                     import agents.auto_publisher as auto_publisher

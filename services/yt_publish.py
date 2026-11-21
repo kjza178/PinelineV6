@@ -49,3 +49,68 @@ def _uploaded_url(job_id: str) -> str:
     except Exception as e:  # noqa: BLE001
         print(f"[yt-publish] đọc manifest {job_id}: {e}", flush=True)
         return ""
+
+
+def _work_dir(job_id: str):
+    from pathlib import Path
+    from core.instance import work_root_now
+    return work_root_now(Path(__file__).resolve().parents[1] / "work") / job_id
+
+
+def set_targets(job_ids: list, account_id: str | None, *, privacy: str | None = None, schedule_hours=None) -> dict:
+    """Gán (account_id) / bỏ gán (None) kênh tự đăng cho nhiều job. Job đã xong mà chưa đăng → xếp đăng luôn."""
+    from services import yt_accounts
+    from state import job_state as js
+    import core.job_queue as jq
+    ids = [str(j).strip() for j in job_ids or [] if str(j).strip()]
+    if not ids:
+        raise ValueError("chọn ít nhất 1 job")
+    title = ""
+    if account_id:
+        if not yt_accounts.has(account_id):
+            raise ValueError("kênh không tồn tại / mất đăng nhập — thêm lại ở Phim đã làm → Kênh YouTube")
+        title = (yt_accounts.get(account_id) or {}).get("title") or account_id
+    try:
+        sched = float(schedule_hours) if schedule_hours not in (None, "") else None
+    except (TypeError, ValueError):
+        sched = None
+    done_now, set_ok, errs = [], [], []
+    for jid in ids:
+        wd = _work_dir(jid)
+        if not (wd / "manifest.json").is_file():
+            errs.append(f"{jid}: không có job")
+            continue
+        try:
+            js.set_publish_target(wd, account_id, privacy=privacy, schedule_hours=sched, channel=title)
+            set_ok.append(jid)
+        except Exception as e:  # noqa: BLE001
+            errs.append(f"{jid}: {e}")
+            continue
+        if account_id and jq.is_wired_done(wd) and publish_on_done(jid):
+            done_now.append(jid)
+    return {"ok": bool(set_ok), "set": set_ok, "published_now": done_now, "errors": errs, "channel": title}
+
+
+def publish_on_done(job_id: str) -> bool:
+    """Job xong: có kênh gán + chưa đăng → xếp đăng lên kênh đó. True = đã xếp."""
+    import json
+    import agents.auto_publisher as ap
+    from services import yt_accounts
+    mf = _work_dir(job_id) / "manifest.json"
+    try:
+        data = json.loads(mf.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        print(f"[yt-publish] đọc {job_id}: {e}", flush=True)
+        return False
+    pt = data.get("publish_to") if isinstance(data, dict) else None
+    if not isinstance(pt, dict) or not pt.get("account_id") or data.get("yt_url") or _uploaded_url(job_id):
+        return False
+    acc = pt["account_id"]
+    if not yt_accounts.has(acc):
+        print(f"[yt-publish] {job_id}: kênh gán «{pt.get('channel') or acc}» không còn đăng nhập — không đăng", flush=True)
+        return False
+    r = ap.enqueue_publish(job_id, privacy=pt.get("privacy"), schedule_hours=pt.get("schedule_hours"), force=True,
+                           allow_oversized=False, account_id=acc)
+    print(f"[yt-publish] {job_id}: xong → xếp đăng lên «{pt.get('channel') or acc}»: {r.get('ok')} {r.get('error') or ''}",
+          flush=True)
+    return bool(r.get("ok"))

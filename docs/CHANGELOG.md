@@ -1,6 +1,10 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- **Mỗi job một kênh YouTube**: Công việc → tích job → «Đăng lên kênh…» chọn kênh → «Gán kênh đăng» (`publish_to` trong
+  manifest qua `job_state.set_publish_target`). Render xong job TỰ ĐĂNG lên đúng kênh đã gán (không phụ thuộc cờ
+  `auto_publish` vì người dùng chọn rõ); job đã xong chưa đăng → xếp đăng ngay; «— Bỏ tự đăng —» gỡ. Dòng job hiện
+  «▶ YT: <kênh>» / «✓ đã đăng YouTube». Route `/api/v6/yt/targets` → `services/yt_publish.set_targets / publish_on_done`.
 - **Đăng YouTube V6 — nhiều kênh**: «Phim đã làm» có khung «Kênh YouTube» (+ Thêm kênh = đăng nhập Google trong app,
   Đặt mặc định, Gỡ), chọn kênh khi đăng, tích nhiều phim → «Đăng N phim đã chọn» lên kênh đang chọn (đăng lần lượt,
   bỏ phim đã đăng), cột «Kênh» cho biết phim đăng ở kênh nào. Kênh lưu `data/yt_accounts/` (gitignore; không cần thư
