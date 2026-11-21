@@ -194,6 +194,7 @@ def _enqueue_job_record(
     schedule_hours: float | None = None,
     force: bool = False,
     allow_oversized: bool = False,
+    account_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Thêm job vào hàng chờ upload liên tiến trình (data/auto_publish_queue.json)."""
     job_id = str(job_id or "").strip()
@@ -219,6 +220,8 @@ def _enqueue_job_record(
                     existing["force"] = True
                 if allow_oversized:
                     existing["allow_oversized"] = True
+                if account_id:
+                    existing["account_id"] = account_id
             else:
                 items.append({
                     "job_id": job_id,
@@ -226,6 +229,7 @@ def _enqueue_job_record(
                     "schedule_hours": schedule_hours,
                     "force": bool(force),
                     "allow_oversized": bool(allow_oversized),
+                    "account_id": account_id or None,
                     "enqueued_at": time.time(),
                 })
             # Sắp xếp hàng chờ theo thứ tự bộ & phần (P1 -> Pn)
@@ -245,6 +249,7 @@ def _enqueue_job_record(
                 "schedule_hours": schedule_hours,
                 "force": bool(force),
                 "allow_oversized": bool(allow_oversized),
+                "account_id": account_id or None,
                 "enqueued_at": time.time(),
             })
             _write_publish_queue(items)
@@ -521,8 +526,25 @@ def save_config(cfg: dict[str, Any]) -> dict[str, Any]:
     return current
 
 
+def _default_v6_account() -> str | None:
+    try:
+        from services import yt_accounts
+        return yt_accounts.default_id()
+    except Exception as e:  # noqa: BLE001
+        print(f"[auto-publish] đọc kênh mặc định V6 lỗi: {e}", flush=True)
+        return None
+
+
 def get_youtube_service(account_id: str = "default"):
-    r"""Lấy YouTube API service từ tài khoản trong Z:\yt_uploader\accounts."""
+    r"""YouTube API service: kênh V6 (services/yt_accounts — đăng nhập trong app) trước; không có → tài khoản cũ
+    trong yt_uploader\accounts."""
+    try:
+        from services import yt_accounts
+        if yt_accounts.has(account_id):
+            return yt_accounts.service(account_id)
+    except Exception as e:  # noqa: BLE001
+        print(f"[auto-publish] kênh V6 {account_id}: {e}", flush=True)
+        raise
     tok_path = YT_DIR / "accounts" / account_id / "token.json"
     if not tok_path.is_file():
         # Fallback về token cũ ở thư mục gốc nếu có
@@ -775,6 +797,7 @@ def enqueue_publish(
     schedule_hours: float | None = None,
     force: bool = False,
     allow_oversized: bool = False,
+    account_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Đưa job vừa hoàn thành vào hàng đợi xuất bản tuần tự (không làm đứt quãng job đang upload).
@@ -822,6 +845,7 @@ def enqueue_publish(
         schedule_hours=schedule_hours,
         force=force,
         allow_oversized=allow_oversized,
+        account_id=account_id,
     )
     _sync_queue_state_badge()
     print(f"[auto-publish] Đã xếp job {job_id} vào hàng đợi xuất bản (tổng hàng chờ: {len(items)}).", flush=True)
@@ -872,6 +896,7 @@ def _drain_publish_queue_loop() -> None:
                 schedule_hours=item.get("schedule_hours"),
                 force=bool(item.get("force", False)),
                 allow_oversized=bool(item.get("allow_oversized", False)),
+                account_id=item.get("account_id") or None,
             )
             if isinstance(res, dict) and res.get("stop_queue"):
                 print(
@@ -905,6 +930,7 @@ def publish_job(
     schedule_hours: float | None = None,
     force: bool = False,
     allow_oversized: bool = False,
+    account_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Quy trình toàn diện: Sinh Metadata qua Aurora → Dựng Thumbnail 16:9 → Upload lên YouTube.
@@ -987,7 +1013,8 @@ def publish_job(
                 result = {"ok": False, "skipped": True, "reason": f"job currently being published by PID {owner_pid}"}
                 return result
 
-            result = _publish_job_internal(job_id, privacy=privacy, schedule_hours=schedule_hours, force=force)
+            result = _publish_job_internal(job_id, privacy=privacy, schedule_hours=schedule_hours, force=force,
+                                           account_id=account_id)
             return result
     finally:
         release_job_lock(lock_fd, lock_path)
@@ -1018,8 +1045,11 @@ def _publish_job_internal(
     privacy: str | None = None,
     schedule_hours: float | None = None,
     force: bool = False,
+    account_id: str | None = None,
 ) -> dict[str, Any]:
     cfg = load_config()
+    # 2026-11-21 (V6 đa kênh): kênh chọn khi đăng > kênh mặc định của V6 (services/yt_accounts) > account_id cấu hình cũ
+    account_id = account_id or _default_v6_account() or cfg.get("account_id", "default")
     if not force and not cfg.get("enabled", True):
         print(f"[auto-publish] Bỏ qua job {job_id} vì tính năng tự động upload đang tắt trong cấu hình.", flush=True)
         return {"ok": False, "skipped": True, "reason": "auto_publish disabled in config"}
@@ -1289,7 +1319,7 @@ def _publish_job_internal(
             thumb_path=thumb_path,
             privacy=privacy,
             publish_at=publish_at_iso,
-            account_id=cfg.get("account_id", "default"),
+            account_id=account_id,
             category_id=cfg.get("category_id", "24"),
         )
     except Exception as e_fatal:
@@ -1337,12 +1367,19 @@ def _publish_job_internal(
     yt_url = up_res["yt_url"]
     video_id = up_res["video_id"]
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # 2026-11-21: tên kênh thật đã đăng (trước ghi cứng «Sage Review»)
+    ch_title = str(account_id or "")
+    try:
+        from services import yt_accounts
+        ch_title = (yt_accounts.get(account_id) or {}).get("title") or ch_title
+    except Exception as e_ch:  # noqa: BLE001
+        print(f"[auto-publish] đọc tên kênh {account_id}: {e_ch}", flush=True)
 
     # 6. Cập nhật Database films.db
     with film_db._lock, film_db.connect() as con:
         con.execute(
             "UPDATE films SET yt_url = ?, status = 'uploaded', uploaded_at = ?, yt_channel = ?, updated_at = ? WHERE job_id = ?",
-            (yt_url, now_utc, "Sage Review", now_utc, job_id)
+            (yt_url, now_utc, ch_title, now_utc, job_id)
         )
         con.execute(
             "INSERT INTO events(ts, job_id, kind, detail) VALUES (?,?,?,?)",
@@ -1356,6 +1393,8 @@ def _publish_job_internal(
         m.data["yt_url"] = yt_url
         m.data["uploaded_at"] = now_utc
         m.data["upload_status"] = "uploaded"
+        m.data["yt_account"] = account_id
+        m.data["yt_channel"] = ch_title
         js.persist(m)
     except Exception:
         pass
@@ -1372,7 +1411,7 @@ def _publish_job_internal(
             "thumb": str(thumb_path) if thumb_path else "",
             "privacy": privacy,
             "publish_at": publish_at_iso,
-            "account": cfg.get("account_id", "default"),
+            "account": account_id,
         }
         with UPLOAD_HISTORY_FILE.open("a", encoding="utf-8") as hf:
             hf.write(json.dumps(hist_entry, ensure_ascii=False) + "\n")

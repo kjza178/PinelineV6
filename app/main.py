@@ -271,6 +271,46 @@ def _v6_router(inst: Instance) -> APIRouter:
             out["woke"] = translate_wake.on_ai_changed(out["changed"])
         return out
 
+    # ── Kênh YouTube đăng phim (nhiều kênh) — services/yt_accounts (2026-11-21) ──
+    @r.get(V6_PREFIX + "/yt/accounts")
+    def yt_accounts_get():
+        from services import yt_accounts
+        return yt_accounts.list_accounts()
+
+    @r.post(V6_PREFIX + "/yt/auth-url")
+    def yt_auth_url(req: Request):
+        from services import yt_accounts
+        host = req.headers.get("host") or f"127.0.0.1:{inst.port}"
+        try:
+            return yt_accounts.auth_url(f"http://{host}/test-channel/callback")
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @r.post(V6_PREFIX + "/yt/accounts/default")
+    def yt_set_default(body: dict):
+        from services import yt_accounts
+        try:
+            return yt_accounts.set_default(str((body or {}).get("id") or ""))
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @r.delete(V6_PREFIX + "/yt/accounts/{acc_id}")
+    def yt_remove(acc_id: str):
+        from services import yt_accounts
+        return yt_accounts.remove(acc_id)
+
+    @r.post(V6_PREFIX + "/yt/publish")
+    def yt_publish(body: dict):
+        """{job_ids, account_id, privacy, schedule_hours} → xếp hàng đăng (tuần tự) lên kênh đã chọn."""
+        from services import yt_publish
+        b = body if isinstance(body, dict) else {}
+        try:
+            return yt_publish.publish_many(b.get("job_ids") or [], account_id=b.get("account_id") or None,
+                                           privacy=b.get("privacy") or None, schedule_hours=b.get("schedule_hours"),
+                                           allow_oversized=bool(b.get("allow_oversized")))
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+
     # ── Tên phim tiếng Việt (2026-11-21) — logic ở services/title_vi ──
     @r.get(V6_PREFIX + "/titles")
     def titles_get():

@@ -375,3 +375,13 @@ td.mono{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all}
 .qp-n{width:26px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
 .qp-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qp-a{display:flex;gap:2px}
+
+/* Kênh YouTube đăng phim (2026-11-21) */
+.yt-acc{padding:12px 16px;margin-bottom:10px}
+.yt-acc .yt-head{display:flex;align-items:center;gap:10px}
+.yt-acc .yt-head .grow{flex:1}
+.yt-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.yt-ch{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2)}
+.yt-ch.def{border-color:var(--accent)}
+.yt-ch img,.yt-ch .yt-ph{width:28px;height:28px;border-radius:50%;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;background:var(--line);font-size:11px}
+.yt-ch .t{display:flex;flex-direction:column;line-height:1.2}

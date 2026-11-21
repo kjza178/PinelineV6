@@ -1507,7 +1507,7 @@ async function loadFilms() {
   const body = $("#films-rows");
   let d;
   try { d = await api("GET", "/films?" + q); } catch (e) {
-    body.innerHTML = `<tr><td colspan="7" class="note">Không đọc được thư viện: ${esc(e.message)}${/404/.test(e.message) ? " — instance này chưa bật router «films» (instances/*.json → routers)" : ""}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" class="note">Không đọc được thư viện: ${esc(e.message)}${/404/.test(e.message) ? " — instance này chưa bật router «films» (instances/*.json → routers)" : ""}</td></tr>`;
     return;
   }
   const st = d.stats || {}, gone = Number(st.work_missing) || 0;
@@ -1521,15 +1521,19 @@ async function loadFilms() {
     const canUp = !f.yt_url && f.status === "done" && f.work_exists !== 0;
     const [bt, bc] = f.yt_url ? (BLOCK_ST[f.block_status || "unknown"] || [f.block_status, ""]) : ["", ""];
     const block = bt ? `<span class="tag ${bc}" title="${esc(f.block_reason || "")}${f.checked_at ? ` · kiểm lúc ${esc(String(f.checked_at).slice(0, 16).replace("T", " "))}` : ""}">${esc(bt)}</span>` : "";
-    return `<tr data-id="${esc(f.job_id)}"><td title="${esc(f.job_id)}"><b style="font-weight:500">${esc(title)}</b></td><td><span class="b ${esc(f.status)}">${esc(FILM_ST[f.status] || f.status || "")}</span></td>`
-      + `<td>${esc(fmtDur(f.duration_sec))}</td><td>${esc(String(f.finished_at || "").slice(0, 16).replace("T", " "))}</td><td>${yt}</td><td>${block}</td>`
+    const ck = canUp ? `<input type="checkbox" class="fpick"${filmPicked.has(f.job_id) ? " checked" : ""} aria-label="Chọn để đăng">` : "";
+    return `<tr data-id="${esc(f.job_id)}"><td class="ck">${ck}</td><td title="${esc(f.job_id)}"><b style="font-weight:500">${esc(title)}</b></td><td><span class="b ${esc(f.status)}">${esc(FILM_ST[f.status] || f.status || "")}</span></td>`
+      + `<td>${esc(fmtDur(f.duration_sec))}</td><td>${esc(String(f.finished_at || "").slice(0, 16).replace("T", " "))}</td><td>${yt}</td><td class="mut small">${esc(f.yt_channel || "")}</td><td>${block}</td>`
       + `<td class="acts">${canUp ? `<button class="btn sm primary" data-film="upload">Đăng YouTube</button>` : ""}`
       + `${f.yt_url ? `<button class="btn sm ghost" data-film="check" title="Kiểm lại bản quyền video này trên YouTube">Kiểm</button>` : ""}`
       + `${jobs.has(f.job_id) ? `<button class="btn sm" data-film="open">Mở job</button>` : ""}`
       + `${f.work_exists === 0 ? `<span class="mut small" title="Thư mục job không còn trên ổ (đã xoá hoặc thuộc máy / instance khác)">mất thư mục</span>` : ""}`
       // chỉ dòng KHÔNG còn là job trong hàng (routes_films /films/delete còn gỡ job khỏi hàng chờ)
       + `${jobs.has(f.job_id) ? "" : `<button class="btn sm ghost" data-film="delete" title="Xoá dòng này khỏi thư viện (không xoá file trên ổ)">Xoá</button>`}</td></tr>`;
-  }).join("") : '<tr><td colspan="7" class="note">Không có phim nào khớp.</td></tr>';
+  }).join("") : '<tr><td colspan="9" class="note">Không có phim nào khớp.</td></tr>';
+  filmUploadable = rows.filter((f) => !f.yt_url && f.status === "done" && f.work_exists !== 0).map((f) => f.job_id);
+  for (const id of [...filmPicked]) if (!filmUploadable.includes(id)) filmPicked.delete(id);
+  paintPubSel();
 }
 const loadFilmsSoon = debounce(loadFilms, 300);
 
@@ -1570,20 +1574,82 @@ async function filmAction(btn) {
     if (!confirm(`Xoá «${tr.cells[0].textContent}» khỏi thư viện?\n\nChỉ xoá dòng trong thư viện, không xoá thư mục job / video trên ổ.`)) return;
     return act(btn, "Đã xoá khỏi thư viện", async () => { await api("POST", "/films/delete", { job_ids: [id], delete_work: false }); loadFilms(); });
   }
-  if (btn.dataset.film === "upload") {
-    const priv = $("#films-privacy"), label = priv.options[priv.selectedIndex].text;
-    const title = tr.cells[0].textContent;
-    if (!confirm(`Đăng «${title}» lên YouTube ở chế độ «${label}»?\n\nViệc này gửi video ra ngoài (kênh YouTube đã cấu hình), không tự rút lại được.`)) return;
-    return act(btn, "", async () => {
-      // chuẩn bị metadata + thumbnail rồi mới upload — có thể mất cả phút; nút nói rõ đang làm gì
-      btn.textContent = "Đang chuẩn bị đăng…";
-      say("Đang chuẩn bị metadata / thumbnail rồi đăng — có thể mất vài phút, đừng tắt app");
-      let r;
-      try { r = await api("POST", "/api/auto-publish/trigger", { job_id: id, privacy: priv.value, schedule_hours: Number($("#pub-sched").value) || 0 }); } finally { btn.textContent = "Đăng YouTube"; }
-      say(r.queued || r.enqueued ? "Đã xếp vào hàng đăng YouTube (đang có video khác đăng)" : (r.yt_url ? "Đã đăng: " + r.yt_url : "Đã gửi lệnh đăng YouTube"));
-      loadFilms();
+  if (btn.dataset.film === "upload") return publishFilms([id], btn);
+}
+
+// ───────────── Kênh YouTube đăng phim — nhiều kênh (services/yt_accounts, 2026-11-21) ─────────────
+let ytAcc = null, filmUploadable = [];
+const filmPicked = new Set();
+async function loadYtAcc() {
+  try { ytAcc = await api("GET", "/api/v6/yt/accounts"); } catch (e) { ytAcc = { accounts: [], error: e.message }; }
+  paintYtAcc();
+}
+function paintYtAcc() {
+  const box = $("#yt-acc"), sel = $("#pub-acc");
+  if (!box || !ytAcc) return;
+  const accs = ytAcc.accounts || [];
+  const cl = ytAcc.client || {};
+  box.innerHTML = `<div class="yt-head"><b>Kênh YouTube</b><span class="sub">${accs.length ? `${accs.length} kênh · ★ = kênh mặc định (tự đăng dùng kênh này)` : "Chưa có kênh — thêm kênh để đăng phim"}</span>
+      <span class="grow"></span><button type="button" class="btn sm primary" data-yt="add"${cl.ok === false ? " disabled" : ""}>+ Thêm kênh</button></div>
+    ${cl.ok === false ? `<p class="err small">${esc(cl.error || "Chưa có OAuth client Google")}</p>` : ""}
+    ${ytAcc.error ? `<p class="err small">${esc(ytAcc.error)}</p>` : ""}
+    <div class="yt-list">${accs.map((a) => `<div class="yt-ch${a.default ? " def" : ""}" data-acc="${esc(a.id)}">
+      ${a.thumb ? `<img src="${esc(a.thumb)}" alt="" referrerpolicy="no-referrer">` : '<span class="yt-ph">▶</span>'}
+      <span class="t"><b>${a.default ? "★ " : ""}${esc(a.title)}</b><span class="mut small">${a.token ? "đã đăng nhập" : "mất đăng nhập — thêm lại kênh"}</span></span>
+      ${a.default ? "" : '<button type="button" class="btn sm ghost" data-yt="default">Đặt mặc định</button>'}
+      <button type="button" class="btn sm ghost danger" data-yt="remove">Gỡ</button></div>`).join("")}</div>`;
+  if (sel) {
+    const cur = sel.value || ytAcc.default || "";
+    sel.innerHTML = accs.length ? accs.map((a) => `<option value="${esc(a.id)}"${a.id === cur ? " selected" : ""}>${esc(a.title)}${a.default ? " ★" : ""}</option>`).join("")
+      : '<option value="">(chưa có kênh)</option>';
+  }
+  paintPubSel();
+}
+function paintPubSel() {
+  const b = $("#pub-sel"); if (!b) return;
+  const n = filmPicked.size, has = (ytAcc?.accounts || []).length > 0;
+  b.disabled = !n || !has;
+  b.textContent = n ? `Đăng ${n} phim đã chọn` : "Đăng phim đã chọn";
+  const all = $("#films-all");
+  if (all) { all.checked = n > 0 && n === filmUploadable.length; all.indeterminate = n > 0 && n < filmUploadable.length; }
+}
+async function onYtAccClick(e) {
+  const b = e.target.closest("button[data-yt]"); if (!b) return;
+  const id = b.closest("[data-acc]")?.dataset.acc;
+  if (b.dataset.yt === "add") {
+    return act(b, "", async () => {
+      const r = await api("POST", "/api/v6/yt/auth-url", {});
+      if (!(await openExternal(r.auth_url))) { say("Không mở được trình duyệt — dán link này vào trình duyệt: " + r.auth_url, "err"); return; }
+      say("Đăng nhập Google ở trình duyệt, chọn đúng kênh → kênh tự hiện ở đây");
     });
   }
+  if (b.dataset.yt === "default") return act(b, "Đã đặt kênh mặc định", async () => { ytAcc = await api("POST", "/api/v6/yt/accounts/default", { id }); paintYtAcc(); });
+  if (b.dataset.yt === "remove") {
+    const a = (ytAcc.accounts || []).find((x) => x.id === id);
+    if (!confirm(`Gỡ kênh «${a?.title || id}» khỏi Pineline?\n\nChỉ xoá đăng nhập trên máy này; video đã đăng vẫn còn trên YouTube.`)) return;
+    return act(b, "Đã gỡ kênh", async () => { ytAcc = await api("DELETE", `/api/v6/yt/accounts/${encodeURIComponent(id)}`); paintYtAcc(); });
+  }
+}
+async function publishFilms(ids, btn) {
+  const acc = $("#pub-acc").value, accT = $("#pub-acc").selectedOptions[0]?.text || acc;
+  if (!acc) { say("Chưa có kênh YouTube — bấm «+ Thêm kênh» trước", "err"); return; }
+  const priv = $("#films-privacy"), label = priv.options[priv.selectedIndex].text;
+  const names = ids.map((id) => $(`#films-rows tr[data-id="${CSS.escape(id)}"]`)?.cells[1]?.textContent || id);
+  if (!confirm(`Đăng ${ids.length} phim lên kênh «${accT}» ở chế độ «${label}»?\n\n${names.slice(0, 8).join("\n")}${names.length > 8 ? "\n…" : ""}\n\nVideo được gửi lên YouTube, không tự rút lại được. Đăng lần lượt từng video.`)) return;
+  return act(btn, "", async () => {
+    let r = await api("POST", "/api/v6/yt/publish", { job_ids: ids, account_id: acc, privacy: priv.value, schedule_hours: Number($("#pub-sched").value) || 0 });
+    const big = (r.refused || []).filter((x) => x.warnings);
+    if (big.length && confirm(`${big.length} phim quá dài / nặng cho YouTube:\n${big.map((x) => x.job_id + ": " + (x.warnings || []).join("; ")).join("\n")}\n\nVẫn đăng?`)) {
+      const r2 = await api("POST", "/api/v6/yt/publish", { job_ids: big.map((x) => x.job_id), account_id: acc, privacy: priv.value,
+        schedule_hours: Number($("#pub-sched").value) || 0, allow_oversized: true });
+      r = { ...r, queued: [...(r.queued || []), ...(r2.queued || [])] };
+    }
+    const other = (r.refused || []).filter((x) => !x.warnings);
+    say(`Đã xếp ${(r.queued || []).length} phim vào hàng đăng lên «${r.channel || accT}» (đăng lần lượt)`
+      + (other.length ? ` · bỏ qua ${other.length}: ${other.map((x) => x.error).join("; ")}` : ""), other.length ? "err" : "");
+    ids.forEach((id) => filmPicked.delete(id));
+    loadFilms();
+  });
 }
 
 // ───────────── Phim chờ làm (services/disk_library: thư viện Hongguo 2 + ổ, tạo job, gộp tập) ─────────────
@@ -1983,6 +2049,11 @@ function connect() {
     say(`Đã đăng nhập kênh test${d.channel_title ? ": " + d.channel_title : ""}`);
     if ($("#dlg-test").open) testLoadAccounts();
   });
+  es.addEventListener("yt.accounts.changed", (e) => {      // đăng nhập kênh YouTube xong (callback Google)
+    const d = JSON.parse(e.data);
+    say(`Đã thêm kênh YouTube: ${d.title || d.id}`);
+    loadYtAcc();
+  });
   es.addEventListener("library.block", (e) => {             // kết quả test bản quyền (recheck nền ~5 phút)
     const d = JSON.parse(e.data), it = (disk?.items || []).find((x) => x.name === d.name);
     if (!it) return;
@@ -2103,7 +2174,7 @@ function showView(v) {
   curView = v;
   document.querySelectorAll(".nav-it").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
   document.querySelectorAll(".view").forEach((s) => { s.hidden = s.id !== "view-" + v; });
-  if (v === "films") { syncFilms(false).then(loadFilms); loadPubCfg(); }
+  if (v === "films") { syncFilms(false).then(loadFilms); loadPubCfg(); loadYtAcc(); }
   if (v === "disk") loadDisk();
   if (v === "settings") act(null, "", openSettings);
   if (v === "agent") $("#agent-msg").focus();
@@ -2154,6 +2225,21 @@ $("#films-hide-gone").addEventListener("change", loadFilms);
 $("#pub-skip").addEventListener("click", (e) => {
   if (!confirm("Bỏ qua video đang tải lên YouTube?")) return;
   act(e.currentTarget, "Đã bỏ qua video đang đăng", () => api("POST", "/api/uploader/skip-current"));
+});
+$("#yt-acc").addEventListener("click", onYtAccClick);
+$("#pub-acc").addEventListener("change", paintPubSel);
+$("#pub-sel").addEventListener("click", (e) => publishFilms([...filmPicked], e.currentTarget));
+$("#films-rows").addEventListener("change", (e) => {
+  if (!e.target.classList.contains("fpick")) return;
+  const id = e.target.closest("tr")?.dataset.id;
+  if (id) { if (e.target.checked) filmPicked.add(id); else filmPicked.delete(id); }
+  paintPubSel();
+});
+$("#films-all").addEventListener("change", (e) => {
+  filmPicked.clear();
+  if (e.target.checked) filmUploadable.forEach((id) => filmPicked.add(id));
+  document.querySelectorAll("#films-rows .fpick").forEach((c) => { c.checked = e.target.checked; });
+  paintPubSel();
 });
 $("#pub-scan").addEventListener("click", (e) => {
   const label = $("#films-privacy").options[$("#films-privacy").selectedIndex].text;

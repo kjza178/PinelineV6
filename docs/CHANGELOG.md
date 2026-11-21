@@ -1,6 +1,15 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- **Đăng YouTube V6 — nhiều kênh**: «Phim đã làm» có khung «Kênh YouTube» (+ Thêm kênh = đăng nhập Google trong app,
+  Đặt mặc định, Gỡ), chọn kênh khi đăng, tích nhiều phim → «Đăng N phim đã chọn» lên kênh đang chọn (đăng lần lượt,
+  bỏ phim đã đăng), cột «Kênh» cho biết phim đăng ở kênh nào. Kênh lưu `data/yt_accounts/` (gitignore; không cần thư
+  mục yt_uploader); OAuth client = `data/yt_accounts/client_secret.json` hoặc project «Kênh test», callback chung
+  `/test-channel/callback` (state `yt-…`). `auto_publisher`: `account_id` đi suốt hàng đăng → upload, kênh V6 ưu tiên
+  trước yt_uploader, ghi tên kênh thật (trước ghi cứng «Sage Review»). Tiêu đề/mô tả/tags: Aurora lỗi → AI dịch chính.
+  Route mỏng `/api/v6/yt/*` → `services/yt_accounts`, `services/yt_publish`.
+- **Lồng tiếng GPU hay CPU**: ghi `tts.device` (từ dòng «vieneu ready backend=… engine.device=…»), thẻ Lồng tiếng hiện
+  «chạy GPU/CPU»; `check_env` kiểm torch CUDA trong vieneu_env.
 - **Tên phim tiếng Việt**: Cài đặt → AI dịch → «Tên phim tiếng Việt» (bật = `TITLE_TRANSLATE=1`, cộng với cờ instance
   `title_translate`) + nút «Dịch tên các job hiện có». Dịch tên job + tên bộ bằng model «Soát & dịch» chính (vd DeepSeek)
   + chuỗi dự phòng (trước: `TRANSLATE_MODEL` = llama local → máy không chạy llama thì không dịch được). Model local mới

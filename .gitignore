@@ -39,6 +39,7 @@ pineline.config.json
 token*.json
 client_secret*.json
 data/test_channel/
+data/yt_accounts/
 cookies/
 cookies*.txt
 .env

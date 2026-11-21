@@ -1270,6 +1270,28 @@ def get_job_reference_images(job_id: str = "", poster_name: str = "") -> list[by
 
 
 def _call_chatgpt(messages: list[dict], model: str = "gpt-5-6") -> str:
+    """Viết tiêu đề / mô tả / tags: Aurora trước; Aurora không chạy / lỗi → AI dịch chính (vd DeepSeek) + dự phòng.
+    2026-11-21: máy không có Aurora trước rơi về model mặc định (llama local, thường không chạy) → metadata kiểu mẫu."""
+    try:
+        return _call_aurora(messages, model=model)
+    except Exception as e_aur:  # noqa: BLE001
+        print(f"[meta] Aurora lỗi ({type(e_aur).__name__}: {str(e_aur)[:120]}) → dùng AI dịch chính", flush=True)
+        from engines.llm import chat
+        from engines.translate_simple import cfg as _tc
+        main = _tc.review_model(None)
+        last: Exception = e_aur
+        for m in [main] + [x for x in _tc.fallback_models(main) if x != main]:
+            if not m:
+                continue
+            try:
+                return chat(messages, model=m, temperature=0.6, max_tokens=3500)
+            except Exception as e_m:  # noqa: BLE001
+                last = e_m
+                print(f"[meta] model {m} lỗi: {type(e_m).__name__}: {str(e_m)[:120]}", flush=True)
+        raise last
+
+
+def _call_aurora(messages: list[dict], model: str = "gpt-5-6") -> str:
     """Gọi LLM qua Aurora / Chat2Api chạy trên Raspberry Pi 5.
     Ưu tiên model mới nhất (gpt-5-6 Luna / auto GPT-6) và tự động fallback.
     """

@@ -297,12 +297,33 @@ def tc_auth_url(req: Request, redirect_uri: Optional[str] = Query(None), project
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
+def _yt_account_callback(code: str, state: str, redirect_uri: str):
+    from services import yt_accounts
+    try:
+        acc = yt_accounts.finish(code, state, redirect_uri)["account"]
+    except Exception as e:  # noqa: BLE001
+        print(f"[yt-accounts] đăng nhập kênh lỗi: {e}", flush=True)
+        return HTMLResponse(f"<meta charset='utf-8'><h3>Không thêm được kênh: {e}</h3>", status_code=500)
+    try:
+        from events.bus import bus
+        bus.publish("yt.accounts.changed", {"id": acc["id"], "title": acc["title"]})
+    except Exception as e_pub:  # noqa: BLE001
+        print(f"[yt-accounts] publish lỗi: {e_pub}", flush=True)
+    import html as _h
+    return HTMLResponse(f"""<html><head><meta charset="utf-8"></head><body style="background:#0f172a;color:#f8fafc;
+        font-family:sans-serif;padding:40px;text-align:center"><h2 style="color:#22c55e">Đã thêm kênh đăng phim</h2>
+        <p><b>{_h.escape(acc['title'])}</b></p><p style="color:#94a3b8">Đóng trang này — Pineline tự cập nhật.</p>
+        <script>setTimeout(function(){{ window.close(); }}, 3000);</script></body></html>""")
+
+
 @router.get("/test-channel/callback")
 def tc_callback(req: Request, code: str = Query(""), state: str = Query("")):
     host = req.headers.get("host") or _host_fallback()
     redirect_uri = f"http://{host}/test-channel/callback"
     if not code:
         return HTMLResponse("<h3>⚠️ Không tìm thấy authorization code từ Google.</h3>", status_code=400)
+    if state.startswith("yt-"):          # 2026-11-21: đăng nhập kênh ĐĂNG phim (services/yt_accounts)
+        return _yt_account_callback(code, state, redirect_uri)
     try:
         res = test_channel.finish_oauth(code, redirect_uri, project_id=state)
         ch_name = res.get("channel_title") or "Kênh Test"
