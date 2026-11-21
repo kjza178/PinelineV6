@@ -311,6 +311,7 @@ function stageFacts(s, st) {
     if (seg !== null) out.push(`${seg.toLocaleString("vi-VN")} câu`);
     if (n(st.n_missing)) out.push(`thiếu ${n(st.n_missing)}`);
   } else if (s === "tts") {
+    if (st.device && st.device.label) out.push(`chạy ${st.device.label}`);
     if (seg !== null) out.push(`${seg.toLocaleString("vi-VN")} câu`);
     if (n(st.n_missing)) out.push(`thiếu tiếng ${n(st.n_missing)} câu`);
   }

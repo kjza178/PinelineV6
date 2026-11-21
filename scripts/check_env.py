@@ -179,6 +179,26 @@ def _models_using(m, prefixes: tuple[str, ...]) -> list[str]:
     return out
 
 
+def _tts_gpu_row(py: Path) -> None:
+    """2026-11-21: lồng tiếng (VieNeu) chạy GPU hay CPU = torch trong vieneu_env có CUDA không."""
+    if not py.is_file():
+        return
+    import subprocess
+    code = "import torch;print(torch.__version__, torch.cuda.is_available())"
+    try:
+        r = subprocess.run([str(py), "-c", code], capture_output=True, text=True, timeout=180)
+        out = (r.stdout or r.stderr or "").strip().splitlines()[-1:] or [""]
+        line = out[0]
+    except Exception as e:  # noqa: BLE001
+        row("Lồng tiếng GPU (vieneu_env)", WARN, f"không chạy được {py.name}: {e}")
+        return
+    if line.endswith("True"):
+        row("Lồng tiếng GPU (vieneu_env)", OK, f"torch {line} — lồng tiếng chạy GPU")
+    else:
+        row("Lồng tiếng GPU (vieneu_env)", WARN, f"torch {line or '?'} — lồng tiếng sẽ chạy CPU (rất chậm)",
+            f'"{py}" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128')
+
+
 def check_llm(m, offline: bool) -> None:
     """2026-11-21: chỉ còn 3 loại AI — nhà cung cấp API, Aurora, AI trên máy (llama-server). LLM_BASE_URL bỏ."""
     lb = m.llama_base_url()
@@ -292,6 +312,7 @@ def check_dirs(m) -> None:
     vp = m.setting("VIENEU_PY", "")
     if vp:
         _dir_row("VIENEU_PY", Path(vp), MISS, "python install.py --gpu (tạo vieneu_env) hoặc sửa VIENEU_PY")
+        _tts_gpu_row(Path(vp))
     else:
         row("VIENEU_PY", OPT, "chưa đặt — dùng ../vieneu_env", "python install.py --gpu")
     hf = m.setting("HF_HOME", "")

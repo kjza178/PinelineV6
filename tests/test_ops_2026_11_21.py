@@ -272,3 +272,11 @@ def test_resume_refused_when_stage_really_running(srv, tmp_path, monkeypatch):
         assert routes_agent._agent_resume("h2")["ok"] is False
     finally:
         srv._STAGE_BUSY.discard(("h2", "tts"))
+
+
+def test_tts_device_parsed_from_worker_line():
+    from engines.clone_tts import tts_device_from_line
+    g = tts_device_from_line("vieneu ready backend=pytorch engine.device=cuda")
+    assert g["gpu"] is True and g["label"] == "GPU (pytorch)"
+    c = tts_device_from_line("vieneu ready backend=onnx engine.device=cpu")
+    assert c["gpu"] is False and c["label"].startswith("CPU")

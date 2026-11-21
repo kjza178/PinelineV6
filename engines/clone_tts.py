@@ -53,6 +53,18 @@ HF_HOME = _cfg.HF_HOME
 VOICES_FILE = _PROJ / "voices" / "f5_voices.json"
 
 
+def tts_device_from_line(line: str) -> dict:
+    """«vieneu ready backend=pytorch engine.device=cuda» → {backend, device, gpu, label}."""
+    import re as _r
+    b = _r.search(r"backend=(\S+)", line or "")
+    d = _r.search(r"engine\.device=(\S+)", line or "")
+    backend = b.group(1) if b else ""
+    device = d.group(1) if d else ""
+    gpu = "cuda" in device.lower() and backend.lower() in ("pytorch", "torch", "")
+    return {"backend": backend, "device": device, "gpu": gpu,
+            "label": ("GPU" if gpu else "CPU") + (f" ({backend})" if backend else "")}
+
+
 def resolve_engine_python(engine: str) -> str:
     """Tìm python.exe của engine. Config sai path (thường sau install) -> thử chỗ mặc định."""
     if engine not in ENGINE_CFG:
@@ -573,12 +585,15 @@ def run_clone_tts(work_dir: str | Path, engine: str, voice: str, speed: float = 
         if not todo:
             return _finalize(m, segments, done, tts_path, out_dir, engine, voice, speed, keys=stamp)
 
+        dev_info: dict = {}
+
         def _on_prog(cur: int, phase: str | None = None) -> None:
             # cur<0 = heartbeat load model (giữ n_done)
             if cur < 0:
                 ph=(phase or "loading").strip().lower()
                 if ph.startswith("vieneu") or ph=="ready":
-                    label=f"{engine} ready"
+                    dev_info.update(tts_device_from_line(phase or ""))
+                    label = f"{engine} ready · {dev_info.get('label') or '?'}"
                 elif ph.startswith("enroll"):
                     label=f"{engine} enroll"
                 elif ph.startswith("cpu"):
@@ -596,6 +611,8 @@ def run_clone_tts(work_dir: str | Path, engine: str, voice: str, speed: float = 
         _prog(m, len(pre_done), total_target, engine, f"{engine} spawn worker",
               voice=voice, speed=speed)
         _run_worker(engine, ref, ref_text, out_dir, speed, todo, on_prog=_on_prog)
+        if dev_info:      # 2026-11-21: lồng tiếng chạy GPU hay CPU → ghi lên job (UI thẻ Lồng tiếng)
+            m.data.setdefault("stages", {}).setdefault(STAGE, {})["device"] = dict(dev_info)
 
         print(f"[tts] worker DONE — đóng gói + recheck {len(todo)} wav...",
               flush=True)
@@ -785,8 +802,9 @@ def _run_worker(engine: str, ref: Path, ref_text: str, out_dir: Path, speed: flo
                 # Đẩy trạng thái load lên UI (tránh kẹt chữ starting)
                 if on_prog and s.startswith(("loading", "enroll", "vieneu ready", "cpu_threads")):
                     try:
-                        # truyền phase thật (không gộp hết thành loading/enroll)
-                        on_prog(-1, s.split()[0] if s else "loading")
+                        # truyền phase thật (không gộp hết thành loading/enroll); «vieneu ready …» giữ cả dòng
+                        # (backend + engine.device) để ghi GPU/CPU lên job (2026-11-21)
+                        on_prog(-1, s if s.startswith("vieneu ready") else (s.split()[0] if s else "loading"))
                     except TypeError:
                         try:
                             on_prog(-1)
