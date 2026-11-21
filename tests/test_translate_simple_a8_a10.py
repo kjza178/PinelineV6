@@ -172,12 +172,17 @@ def test_parallel_lots_actually_run_concurrently(tmp_path, env, monkeypatch):
     live = {"now": 0, "max": 0}
     lk = threading.Lock()
     base = FakeChat()
+    four = threading.Event()
 
     def chat(messages, model=None, **kw):
         with lk:
             live["now"] += 1
             live["max"] = max(live["max"], live["now"])
-        threading.Event().wait(0.05)          # time.sleep bị fixture thay bằng no-op
+            if live["now"] >= 4:
+                four.set()
+        # 2026-11-21: chờ tới khi ≥4 lô cùng chạy (trần 2 s) thay vì ngủ cố định 50 ms — runner Windows chậm khởi động
+        # luồng làm lô đầu xong trước khi lô thứ 4 bắt đầu (flaky). Tuần tự thật → không bao giờ đạt 4 → test vẫn hỏng.
+        four.wait(2.0)                        # time.sleep bị fixture thay bằng no-op
         try:
             return base(messages, model=model)
         finally:
