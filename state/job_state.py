@@ -39,6 +39,10 @@ def _now() -> float:
 
 def _update(wd: Path | str, fn: Callable[[dict], Any]) -> dict:
     wd = Path(wd)
+    # 2026-11-21: không có manifest.json → KHÔNG lấy khoá (khoá liên tiến trình tạo thư mục + manifest.json.lock) —
+    # trước: gọi nhầm với job_id trần (đường dẫn tương đối) đẻ thư mục rác <job_id>/manifest.json.lock ở thư mục gốc repo.
+    if not (wd / "manifest.json").is_file():
+        raise StateError(f"không có manifest: {wd}")
     m = Manifest(wd)
     declined = []
 

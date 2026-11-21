@@ -351,6 +351,54 @@ def set_phase_hook(fn: Callable[[str, str], None] | None) -> None:
     _phase_hook = fn
 
 
+STUCK_SEC = float(os.getenv("QUEUE_STUCK_SEC") or 60)
+_watch: dict = {"thread": None, "dumped": None}
+
+
+def _dump_stuck_stacks(job_id: str, text: str, age: float) -> None:
+    """In ngăn xếp (stack) của các luồng liên quan khi job đứng 1 bước quá lâu → biết KẸT Ở DÒNG NÀO."""
+    import traceback
+    frames = sys._current_frames()
+    names = {t.ident: t.name for t in threading.enumerate()}
+    out = [f"[queue-watchdog] job {job_id} đứng ở «{text}» {int(age)} s — ngăn xếp các luồng:"]
+    for tid, fr in frames.items():
+        name = names.get(tid, "?")
+        if name == "queue-watchdog":
+            continue
+        top = traceback.extract_stack(fr)[-1] if fr else None
+        # luồng đang ngủ chờ việc (pool rảnh, SSE chờ event…) → bỏ cho gọn; luồng KHOÁ (acquire) vẫn in
+        if top and top.name in ("wait", "_worker", "select", "get") and name != "pineline-job-queue":
+            continue
+        out.append(f"--- luồng {name} ---")
+        out.extend(x.rstrip() for x in traceback.format_stack(fr)[-12:])
+    print("\n".join(out), flush=True)
+
+
+def _watchdog_loop() -> None:
+    while True:
+        time.sleep(15)
+        try:
+            job, text, ts = _phase.get("job"), _phase.get("text") or "", float(_phase.get("ts") or 0)
+            if not job or job != _current or not ts or text.startswith("giữ ghế"):
+                continue
+            age = time.time() - ts
+            key = (job, text, ts)
+            if age >= STUCK_SEC and _watch["dumped"] != key:
+                _watch["dumped"] = key
+                _dump_stuck_stacks(job, text, age)
+        except Exception as e:  # noqa: BLE001
+            print(f"[queue-watchdog] lỗi: {e}", flush=True)
+
+
+def _ensure_watchdog() -> None:
+    t = _watch.get("thread")
+    if t is not None and t.is_alive():
+        return
+    t = threading.Thread(target=_watchdog_loop, name="queue-watchdog", daemon=True)
+    _watch["thread"] = t
+    t.start()
+
+
 def set_phase(job_id: str | None, text: str) -> None:
     """Ghi «đang làm gì» của job hiện tại (nhẹ, trong bộ nhớ) + báo UI qua hook. Không ném lỗi."""
     text = str(text or "")[:200]
@@ -359,6 +407,8 @@ def set_phase(job_id: str | None, text: str) -> None:
     _phase.update(job=job_id, text=text, ts=time.time())
     if text:
         print(f"[queue] {job_id}: {text}", flush=True)
+        if "pytest" not in sys.modules:
+            _ensure_watchdog()
     fn = _phase_hook
     if fn is not None:
         try:

@@ -114,3 +114,10 @@ def test_no_duplicate_top_level_defs_in_server():
                 dup.append(n.name)
             seen.add(n.name)
     assert not dup, f"hàm trùng tên (bản sau che bản trước): {dup}"
+
+
+def test_state_write_without_manifest_creates_nothing(tmp_path, monkeypatch):
+    from state import job_state as js
+    monkeypatch.chdir(tmp_path)
+    assert js.try_mutate("ghost_job", lambda d: d.update(x=1)) is False
+    assert not (tmp_path / "ghost_job").exists()

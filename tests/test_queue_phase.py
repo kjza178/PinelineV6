@@ -57,3 +57,16 @@ def test_read_job_keeps_real_translate_reason_when_pending(tmp_path, monkeypatch
     server._job_cache.pop(str(wd), None)
     st = server.read_job(wd)["stages"]["translate"]
     assert st["cur_text"] == "soát dở — còn 12 câu chưa rv"
+
+
+def test_watchdog_dumps_stuck_worker_stack(monkeypatch, capsys):
+    import threading
+    gate = threading.Event()
+    t = threading.Thread(target=lambda: gate.wait(5), name="pineline-job-queue", daemon=True)
+    t.start()
+    try:
+        jq._dump_stuck_stacks("x", "chuẩn bị", 75)
+        out = capsys.readouterr().out
+        assert "[queue-watchdog] job x đứng ở «chuẩn bị» 75 s" in out and "--- luồng pineline-job-queue ---" in out
+    finally:
+        gate.set()

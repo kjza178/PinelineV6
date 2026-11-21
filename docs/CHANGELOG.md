@@ -1,6 +1,10 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- **Watchdog hàng chờ**: job đứng 1 bước > 60 s (`QUEUE_STUCK_SEC`) → in ngăn xếp các luồng (`[queue-watchdog]`) ra
+  console = biết kẹt ở dòng nào (không áp cho lúc giữ ghế chờ thử lại / chờ người).
+- Ghi trạng thái job khi không có manifest.json → báo lỗi, KHÔNG lấy khoá (trước: đẻ thư mục rác
+  `<job_id>/manifest.json.lock` ở thư mục gốc repo khi gọi nhầm bằng job_id — vd `f86f71e388f2_p0x`, `jobA`).
 - **Sửa lỗi nghiêm trọng (do bản 2026-11-20 gây ra): «Chạy» không gỡ cờ Dừng cũ.** Hàm ghi lý do dừng mới đặt TRÙNG tên
   `_clear_stop` với hàm xoá cờ Dừng (`.stop` + `_STOP_JOBS`) → che mất hàm đó; job từng bấm «Dừng» thì mọi lần «Chạy» /
   «Chạy bước này» sau đó dịch dừng ngay sau plan («simple · đã dừng theo yêu cầu»). Đổi tên `_clear_last_stop` + test
