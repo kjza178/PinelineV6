@@ -4,7 +4,7 @@ agent_core.py — AI Agent nhúng trong Pineline V2.
 Không gọi HTTP self. Tools gọi runtime đã bind từ server.py
 (list jobs, queue, manifest, draft YT).
 
-LLM Agent: AGENT_BASE_URL / AGENT_API_KEY / AGENT_MODEL (fallback LLM_*).
+LLM Agent: AGENT_MODEL (+ AGENT_FALLBACK_MODEL) — nhà cung cấp / Aurora / AI trên máy (2026-11-21: bỏ AGENT_BASE_URL).
 Job translate vẫn dùng LLM_* local riêng.
 """
 from __future__ import annotations
@@ -1825,12 +1825,13 @@ def _chat_turn_model(
     # engines.llm.chat (đúng đường Aurora / Ollama) bằng giao thức JSON {tool,args} | {final} (không cần native tools).
     if _routed_via_llm(model):
         return _chat_turn_text_protocol(messages, model, via_llm=True)
-    base, key, _ = _llm_cfg()
-    # 2026-11-20: model AI trên máy (local / llama / llama/<tên> / auto) → đúng địa chỉ llama-server ở Cài đặt → AI trên máy
-    # (LLAMA_BASE_URL). Trước dùng AGENT_BASE_URL / LLM_BASE_URL (config cũ trỏ 9router LAN / cổng khác) → không tới llama.
-    if _is_llama_model(model) and not str(_agent_base_explicit() or "").strip():
-        from core import machine as _machine
-        base, key = _machine.llama_base_url(), "sk-local"
+    # 2026-11-21: còn lại = AI trên máy (local / llama / llama/<tên> / tên model đang nạp) → llama-server ở Cài đặt →
+    # AI trên máy (LLAMA_BASE_URL). AGENT_BASE_URL / LLM_BASE_URL không còn đọc (config cũ trỏ :3377 Aurora / 9router).
+    if _looks_cloud_router(model):
+        raise RuntimeError(f"Model «{model}» là model router cloud (9router) — V6 không dùng. Chọn nhà cung cấp "
+                           "(deepseek/…, alibaba/…), Aurora (chatgpt/…) hoặc AI trên máy (local) trong Cài đặt → AI.")
+    from core import machine as _machine
+    base, key = _machine.llama_base_url(), "sk-local"
     url = f"{base}/chat/completions"
     from engines.llm import _thinking
     enable_think = _thinking()
@@ -1867,10 +1868,9 @@ def _is_llama_model(model: str | None) -> bool:
     return m in ("local", "llama", "auto", "default") or m.startswith("llama/")
 
 
-def _agent_base_explicit() -> str:
-    """AGENT_BASE_URL người dùng đặt riêng cho Agent (khác LLM_BASE_URL chung) — có thì tôn trọng."""
-    import core.config as _cfg
-    return _cfg.get("AGENT_BASE_URL") or ""
+def _looks_cloud_router(model: str | None) -> bool:
+    m = (model or "").strip().lower()
+    return m.startswith("ollama/") or "-cloud" in m or m.endswith(":cloud")
 
 
 def _routed_via_llm(model: str | None) -> bool:

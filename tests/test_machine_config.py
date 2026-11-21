@@ -58,7 +58,7 @@ def test_lan_urls_skipped_unless_allowed(cfg):
     assert machine.cloud_llm_base_url() == ""
     cfg["ALLOW_LAN_LLM"] = "1"
     assert "http://192.168.31.247:5005/v1" in machine.aurora_base_urls()
-    assert machine.cloud_llm_base_url() == "http://192.168.31.247:20128/v1"
+    assert machine.cloud_llm_base_url() == ""          # 2026-11-21: 9router bỏ hoàn toàn (kể cả ALLOW_LAN_LLM=1)
 
 
 def test_llm_settings_lan_base_falls_back_local(monkeypatch):
@@ -69,7 +69,7 @@ def test_llm_settings_lan_base_falls_back_local(monkeypatch):
     assert C.llm_settings()["base"] == "http://127.0.0.1:8083/v1"
     assert C.agent_llm()["base"] == "http://127.0.0.1:8083/v1"
     data["ALLOW_LAN_LLM"] = "1"
-    assert C.llm_settings()["base"] == "http://192.168.31.247:20128/v1"
+    assert C.llm_settings()["base"] == "http://127.0.0.1:8083/v1"     # 2026-11-21: LLM_BASE_URL không còn đọc
 
 
 def test_in_library_matches_old_rule(cfg):
@@ -80,9 +80,11 @@ def test_in_library_matches_old_rule(cfg):
     assert machine.in_library("F:/Kho/x.mp4") and not machine.in_library(r"D:\Lib\x.mp4")
 
 
-# ── llama host/port suy từ LLM_BASE_URL ─────────────────────────────────────
-def test_llama_from_local_llm_base_url(cfg):
+# ── llama host/port: chỉ LLAMA_BASE_URL (2026-11-21: LLM_BASE_URL bỏ) ───────────────
+def test_llama_from_llama_base_url_only(cfg):
     cfg["LLM_BASE_URL"] = "http://localhost:9090/v1"
+    assert machine.llama_base_url() == "http://127.0.0.1:8083/v1"
+    cfg["LLAMA_BASE_URL"] = "http://localhost:9090/v1"
     assert machine.llama_base_url() == "http://localhost:9090/v1"
     assert machine.llama_host_port() == ("localhost", 9090)
 
@@ -96,7 +98,7 @@ def test_llama_ignores_remote_llm_base_url(cfg):
 def test_llama_base_url_explicit_wins_and_adds_v1(cfg):
     cfg["LLM_BASE_URL"] = "http://127.0.0.1:9090/v1"
     cfg["LLAMA_BASE_URL"] = "http://10.0.0.5:8183"
-    assert machine.llama_base_url() == "http://127.0.0.1:9090/v1"        # 2026-11-19: LAN bỏ → LLM_BASE_URL local
+    assert machine.llama_base_url() == "http://127.0.0.1:8083/v1"        # LAN bỏ → mặc định (LLM_BASE_URL không đọc)
     cfg["LLAMA_BASE_URL"] = "http://localhost:8183"
     assert machine.llama_base_url() == "http://localhost:8183/v1"
     cfg["ALLOW_LAN_LLM"] = "1"
@@ -152,7 +154,7 @@ def ps(monkeypatch, cfg):
 
 
 def test_preset_switcher_base_from_config(ps, cfg):
-    cfg["LLM_BASE_URL"] = "http://127.0.0.1:9191/v1"
+    cfg["LLAMA_BASE_URL"] = "http://127.0.0.1:9191/v1"
     assert ps._base() == "http://127.0.0.1:9191"
 
 

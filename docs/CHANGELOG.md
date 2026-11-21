@@ -1,6 +1,11 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- **Chỉ còn 3 loại AI: nhà cung cấp API (deepseek/…, alibaba/…), Aurora (chatgpt/…), AI trên máy (local)**. Bỏ hoàn
+  toàn router 9router / LAN: `LLM_BASE_URL`, `AGENT_BASE_URL`, `CLOUD_LLM_*` KHÔNG còn được đọc; model `ollama/…-cloud`
+  báo đổi model; `LLM_MODEL` kiểu 9router → «local». Sửa lỗi Trợ lý AI «local» gọi nhầm `127.0.0.1:3377` (config cũ
+  `AGENT_BASE_URL` trỏ cổng Aurora) → nay luôn tới llama-server (`LLAMA_BASE_URL`, Cài đặt → AI → AI trên máy).
+  `check_env` báo khoá thừa còn trong pineline.config.json.
 - **Bấm «Chạy» là chạy thật**: gỡ dấu tạm dừng HỆ THỐNG tự đặt trên job (chờ thử lại soát, soát lỗi 3 lượt
   `review_failed`, chờ part) + bộ đếm lượt thử — trước: dấu cũ còn → dịch xong lại dừng / nhảy thẳng review_failed.
   HOLD QA / người đặt vẫn giữ (nút «Chạy tiếp»). Hàng chờ đang tạm dừng (nhiều job lỗi liên tiếp, giữ qua restart) →

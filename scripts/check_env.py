@@ -169,7 +169,7 @@ def check_config_files() -> None:
 
 
 def _models_using(m, prefixes: tuple[str, ...]) -> list[str]:
-    keys = ("LLM_MODEL", "TRANSLATE_MODEL", "REVIEW_MODEL", "REVIEW_PASS1_MODEL", "PLAN_MODEL",
+    keys = ("TRANSLATE_MODEL", "REVIEW_MODEL", "REVIEW_PASS1_MODEL", "PLAN_MODEL",
             "AURORA_REVIEW_MODEL", "AGENT_MODEL", "NAME_MODEL", "PRONOUN_MODEL")
     out = []
     for k in keys:
@@ -180,25 +180,17 @@ def _models_using(m, prefixes: tuple[str, ...]) -> list[str]:
 
 
 def check_llm(m, offline: bool) -> None:
-    raw = m.setting("LLM_BASE_URL").rstrip("/")
-    base = m.no_lan("LLM_BASE_URL", raw, "http://127.0.0.1:8083/v1").rstrip("/")
-    if base != raw:
-        row("LLM_BASE_URL (LAN)", WARN, f"{raw} bị bỏ qua (địa chỉ LAN) → dùng {base}",
-            "Xoá/đổi LLM_BASE_URL trong pineline.config.json (hoặc ALLOW_LAN_LLM=1 nếu thật sự muốn)")
-    if offline:
-        row("LLM_BASE_URL", SKIP, f"{base} (offline)", "")
-    else:
-        ok, d = _http_get(base + "/models")
-        row("LLM_BASE_URL", OK if ok else MISS, f"{base} → {d}",
-            "" if ok else "Bật llama-server/LLM, hoặc sửa LLM_BASE_URL (+LLM_API_KEY, LLM_MODEL) trong pineline.config.json")
+    """2026-11-21: chỉ còn 3 loại AI — nhà cung cấp API, Aurora, AI trên máy (llama-server). LLM_BASE_URL bỏ."""
     lb = m.llama_base_url()
-    if lb.rstrip("/") != base:
-        if offline:
-            row("llama-server (LLAMA_BASE_URL)", SKIP, f"{lb} (offline)")
-        else:
-            ok, d = _http_get(m.llama_root_url() + "/health")
-            row("llama-server (LLAMA_BASE_URL)", OK if ok else OPT, f"{lb} → {d}",
-                "" if ok else "Chỉ cần khi dùng model 'local'/'llama/...'/TRANSLATE_PRESET. Sửa LLAMA_BASE_URL nếu llama chạy cổng khác")
+    if m.setting("LLM_BASE_URL", "") or m.setting("AGENT_BASE_URL", ""):
+        row("LLM_BASE_URL / AGENT_BASE_URL", WARN, "còn trong pineline.config.json nhưng V6 không đọc nữa",
+            "Có thể xoá 2 khoá này (và CLOUD_LLM_*) khỏi pineline.config.json")
+    if offline:
+        row("AI trên máy (LLAMA_BASE_URL)", SKIP, f"{lb} (offline)")
+    else:
+        ok, d = _http_get(m.llama_root_url() + "/health")
+        row("AI trên máy (LLAMA_BASE_URL)", OK if ok else OPT, f"{lb} → {d}",
+            "" if ok else "Chỉ cần khi dùng model 'local'. Sửa ở Cài đặt → AI → AI trên máy nếu llama chạy cổng khác")
     why = m.preset_switch_unavailable_reason()
     if not why:
         row("Đổi preset llama", OK, " ".join(m.model_start_cmd("<preset>"))[:110])
@@ -228,22 +220,11 @@ def check_aurora(m, offline: bool) -> None:
 
 
 def check_cloud(m, offline: bool) -> None:
+    """Model ollama/…-cloud (9router) — V6 bỏ hoàn toàn (2026-11-21): còn key nào dùng thì báo đổi."""
     used = _models_using(m, ("ollama/",))
-    if not used:
-        return
-    b = m.cloud_llm_base_url()
-    if not b:       # V6 bỏ 9router (2026-11-15) + chặn LAN (2026-11-17): model ollama/…-cloud không còn chạy được
+    if used:
         row("9router/cloud LLM", MISS, f"V6 không dùng 9router — dùng bởi {', '.join(used)}",
-            "Đổi các key trên sang deepseek/… (Cài đặt AI → Lấy danh sách model) hoặc 'local'")
-        return
-    has_key = bool(m.setting("CLOUD_LLM_API_KEY", "") or "20128" in m.setting("LLM_BASE_URL", ""))
-    if offline:
-        row("9router/cloud LLM", WARN if not has_key else SKIP, f"{b} (offline) — dùng bởi {', '.join(used)}",
-            "" if has_key else "Thiếu CLOUD_LLM_API_KEY")
-        return
-    ok, d = _http_get(b + "/models")
-    row("9router/cloud LLM", OK if ok else MISS, f"{b} → {d}; dùng bởi {', '.join(used)}",
-        "" if ok else "Sửa CLOUD_LLM_BASE_URL/CLOUD_LLM_API_KEY hoặc đổi các model ollama/...-cloud")
+            "Đổi các key trên sang deepseek/…, alibaba/…, chatgpt/… hoặc 'local' (Cài đặt → AI)")
 
 
 def check_hongguo(m, offline: bool) -> None:

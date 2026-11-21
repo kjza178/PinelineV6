@@ -42,10 +42,9 @@ try:
 except Exception:  # noqa: BLE001
     pass
 
-BASE_URL = _machine.no_lan("LLM_BASE_URL", os.getenv("LLM_BASE_URL", "http://127.0.0.1:8083/v1").rstrip("/"),
-                           "http://127.0.0.1:8083/v1")   # V6: mặc định llama local; LAN → bỏ
-API_KEY = os.getenv("LLM_API_KEY", "")
-MODEL = os.getenv("LLM_MODEL", "ollama/gemma4:31b-cloud")
+BASE_URL = "http://127.0.0.1:8083/v1"   # 2026-11-21: chỉ còn AI trên máy (LLAMA_BASE_URL); LLM_BASE_URL (9router) bỏ
+API_KEY = "sk-local"
+MODEL = "local"
 
 # LLM LOCAL:
 # 1. Ollama :11434 (tiền tố "local/")
@@ -701,20 +700,15 @@ def chat(
     is_llama = False
     is_cloud = False
 
-    # ollama/*-cloud (vd gemma4:31b-cloud) → router cloud (9router — V6 KHÔNG còn dùng mặc định). Chỉ chạy khi
-    # cấu hình CLOUD_LLM_BASE_URL + CLOUD_LLM_API_KEY rõ ràng; không thì báo đổi model (không đoán địa chỉ LAN).
+    # 2026-11-21: ollama/*-cloud (9router) bỏ hoàn toàn — chỉ còn nhà cung cấp / Aurora / AI trên máy.
     ml = m.lower()
     if ml.startswith("ollama/") or "-cloud" in ml or ml.endswith(":cloud"):
-        is_cloud = True
-        cloud_base = _machine.no_lan("CLOUD_LLM_BASE_URL", (_cfg_get("CLOUD_LLM_BASE_URL") or "").strip().rstrip("/"))
-        cloud_key = (_cfg_get("CLOUD_LLM_API_KEY") or "").strip()
-        if not cloud_base or not cloud_key or cloud_key == "sk-local":
-            raise LLMUnavailable(
-                f"Model «{m}» cần router cloud (9router) — V6 không dùng nữa. Đổi sang deepseek/…, "
-                "alibaba/… (tên lấy bằng «Lấy danh sách model»), chatgpt/… (Aurora) hoặc model local trong Cài đặt AI."
-            )
-        target_base, target_key = cloud_base, cloud_key
-        print(f"[llm] cloud {m} via {target_base}", flush=True)
+        raise LLMUnavailable(
+            f"Model «{m}» cần router cloud (9router) — V6 không dùng. Chọn nhà cung cấp (deepseek/…, alibaba/…), "
+            "Aurora (chatgpt/…) hoặc AI trên máy (local) trong Cài đặt → AI."
+        )
+    target_base, target_key = llama_base, "sk-local"
+    is_cloud = False
 
     llama_active = get_llama_models(llama_base)
 

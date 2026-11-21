@@ -167,6 +167,24 @@ def _no_lan_base(key: str, raw) -> str:
         return base
 
 
+def _default_llm_model() -> str:
+    """Model mặc định khi lời gọi không nêu model (LLM_MODEL). Model router cloud 9router cũ (ollama/…-cloud) → «local»."""
+    m = str(get("LLM_MODEL") or "").strip()
+    ml = m.lower()
+    if not m or ml.startswith("ollama/") or "-cloud" in ml or ml.endswith(":cloud"):
+        return "local"
+    return m
+
+
+def _llama_base() -> str:
+    try:
+        from core import machine as _m
+        return _m.llama_base_url()
+    except Exception as e:  # noqa: BLE001
+        print(f"[config] đọc LLAMA_BASE_URL lỗi: {e}", flush=True)
+        return _LOCAL_LLM_BASE
+
+
 def _no_lan_aurora() -> str:
     try:
         from core import machine as _m
@@ -179,9 +197,11 @@ def _no_lan_aurora() -> str:
 def llm_settings() -> dict:
     """LLM cho job (dịch/review) — đọc lúc gọi để sửa pineline.config.json có hiệu lực không cần restart."""
     return {
-        "base": _no_lan_base("LLM_BASE_URL", get("LLM_BASE_URL")),   # V6: không còn 9router / máy LAN
-        "key": get("LLM_API_KEY") or "",
-        "model": get("LLM_MODEL") or "local",
+        # 2026-11-21: chỉ 3 loại AI (nhà cung cấp / Aurora / AI trên máy) — base chung = llama-server trên máy;
+        # LLM_BASE_URL (9router LAN cũ) không còn đọc.
+        "base": _llama_base(),
+        "key": "sk-local",
+        "model": _default_llm_model(),
         "translate_model": get("TRANSLATE_MODEL") or None,
         "review_model": get("REVIEW_MODEL") or None,
         "name_model": get("NAME_MODEL") or None,
@@ -209,12 +229,13 @@ def pass_llm_model(kind: str = "pronoun") -> str | None:
 
 def agent_llm() -> dict:
     """LLM cho agent chat / feeder: AGENT_* rồi LLM_* (cả hai file trước env)."""
-    base = _no_lan_base("AGENT_BASE_URL", get("AGENT_BASE_URL") or get("LLM_BASE_URL"))
-    model = get("AGENT_MODEL") or get("LLM_MODEL") or "local"
+    # 2026-11-21: AGENT_BASE_URL / LLM_BASE_URL bỏ — model «local» của trợ lý luôn tới llama-server trên máy
+    # (trước: config cũ AGENT_BASE_URL=:3377 (cổng Aurora) → «local» gửi nhầm sang Aurora, lỗi kết nối).
+    model = get("AGENT_MODEL") or "local"
     fb = (get("AGENT_FALLBACK_MODEL") or "").strip()
     return {
-        "base": base,
-        "key": get("AGENT_API_KEY") or get("LLM_API_KEY") or "sk-local",
+        "base": _llama_base(),
+        "key": "sk-local",
         "model": model,
         "fallback": fb if fb and fb != model else "",
     }

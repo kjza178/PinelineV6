@@ -35,11 +35,16 @@ def test_agent_local_uses_llama_base_and_reports_all_errors(monkeypatch):
     assert msg.startswith("local: ") and " | chatgpt/gpt-5-6-mini: " in msg and "llama tắt" in msg
 
 
-def test_agent_base_explicit_still_respected(monkeypatch):
+def test_agent_local_ignores_old_agent_base_url(monkeypatch):
+    """2026-11-21 (đổi luật theo yêu cầu chủ dự án): chỉ 3 loại AI — AGENT_BASE_URL cũ (vd :3377 = cổng Aurora) KHÔNG
+    còn được dùng cho «local»; «local» luôn tới llama-server ở Cài đặt → AI trên máy."""
     from agents import agent_core
+    from core import machine
     import core.config as cfg
-    vals = {"AGENT_MODEL": "local", "AGENT_BASE_URL": "http://127.0.0.1:9999/v1"}
+    vals = {"AGENT_MODEL": "local", "AGENT_BASE_URL": "http://127.0.0.1:3377/v1",
+            "LLM_BASE_URL": "http://192.168.31.247:20128/v1"}
     monkeypatch.setattr(cfg, "get", lambda k, d=None: vals.get(k, d))
+    monkeypatch.setattr(machine, "llama_base_url", lambda: "http://127.0.0.1:9999/v1")
     urls = []
 
     class R:
@@ -51,6 +56,28 @@ def test_agent_base_explicit_still_respected(monkeypatch):
     monkeypatch.setattr(agent_core.requests, "post", lambda url, **kw: urls.append(url) or R())
     assert agent_core._chat_turn([{"role": "user", "content": "hi"}])["content"] == "ok"
     assert urls == ["http://127.0.0.1:9999/v1/chat/completions"]
+
+
+def test_agent_cloud_router_model_rejected(monkeypatch):
+    from agents import agent_core
+    import core.config as cfg
+    monkeypatch.setattr(cfg, "get", lambda k, d=None: {"AGENT_MODEL": "ollama/gemma4:31b-cloud"}.get(k, d))
+    monkeypatch.setattr(agent_core.requests, "post", lambda *a, **k: pytest.fail("không được gọi mạng"))
+    with pytest.raises(RuntimeError, match="9router"):
+        agent_core._chat_turn([{"role": "user", "content": "hi"}])
+
+
+def test_llm_settings_never_use_lan_router(monkeypatch):
+    import core.config as cfg
+    from core import machine
+    monkeypatch.setattr(machine, "llama_base_url", lambda: "http://127.0.0.1:8083/v1")
+    monkeypatch.setattr(cfg, "get", lambda k, d=None: {"LLM_BASE_URL": "http://192.168.31.247:20128/v1",
+                                                       "AGENT_BASE_URL": "http://127.0.0.1:3377/v1",
+                                                       "LLM_MODEL": "ollama/gemma4:31b-cloud",
+                                                       "ALLOW_LAN_LLM": "1"}.get(k, d))
+    assert cfg.llm_settings()["base"] == "http://127.0.0.1:8083/v1"
+    assert cfg.agent_llm()["base"] == "http://127.0.0.1:8083/v1"
+    assert cfg.llm_settings()["model"] == "local"
 
 
 # ── (2) Dịch dự phòng ──

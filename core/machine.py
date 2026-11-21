@@ -29,8 +29,7 @@ except ImportError:  # pragma: no cover - V4
 
 # Key máy → (mặc định, mô tả ngắn). Dùng cho config.example.json + doctor.
 MACHINE_KEYS: dict[str, tuple[str, str]] = {
-    "LLM_BASE_URL": ("http://127.0.0.1:8083/v1", "LLM chính (OpenAI-compatible) cho dịch/review: llama-server, 9router, Ollama /v1, OpenAI..."),
-    "LLAMA_BASE_URL": ("", "llama-server /v1 (GGUF local). Trống = LLM_BASE_URL nếu trỏ localhost, không thì http://127.0.0.1:8083/v1"),
+    "LLAMA_BASE_URL": ("", "llama-server /v1 (AI trên máy, model «local»). Trống = http://127.0.0.1:8083/v1"),
     "AUTO_SWITCH_PRESETS": ("1", "1 = tự đổi preset llama (TRANSLATE_PRESET/REVIEW_PRESET) bằng script; 0 = không bao giờ đổi, dùng model đang chạy"),
     "MODEL_PRESETS_DIR": (r"E:\models\presets", "Thư mục presets llama.cpp (active.json, models.json, script khởi động). Không tồn tại = bỏ qua đổi preset"),
     "MODEL_START_SCRIPT": ("start-model.ps1", "Script đổi preset (tương đối theo MODEL_PRESETS_DIR hoặc đường dẫn tuyệt đối)"),
@@ -39,8 +38,6 @@ MACHINE_KEYS: dict[str, tuple[str, str]] = {
     "CHATGPT_BASE_URL": ("http://127.0.0.1:3377/v1", "Proxy ChatGPT local (plan/review/agent dùng model chatgpt/...)"),
     "AURORA_FALLBACK_URLS": ("", "Aurora dự phòng (phân cách dấu phẩy). Trống/'off' = không dùng. Địa chỉ LAN chỉ dùng khi ALLOW_LAN_LLM=1"),
     "ALLOW_LAN_LLM": ("0", "1 = cho phép gọi LLM/Aurora ở địa chỉ LAN (192.168.x, 10.x, 172.16–31.x). Mặc định 0: bỏ qua, không làm dự phòng"),
-    "AGENT_BASE_URL": ("", "LLM cho agent chat/feeder; trống = LLM_BASE_URL"),
-    "CLOUD_LLM_BASE_URL": ("", "Router cloud cho model ollama/...-cloud (9router — V6 KHÔNG dùng nữa; trống = tắt)"),
     "MT_MODEL_DIR": (r"E:\models\mt", "Thư mục model MT zh→vi (HachimiMT ct2); MT_ZH_VI_LOCAL = trỏ thẳng 1 model"),
     "LIBRARY_DIR": (r"D:\Lib", "Thư viện phim tải về (Hongguo output / nguồn job)"),
     "YT_UPLOADER_DIR": (r"Z:\yt_uploader", "Thư mục tool yt_uploader (accounts, client_secret.json, queue_state.json)"),
@@ -89,11 +86,12 @@ DEFAULT_LLAMA_BASE_URL = "http://127.0.0.1:8083/v1"
 
 
 def llama_base_url() -> str:
-    """URL /v1 của llama-server: LLAMA_BASE_URL > LLM_BASE_URL (chỉ khi localhost) > :8083 cũ."""
+    """URL /v1 của llama-server (AI trên máy): LLAMA_BASE_URL > :8083.
+    2026-11-21: V6 chỉ còn 3 loại AI — nhà cung cấp API (deepseek/…, alibaba/…), Aurora (chatgpt/…), AI trên máy
+    (local). LLM_BASE_URL / AGENT_BASE_URL / CLOUD_LLM_* (9router LAN cũ) KHÔNG còn được đọc."""
     v = no_lan("LLAMA_BASE_URL", setting("LLAMA_BASE_URL", ""))      # LAN → bỏ (ALLOW_LAN_LLM=1 mở)
     if not v:
-        llm = setting("LLM_BASE_URL", "")
-        v = llm if (llm and is_loopback_url(llm)) else DEFAULT_LLAMA_BASE_URL
+        v = DEFAULT_LLAMA_BASE_URL
     v = v.rstrip("/")
     return v if v.endswith("/v1") else v + "/v1"
 
@@ -244,12 +242,13 @@ def aurora_missing_hint() -> str:
     keys = ", ".join(used) or "PLAN_MODEL/REVIEW_MODEL/REVIEW_PASS1_MODEL"
     return (f"Không tới được Aurora/ChatGPT ({', '.join(aurora_base_urls())}). "
             f"Máy này không có Aurora → đặt AURORA_BASE_URL/CHATGPT_BASE_URL đúng, HOẶC đổi {keys} "
-            f"sang model khác (vd 'local' = llama-server, hoặc model của LLM_BASE_URL) trong pineline.config.json.")
+            f"sang model khác (deepseek/…, alibaba/… hoặc 'local' = AI trên máy) trong Cài đặt → AI.")
 
 
 # ── Dịch vụ / thư mục khác ───────────────────────────────────────────────────
 def cloud_llm_base_url() -> str:
-    return no_lan("CLOUD_LLM_BASE_URL", setting("CLOUD_LLM_BASE_URL").rstrip("/"))
+    """2026-11-21: router cloud (9router) đã bỏ hoàn toàn — luôn trống (giữ hàm cho code cũ gọi)."""
+    return ""
 
 
 def mt_model_dir() -> Path:
@@ -274,7 +273,6 @@ def yt_uploader_dir() -> Path:
 def summary() -> dict:
     """Giá trị hiệu lực (doctor / debug). Không trả key bí mật."""
     return {
-        "LLM_BASE_URL": setting("LLM_BASE_URL"),
         "LLAMA_BASE_URL(effective)": llama_base_url(),
         "AUTO_SWITCH_PRESETS": setting("AUTO_SWITCH_PRESETS"),
         "MODEL_PRESETS_DIR": str(presets_dir()),
@@ -282,7 +280,6 @@ def summary() -> dict:
         "MODEL_START_CMD": setting("MODEL_START_CMD", "") or "(PowerShell mặc định)",
         "preset_switch": preset_switch_unavailable_reason() or "OK",
         "AURORA(bases)": ", ".join(aurora_base_urls()),
-        "CLOUD_LLM_BASE_URL": cloud_llm_base_url(),
         "MT_MODEL_DIR": str(mt_model_dir()),
         "LIBRARY_DIR": str(library_dir()),
         "YT_UPLOADER_DIR": str(yt_uploader_dir()),
