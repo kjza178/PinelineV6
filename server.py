@@ -2399,11 +2399,62 @@ def _extract_vi_title(raw: str) -> str:
     return ""
 
 
+def _title_model() -> str | None:
+    """Model dịch tên phim: TITLE_MODEL > model «Soát & dịch» chính (vd DeepSeek) > TRANSLATE_MODEL.
+    2026-11-21: trước dùng TRANSLATE_MODEL (thường llama local — máy không chạy llama thì không dịch được tên nào)."""
+    from core.config import get as _g
+    m = str(_g("TITLE_MODEL") or "").strip()
+    if m:
+        return m
+    try:
+        from engines.translate_simple import cfg as _tc
+        return _tc.review_model(None) or _g("TRANSLATE_MODEL") or None
+    except Exception as e:  # noqa: BLE001
+        print(f"[title] đọc model soát lỗi: {e}", flush=True)
+        return _g("TRANSLATE_MODEL") or None
+
+
+def _title_chat(msgs: list[dict], **_kw) -> str:
+    """Gọi model dịch tên + chuỗi dự phòng của luồng dịch (model dự phòng → AI máy)."""
+    from engines.llm import chat
+    model = _title_model()
+    tries = [model]
+    try:
+        from engines.translate_simple import cfg as _tc
+        tries += [m for m in _tc.fallback_models(model) if m not in tries]
+    except Exception as e:  # noqa: BLE001
+        print(f"[title] đọc model dự phòng lỗi: {e}", flush=True)
+    last: Exception | None = None
+    for m in tries:
+        try:
+            return (chat(msgs, model=m, temperature=0.3, max_tokens=200) or "").strip()
+        except Exception as e:  # noqa: BLE001
+            last = e
+            print(f"[title] model {m} lỗi: {type(e).__name__}: {str(e)[:160]}", flush=True)
+    raise last or RuntimeError("không có model dịch tên")
+
+
+def _title_model_local() -> bool:
+    try:
+        from core.local_ai import is_local_model
+        return bool(is_local_model(_title_model()))
+    except Exception as e:  # noqa: BLE001
+        print(f"[title] xác định model local lỗi: {e}", flush=True)
+        return True
+
+
+def _title_translate_on() -> bool:
+    """Bật dịch tên phim: cờ instance title_translate HOẶC Cài đặt (TITLE_TRANSLATE=1 trong pineline.config.json)."""
+    from core.config import get as _g
+    return _instance_flag("title_translate") or str(_g("TITLE_TRANSLATE") or "").strip().lower() in (
+        "1", "true", "yes", "on")
+
+
 def _translate_title(job_id: str) -> None:
-    """Dịch tiêu đề gốc (Trung) sang tiếng Việt bằng gemma4 local, lưu title_vi."""
+    """Dịch tiêu đề gốc (Trung) sang tiếng Việt (model soát chính + dự phòng), lưu title_vi."""
     ok = False
     try:
-        from engines.llm import chat
+        chat = _title_chat
         wd = WORK_ROOT / job_id
         m = Manifest(wd)
         if not _translate_group_title(wd, m.data, chat):
@@ -2411,21 +2462,20 @@ def _translate_title(job_id: str) -> None:
         if m.data.get("title_vi"):
             ok = True  # đã có rồi, không cần retry
             return
-        title = (m.stage("download") or {}).get("title") or ""
+        req = m.data.get("request") or {}
+        title = (m.stage("download") or {}).get("title") or req.get("part_title") or req.get("title") or ""
         if not title or not _has_cjk(title):
             ok = True  # không cần dịch
             return
-        from core.config import get as _cfg_get
-        model = _cfg_get("TRANSLATE_MODEL") or None
         msgs = [{"role": "user", "content":
-                 "Dịch tiêu đề video sau sang tiếng Việt tự nhiên, ngắn gọn. "
-                 "CHỈ trả về bản dịch trên MỘT dòng, không giải thích, không ngoặc kép:\n\n" + title}]
-        raw = (chat(msgs, model=model, temperature=0.3, max_tokens=200) or "").strip()
+                 "Dịch tên phim / tiêu đề video sau sang tiếng Việt tự nhiên, ngắn gọn; tên người, địa danh theo "
+                 "Hán-Việt. CHỈ trả về bản dịch trên MỘT dòng, không giải thích, không ngoặc kép:\n\n" + title}]
+        raw = chat(msgs)
         vi = _extract_vi_title(raw)
         if vi:
-            m2 = Manifest(wd)
-            m2.data["title_vi"] = vi
-            js.persist(m2)
+            def _set_vi(d):
+                d["title_vi"] = vi
+            js.try_mutate(wd, _set_vi)
             _job_cache.pop(str(wd), None)      # ép list_jobs dựng lại -> hiện bản Việt
             print(f"[title] {job_id}: {vi}")
             ok = True
@@ -2485,8 +2535,10 @@ def _translate_group_title(wd: Path, data: dict, chat) -> bool:
 def _maybe_translate_title(job_id: str, title: str) -> None:
     """Kích hoạt dịch tiêu đề (lazy) nếu còn tiếng Trung. Bỏ qua khi ASR/TTS đang
     chạy (tránh nạp gemma4 chồng lên -> OOM VRAM) — sẽ thử lại ở lần ghi manifest sau."""
-    if not _instance_flag("title_translate"):
-        # review1: gọi LLM (:8083 dùng chung với V2) — instance tắt thì KHÔNG bao giờ gọi.
+    from core.config import get as _tg
+    if not (_instance_flag("title_translate")
+            or str(_tg("TITLE_TRANSLATE") or "").strip().lower() in ("1", "true", "yes", "on")):
+        # review1: instance tắt và Cài đặt chưa bật «Dịch tên phim» → KHÔNG gọi LLM.
         return
     if not _has_cjk(title):
         return
@@ -2494,7 +2546,7 @@ def _maybe_translate_title(job_id: str, title: str) -> None:
         return
     if _title_tried.get(job_id, 0) >= _TITLE_MAX_RETRY:
         return
-    if _PROCS:                       # có asr/TTS subprocess đang chạy -> để sau
+    if _PROCS and _title_model_local():   # model local + asr/TTS đang chạy -> để sau (tránh tranh VRAM)
         return
     _title_pending.add(job_id)
     _misc.submit(_translate_title, job_id)
@@ -7109,11 +7161,22 @@ def _start_title_translate():
     review1: instance title_translate=false (mặc định v6/test) → không hook, không quét, không gọi LLM."""
     if _UNDER_PYTEST:
         return
-    if not _instance_flag("title_translate"):
-        print("[startup] dịch tiêu đề OFF (instance title_translate=false)", flush=True)
+    from core.config import get as _tg
+    if not (_instance_flag("title_translate")
+            or str(_tg("TITLE_TRANSLATE") or "").strip().lower() in ("1", "true", "yes", "on")):
+        print("[startup] dịch tiêu đề OFF (instance title_translate=false; bật ở Cài đặt → Tên phim)", flush=True)
         return
+    _title_backfill_start()
+
+
+def _title_backfill_start(force: bool = False) -> int:
+    """Đăng ký hook dịch tên khi manifest đổi + quét 1 lần mọi job còn tên Trung. force: thử lại cả job đã bỏ cuộc.
+    Trả số job có trong work root (để UI báo)."""
     from core.manifest import register_write_hook
     register_write_hook(_title_write_hook)
+    if force:
+        _title_tried.clear()
+    n = sum(1 for d in WORK_ROOT.iterdir() if (d / "manifest.json").is_file()) if WORK_ROOT.is_dir() else 0
 
     def _backfill():
         if not WORK_ROOT.is_dir():
@@ -7124,9 +7187,11 @@ def _start_title_translate():
                 continue
             try:
                 _title_write_hook(d, json.loads(mf.read_text(encoding="utf-8")))
-            except Exception:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
+                print(f"[title] quét {d.name}: {e}", flush=True)
                 continue
     threading.Thread(target=_backfill, name="title-backfill", daemon=True).start()
+    return n
 
 
 @app.on_event("startup")

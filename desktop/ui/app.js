@@ -1319,6 +1319,7 @@ function paintAISimple() {
         <button type="button" class="btn primary" id="prov-apply">${isCur ? "Áp dụng lại" : `Chuyển sang ${esc(p.name)}`}</button></div>
     </div>
     ${fallbackSec()}
+    <div class="sec" id="tt-sec">${titleSecBody()}</div>
     <div class="sec"><h3>AI đang làm gì</h3><p class="sub">Muốn đổi riêng từng việc: mục «Nâng cao».</p><div class="uses">${uses}</div></div>`;
 }
 function localField(name, label, hint, L, type = "text") {
@@ -1346,6 +1347,34 @@ async function localSave(btn) {
 }
 // Dự phòng cho bước dịch (SIMPLE_FALLBACK_MODEL): lô nào model chính hỏng hẳn (mất mạng, hết tiền, key sai, máy chủ lỗi
 // kéo dài) thì dịch bằng model này — chọn nhà cung cấp KHÁC model chính.
+// 2026-11-21: tên phim tiếng Việt — dịch tên job (và tên bộ) bằng AI dịch chính (services/title_vi)
+let titles = null;
+function titleSecBody() {
+  if (!titles) { loadTitles(); return '<h3>Tên phim tiếng Việt</h3><p class="sub">Đang đọc…</p>'; }
+  const t = titles;
+  const left = Math.max(0, (t.chinese_titles || 0) - (t.translated || 0));
+  const lock = t.instance_flag ? " (instance đã bật sẵn)" : "";
+  return `<h3>Tên phim tiếng Việt</h3>
+    <p class="sub">Dịch tên phim / tên bộ tiếng Trung sang tiếng Việt cho danh sách job, thư viện, hàng chờ. Dùng AI dịch chính${t.model ? ` (<b>${esc(t.model)}</b>)` : ""}, lỗi thì dùng dự phòng.</p>
+    <div class="field"><div class="lbl"><b>Dịch tên phim sang tiếng Việt</b><span>${t.chinese_titles || 0} job có tên tiếng Trung · đã dịch ${t.translated || 0}${left ? ` · còn ${left}` : ""}</span></div>
+      <div class="ctl"><label class="switch"><input type="checkbox" id="tt-on"${t.enabled ? " checked" : ""}${t.instance_flag ? " disabled" : ""}><span>${t.enabled ? "Bật" : "Tắt"}${lock}</span></label></div></div>
+    <div class="actions"><span class="grow"></span><button type="button" class="btn sm" id="tt-run"${t.enabled ? "" : " disabled"}>Dịch tên các job hiện có</button></div>`;
+}
+async function loadTitles() {
+  try { titles = await api("GET", "/api/v6/titles"); } catch (e) { titles = { enabled: false, error: e.message }; }
+  const s = $("#tt-sec"); if (s) s.innerHTML = titleSecBody();
+}
+async function titleToggle(on) {
+  try { titles = await api("POST", "/api/v6/titles", { enabled: on }); say(on ? "Đã bật dịch tên phim — đang dịch tên các job" : "Đã tắt dịch tên phim"); }
+  catch (e) { say("Không lưu được: " + e.message, "err"); }
+  const s = $("#tt-sec"); if (s) s.innerHTML = titleSecBody();
+}
+async function titleRun(btn) {
+  return act(btn, "Đang dịch tên các job (chạy nền, tên hiện dần)", async () => {
+    titles = await api("POST", "/api/v6/titles", { backfill: true });
+    setTimeout(loadTitles, 15000);
+  });
+}
 function fallbackSec() {
   const rv = ai.functions.find((f) => f.id === "review") || {}, fbf = ai.functions.find((f) => f.id === "review_fallback");
   if (!fbf) return "";
@@ -1417,9 +1446,11 @@ function onAISimpleClick(e) {
   if (b?.id === "prov-apply") return provApply(b);
   if (b?.id === "loc-save") return localSave(b);
   if (b?.id === "fb-save") return fallbackSave(b);
+  if (b?.id === "tt-run") return titleRun(b);
 }
 function onAISimpleChange(e) {
   if (e.target.id === "loc-thinking") e.target.parentElement.lastChild.textContent = e.target.checked ? "Bật" : "Tắt";
+  if (e.target.id === "tt-on") return titleToggle(e.target.checked);
   if (e.target.name === "prov") { aiPick = e.target.value; paintAISimple(); }
 }
 

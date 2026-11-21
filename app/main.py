@@ -271,6 +271,25 @@ def _v6_router(inst: Instance) -> APIRouter:
             out["woke"] = translate_wake.on_ai_changed(out["changed"])
         return out
 
+    # ── Tên phim tiếng Việt (2026-11-21) — logic ở services/title_vi ──
+    @r.get(V6_PREFIX + "/titles")
+    def titles_get():
+        from services import title_vi
+        return title_vi.status()
+
+    @r.post(V6_PREFIX + "/titles")
+    def titles_set(body: dict):
+        from services import title_vi
+        b = body if isinstance(body, dict) else {}
+        try:
+            if "enabled" in b:
+                return title_vi.set_enabled(bool(b.get("enabled")))
+            if b.get("backfill"):
+                return title_vi.backfill()
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        raise HTTPException(400, "gửi {enabled: true|false} hoặc {backfill: true}")
+
     @r.post(V6_PREFIX + "/ai/models")
     def ai_models_list(body: dict):
         """Danh sách model THẬT của nhà cung cấp (gọi GET /models ra ngoài — nên là POST, chỉ khi người dùng bấm).

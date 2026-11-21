@@ -1,6 +1,10 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- **Tên phim tiếng Việt**: Cài đặt → AI dịch → «Tên phim tiếng Việt» (bật = `TITLE_TRANSLATE=1`, cộng với cờ instance
+  `title_translate`) + nút «Dịch tên các job hiện có». Dịch tên job + tên bộ bằng model «Soát & dịch» chính (vd DeepSeek)
+  + chuỗi dự phòng (trước: `TRANSLATE_MODEL` = llama local → máy không chạy llama thì không dịch được). Model local mới
+  chờ lúc ASR/TTS chạy (tránh tranh VRAM). Route mỏng `/api/v6/titles` → `services/title_vi`.
 - **Second Brain OFF thì không HOLD**: `_auto_gpu` vẫn quét chất lượng + HOLD «N high QA» trước TTS dù instance
   `agent_brain=false` → nay bỏ qua khi cờ tắt.
 - **«Chạy tiếp» khi job đang giữ ghế hàng chờ** (HOLD qa_brain / qa_gate…): trước báo «job đang chạy rồi» (job là
