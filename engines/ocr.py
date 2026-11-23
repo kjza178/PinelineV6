@@ -42,6 +42,24 @@ from engines.vram import free_gpu_vram
 STAGE = "ocr"
 
 
+
+_FPS_MODE: list[str] | None = None
+
+
+def passthrough_frames_args(ffmpeg: str = "ffmpeg") -> list[str]:
+    """Giữ nguyên khung (không nhân/bỏ khung). ffmpeg ≥5.1: «-fps_mode passthrough»; ffmpeg mới (7.x/8.x) đã BỎ
+    «-vsync» → «Unrecognized option 'vsync'» (2026-11-21, máy mới). ffmpeg cũ không có -fps_mode → «-vsync 0»."""
+    global _FPS_MODE
+    if _FPS_MODE is None:
+        try:
+            r = subprocess.run([ffmpeg, "-hide_banner", "-h", "full"], capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=30)
+            _FPS_MODE = ["-fps_mode", "passthrough"] if "-fps_mode" in (r.stdout or "") else ["-vsync", "0"]
+        except Exception as e:  # noqa: BLE001
+            print(f"[ocr] dò ffmpeg -fps_mode lỗi ({e}) — dùng -fps_mode", flush=True)
+            _FPS_MODE = ["-fps_mode", "passthrough"]
+    return list(_FPS_MODE)
+
 def _meaningful(t: str) -> bool:
     """Giữ chữ CÓ NGHĨA: ≥2 chữ Hán, hoặc số ≥3 chữ số (ID). Bỏ rác latin / 1 chữ đơn."""
     zh = sum(1 for c in t if "一" <= c <= "鿿")
@@ -101,7 +119,7 @@ def extract_keyframes(video: Path, out_dir: Path, dur: float | None = None,
     tlim = ["-t", str(dur)] if dur else []
     subprocess.run(
         ["ffmpeg", "-y", "-skip_frame", "nokey", *tlim, "-i", str(video),
-         "-an", "-vsync", "0", "-q:v", "4", str(out_dir / "kf_%06d.jpg"), "-loglevel", "error"],
+         "-an", *passthrough_frames_args(), "-q:v", "4", str(out_dir / "kf_%06d.jpg"), "-loglevel", "error"],
         check=True)
     imgs = sorted(out_dir.glob("kf_*.jpg"))
     n = min(len(imgs), len(times))

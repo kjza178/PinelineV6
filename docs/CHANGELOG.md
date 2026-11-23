@@ -1,6 +1,8 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- **ffmpeg mới (9.x, gyan.dev) bỏ `-vsync`** → render lỗi «Unrecognized option 'vsync'» ở bước tách keyframe che phụ đề
+  Trung (`engines/ocr.py`). Nay dò 1 lần: có `-fps_mode` → `-fps_mode passthrough`, không (ffmpeg < 5.1) → `-vsync 0`.
 - **Mỗi kênh YouTube một OAuth client riêng** (giảm dấu hiệu «kênh liên quan», quota riêng mỗi project): nhiều client
   lưu `data/yt_accounts/clients/<số project>.json` (thêm bằng file JSON, đặt tên); «+ Thêm kênh» chọn client (mặc định
   client CHƯA gán kênh), dùng chung phải xác nhận + kênh hiện cảnh báo «chung client với …»; gỡ client chưa dùng.

@@ -294,3 +294,17 @@ def test_tts_engine_cfg_follows_settings_without_restart(monkeypatch):
     ct._refresh_engine_cfg()
     v = ct.ENGINE_CFG["vieneu"]
     assert v["device"] == "cpu" and v["batch_size"] == 8 and v["py"] == "/b/python"
+
+
+def test_ffmpeg_passthrough_args_follow_ffmpeg_version(monkeypatch):
+    import subprocess
+    from engines import ocr
+
+    class R:
+        def __init__(self, out):
+            self.stdout = out
+    for out, want in (("-fps_mode[:stream_specifier] mode", ["-fps_mode", "passthrough"]),
+                      ("-vsync  video sync method", ["-vsync", "0"])):
+        monkeypatch.setattr(ocr, "_FPS_MODE", None)
+        monkeypatch.setattr(subprocess, "run", lambda *a, _o=out, **k: R(_o))
+        assert ocr.passthrough_frames_args() == want
