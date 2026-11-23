@@ -11,6 +11,9 @@ def store(tmp_path, monkeypatch):
     monkeypatch.setattr(ya, "DATA", tmp_path)
     monkeypatch.setattr(ya, "ACCOUNTS", tmp_path / "accounts.json")
     monkeypatch.setattr(ya, "TOKENS", tmp_path / "tokens")
+    monkeypatch.setattr(ya, "CLIENTS", tmp_path / "clients")
+    import tools.test_channel as tc
+    monkeypatch.setattr(tc, "PROJECTS_FILE", tmp_path / "khong_co_projects.json")
     return tmp_path
 
 
@@ -130,14 +133,38 @@ def test_targets_per_job_and_publish_on_done(store, tmp_path, monkeypatch):
         yt_publish.set_targets(["a"], "UC_khong_co")
 
 
-def test_save_client_from_downloaded_json(store):
-    raw = json.dumps({"web": {"client_id": "123-abc.apps.googleusercontent.com", "client_secret": "s3cr3t"}})
-    ya.save_client(raw)
-    saved = json.loads((store / "client_secret.json").read_text(encoding="utf-8"))
-    assert saved["web"]["client_id"].startswith("123-") and ya.client_info()["ok"] is True
-    cfg, src = ya._client_config("http://127.0.0.1:8806/test-channel/callback")
-    assert src == "own" and cfg["web"]["redirect_uris"] == ["http://127.0.0.1:8806/test-channel/callback"]
+def _cj(n):
+    return json.dumps({"web": {"client_id": f"{n}-abc.apps.googleusercontent.com", "client_secret": f"s{n}"}})
+
+
+def test_one_client_per_channel(store):
+    assert ya.client_info()["ok"] is False
+    ya.save_client(_cj(111), name="Project A")
+    ya.save_client(_cj(222), name="Project B")
+    infos = {c["key"]: c for c in ya.clients_info()}
+    assert set(infos) == {"111", "222"} and infos["111"]["name"] == "Project A"
+    cfg, key = ya._client_config("http://127.0.0.1:8806/test-channel/callback")
+    assert key == "111" and cfg["web"]["redirect_uris"] == ["http://127.0.0.1:8806/test-channel/callback"]
+    d = ya._read()                                                  # kênh A đã dùng client 111
+    d["accounts"].append({"id": "UCA", "title": "Kênh A", "client_key": "111"})
+    ya._write(d)
+    assert ya._client_config("http://x/", None)[1] == "222"         # tự chọn client CHƯA dùng
+    assert ya._client_config("http://x/", "111")[1] == "111"        # chọn tay vẫn được (UI cảnh báo)
+    d["accounts"].append({"id": "UCB", "title": "Kênh B", "client_key": "222"})
+    ya._write(d)
+    with pytest.raises(ValueError, match="thêm client mới"):
+        ya._client_config("http://x/", None)
+    with pytest.raises(ValueError, match="gỡ kênh trước"):
+        ya.remove_client("111")
+    lst = ya.list_accounts()
+    assert lst["accounts"][0]["shares_client"] == []
     with pytest.raises(ValueError):
         ya.save_client('{"web": {"client_id": "x"}}')
     with pytest.raises(ValueError):
         ya.save_client("không phải json")
+
+
+def test_remove_unused_client(store):
+    ya.save_client(_cj(333))
+    ya.remove_client("333")
+    assert ya.clients_info() == []

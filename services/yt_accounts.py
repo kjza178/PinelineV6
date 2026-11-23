@@ -57,9 +57,12 @@ def list_accounts() -> dict:
     d = _read()
     out = []
     for a in d["accounts"]:
-        out.append({**{k: a.get(k) for k in ("id", "channel_id", "title", "thumb", "email", "added_at", "project_id")},
-                    "default": a.get("id") == d.get("default"), "token": _token_path(a["id"]).is_file()})
-    return {"accounts": out, "default": d.get("default"), "client": client_info()}
+        key = a.get("client_key") or a.get("project_id")
+        out.append({**{k: a.get(k) for k in ("id", "channel_id", "title", "thumb", "email", "added_at")},
+                    "client_key": key, "default": a.get("id") == d.get("default"), "token": _token_path(a["id"]).is_file(),
+                    "shares_client": [b.get("title") for b in d["accounts"]
+                                      if b.get("id") != a.get("id") and (b.get("client_key") or b.get("project_id")) == key]})
+    return {"accounts": out, "default": d.get("default"), "client": client_info(), "clients": clients_info()}
 
 
 def get(acc_id: str | None) -> dict | None:
@@ -108,33 +111,70 @@ def remove(acc_id: str) -> dict:
     return list_accounts()
 
 
-# ── OAuth client ──
-def _client_config(redirect_uri: str) -> tuple[dict, str]:
-    """(client_config kiểu «web», project_id). Lỗi rõ ràng khi chưa có OAuth client nào."""
+# ── OAuth client — MỖI KÊNH MỘT CLIENT (2026-11-21) ──
+# Mỗi kênh nên đăng qua Google Cloud project / OAuth client RIÊNG (giảm dấu hiệu «kênh liên quan», quota riêng).
+# Kho: data/yt_accounts/clients/<key>.json {"web": {client_id, client_secret}, "name"}; key = số project (đầu client_id).
+# Nguồn cũ vẫn nhận: data/yt_accounts/client_secret.json (key "default"), project Kênh test (key "tc:<id>").
+CLIENTS = DATA / "clients"
+
+
+def _web(c: dict, redirect_uri: str) -> dict:
+    return {"web": {"client_id": c["client_id"], "client_secret": c["client_secret"],
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token", "redirect_uris": [redirect_uri]}}
+
+
+def _clients() -> list[dict]:
+    """[{key, name, client_id, client_secret, source}] — mọi OAuth client dùng được."""
+    out: list[dict] = []
+    if CLIENTS.is_dir():
+        for f in sorted(CLIENTS.glob("*.json")):
+            try:
+                raw = f.read_text(encoding="utf-8")
+                c = _parse_client(raw)
+                name = (json.loads(raw).get("name") or "") if raw.strip().startswith("{") else ""
+                out.append({"key": f.stem, "name": name or f"Project {f.stem}", **c, "source": "app"})
+            except (OSError, ValueError) as e:
+                print(f"[yt-accounts] client {f.name} hỏng: {e}", flush=True)
     own = DATA / "client_secret.json"
     if own.is_file():
-        raw = json.loads(own.read_text(encoding="utf-8"))
-        c = _parse_client(json.dumps(raw))
-        return {"web": {"client_id": c["client_id"], "client_secret": c["client_secret"],
-                        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                        "token_uri": "https://oauth2.googleapis.com/token", "redirect_uris": [redirect_uri]}}, "own"
+        try:
+            c = _parse_client(own.read_text(encoding="utf-8"))
+            if not any(x["client_id"] == c["client_id"] for x in out):
+                out.append({"key": "default", "name": "client_secret.json", **c, "source": "app"})
+        except (OSError, ValueError) as e:
+            print(f"[yt-accounts] client_secret.json hỏng: {e}", flush=True)
     try:
         import tools.test_channel as tc
         projs = json.loads(tc.PROJECTS_FILE.read_text(encoding="utf-8")) if tc.PROJECTS_FILE.is_file() else []
-        if not projs and Path(tc.CLIENT_SECRET_FILE).is_file():     # file client_secret.json của Kênh test / yt_uploader
-            c = _parse_client(Path(tc.CLIENT_SECRET_FILE).read_text(encoding="utf-8"))
-            return {"web": {**c, "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                            "token_uri": "https://oauth2.googleapis.com/token", "redirect_uris": [redirect_uri]}}, "test_secret"
+        for p in projs:
+            if p.get("client_id") and p.get("client_secret") and not any(x["client_id"] == p["client_id"] for x in out):
+                out.append({"key": f"tc:{p['id']}", "name": f"Kênh test · {p.get('name') or p['id']}",
+                            "client_id": p["client_id"], "client_secret": p["client_secret"], "source": "test_channel"})
     except Exception as e:  # noqa: BLE001
         print(f"[yt-accounts] đọc project kênh test lỗi: {e}", flush=True)
-        projs = []
-    if not projs:
-        raise ValueError("Chưa có OAuth client Google: đặt file client_secret.json (Google Cloud → APIs & Services → "
-                         f"Credentials → OAuth client «Web») vào {own}, hoặc thêm project ở Kênh test.")
-    p = projs[0]
-    return {"web": {"client_id": p["client_id"], "client_secret": p["client_secret"],
-                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                    "token_uri": "https://oauth2.googleapis.com/token", "redirect_uris": [redirect_uri]}}, p["id"]
+    return out
+
+
+def _client_by_key(key: str | None) -> dict:
+    cs = _clients()
+    if not cs:
+        raise ValueError("Chưa có OAuth client Google — thêm file JSON ở khung «Kênh YouTube» (mỗi kênh 1 client).")
+    if not key:
+        used = {a.get("client_key") for a in _read()["accounts"]}
+        free = [c for c in cs if c["key"] not in used]
+        if len(cs) > 1 and not free:
+            raise ValueError("mọi OAuth client đều đã có kênh — thêm client mới cho kênh này (mỗi kênh 1 client)")
+        return (free or cs)[0]
+    c = next((c for c in cs if c["key"] == key), None)
+    if not c:
+        raise ValueError(f"không có OAuth client «{key}»")
+    return c
+
+
+def _client_config(redirect_uri: str, key: str | None = None) -> tuple[dict, str]:
+    c = _client_by_key(key)
+    return _web(c, redirect_uri), c["key"]
 
 
 def _parse_client(raw: str) -> dict:
@@ -150,29 +190,41 @@ def _parse_client(raw: str) -> dict:
     return {"client_id": cid, "client_secret": sec}
 
 
-def save_client(raw: str) -> dict:
-    """Lưu OAuth client của Google (dán / chọn file JSON trong app) → data/yt_accounts/client_secret.json."""
+def save_client(raw: str, name: str = "") -> dict:
+    """Thêm 1 OAuth client (dán / chọn file JSON trong app) → data/yt_accounts/clients/<số project>.json."""
     c = _parse_client(raw)
     from core.fileio import atomic_write_json
-    DATA.mkdir(parents=True, exist_ok=True)
-    atomic_write_json(DATA / "client_secret.json", {"web": c}, fsync=False)
+    key = "".join(ch for ch in c["client_id"].split("-")[0] if ch.isalnum())[:40] or "client"
+    CLIENTS.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(CLIENTS / f"{key}.json", {"web": c, "name": (name or "").strip()[:60]}, fsync=False)
     return list_accounts()
 
 
+def remove_client(key: str) -> dict:
+    used = [a.get("title") for a in _read()["accounts"] if a.get("client_key") == key]
+    if used:
+        raise ValueError(f"client đang dùng cho kênh: {', '.join(used)} — gỡ kênh trước")
+    f = CLIENTS / f"{''.join(ch for ch in key if ch.isalnum())}.json"
+    if not f.is_file():
+        raise ValueError("chỉ gỡ được client thêm trong app")
+    f.unlink()
+    return list_accounts()
+
+
+def clients_info() -> list[dict]:
+    accs = _read()["accounts"]
+    return [{"key": c["key"], "name": c["name"], "source": c["source"], "client_tail": c["client_id"].split("-")[0][-6:],
+             "used_by": [a.get("title") for a in accs if a.get("client_key") == c["key"]]} for c in _clients()]
+
+
 def client_info() -> dict:
-    own = DATA / "client_secret.json"
-    if own.is_file():
-        return {"ok": True, "source": "client_secret.json"}
-    try:
-        _client_config("http://127.0.0.1/")
-        return {"ok": True, "source": "project Kênh test"}
-    except ValueError as e:
-        return {"ok": False, "error": str(e)}
+    cs = _clients()
+    return {"ok": True, "n": len(cs)} if cs else {"ok": False, "error": "Chưa có OAuth client Google"}
 
 
-def auth_url(redirect_uri: str) -> dict:
+def auth_url(redirect_uri: str, client_key: str | None = None) -> dict:
     from google_auth_oauthlib.flow import Flow
-    cfg, pid = _client_config(redirect_uri)
+    cfg, key = _client_config(redirect_uri, client_key)
     flow = Flow.from_client_config(cfg, scopes=SCOPES, redirect_uri=redirect_uri)
     import secrets
     # state «yt-…»: callback chung /test-channel/callback (redirect URI đã khai báo cho OAuth client) nhận ra đây là
@@ -180,20 +232,21 @@ def auth_url(redirect_uri: str) -> dict:
     url, state = flow.authorization_url(prompt="select_account consent", access_type="offline",
                                         include_granted_scopes="true", state="yt-" + secrets.token_urlsafe(16))
     DATA.mkdir(parents=True, exist_ok=True)
-    pend = {"state": state, "project_id": pid, "verifier": getattr(flow, "code_verifier", None), "at": time.time()}
+    pend = {"state": state, "client_key": key, "verifier": getattr(flow, "code_verifier", None), "at": time.time()}
     (DATA / "pending_oauth.json").write_text(json.dumps(pend), encoding="utf-8")
-    return {"ok": True, "auth_url": url}
+    shared = [a.get("title") for a in _read()["accounts"] if a.get("client_key") == key]
+    return {"ok": True, "auth_url": url, "client_key": key, "shared_with": shared}
 
 
 def finish(code: str, state: str, redirect_uri: str) -> dict:
-    """Đổi code → token, hỏi kênh (channels.list mine) → lưu tài khoản (id = channel id)."""
+    """Đổi code → token, hỏi kênh (channels.list mine) → lưu tài khoản (id = channel id) + client đã dùng."""
     from google_auth_oauthlib.flow import Flow
     from googleapiclient.discovery import build
     pf = DATA / "pending_oauth.json"
     pend = json.loads(pf.read_text(encoding="utf-8")) if pf.is_file() else {}
     if pend.get("state") and state and pend["state"] != state:
         raise ValueError("phiên đăng nhập không khớp (state) — bấm «Thêm kênh» lại")
-    cfg, pid = _client_config(redirect_uri)
+    cfg, key = _client_config(redirect_uri, pend.get("client_key") or None)
     flow = Flow.from_client_config(cfg, scopes=SCOPES, redirect_uri=redirect_uri, state=state or None)
     if pend.get("verifier"):
         flow.code_verifier = pend["verifier"]
@@ -207,7 +260,7 @@ def finish(code: str, state: str, redirect_uri: str) -> dict:
     sn = ch.get("snippet") or {}
     acc = {"id": ch["id"], "channel_id": ch["id"], "title": sn.get("title") or ch["id"],
            "thumb": ((sn.get("thumbnails") or {}).get("default") or {}).get("url") or "",
-           "email": "", "project_id": pid, "added_at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+           "email": "", "client_key": key, "added_at": time.strftime("%Y-%m-%dT%H:%M:%S")}
     TOKENS.mkdir(parents=True, exist_ok=True)
     _token_path(acc["id"]).write_text(creds.to_json(), encoding="utf-8")
     with _lock:

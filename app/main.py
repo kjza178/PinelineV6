@@ -278,11 +278,12 @@ def _v6_router(inst: Instance) -> APIRouter:
         return yt_accounts.list_accounts()
 
     @r.post(V6_PREFIX + "/yt/auth-url")
-    def yt_auth_url(req: Request):
+    def yt_auth_url(req: Request, body: dict | None = None):
         from services import yt_accounts
         host = req.headers.get("host") or f"127.0.0.1:{inst.port}"
         try:
-            return yt_accounts.auth_url(f"http://{host}/test-channel/callback")
+            return yt_accounts.auth_url(f"http://{host}/test-channel/callback",
+                                        client_key=str((body or {}).get("client_key") or "") or None)
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
 
@@ -291,7 +292,15 @@ def _v6_router(inst: Instance) -> APIRouter:
         """{json: "<nội dung file OAuth client>"} → lưu client_secret.json cho kênh đăng phim."""
         from services import yt_accounts
         try:
-            return yt_accounts.save_client(str((body or {}).get("json") or ""))
+            return yt_accounts.save_client(str((body or {}).get("json") or ""), name=str((body or {}).get("name") or ""))
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @r.delete(V6_PREFIX + "/yt/clients/{key}")
+    def yt_client_remove(key: str):
+        from services import yt_accounts
+        try:
+            return yt_accounts.remove_client(key)
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
 

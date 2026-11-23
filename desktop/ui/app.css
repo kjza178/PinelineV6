@@ -388,3 +388,6 @@ td.mono{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all}
 .yt-client{margin-top:10px;padding:10px 12px;border:1px dashed var(--line-2);border-radius:8px}
 .yt-client ol{margin:6px 0 10px 18px;padding:0;line-height:1.6}
 .yt-client textarea{width:100%;margin-top:6px}
+.yt-acc .yt-head select{max-width:340px}
+.yt-acc .yt-cl{margin-top:10px}
+.yt-ch .warn{color:var(--warn,#f5a524)}

@@ -1,6 +1,10 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- **Mỗi kênh YouTube một OAuth client riêng** (giảm dấu hiệu «kênh liên quan», quota riêng mỗi project): nhiều client
+  lưu `data/yt_accounts/clients/<số project>.json` (thêm bằng file JSON, đặt tên); «+ Thêm kênh» chọn client (mặc định
+  client CHƯA gán kênh), dùng chung phải xác nhận + kênh hiện cảnh báo «chung client với …»; gỡ client chưa dùng.
+  Token mỗi kênh mang client của nó (làm mới token đúng client). Vẫn nhận client_secret.json cũ / project Kênh test.
 - Kênh YouTube: chưa có OAuth client → khung «Kênh YouTube» hướng dẫn 5 bước Google Cloud + chọn / dán file JSON →
   lưu `data/yt_accounts/client_secret.json` (`POST /api/v6/yt/client`); cũng nhận `client_secret.json` của Kênh test.
 - **Cấu hình lồng tiếng có hiệu lực không cần restart**: `clone_tts` đọc lại VIENEU_PY / VIENEU_DEVICE / VIENEU_BATCH /

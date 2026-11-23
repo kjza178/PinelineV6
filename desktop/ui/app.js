@@ -1591,17 +1591,24 @@ async function loadYtAcc() {
 function paintYtAcc() {
   const box = $("#yt-acc"), sel = $("#pub-acc");
   if (!box || !ytAcc) return;
-  const accs = ytAcc.accounts || [];
-  const cl = ytAcc.client || {};
-  box.innerHTML = `<div class="yt-head"><b>Kênh YouTube</b><span class="sub">${accs.length ? `${accs.length} kênh · ★ = kênh mặc định (tự đăng dùng kênh này)` : "Chưa có kênh — thêm kênh để đăng phim"}</span>
-      <span class="grow"></span><button type="button" class="btn sm primary" data-yt="add"${cl.ok === false ? " disabled" : ""}>+ Thêm kênh</button></div>
-    ${cl.ok === false ? ytClientForm() : ""}
+  const accs = ytAcc.accounts || [], cls = ytAcc.clients || [];
+  const free = cls.filter((c) => !(c.used_by || []).length);
+  // 2026-11-21: mỗi kênh một OAuth client (Google Cloud project) riêng — chọn client khi thêm kênh
+  const pick = cls.length ? `<select id="yt-client-pick" title="OAuth client dùng cho kênh sắp thêm">${cls.map((c) =>
+      `<option value="${esc(c.key)}"${free[0] && c.key === free[0].key ? " selected" : ""}>${esc(c.name)} · …${esc(c.client_tail)}${(c.used_by || []).length ? ` (đã dùng: ${esc(c.used_by.join(", "))})` : " (chưa dùng)"}</option>`).join("")}</select>` : "";
+  box.innerHTML = `<div class="yt-head"><b>Kênh YouTube</b><span class="sub">${accs.length ? `${accs.length} kênh · ★ = kênh mặc định` : "Chưa có kênh"} · mỗi kênh nên có OAuth client riêng</span>
+      <span class="grow"></span>${pick}<button type="button" class="btn sm primary" data-yt="add"${cls.length ? "" : " disabled"}>+ Thêm kênh</button></div>
     ${ytAcc.error ? `<p class="err small">${esc(ytAcc.error)}</p>` : ""}
     <div class="yt-list">${accs.map((a) => `<div class="yt-ch${a.default ? " def" : ""}" data-acc="${esc(a.id)}">
       ${a.thumb ? `<img src="${esc(a.thumb)}" alt="" referrerpolicy="no-referrer">` : '<span class="yt-ph">▶</span>'}
-      <span class="t"><b>${a.default ? "★ " : ""}${esc(a.title)}</b><span class="mut small">${a.token ? "đã đăng nhập" : "mất đăng nhập — thêm lại kênh"}</span></span>
+      <span class="t"><b>${a.default ? "★ " : ""}${esc(a.title)}</b><span class="mut small">${a.token ? "đã đăng nhập" : "mất đăng nhập — thêm lại kênh"}${(a.shares_client || []).length ? ` · <span class="warn">chung client với ${esc(a.shares_client.join(", "))}</span>` : ""}</span></span>
       ${a.default ? "" : '<button type="button" class="btn sm ghost" data-yt="default">Đặt mặc định</button>'}
-      <button type="button" class="btn sm ghost danger" data-yt="remove">Gỡ</button></div>`).join("")}</div>`;
+      <button type="button" class="btn sm ghost danger" data-yt="remove">Gỡ</button></div>`).join("")}</div>
+    <details class="more yt-cl"${cls.length ? "" : " open"}><summary>OAuth client (${cls.length}) — ${free.length} chưa gán kênh · + thêm client</summary>
+      <div class="yt-list">${cls.map((c) => `<div class="yt-ch" data-client="${esc(c.key)}"><span class="t"><b>${esc(c.name)}</b>
+        <span class="mut small">…${esc(c.client_tail)} · ${(c.used_by || []).length ? "→ " + esc(c.used_by.join(", ")) : "chưa gán kênh"}</span></span>
+        ${c.source === "app" && !(c.used_by || []).length ? '<button type="button" class="btn sm ghost danger" data-yt="rmclient">Gỡ</button>' : ""}</div>`).join("")}</div>
+      ${ytClientForm()}</details>`;
   const jp = $("#job-pub");
   if (jp) {
     const cv = jp.value;
@@ -1617,14 +1624,14 @@ function paintYtAcc() {
 }
 function ytClientForm() {
   const cb = `${location.origin}/test-channel/callback`;
-  return `<div class="yt-client"><p class="sub"><b>Bước 1 (1 lần): OAuth client của Google</b> — để app được đăng nhập YouTube.</p>
+  return `<div class="yt-client"><p class="sub"><b>Thêm OAuth client</b> — mỗi kênh 1 client (1 Google Cloud project riêng, tốt nhất tạo bằng chính Gmail của kênh đó).</p>
     <ol class="sub small">
       <li>Mở <a href="https://console.cloud.google.com/apis/credentials" data-ext>Google Cloud → APIs &amp; Services → Credentials</a> (tạo project nếu chưa có).</li>
       <li>Bật <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" data-ext>YouTube Data API v3</a> cho project.</li>
-      <li>OAuth consent screen: loại <b>External</b>, thêm Gmail của các kênh vào <b>Test users</b>.</li>
+      <li>OAuth consent screen: loại <b>External</b>, thêm Gmail của kênh vào <b>Test users</b>.</li>
       <li>Create credentials → <b>OAuth client ID</b> → loại <b>Web application</b> → Authorized redirect URI: <code>${esc(cb)}</code> → Create → <b>Download JSON</b>.</li>
       <li>Chọn file vừa tải (hoặc dán nội dung) rồi bấm Lưu.</li></ol>
-    <div class="row"><input type="file" id="yt-client-file" accept=".json,application/json"></div>
+    <div class="row"><input id="yt-client-name" placeholder="Tên gợi nhớ (vd Project kênh A)"><input type="file" id="yt-client-file" accept=".json,application/json"></div>
     <textarea id="yt-client-json" rows="3" placeholder='…hoặc dán nội dung file: {"web": {"client_id": "…", "client_secret": "…"}}'></textarea>
     <div class="actions"><span class="grow"></span><button type="button" class="btn sm primary" data-yt="client">Lưu OAuth client</button></div></div>`;
 }
@@ -1646,16 +1653,24 @@ async function onYtAccClick(e) {
       const f = $("#yt-client-file")?.files?.[0];
       const raw = f ? await f.text() : ($("#yt-client-json")?.value || "").trim();
       if (!raw) throw new Error("chọn file JSON hoặc dán nội dung");
-      ytAcc = await api("POST", "/api/v6/yt/client", { json: raw });
+      ytAcc = await api("POST", "/api/v6/yt/client", { json: raw, name: ($("#yt-client-name")?.value || "").trim() });
       paintYtAcc();
     });
   }
   if (b.dataset.yt === "add") {
     return act(b, "", async () => {
-      const r = await api("POST", "/api/v6/yt/auth-url", {});
+      const ck = $("#yt-client-pick")?.value || "";
+      const c = (ytAcc.clients || []).find((x) => x.key === ck);
+      if (c && (c.used_by || []).length && !confirm(`Client «${c.name}» đã dùng cho kênh: ${c.used_by.join(", ")}.\n\nDùng chung client = Google thấy các kênh này cùng một app (dễ bị coi là kênh liên quan). Nên thêm client mới cho kênh này.\n\nVẫn dùng chung?`)) return;
+      const r = await api("POST", "/api/v6/yt/auth-url", { client_key: ck });
       if (!(await openExternal(r.auth_url))) { say("Không mở được trình duyệt — dán link này vào trình duyệt: " + r.auth_url, "err"); return; }
       say("Đăng nhập Google ở trình duyệt, chọn đúng kênh → kênh tự hiện ở đây");
     });
+  }
+  if (b.dataset.yt === "rmclient") {
+    const key = b.closest("[data-client]")?.dataset.client;
+    if (!confirm("Gỡ OAuth client này khỏi Pineline? (không ảnh hưởng Google Cloud)")) return;
+    return act(b, "Đã gỡ client", async () => { ytAcc = await api("DELETE", `/api/v6/yt/clients/${encodeURIComponent(key)}`); paintYtAcc(); });
   }
   if (b.dataset.yt === "default") return act(b, "Đã đặt kênh mặc định", async () => { ytAcc = await api("POST", "/api/v6/yt/accounts/default", { id }); paintYtAcc(); });
   if (b.dataset.yt === "remove") {
