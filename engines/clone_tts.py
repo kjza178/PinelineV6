@@ -50,6 +50,30 @@ ENGINE_CFG = {
     },
 }
 HF_HOME = _cfg.HF_HOME
+
+
+def _refresh_engine_cfg() -> None:
+    """2026-11-21: đọc LẠI cấu hình lồng tiếng mỗi lần chạy (đổi trong Cài đặt / pineline.config.json có hiệu lực
+    ngay, không cần restart server). Trước: ENGINE_CFG + HF_HOME chụp 1 lần lúc import."""
+    global HF_HOME
+    g = _cfg.get
+    v_py = g("VIENEU_PY") or _cfg.venv_python(g("PINELINE_VIENEU_ENV") or _cfg._default_vieneu_env)
+    o_py = g("OMNI_PY") or _cfg.venv_python(g("PINELINE_OMNI_ENV") or _cfg._default_omni_env)
+    vv = ENGINE_CFG["vieneu"]
+    if not vv.get("_resolved_from") or vv.get("_resolved_from") != v_py:
+        vv["py"], vv["_resolved_from"] = v_py, v_py
+    vv["device"] = g("VIENEU_DEVICE") or "cuda"
+    try:
+        vv["batch_size"] = int(os.getenv("VIENEU_BATCH") or g("VIENEU_BATCH", "24") or "24")
+    except ValueError:
+        vv["batch_size"] = 24
+    oo = ENGINE_CFG["omnivoice"]
+    if not oo.get("_resolved_from") or oo.get("_resolved_from") != o_py:
+        oo["py"], oo["_resolved_from"] = o_py, o_py
+    oo["device"] = g("OMNI_DEVICE") or "cuda"
+    oo["cwd"] = g("OMNI_CWD") or str(Path(o_py).parent.parent.parent)
+    oo["model"] = g("OMNI_MODEL") or "splendor1811/omnivoice-vietnamese"
+    HF_HOME = g("HF_HOME") or str(_PROJ / ".cache" / "hf")
 VOICES_FILE = _PROJ / "voices" / "f5_voices.json"
 
 
@@ -69,6 +93,7 @@ def resolve_engine_python(engine: str) -> str:
     """Tìm python.exe của engine. Config sai path (thường sau install) -> thử chỗ mặc định."""
     if engine not in ENGINE_CFG:
         raise RuntimeError(f"Engine '{engine}' khong ho tro")
+    _refresh_engine_cfg()
     raw = ENGINE_CFG[engine]["py"]
     candidates = [Path(raw)] if raw else []
     if engine == "vieneu":
@@ -734,6 +759,7 @@ def _run_worker(engine: str, ref: Path, ref_text: str, out_dir: Path, speed: flo
     (mặc định 600s) -> kill worker. Chống đơ CUDA/batch vô hạn.
     """
     import threading
+    _refresh_engine_cfg()
     cfg = ENGINE_CFG[engine]
     py = resolve_engine_python(engine)
     worker = Path(cfg["worker"])

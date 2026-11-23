@@ -1,6 +1,9 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- **Cấu hình lồng tiếng có hiệu lực không cần restart**: `clone_tts` đọc lại VIENEU_PY / VIENEU_DEVICE / VIENEU_BATCH /
+  OMNI_* / HF_HOME mỗi lần chạy (trước chụp 1 lần lúc import). Còn cần restart: cờ instance (instances/*.json) và
+  biến môi trường hệ thống (JOB_WORKERS, QUEUE_*…).
 - **Mỗi job một kênh YouTube**: Công việc → tích job → «Đăng lên kênh…» chọn kênh → «Gán kênh đăng» (`publish_to` trong
   manifest qua `job_state.set_publish_target`). Render xong job TỰ ĐĂNG lên đúng kênh đã gán (không phụ thuộc cờ
   `auto_publish` vì người dùng chọn rõ); job đã xong chưa đăng → xếp đăng ngay; «— Bỏ tự đăng —» gỡ. Dòng job hiện

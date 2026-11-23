@@ -280,3 +280,17 @@ def test_tts_device_parsed_from_worker_line():
     assert g["gpu"] is True and g["label"] == "GPU (pytorch)"
     c = tts_device_from_line("vieneu ready backend=onnx engine.device=cpu")
     assert c["gpu"] is False and c["label"].startswith("CPU")
+
+
+def test_tts_engine_cfg_follows_settings_without_restart(monkeypatch):
+    from engines import clone_tts as ct
+    import core.config as C
+    conf = {"VIENEU_DEVICE": "cuda", "VIENEU_BATCH": "24", "VIENEU_PY": "/a/python"}
+    monkeypatch.setattr(C, "get", lambda k, d=None: conf.get(k, d))
+    monkeypatch.delenv("VIENEU_BATCH", raising=False)
+    ct._refresh_engine_cfg()
+    assert ct.ENGINE_CFG["vieneu"]["device"] == "cuda" and ct.ENGINE_CFG["vieneu"]["py"] == "/a/python"
+    conf.update(VIENEU_DEVICE="cpu", VIENEU_BATCH="8", VIENEU_PY="/b/python")   # đổi trong Cài đặt
+    ct._refresh_engine_cfg()
+    v = ct.ENGINE_CFG["vieneu"]
+    assert v["device"] == "cpu" and v["batch_size"] == 8 and v["py"] == "/b/python"
