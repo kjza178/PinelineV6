@@ -121,3 +121,44 @@ def test_state_write_without_manifest_creates_nothing(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     assert js.try_mutate("ghost_job", lambda d: d.update(x=1)) is False
     assert not (tmp_path / "ghost_job").exists()
+
+
+def test_render_failure_not_stamped_on_translate(tmp_path, monkeypatch):
+    """2026-11-21: render lỗi → «Dịch» (bước đầu của lượt chạy) bị ghi «bước mux lỗi…» + mất trạng thái Xong."""
+    monkeypatch.setattr(server, "WORK_ROOT", tmp_path)
+    wd = _write(tmp_path / "r1", {
+        "request": {"url": "https://example.invalid/v", "target": "vi"},
+        "stages": {"download": {"status": "done"}, "asr": {"status": "done"}, "translate": {"status": "pending"},
+                   "tts": {"status": "pending", "voice": "v"}, "mux": {"status": "pending"}}})
+    video = wd / "source.mp4"
+    video.write_bytes(b"v")
+    monkeypatch.setattr(server.job_queue, "is_wired_done", lambda _wd: False)
+    monkeypatch.setattr(server, "list_clone_voices", lambda: ["v"])
+    monkeypatch.setattr(server, "_job_any_busy", lambda _j: None)
+    monkeypatch.setattr(server, "_manifest_running", lambda _wd: None)
+    monkeypatch.setattr(server, "_claim_stage", lambda *_a: True)
+    monkeypatch.setattr(server, "_find_video", lambda _wd: video)
+    monkeypatch.setattr(server, "_check_and_run_auto_split_parts", lambda *a, **k: False)
+
+    def fake_gpu(*a, **k):        # dịch + TTS xong, render hỏng
+        def fn(d):
+            d["stages"]["translate"]["status"] = "done"
+            d["stages"]["tts"]["status"] = "done"
+            d["stages"]["mux"].update(status="failed", error="render worker thoát mã 2")
+        server.js.mutate(wd, fn)
+    monkeypatch.setattr(server, "_auto_gpu", fake_gpu)
+    monkeypatch.setattr(server, "_gpu", type("E", (), {"submit": staticmethod(lambda fn: fn())})())
+    status, detail = server._queue_run_one("r1", {})
+    st = json.loads((wd / "manifest.json").read_text(encoding="utf-8"))["stages"]
+    assert status == "failed" and "bước mux lỗi" in detail
+    assert st["translate"]["status"] == "done" and "error" not in st["translate"]
+    assert st["mux"]["error"] == "render worker thoát mã 2"
+
+
+def test_heal_misattributed_failure(tmp_path):
+    wd = _write(tmp_path / "r2", {"stages": {
+        "translate": {"status": "failed", "error": "bước mux lỗi: render worker thoát mã 2"},
+        "mux": {"status": "failed", "error": "render worker thoát mã 2"}}})
+    assert server._heal_misattributed_fail(wd) == ["translate"]
+    st = json.loads((wd / "manifest.json").read_text(encoding="utf-8"))["stages"]
+    assert st["translate"]["status"] == "pending" and st["mux"]["status"] == "failed"

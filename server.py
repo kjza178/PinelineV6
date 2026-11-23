@@ -1211,6 +1211,7 @@ def _reset_stale_running():
     for d in WORK_ROOT.iterdir():
         if not (d / "manifest.json").exists():
             continue
+        _heal_misattributed_fail(d)       # 2026-11-21: lỗi cũ bị ghi nhầm bước (vd render lỗi mà Dịch báo Lỗi)
         try:
             m = Manifest(d)
             changed = False
@@ -1960,6 +1961,33 @@ def _note_stop(wd: Path, stage: str, why: str) -> None:
         js.try_mutate(wd, _fn)
     except Exception as e:  # noqa: BLE001
         print(f"[auto] ghi lý do dừng {Path(wd).name} lỗi: {e}", flush=True)
+
+
+def _heal_misattributed_fail(wd: Path) -> list[str]:
+    """Sửa job cũ bị ghi lỗi NHẦM bước (bản trước 2026-11-21): bước X «Lỗi» với error «bước Y lỗi: …» (Y ≠ X) →
+    trả về «Chờ» (lượt chạy sau tự kiểm lại / làm tiếp, không làm lại từ đầu). Trả các bước đã sửa."""
+    import re as _re
+    fixed: list[str] = []
+
+    def _fn(d):
+        for n, st in (d.get("stages") or {}).items():
+            if not isinstance(st, dict) or st.get("status") != "failed":
+                continue
+            mm = _re.match(r"bước (\w+) lỗi", str(st.get("error") or ""))
+            if mm and mm.group(1) != n:
+                st["status"] = "pending"
+                st["cur_text"] = f"(lỗi cũ thuộc bước {mm.group(1)}, không phải bước này)"
+                st.pop("error", None)
+                fixed.append(n)
+        if not fixed:
+            return False
+    try:
+        js.try_mutate(wd, _fn)
+    except Exception as e:  # noqa: BLE001
+        print(f"[heal] sửa lỗi ghi nhầm bước {Path(wd).name}: {e}", flush=True)
+    if fixed:
+        print(f"[heal] {Path(wd).name}: gỡ lỗi ghi nhầm ở bước {fixed}", flush=True)
+    return fixed
 
 
 def _clear_last_stop(wd: Path) -> None:
@@ -4770,6 +4798,7 @@ def _queue_run_one(job_id: str, opts: dict) -> tuple[str, str]:
     if not (work_dir / "manifest.json").exists():
         return "failed", "không tìm thấy manifest"
     job_queue.set_phase(job_id, "chuẩn bị (kiểm tra job, giọng, tham số)")
+    _heal_misattributed_fail(work_dir)
     _heal_stale_running(work_dir)
     if job_queue.is_wired_done(work_dir):
         return "done", "đã hoàn tất trước đó"
@@ -4833,11 +4862,36 @@ def _queue_run_one(job_id: str, opts: dict) -> tuple[str, str]:
     except Exception as e_er:  # noqa: BLE001
         print(f"[queue] {job_id}: đánh dấu bắt đầu lỗi: {e_er}", flush=True)
 
-    def _failed(detail: str) -> tuple[str, str]:
+    def _failed(detail: str, stage: str | None = None) -> tuple[str, str]:
+        """2026-11-21: ghi lỗi lên ĐÚNG bước hỏng (trước: luôn lên bước đầu của lượt chạy → render lỗi mà «Dịch» báo
+        Lỗi «bước mux lỗi…», còn đè mất trạng thái Xong của Dịch). Bước đã Xong / đã tự ghi lỗi → không đè."""
+        st = stage
+        if st is None:
+            try:
+                st = _next_incomplete_stage(work_dir) or early
+            except Exception as e_ns:  # noqa: BLE001
+                print(f"[queue] {job_id}: tìm bước hỏng lỗi: {e_ns}", flush=True)
+                st = early
         try:
-            Manifest(work_dir).mark_failed(early, detail)
-        except Exception:  # noqa: BLE001
-            pass
+            m_f = Manifest(work_dir)
+            cur = m_f.stage(st) or {}
+            if cur.get("status") == "done" or (cur.get("status") == "failed" and cur.get("error")):
+                pass
+            else:
+                m_f.mark_failed(st, detail)
+        except Exception as e_mf:  # noqa: BLE001
+            print(f"[queue] {job_id}: ghi lỗi bước {st}: {e_mf}", flush=True)
+        if early != st:          # bước đánh «running» lúc bắt đầu lượt mà không phải bước hỏng → về Chờ (không treo)
+            def _unrun(d):
+                s0 = (d.get("stages") or {}).get(early)
+                if not isinstance(s0, dict) or s0.get("status") != "running":
+                    return False
+                s0["status"] = "pending"
+                s0["cur_text"] = "chưa chạy tới — lượt chạy dừng ở bước trước"
+            try:
+                js.try_mutate(work_dir, _unrun)
+            except Exception as e_ur:  # noqa: BLE001
+                print(f"[queue] {job_id}: trả bước {early} về Chờ lỗi: {e_ur}", flush=True)
         return "failed", detail[:200]
 
     submitted = False
@@ -4850,10 +4904,10 @@ def _queue_run_one(job_id: str, opts: dict) -> tuple[str, str]:
         if not _find_video(work_dir):
             if request.get("local") or request.get("orig_path") or (manifest.stage("download") or {}).get("video_path"):
                 orig = request.get("orig_path") or (manifest.stage("download") or {}).get("video_path") or "không xác định"
-                return _failed(f"không tìm thấy video nguồn local (file đã bị xoá hoặc di chuyển): {orig}")
+                return _failed(f"không tìm thấy video nguồn local (file đã bị xoá hoặc di chuyển): {orig}", "download")
             url = request.get("url")
             if not url:
-                return _failed("manifest không có URL nguồn")
+                return _failed("manifest không có URL nguồn", "download")
             job_queue.set_phase(job_id, "tải nguồn")
             try:
                 download_video(
@@ -4864,11 +4918,11 @@ def _queue_run_one(job_id: str, opts: dict) -> tuple[str, str]:
             except Exception as exc:  # noqa: BLE001
                 if job_id in _STOP_JOBS:
                     return "stopped", "đã dừng khi tải nguồn"
-                return _failed(f"tải nguồn lỗi: {exc}")
+                return _failed(f"tải nguồn lỗi: {exc}", "download")
         if job_id in _STOP_JOBS or not _find_video(work_dir):
             if job_id in _STOP_JOBS:
                 return "stopped", "đã dừng sau khi tải nguồn"
-            return _failed("tải nguồn xong nhưng không tìm thấy video")
+            return _failed("tải nguồn xong nhưng không tìm thấy video", "download")
 
         done_event = threading.Event()
         error: list[Exception] = []
@@ -5007,15 +5061,15 @@ def _queue_run_one(job_id: str, opts: dict) -> tuple[str, str]:
         for stg in ("download", "asr", "translate", "tts", "mux"):
             stg_info = m_curr.stage(stg) or {}
             if stg_info.get("status") == "failed" and stg_info.get("error"):
-                return _failed(f"bước {stg} lỗi: {stg_info.get('error')}")
+                return _failed(f"bước {stg} lỗi: {stg_info.get('error')}", stg)
             if stg == "translate" and stg_info.get("last_error"):
-                return _failed(f"dịch lỗi: {stg_info.get('last_error')[:150]}")
+                return _failed(f"dịch lỗi: {stg_info.get('last_error')[:150]}", "translate")
         sub_ids_end = list((m_curr.data.get("split_info") or {}).get("sub_job_ids") or [])
         if sub_ids_end:
             rep = _split_parts_report(sub_ids_end)
             if rep:
-                return _failed(f"chưa ghép được bản Full — part chưa xong: {rep}")
-            return _failed("mọi part đã xong nhưng ghép bản Full lỗi (xem log [auto-split])")
+                return _failed(f"chưa ghép được bản Full — part chưa xong: {rep}", "mux")
+            return _failed("mọi part đã xong nhưng ghép bản Full lỗi (xem log [auto-split])", "mux")
         last = m_curr.data.get("last_stop") or {}
         if last.get("why"):
             return _failed(f"dừng ở {last.get('stage')}: {last['why']}")

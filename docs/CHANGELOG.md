@@ -1,6 +1,10 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- **Lỗi ghi đúng bước**: `_queue_run_one._failed` trước luôn ghi lỗi lên bước ĐẦU của lượt chạy → render lỗi mà «Dịch»
+  báo «bước mux lỗi…» (còn đè trạng thái Xong của Dịch). Nay ghi lên bước thật sự hỏng (tải nguồn / bước có lỗi / bước
+  chưa xong đầu tiên), không đè bước Xong / bước đã tự ghi lỗi; bước đánh «running» lúc bắt đầu mà không hỏng → về Chờ.
+  Job cũ bị ghi nhầm được sửa lúc khởi động server và lúc chạy lại (`_heal_misattributed_fail`).
 - **ffmpeg mới (9.x, gyan.dev) bỏ `-vsync`** → render lỗi «Unrecognized option 'vsync'» ở bước tách keyframe che phụ đề
   Trung (`engines/ocr.py`). Nay dò 1 lần: có `-fps_mode` → `-fps_mode passthrough`, không (ffmpeg < 5.1) → `-vsync 0`.
 - **Mỗi kênh YouTube một OAuth client riêng** (giảm dấu hiệu «kênh liên quan», quota riêng mỗi project): nhiều client
