@@ -128,3 +128,16 @@ def test_targets_per_job_and_publish_on_done(store, tmp_path, monkeypatch):
     assert yt_publish.publish_on_done("b") is False
     with pytest.raises(ValueError):
         yt_publish.set_targets(["a"], "UC_khong_co")
+
+
+def test_save_client_from_downloaded_json(store):
+    raw = json.dumps({"web": {"client_id": "123-abc.apps.googleusercontent.com", "client_secret": "s3cr3t"}})
+    ya.save_client(raw)
+    saved = json.loads((store / "client_secret.json").read_text(encoding="utf-8"))
+    assert saved["web"]["client_id"].startswith("123-") and ya.client_info()["ok"] is True
+    cfg, src = ya._client_config("http://127.0.0.1:8806/test-channel/callback")
+    assert src == "own" and cfg["web"]["redirect_uris"] == ["http://127.0.0.1:8806/test-channel/callback"]
+    with pytest.raises(ValueError):
+        ya.save_client('{"web": {"client_id": "x"}}')
+    with pytest.raises(ValueError):
+        ya.save_client("không phải json")

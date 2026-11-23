@@ -114,13 +114,17 @@ def _client_config(redirect_uri: str) -> tuple[dict, str]:
     own = DATA / "client_secret.json"
     if own.is_file():
         raw = json.loads(own.read_text(encoding="utf-8"))
-        c = raw.get("web") or raw.get("installed") or raw
+        c = _parse_client(json.dumps(raw))
         return {"web": {"client_id": c["client_id"], "client_secret": c["client_secret"],
                         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                         "token_uri": "https://oauth2.googleapis.com/token", "redirect_uris": [redirect_uri]}}, "own"
     try:
         import tools.test_channel as tc
         projs = json.loads(tc.PROJECTS_FILE.read_text(encoding="utf-8")) if tc.PROJECTS_FILE.is_file() else []
+        if not projs and Path(tc.CLIENT_SECRET_FILE).is_file():     # file client_secret.json của Kênh test / yt_uploader
+            c = _parse_client(Path(tc.CLIENT_SECRET_FILE).read_text(encoding="utf-8"))
+            return {"web": {**c, "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                            "token_uri": "https://oauth2.googleapis.com/token", "redirect_uris": [redirect_uri]}}, "test_secret"
     except Exception as e:  # noqa: BLE001
         print(f"[yt-accounts] đọc project kênh test lỗi: {e}", flush=True)
         projs = []
@@ -131,6 +135,28 @@ def _client_config(redirect_uri: str) -> tuple[dict, str]:
     return {"web": {"client_id": p["client_id"], "client_secret": p["client_secret"],
                     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                     "token_uri": "https://oauth2.googleapis.com/token", "redirect_uris": [redirect_uri]}}, p["id"]
+
+
+def _parse_client(raw: str) -> dict:
+    """JSON tải từ Google Cloud (loại «Web application» hoặc «Desktop app») → {client_id, client_secret}."""
+    try:
+        d = json.loads(raw)
+    except ValueError as e:
+        raise ValueError(f"không phải JSON hợp lệ: {e}") from e
+    c = (d.get("web") or d.get("installed") or d) if isinstance(d, dict) else {}
+    cid, sec = str(c.get("client_id") or "").strip(), str(c.get("client_secret") or "").strip()
+    if not cid.endswith(".apps.googleusercontent.com") or not sec:
+        raise ValueError("file thiếu client_id / client_secret (tải đúng file OAuth client ID ở Google Cloud → Credentials)")
+    return {"client_id": cid, "client_secret": sec}
+
+
+def save_client(raw: str) -> dict:
+    """Lưu OAuth client của Google (dán / chọn file JSON trong app) → data/yt_accounts/client_secret.json."""
+    c = _parse_client(raw)
+    from core.fileio import atomic_write_json
+    DATA.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(DATA / "client_secret.json", {"web": c}, fsync=False)
+    return list_accounts()
 
 
 def client_info() -> dict:

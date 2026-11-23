@@ -385,3 +385,6 @@ td.mono{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all}
 .yt-ch.def{border-color:var(--accent)}
 .yt-ch img,.yt-ch .yt-ph{width:28px;height:28px;border-radius:50%;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;background:var(--line);font-size:11px}
 .yt-ch .t{display:flex;flex-direction:column;line-height:1.2}
+.yt-client{margin-top:10px;padding:10px 12px;border:1px dashed var(--line-2);border-radius:8px}
+.yt-client ol{margin:6px 0 10px 18px;padding:0;line-height:1.6}
+.yt-client textarea{width:100%;margin-top:6px}

@@ -286,6 +286,15 @@ def _v6_router(inst: Instance) -> APIRouter:
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
 
+    @r.post(V6_PREFIX + "/yt/client")
+    def yt_client(body: dict):
+        """{json: "<nội dung file OAuth client>"} → lưu client_secret.json cho kênh đăng phim."""
+        from services import yt_accounts
+        try:
+            return yt_accounts.save_client(str((body or {}).get("json") or ""))
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+
     @r.post(V6_PREFIX + "/yt/accounts/default")
     def yt_set_default(body: dict):
         from services import yt_accounts

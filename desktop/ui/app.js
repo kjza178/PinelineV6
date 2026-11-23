@@ -1595,7 +1595,7 @@ function paintYtAcc() {
   const cl = ytAcc.client || {};
   box.innerHTML = `<div class="yt-head"><b>Kênh YouTube</b><span class="sub">${accs.length ? `${accs.length} kênh · ★ = kênh mặc định (tự đăng dùng kênh này)` : "Chưa có kênh — thêm kênh để đăng phim"}</span>
       <span class="grow"></span><button type="button" class="btn sm primary" data-yt="add"${cl.ok === false ? " disabled" : ""}>+ Thêm kênh</button></div>
-    ${cl.ok === false ? `<p class="err small">${esc(cl.error || "Chưa có OAuth client Google")}</p>` : ""}
+    ${cl.ok === false ? ytClientForm() : ""}
     ${ytAcc.error ? `<p class="err small">${esc(ytAcc.error)}</p>` : ""}
     <div class="yt-list">${accs.map((a) => `<div class="yt-ch${a.default ? " def" : ""}" data-acc="${esc(a.id)}">
       ${a.thumb ? `<img src="${esc(a.thumb)}" alt="" referrerpolicy="no-referrer">` : '<span class="yt-ph">▶</span>'}
@@ -1615,6 +1615,19 @@ function paintYtAcc() {
   }
   paintPubSel();
 }
+function ytClientForm() {
+  const cb = `${location.origin}/test-channel/callback`;
+  return `<div class="yt-client"><p class="sub"><b>Bước 1 (1 lần): OAuth client của Google</b> — để app được đăng nhập YouTube.</p>
+    <ol class="sub small">
+      <li>Mở <a href="https://console.cloud.google.com/apis/credentials" data-ext>Google Cloud → APIs &amp; Services → Credentials</a> (tạo project nếu chưa có).</li>
+      <li>Bật <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" data-ext>YouTube Data API v3</a> cho project.</li>
+      <li>OAuth consent screen: loại <b>External</b>, thêm Gmail của các kênh vào <b>Test users</b>.</li>
+      <li>Create credentials → <b>OAuth client ID</b> → loại <b>Web application</b> → Authorized redirect URI: <code>${esc(cb)}</code> → Create → <b>Download JSON</b>.</li>
+      <li>Chọn file vừa tải (hoặc dán nội dung) rồi bấm Lưu.</li></ol>
+    <div class="row"><input type="file" id="yt-client-file" accept=".json,application/json"></div>
+    <textarea id="yt-client-json" rows="3" placeholder='…hoặc dán nội dung file: {"web": {"client_id": "…", "client_secret": "…"}}'></textarea>
+    <div class="actions"><span class="grow"></span><button type="button" class="btn sm primary" data-yt="client">Lưu OAuth client</button></div></div>`;
+}
 function paintPubSel() {
   const b = $("#pub-sel"); if (!b) return;
   const n = filmPicked.size, has = (ytAcc?.accounts || []).length > 0;
@@ -1624,8 +1637,19 @@ function paintPubSel() {
   if (all) { all.checked = n > 0 && n === filmUploadable.length; all.indeterminate = n > 0 && n < filmUploadable.length; }
 }
 async function onYtAccClick(e) {
+  const ext = e.target.closest("a[data-ext]");
+  if (ext) { e.preventDefault(); openExternal(ext.href); return; }
   const b = e.target.closest("button[data-yt]"); if (!b) return;
   const id = b.closest("[data-acc]")?.dataset.acc;
+  if (b.dataset.yt === "client") {
+    return act(b, "Đã lưu OAuth client — giờ bấm «+ Thêm kênh»", async () => {
+      const f = $("#yt-client-file")?.files?.[0];
+      const raw = f ? await f.text() : ($("#yt-client-json")?.value || "").trim();
+      if (!raw) throw new Error("chọn file JSON hoặc dán nội dung");
+      ytAcc = await api("POST", "/api/v6/yt/client", { json: raw });
+      paintYtAcc();
+    });
+  }
   if (b.dataset.yt === "add") {
     return act(b, "", async () => {
       const r = await api("POST", "/api/v6/yt/auth-url", {});

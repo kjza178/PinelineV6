@@ -1,6 +1,8 @@
 # CHANGELOG — V6
 
 ## 2026-11-21
+- Kênh YouTube: chưa có OAuth client → khung «Kênh YouTube» hướng dẫn 5 bước Google Cloud + chọn / dán file JSON →
+  lưu `data/yt_accounts/client_secret.json` (`POST /api/v6/yt/client`); cũng nhận `client_secret.json` của Kênh test.
 - **Cấu hình lồng tiếng có hiệu lực không cần restart**: `clone_tts` đọc lại VIENEU_PY / VIENEU_DEVICE / VIENEU_BATCH /
   OMNI_* / HF_HOME mỗi lần chạy (trước chụp 1 lần lúc import). Còn cần restart: cờ instance (instances/*.json) và
   biến môi trường hệ thống (JOB_WORKERS, QUEUE_*…).
