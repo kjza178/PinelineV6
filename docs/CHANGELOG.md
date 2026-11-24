@@ -1,5 +1,12 @@
 # CHANGELOG — V6
 
+
+## 2026-11-24
+- **Kênh YouTube chọn ngay khi tạo job:** hộp «Thêm job» (Link / File trên máy) có ô «Làm xong tự đăng lên kênh» —
+  tạo xong gán kênh luôn (`/api/v6/yt/targets`, như «Đăng lên kênh…»), nhớ lựa chọn lần trước. Trước chỉ gán được sau.
+- **Thêm kênh khi trình duyệt chặn 127.0.0.1:** sau «+ Thêm kênh», khung Kênh YouTube hiện link đăng nhập (chép sang
+  trình duyệt / máy khác) + ô dán địa chỉ trang lỗi cuối (`…/test-channel/callback?code=…`) → «Hoàn tất thêm kênh»
+  (`POST /api/v6/yt/finish`, `services.yt_accounts.finish_from_pasted`; redirect_uri lưu trong phiên chờ).
 ## 2026-11-21
 - **Lỗi ghi đúng bước**: `_queue_run_one._failed` trước luôn ghi lỗi lên bước ĐẦU của lượt chạy → render lỗi mà «Dịch»
   báo «bước mux lỗi…» (còn đè trạng thái Xong của Dịch). Nay ghi lên bước thật sự hỏng (tải nguồn / bước có lỗi / bước

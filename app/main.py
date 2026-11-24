@@ -287,6 +287,27 @@ def _v6_router(inst: Instance) -> APIRouter:
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
 
+    @r.post(V6_PREFIX + "/yt/finish")
+    def yt_finish(req: Request, body: dict | None = None):
+        """{url: "<địa chỉ trang lỗi sau khi đăng nhập Google>" | mã code} — khi trình duyệt không tới được app."""
+        from services import yt_accounts
+        host = req.headers.get("host") or f"127.0.0.1:{inst.port}"
+        try:
+            acc = yt_accounts.finish_from_pasted(str((body or {}).get("url") or ""),
+                                                 f"http://{host}/test-channel/callback")["account"]
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        except Exception as e:  # noqa: BLE001  (Google từ chối mã: hết hạn / đã dùng / sai client)
+            print(f"[yt-accounts] hoàn tất bằng địa chỉ dán lỗi: {type(e).__name__}: {e}", flush=True)
+            raise HTTPException(400, f"Google từ chối mã đăng nhập ({e}) — mã chỉ dùng 1 lần, hết hạn sau vài phút: "
+                                     "bấm «+ Thêm kênh» lại") from e
+        try:
+            from events.bus import bus
+            bus.publish("yt.accounts.changed", {"id": acc["id"], "title": acc["title"]})
+        except Exception as e_pub:  # noqa: BLE001
+            print(f"[yt-accounts] publish lỗi: {e_pub}", flush=True)
+        return {"ok": True, "account": acc, **yt_accounts.list_accounts()}
+
     @r.post(V6_PREFIX + "/yt/client")
     def yt_client(body: dict):
         """{json: "<nội dung file OAuth client>"} → lưu client_secret.json cho kênh đăng phim."""

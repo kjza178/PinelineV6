@@ -168,3 +168,23 @@ def test_remove_unused_client(store):
     ya.save_client(_cj(333))
     ya.remove_client("333")
     assert ya.clients_info() == []
+
+
+# ── 2026-11-24: trình duyệt chặn 127.0.0.1 → dán địa chỉ trang lỗi (còn code=) để hoàn tất ──
+def test_finish_from_pasted_url(store, monkeypatch):
+    calls = []
+    monkeypatch.setattr(ya, "finish", lambda code, state, ru: calls.append((code, state, ru)) or {"account": {"id": "UC9"}})
+    with pytest.raises(ValueError, match="không có phiên"):
+        ya.finish_from_pasted("http://127.0.0.1:8806/test-channel/callback?state=yt-abc&code=4/0X", "http://fb/cb")
+    (store / "pending_oauth.json").write_text(json.dumps({"state": "yt-abc", "redirect_uri": "http://127.0.0.1:8806/test-channel/callback"}),
+                                              encoding="utf-8")
+    ya.finish_from_pasted(" http://127.0.0.1:8806/test-channel/callback?state=yt-abc&code=4/0X%2Fy&scope=a ", "http://fb/cb")
+    assert calls[-1] == ("4/0X/y", "yt-abc", "http://127.0.0.1:8806/test-channel/callback")
+    ya.finish_from_pasted("4/0ChiMa", "http://fb/cb")                       # chỉ dán mã code
+    assert calls[-1] == ("4/0ChiMa", "yt-abc", "http://127.0.0.1:8806/test-channel/callback")
+    with pytest.raises(ValueError, match="access_denied"):
+        ya.finish_from_pasted("http://127.0.0.1:8806/test-channel/callback?error=access_denied&state=yt-abc", "x")
+    with pytest.raises(ValueError, match="Kênh test"):
+        ya.finish_from_pasted("http://127.0.0.1:8806/test-channel/callback?state=proj1&code=c", "x")
+    with pytest.raises(ValueError):
+        ya.finish_from_pasted("   ", "x")

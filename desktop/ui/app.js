@@ -710,13 +710,35 @@ async function createJob(ev) {
     errEl.textContent = e.message; errEl.hidden = false;
   } finally { ok.disabled = false; ok.textContent = "Kiểm tra"; }
 }
+// 2026-11-24: chọn kênh YouTube NGAY khi tạo job (trước chỉ gán được sau khi job đã có) — nhớ lựa chọn lần trước
+function newPubPaint() {
+  const sel = $("#new-pub"); if (!sel) return;
+  let pref = sel.value; if (!pref) { try { pref = localStorage.getItem("new.pub") || ""; } catch (_) { /* không có storage */ } }
+  const accs = (ytAcc?.accounts || []).filter((a) => a.token);
+  sel.innerHTML = '<option value="">Không tự đăng</option>' + accs.map((a) =>
+    `<option value="${esc(a.id)}"${a.id === pref ? " selected" : ""}>▶ ${esc(a.title)}${a.default ? " ★" : ""}</option>`).join("")
+    + (accs.length ? "" : '<option value="" disabled>(chưa có kênh — thêm ở Phim đã làm → Kênh YouTube)</option>');
+}
+$("#new-pub")?.addEventListener("change", (e) => { try { localStorage.setItem("new.pub", e.target.value); } catch (_) { /* chỉ phiên này */ } });
+async function newAssignPub(ids) {
+  const acc = $("#new-pub")?.value || "";
+  if (!acc || !ids?.length) return "";
+  try {
+    const r = await api("POST", "/api/v6/yt/targets", { job_ids: ids, account_id: acc });
+    return ` · tự đăng lên «${r.channel || acc}» khi xong`;
+  } catch (e) {
+    say(`Đã tạo job nhưng CHƯA gán kênh: ${e.message} — tích các job → «Đăng lên kênh…»`, "err");
+    return "";
+  }
+}
 async function newCreate(btn) {
   const parts = newSel(); if (!parts.length) return;
   return act(btn, "", async () => {
     btn.textContent = "Đang tạo…";
     const r = await api("POST", "/api/v6/jobs/from-link", { url: newPrev.url, parts: parts.map((p) => ({ url: p.url, title: p.title })), group_title: newPrev.title });
+    const pub = await newAssignPub(r.job_ids);
     $("#dlg-new").close(); $("#new-src").value = ""; newReset();
-    say(`Đã tạo ${r.count} job${r.skipped?.length ? ` · bỏ qua ${r.skipped.length} tập đã có` : ""}`);
+    say(`Đã tạo ${r.count} job${r.skipped?.length ? ` · bỏ qua ${r.skipped.length} tập đã có` : ""}${pub}`);
   });
 }
 $("#new-src").addEventListener("input", newReset);
@@ -754,8 +776,9 @@ $("#new-local-ok").addEventListener("click", (e) => {
       const r = await api("POST", "/api/jobs/local-batch", { paths: newPaths, move: $("#new-move").checked });
       const n = (r.job_ids || []).length, errs = r.errors || [];
       if (!n) throw new Error(errs[0] || "không tạo được job nào");
+      const pub = await newAssignPub(r.job_ids);
       $("#dlg-new").close(); newPaths = []; newPaintPaths();
-      say(`Đã tạo ${n} job${errs.length ? ` · ${errs.length} lỗi: ${errs[0]}` : ""}`, errs.length ? "err" : "");
+      say(`Đã tạo ${n} job${errs.length ? ` · ${errs.length} lỗi: ${errs[0]}` : ""}${pub}`, errs.length ? "err" : "");
     } catch (er) { err.textContent = er.message; err.hidden = false; throw er; } finally { newPaintPaths(); }
   });
 });
@@ -1582,7 +1605,20 @@ async function filmAction(btn) {
 }
 
 // ───────────── Kênh YouTube đăng phim — nhiều kênh (services/yt_accounts, 2026-11-21) ─────────────
-let ytAcc = null, filmUploadable = [];
+let ytAcc = null, filmUploadable = [], ytPendingAuth = "";
+// 2026-11-24: trình duyệt chặn 127.0.0.1 (hoặc đăng nhập ở máy / trình duyệt khác) → callback không tới app.
+// Google vẫn chuyển tới …/test-channel/callback?code=… — trang lỗi nhưng thanh địa chỉ còn mã: dán vào đây.
+function paintYtFinish() {
+  const box = $("#yt-finish"); if (!box) return;
+  box.hidden = !ytPendingAuth;
+  if (!ytPendingAuth) { box.innerHTML = ""; return; }
+  box.innerHTML = `<p class="sub"><b>Đăng nhập xong mà trang cuối báo lỗi / «không truy cập được» / bị chặn?</b>
+      Chép <b>nguyên địa chỉ trên thanh trình duyệt</b> của trang đó (bắt đầu bằng <code>http://127.0.0.1…/test-channel/callback?code=</code>) rồi dán vào đây.
+      Mã chỉ dùng được một lần, trong vài phút.</p>
+    <div class="keyrow"><input id="yt-finish-url" placeholder="http://127.0.0.1:…/test-channel/callback?state=yt-…&code=…"><button type="button" class="btn sm primary" data-yt="finish">Hoàn tất thêm kênh</button></div>
+    <p class="sub small">Trình duyệt mặc định không mở được / muốn đăng nhập ở trình duyệt khác: chép link đăng nhập này sang đó.</p>
+    <div class="keyrow"><input id="yt-auth-link" readonly value="${esc(ytPendingAuth)}"><button type="button" class="btn sm" data-yt="copyauth">Chép link</button></div>`;
+}
 const filmPicked = new Set();
 async function loadYtAcc() {
   try { ytAcc = await api("GET", "/api/v6/yt/accounts"); } catch (e) { ytAcc = { accounts: [], error: e.message }; }
@@ -1599,6 +1635,7 @@ function paintYtAcc() {
   box.innerHTML = `<div class="yt-head"><b>Kênh YouTube</b><span class="sub">${accs.length ? `${accs.length} kênh · ★ = kênh mặc định` : "Chưa có kênh"} · mỗi kênh nên có OAuth client riêng</span>
       <span class="grow"></span>${pick}<button type="button" class="btn sm primary" data-yt="add"${cls.length ? "" : " disabled"}>+ Thêm kênh</button></div>
     ${ytAcc.error ? `<p class="err small">${esc(ytAcc.error)}</p>` : ""}
+    <div id="yt-finish" class="yt-client" hidden></div>
     <div class="yt-list">${accs.map((a) => `<div class="yt-ch${a.default ? " def" : ""}" data-acc="${esc(a.id)}">
       ${a.thumb ? `<img src="${esc(a.thumb)}" alt="" referrerpolicy="no-referrer">` : '<span class="yt-ph">▶</span>'}
       <span class="t"><b>${a.default ? "★ " : ""}${esc(a.title)}</b><span class="mut small">${a.token ? "đã đăng nhập" : "mất đăng nhập — thêm lại kênh"}${(a.shares_client || []).length ? ` · <span class="warn">chung client với ${esc(a.shares_client.join(", "))}</span>` : ""}</span></span>
@@ -1620,7 +1657,9 @@ function paintYtAcc() {
     sel.innerHTML = accs.length ? accs.map((a) => `<option value="${esc(a.id)}"${a.id === cur ? " selected" : ""}>${esc(a.title)}${a.default ? " ★" : ""}</option>`).join("")
       : '<option value="">(chưa có kênh)</option>';
   }
+  paintYtFinish();
   paintPubSel();
+  newPubPaint();
 }
 function ytClientForm() {
   const cb = `${location.origin}/test-channel/callback`;
@@ -1663,9 +1702,25 @@ async function onYtAccClick(e) {
       const c = (ytAcc.clients || []).find((x) => x.key === ck);
       if (c && (c.used_by || []).length && !confirm(`Client «${c.name}» đã dùng cho kênh: ${c.used_by.join(", ")}.\n\nDùng chung client = Google thấy các kênh này cùng một app (dễ bị coi là kênh liên quan). Nên thêm client mới cho kênh này.\n\nVẫn dùng chung?`)) return;
       const r = await api("POST", "/api/v6/yt/auth-url", { client_key: ck });
-      if (!(await openExternal(r.auth_url))) { say("Không mở được trình duyệt — dán link này vào trình duyệt: " + r.auth_url, "err"); return; }
-      say("Đăng nhập Google ở trình duyệt, chọn đúng kênh → kênh tự hiện ở đây");
+      ytPendingAuth = r.auth_url; paintYtFinish();
+      const opened = await openExternal(r.auth_url);
+      say(opened ? "Đăng nhập Google ở trình duyệt, chọn đúng kênh → kênh tự hiện ở đây. Trang cuối báo lỗi / bị chặn → dán địa chỉ của nó vào ô bên dưới"
+        : "Không mở được trình duyệt — chép link đăng nhập ở khung bên dưới", opened ? "" : "err");
     });
+  }
+  if (b.dataset.yt === "finish") {
+    return act(b, "", async () => {
+      const v = ($("#yt-finish-url")?.value || "").trim();
+      if (!v) throw new Error("dán địa chỉ trang lỗi (có «code=») vào ô trước");
+      const r = await api("POST", "/api/v6/yt/finish", { url: v });
+      ytPendingAuth = ""; ytAcc = r; paintYtAcc();
+      say(`Đã thêm kênh YouTube: ${r.account?.title || ""}`);
+    });
+  }
+  if (b.dataset.yt === "copyauth") {
+    const inp = $("#yt-auth-link"); inp?.select();
+    try { navigator.clipboard?.writeText(inp?.value || ""); say("Đã chép link đăng nhập"); } catch (_) { say("Bôi đen link rồi Ctrl+C", "err"); }
+    return;
   }
   if (b.dataset.yt === "rmclient") {
     const key = b.closest("[data-client]")?.dataset.client;
@@ -2102,6 +2157,7 @@ function connect() {
   es.addEventListener("yt.accounts.changed", (e) => {      // đăng nhập kênh YouTube xong (callback Google)
     const d = JSON.parse(e.data);
     say(`Đã thêm kênh YouTube: ${d.title || d.id}`);
+    ytPendingAuth = "";
     loadYtAcc();
   });
   es.addEventListener("library.block", (e) => {             // kết quả test bản quyền (recheck nền ~5 phút)
@@ -2324,7 +2380,10 @@ $("#agent-clear").addEventListener("click", () => {
 $("#agent-log").addEventListener("click", (e) => { const c = e.target.closest(".chip[data-ask]"); if (c) { $("#agent-msg").value = c.dataset.ask; $("#form-agent").requestSubmit(); } });
 $("#form-agent").addEventListener("submit", agentSend);
 $("#agent-msg").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $("#form-agent").requestSubmit(); } });
-function openNew() { $("#new-err").hidden = true; newReset(); newPaintPaths(); newTab("link"); $("#dlg-new").showModal(); $("#new-src").focus(); }
+function openNew() {
+  $("#new-err").hidden = true; newReset(); newPaintPaths(); newTab("link"); newPubPaint(); $("#dlg-new").showModal(); $("#new-src").focus();
+  if (!ytAcc) loadYtAcc().then(newPubPaint);
+}
 $("#btn-new").addEventListener("click", openNew);
 document.querySelector('[data-open="new"]').addEventListener("click", openNew);
 $("#new-cancel").addEventListener("click", () => $("#dlg-new").close());

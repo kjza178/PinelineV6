@@ -232,7 +232,8 @@ def auth_url(redirect_uri: str, client_key: str | None = None) -> dict:
     url, state = flow.authorization_url(prompt="select_account consent", access_type="offline",
                                         include_granted_scopes="true", state="yt-" + secrets.token_urlsafe(16))
     DATA.mkdir(parents=True, exist_ok=True)
-    pend = {"state": state, "client_key": key, "verifier": getattr(flow, "code_verifier", None), "at": time.time()}
+    pend = {"state": state, "client_key": key, "verifier": getattr(flow, "code_verifier", None), "at": time.time(),
+            "redirect_uri": redirect_uri}
     (DATA / "pending_oauth.json").write_text(json.dumps(pend), encoding="utf-8")
     shared = [a.get("title") for a in _read()["accounts"] if a.get("client_key") == key]
     return {"ok": True, "auth_url": url, "client_key": key, "shared_with": shared}
@@ -274,6 +275,37 @@ def finish(code: str, state: str, redirect_uri: str) -> dict:
     except OSError as e:
         print(f"[yt-accounts] xoá pending_oauth lỗi: {e}", flush=True)
     return {"ok": True, "account": acc}
+
+
+def finish_from_pasted(pasted: str, fallback_redirect: str) -> dict:
+    """2026-11-24: trình duyệt chặn / không mở được 127.0.0.1 → Google vẫn chuyển hướng tới
+    http://127.0.0.1:<cổng>/test-channel/callback?code=…&state=… — trang báo lỗi nhưng thanh địa chỉ CÒN mã.
+    Người dùng dán nguyên địa chỉ đó (hoặc chỉ mã code) vào app → hoàn tất ở đây, không cần trình duyệt tới được app."""
+    from urllib.parse import parse_qs, urlsplit
+    raw = (pasted or "").strip().strip('"').strip("'")
+    if not raw:
+        raise ValueError("dán địa chỉ trang trình duyệt báo lỗi sau khi đăng nhập Google (có «code=»)")
+    pf = DATA / "pending_oauth.json"
+    try:
+        pend = json.loads(pf.read_text(encoding="utf-8")) if pf.is_file() else {}
+    except (OSError, ValueError) as e:
+        print(f"[yt-accounts] đọc pending_oauth lỗi: {e}", flush=True)
+        pend = {}
+    if "code=" in raw or "error=" in raw:
+        q = parse_qs(urlsplit(raw).query if "?" in raw else raw.lstrip("?#"))
+        if q.get("error"):
+            raise ValueError(f"Google báo lỗi: {q['error'][0]} — bấm «+ Thêm kênh» lại (nhớ cho phép quyền YouTube)")
+        code = (q.get("code") or [""])[0]
+        state = (q.get("state") or [""])[0]
+    else:                                   # chỉ dán mã code
+        code, state = raw, ""
+    if not code:
+        raise ValueError("không thấy «code=» trong địa chỉ đã dán — chép NGUYÊN thanh địa chỉ của trang báo lỗi")
+    if state and not state.startswith("yt-"):
+        raise ValueError("địa chỉ này là của đăng nhập «Kênh test», không phải kênh đăng phim")
+    if not pend:
+        raise ValueError("không có phiên đăng nhập đang chờ — bấm «+ Thêm kênh» lại rồi dán địa chỉ mới")
+    return finish(code, state or pend.get("state") or "", pend.get("redirect_uri") or fallback_redirect)
 
 
 def service(acc_id: str):
