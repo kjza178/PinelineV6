@@ -344,8 +344,10 @@ def test_disk_library_falls_back_to_last_hg_folder(tmp_path, monkeypatch):
     monkeypatch.setattr(dl, "_LAST_HG", tmp_path / "last.json")
     monkeypatch.setattr(dl, "_HG_CACHE", {"at": 0.0, "val": ({}, None, "")})
     monkeypatch.setattr(dl, "_hg_library", lambda: ({}, lib, ""))           # lần 1: Hongguo trả thư mục
+    dl._HG_CACHE["at"] = 0.0
     dl._hg_library_cached(0)
     monkeypatch.setattr(dl, "_hg_library", lambda: ({}, None, "rpc down"))  # lần 2: Hongguo không trả lời
+    dl._HG_CACHE["at"] = 0.0          # ép đọc lại (đồng hồ Windows ~15 ms: 2 lần gọi liền có thể cùng thời điểm)
     by, root, err = dl._hg_library_cached(0)
     assert root == lib and "lần trước" in err
 
