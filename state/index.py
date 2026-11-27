@@ -22,6 +22,15 @@ STAGES = ("download", "asr", "translate", "tts", "mux")
 _RANK = {"running": 0, "held": 1, "pending": 2, "failed": 3, "done": 4}
 
 
+def _publish_label(pt) -> str:
+    """Tên kênh sẽ tự đăng (nhiều kênh → «A, B»)."""
+    if not isinstance(pt, dict):
+        return ""
+    if isinstance(pt.get("accounts"), list):
+        return ", ".join(str(a.get("channel") or a.get("id")) for a in pt["accounts"] if isinstance(a, dict))
+    return str(pt.get("channel") or pt.get("account_id") or "")
+
+
 def summarize(job_id: str, data: dict) -> dict[str, Any]:
     """Tóm tắt nhẹ cho danh sách (không stat file). Chi tiết lấy qua GET /api/jobs/{id}."""
     stages = data.get("stages") or {}
@@ -61,7 +70,7 @@ def summarize(job_id: str, data: dict) -> dict[str, Any]:
         # 2026-11-20: _auto_gpu dừng giữa chừng không lỗi/HOLD (vd dịch chưa đủ) → lý do hiện ở cột «Đang làm»
         "stop_note": (str(((data.get("last_stop") or {}).get("why")) or "")[:200]) if status == "pending" else "",
         # 2026-11-21: kênh YouTube sẽ tự đăng khi render xong (mỗi job một kênh)
-        "publish_to": ((data.get("publish_to") or {}).get("channel") or "") if isinstance(data.get("publish_to"), dict) else "",
+        "publish_to": _publish_label(data.get("publish_to")),
         "yt_url": data.get("yt_url") or "",
         "updated_at": data.get("updated_at"),
     }

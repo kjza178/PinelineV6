@@ -19,7 +19,7 @@ const picked = new Set();        // job_id được tick
 let filter = "", rafQueued = false, fullRedraw = true;
 let selected = null, detail = null, queue = { queue: [], current: null, busy: false };
 // Khung chi tiết có tab. Tab Bản dịch / Giọng / Kết quả chỉ nạp dữ liệu KHI MỞ (không polling).
-const TABS = [["overview", "Tổng quan"], ["script", "Lời thoại"], ["voice", "Giọng đọc"], ["result", "Kết quả"]];
+const TABS = [["overview", "Tổng quan"], ["script", "Lời thoại"], ["voice", "Giọng đọc"], ["result", "Kết quả"], ["yt", "YouTube"]];
 let tab = "overview";
 let script = null;                       // {rows, wav:Set, exists} của job đang mở
 let scriptFilter = "all", scriptQ = "", scriptShown = 200;
@@ -256,7 +256,7 @@ const refreshDetailSoon = debounce(() => { if (selected) loadDetail(selected); }
 function select(id) {
   selected = (id && id !== selected) ? id : null;
   detail = null;
-  tab = "overview"; script = null; scriptFilter = "all"; scriptQ = ""; scriptShown = PAGE;
+  tab = "overview"; script = null; scriptFilter = "all"; scriptQ = ""; scriptShown = PAGE; ytJob = null; ytJobDirty = false;
   fullRedraw = true; schedule();
   paintDetail();
   if (selected) loadDetail(selected);
@@ -298,6 +298,7 @@ function paintDetail(err) {
   if (tab === "overview") paintOverview(j);
   else if (tab === "voice") paintVoice(false);
   else if (tab === "result") paintResult(j);
+  else if (tab === "yt") { paintYtJob(false); if (!ytJobDirty && ytJob) loadYtJobSoon(); }   // job đổi (vd đăng xong) → đọc lại
   else if (tab === "script") syncScriptLock(j);      // không vẽ lại danh sách (đang gõ thì mất chữ)
 }
 
@@ -555,6 +556,63 @@ function paintVoice(force) {
 }
 
 // ───────────── tab Kết quả ─────────────
+// ───────────── tab YouTube của job (2026-11-27): chọn 1 / nhiều kênh — job xong hay chưa ─────────────
+let ytJob = null, ytJobDirty = false;
+async function loadYtJob() {
+  const id = selected; if (!id) return;
+  if (!ytAcc) await loadYtAcc();
+  try { ytJob = await api("GET", `/api/v6/yt/job/${encodeURIComponent(id)}`); } catch (e) { ytJob = { job_id: id, error: e.message }; }
+  ytJobDirty = false;
+  if (selected === id && tab === "yt") paintYtJob(true);
+}
+const loadYtJobSoon = debounce(() => { if (tab === "yt" && !ytJobDirty) loadYtJob(); }, 1500);
+function paintYtJob(force) {
+  const body = $("#tab-body"); if (!body) return;
+  if (!ytJob || ytJob.job_id !== selected) { body.innerHTML = '<p class="hint">Đang đọc…</p>'; loadYtJob(); return; }
+  if (!force && (ytJobDirty || body.querySelector("#yt-job"))) return;     // đang chọn dở → không vẽ đè
+  const s = ytJob, accs = ytAcc?.accounts || [];
+  if (s.error) { body.innerHTML = `<div class="err">${esc(s.error)}</div>`; return; }
+  const tgt = new Set((s.targets || []).map((t) => t.id)), ups = s.uploads || {}, pend = new Set(s.pending || []);
+  const rows = accs.map((a) => {
+    const st = ups[a.id] ? `<a href="${esc(ups[a.id])}" data-ext>✓ đã đăng</a>`
+      : pend.has(a.id) ? '<span class="tag info">đang chờ đăng</span>'
+      : tgt.has(a.id) ? `<span class="tag">${s.done ? "chưa đăng" : "đăng khi job xong"}</span>` : "";
+    return `<label class="yt-row"><input type="checkbox" class="yt-pick" value="${esc(a.id)}"${tgt.has(a.id) || ups[a.id] ? " checked" : ""}${ups[a.id] ? " disabled" : ""}>
+      ${a.thumb ? `<img src="${esc(a.thumb)}" alt="" referrerpolicy="no-referrer">` : '<span class="yt-ph">▶</span>'}
+      <b>${a.default ? "★ " : ""}${esc(a.title)}</b><span class="grow"></span>${st}</label>`;
+  }).join("");
+  const oldUps = Object.entries(ups).filter(([k]) => !accs.some((a) => a.id === k));
+  body.innerHTML = `<div id="yt-job">
+    <p class="sub">${s.done ? "Job đã xong — chọn kênh rồi bấm «Đăng ngay»." : "Job chưa xong — chọn kênh, job render xong sẽ <b>tự đăng</b> lên các kênh đã chọn."}
+      Mỗi kênh đăng 1 lần; tiêu đề / mô tả / ảnh bìa tự tạo khi đăng.</p>
+    ${accs.length ? `<div class="yt-rows">${rows}</div>` : '<div class="callout warn">Chưa có kênh YouTube — thêm ở «Phim đã làm» → Kênh YouTube.</div>'}
+    ${oldUps.length ? `<p class="sub small">Đã đăng trước đây: ${oldUps.map(([, u]) => `<a href="${esc(u)}" data-ext>${esc(u)}</a>`).join(" · ")}</p>` : ""}
+    <div class="row-ctl">
+      <label class="inline">Chế độ <select id="yt-priv"><option value="unlisted">Không công khai</option><option value="private">Riêng tư</option><option value="public">Công khai</option></select></label>
+      <label class="inline">Hẹn giờ <select id="yt-sched"><option value="0">Đăng ngay</option><option value="1">Sau 1 giờ</option><option value="3">Sau 3 giờ</option><option value="6">Sau 6 giờ</option><option value="12">Sau 12 giờ</option><option value="24">Sau 1 ngày</option></select></label>
+    </div>
+    <div class="actions"><button type="button" class="btn ghost sm" data-act="yt-clear"${tgt.size ? "" : " disabled"}>Bỏ tự đăng</button><span class="grow"></span>
+      <button type="button" class="btn primary" data-act="yt-save"${accs.length ? "" : " disabled"}>${s.done ? "Đăng ngay lên kênh đã chọn" : "Lưu — tự đăng khi job xong"}</button></div></div>`;
+  $("#yt-priv").value = s.privacy || $("#films-privacy")?.value || "unlisted";
+  $("#yt-sched").value = String(Math.round(Number(s.schedule_hours) || 0));
+  body.querySelectorAll(".yt-pick, #yt-priv, #yt-sched").forEach((el) => el.addEventListener("change", () => { ytJobDirty = true; }));
+  body.querySelectorAll("a[data-ext]").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); openExternal(el.href); }));
+}
+async function saveYtJob(btn, clear) {
+  const id = selected; if (!id) return;
+  const ups = ytJob?.uploads || {};
+  const ids = clear ? [] : [...document.querySelectorAll("#yt-job .yt-pick:checked")].map((c) => c.value).filter((v) => !ups[v]);
+  if (!clear && !ids.length) { say("Chọn ít nhất 1 kênh chưa đăng", "err"); return; }
+  const names = ids.map((v) => (ytAcc?.accounts || []).find((a) => a.id === v)?.title || v);
+  if (!clear && ytJob?.done && !confirm(`Đăng «${jobs.get(id)?.title || id}» lên ${ids.length} kênh: ${names.join(", ")}?\n\nVideo được gửi lên YouTube, không tự rút lại được.${ids.length > 1 ? "\n\nLưu ý: cùng 1 video trên nhiều kênh dễ bị YouTube coi là nội dung trùng lặp." : ""}`)) return;
+  return act(btn, "", async () => {
+    const r = await api("POST", `/api/v6/yt/job/${encodeURIComponent(id)}`, clear ? { account_ids: [] }
+      : { account_ids: ids, privacy: $("#yt-priv").value, schedule_hours: Number($("#yt-sched").value) || 0 });
+    ytJob = r.status; ytJobDirty = false; paintYtJob(true);
+    say(clear ? "Đã bỏ tự đăng cho job này" : (r.published_now?.length ? `Đã xếp đăng lên ${names.join(", ")}` : `Đã lưu — job xong sẽ tự đăng lên ${names.join(", ")}`));
+  });
+}
+
 function paintResult(j) {
   const enc = encodeURIComponent(j.job_id);
   const done = j.stages?.mux === "done";
@@ -582,8 +640,10 @@ async function detailAction(btn) {
     paintDetail();
     if (tab === "script") { if (script) paintScript(true); else loadScript(); }
     if (tab === "voice") { try { await loadVoices(); } catch (e) { say("Không đọc được danh sách giọng: " + e.message, "err"); } if (tab === "voice") paintVoice(true); }
+    if (tab === "yt") loadYtJob();
     return;
   }
+  if (a === "yt-save" || a === "yt-clear") return saveYtJob(btn, a === "yt-clear");
   if (a === "sc-reload") return loadScript();
   if (a === "sc-more") { scriptShown += PAGE; return paintScript(false); }
   if (a === "play") return playLine(btn.dataset.i);
@@ -1573,15 +1633,18 @@ async function loadPubCfg() {
 
     $("#films-privacy").value = pubCfg.privacy || "unlisted";
     $("#pub-sched").value = String(Math.round(Number(pubCfg.schedule_hours) || 0));
-    const off = r.instance_on === false;
-    $("#pub-auto").checked = !off && !!pubCfg.enabled;      // bản này tắt tự đăng → công tắc tắt + khoá, không giả «bật»
-    $("#pub-auto").disabled = off;
-    $("#pub-note").textContent = off ? "Tự đăng đang tắt cho bản này (instances/<tên>.json → auto_publish). Vẫn đăng tay được." : "";
+    // 2026-11-27: công tắc luôn bật/tắt được (lưu AUTO_PUBLISH) — trước bị khoá theo cờ instance
+    $("#pub-auto").checked = !!r.effective;
+    $("#pub-auto").disabled = false;
+    const star = (ytAcc?.accounts || []).find((a) => a.default);
+    $("#pub-note").textContent = r.effective
+      ? (star ? `Render xong tự đăng lên kênh ★ «${star.title}» (job có gán kênh riêng thì đăng theo kênh đó).` : "Bật rồi nhưng chưa có kênh YouTube — thêm kênh ở trên.")
+      : "Tắt: chỉ job có gán kênh (tab YouTube của job / «Đăng lên kênh…») mới tự đăng.";
   } catch (e) { $("#pub-note").textContent = "Không đọc được cấu hình đăng: " + e.message; }
 }
 async function savePubCfg() {
-  const body = { ...(pubCfg || {}), enabled: $("#pub-auto").disabled ? !!pubCfg?.enabled : $("#pub-auto").checked, privacy: $("#films-privacy").value, schedule_hours: Number($("#pub-sched").value) || 0 };
-  try { const r = await api("POST", "/api/auto-publish/config", body); pubCfg = r.config || body; say("Đã lưu cấu hình đăng YouTube"); }
+  const body = { ...(pubCfg || {}), enabled: $("#pub-auto").checked, privacy: $("#films-privacy").value, schedule_hours: Number($("#pub-sched").value) || 0 };
+  try { const r = await api("POST", "/api/auto-publish/config", body); pubCfg = r.config || body; say(r.effective ? "Đã BẬT tự đăng khi render xong" : "Đã lưu — tự đăng đang TẮT"); loadPubCfg(); }
   catch (e) { say("Lưu cấu hình đăng lỗi: " + e.message, "err"); loadPubCfg(); }
 }
 

@@ -2432,6 +2432,14 @@ def _extract_vi_title(raw: str) -> str:
     return ""
 
 
+def auto_publish_on() -> bool:
+    """Tự đăng khi render xong (lên kênh ★): cờ instance auto_publish HOẶC công tắc trong app (AUTO_PUBLISH=1 —
+    Phim đã làm → «Tự đăng khi render xong»). 2026-11-27: trước chỉ theo cờ instance → v6 công tắc bị khoá, không
+    bật/tắt được."""
+    from core.config import get as _g
+    return _instance_flag("auto_publish") or str(_g("AUTO_PUBLISH") or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _title_model() -> str | None:
     """Model dịch tên phim: TITLE_MODEL > model «Soát & dịch» chính (vd DeepSeek) > TRANSLATE_MODEL.
     2026-11-21: trước dùng TRANSLATE_MODEL (thường llama local — máy không chạy llama thì không dịch được tên nào)."""
@@ -5042,7 +5050,7 @@ def _queue_run_one(job_id: str, opts: dict) -> tuple[str, str]:
                     return "done", "hoàn tất — đã xếp đăng YouTube lên kênh đã gán"
             except Exception as e_pt:  # noqa: BLE001
                 print(f"[auto-publish] {job_id}: đăng theo kênh đã gán lỗi: {e_pt}", flush=True)
-            if _instance_flag("auto_publish"):    # V6: instance tắt auto_publish → không tự upload
+            if auto_publish_on():    # cờ instance HOẶC công tắc «Tự đăng» trong app (AUTO_PUBLISH) — 2026-11-27
                 try:
                     import agents.auto_publisher as auto_publisher
                     auto_publisher.enqueue_publish(job_id)

@@ -352,15 +352,20 @@ def set_queue_opts(wd, opts: dict, *, merge: bool = False) -> dict:
     return _update(wd, fn)
 
 
-def set_publish_target(wd, account_id: str | None, *, privacy: str | None = None,
+def set_publish_target(wd, targets, *, privacy: str | None = None,
                        schedule_hours: float | None = None, channel: str = "") -> dict:
-    """2026-11-21: kênh YouTube tự đăng khi job render xong (mỗi job một kênh). account_id None/"" = bỏ."""
+    """Kênh YouTube đăng job (render xong tự đăng). targets: [{id, channel}] (2026-11-27: nhiều kênh) — hoặc 1 id
+    dạng cũ (str). Rỗng / None = bỏ gán."""
+    if isinstance(targets, str):
+        targets = [{"id": targets, "channel": channel or targets}] if targets else []
+    tl = [{"id": str(t["id"]), "channel": str(t.get("channel") or t["id"])}
+          for t in (targets or []) if isinstance(t, dict) and t.get("id")]
+
     def fn(d):
-        if not account_id:
+        if not tl:
             d.pop("publish_to", None)
             return
-        d["publish_to"] = {"account_id": account_id, "channel": channel or account_id,
-                           "privacy": privacy or None, "schedule_hours": schedule_hours, "at": _now()}
+        d["publish_to"] = {"accounts": tl, "privacy": privacy or None, "schedule_hours": schedule_hours, "at": _now()}
     return _update(wd, fn)
 
 

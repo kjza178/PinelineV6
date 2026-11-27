@@ -391,3 +391,9 @@ td.mono{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all}
 .yt-acc .yt-head select{max-width:340px}
 .yt-acc .yt-cl{margin-top:10px}
 .yt-ch .warn{color:var(--warn,#f5a524)}
+/* tab YouTube của job (2026-11-27) */
+.yt-rows{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.yt-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.yt-row img,.yt-row .yt-ph{width:26px;height:26px;border-radius:50%;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;background:var(--line);font-size:11px}
+.yt-row .grow{flex:1}
+#yt-job .row-ctl{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0}

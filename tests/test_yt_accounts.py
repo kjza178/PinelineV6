@@ -53,7 +53,7 @@ def test_publish_many_uses_chosen_channel_and_skips_uploaded(store, monkeypatch)
     _add(store, "UC2", "Kênh B")
     calls = []
     monkeypatch.setattr(ap, "enqueue_publish", lambda jid, **k: calls.append((jid, k["account_id"], k["force"])) or {"ok": True})
-    monkeypatch.setattr(yt_publish, "_uploaded_url", lambda jid: "https://youtu.be/x" if jid == "done1" else "")
+    monkeypatch.setattr(yt_publish, "_uploaded_url", lambda jid, acc=None: "https://youtu.be/x" if jid == "done1" else "")
     r = yt_publish.publish_many(["j1", "done1", "j2"], account_id="UC2", privacy="private")
     assert r["queued"] == ["j1", "j2"] and r["channel"] == "Kênh B"
     assert calls == [("j1", "UC2", True), ("j2", "UC2", True)]
@@ -112,7 +112,6 @@ def test_targets_per_job_and_publish_on_done(store, tmp_path, monkeypatch):
     from state.index import summarize
     work = tmp_path / "work"
     monkeypatch.setattr(yt_publish, "_work_dir", lambda jid: work / jid)
-    monkeypatch.setattr(yt_publish, "_uploaded_url", lambda jid: "")
     monkeypatch.setattr(jq, "is_wired_done", lambda wd: wd.name == "done1")
     _add(store, "UC1", "Kênh A")
     _add(store, "UC2", "Kênh B")
@@ -125,10 +124,10 @@ def test_targets_per_job_and_publish_on_done(store, tmp_path, monkeypatch):
     assert r["set"] == ["a"] and r2["published_now"] == ["done1"] and calls == [("done1", "UC2")]
     data = json.loads((work / "a" / "manifest.json").read_text(encoding="utf-8"))
     assert summarize("a", data)["publish_to"] == "Kênh A"
-    assert yt_publish.publish_on_done("a") is True and calls[-1] == ("a", "UC1")
+    assert yt_publish.publish_on_done("a") == ["UC1"] and calls[-1] == ("a", "UC1")
     yt_publish.set_targets(["b"], None)                     # bỏ gán
     assert "publish_to" not in json.loads((work / "b" / "manifest.json").read_text(encoding="utf-8"))
-    assert yt_publish.publish_on_done("b") is False
+    assert yt_publish.publish_on_done("b") == []
     with pytest.raises(ValueError):
         yt_publish.set_targets(["a"], "UC_khong_co")
 
@@ -188,3 +187,42 @@ def test_finish_from_pasted_url(store, monkeypatch):
         ya.finish_from_pasted("http://127.0.0.1:8806/test-channel/callback?state=proj1&code=c", "x")
     with pytest.raises(ValueError):
         ya.finish_from_pasted("   ", "x")
+
+
+
+def test_job_multi_channel_targets_and_uploads(store, tmp_path, monkeypatch):
+    """2026-11-27: tab YouTube — 1 job đăng NHIỀU kênh; mỗi kênh 1 lần; job xong → đăng ngay."""
+    from services import yt_publish
+    import agents.auto_publisher as ap
+    import core.job_queue as jq
+    work = tmp_path / "work"
+    monkeypatch.setattr(yt_publish, "_work_dir", lambda jid: work / jid)
+    monkeypatch.setattr(jq, "is_wired_done", lambda wd: True)
+    monkeypatch.setattr(ap, "_read_publish_queue", lambda: [])
+    _add(store, "UC1", "Kênh A")
+    _add(store, "UC2", "Kênh B")
+    _job(work, "m1", yt_uploads={"UC1": "https://youtu.be/a"}, yt_url="https://youtu.be/a")
+    calls = []
+    monkeypatch.setattr(ap, "enqueue_publish", lambda jid, **k: calls.append(k["account_id"]) or {"ok": True})
+    r = yt_publish.set_job_targets(["m1"], ["UC1", "UC2"])
+    assert r["published_now"] == ["m1"] and calls == ["UC2"]          # UC1 đã đăng → chỉ xếp UC2
+    st = yt_publish.job_status("m1")
+    assert [t["id"] for t in st["targets"]] == ["UC1", "UC2"] and st["uploads"] == {"UC1": "https://youtu.be/a"}
+    from state.index import summarize
+    data = json.loads((work / "m1" / "manifest.json").read_text(encoding="utf-8"))
+    assert summarize("m1", data)["publish_to"] == "Kênh A, Kênh B"
+    yt_publish.set_job_targets(["m1"], [], mode="clear")
+    assert yt_publish.job_status("m1")["targets"] == []
+
+
+def test_publish_queue_keeps_one_record_per_channel(tmp_path, monkeypatch):
+    import agents.auto_publisher as ap
+    q = tmp_path / "q.json"
+    monkeypatch.setattr(ap, "_read_publish_queue", lambda: json.loads(q.read_text()) if q.exists() else [])
+    monkeypatch.setattr(ap, "_write_publish_queue", lambda items: q.write_text(json.dumps(items)))
+    monkeypatch.setattr(ap, "is_auto_split_part", lambda j: False)
+    ap._enqueue_job_record("j1", account_id="UC1")
+    ap._enqueue_job_record("j1", account_id="UC2")
+    assert sorted(i["account_id"] for i in json.loads(q.read_text())) == ["UC1", "UC2"]
+    ap._dequeue_job_record("j1", "UC1")
+    assert [i["account_id"] for i in json.loads(q.read_text())] == ["UC2"]

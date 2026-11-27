@@ -1,5 +1,16 @@
 # CHANGELOG — V6
 
+## 2026-11-27
+- **Tab «YouTube» trong chi tiết job**: tích 1 hoặc NHIỀU kênh, chọn chế độ / hẹn giờ. Job chưa xong → render xong tự
+  đăng lên các kênh đã chọn; job đã xong → «Đăng ngay». Mỗi kênh đăng 1 lần (`manifest.yt_uploads[kênh]`), hiện link
+  từng kênh, «đang chờ đăng», «Bỏ tự đăng». `publish_to.accounts=[{id, channel}]` (đọc được dạng cũ 1 kênh). Hàng đăng
+  `auto_publisher` theo (job, kênh) — trước đăng kênh A xoá luôn bản xếp kênh B của cùng job. Route
+  `/api/v6/yt/job/{id}` → `services/yt_publish.job_status / set_job_targets`.
+- **Công tắc «Tự đăng khi render xong» bật/tắt được**: trước bị khoá theo cờ instance `auto_publish=false`. Nay
+  `server.auto_publish_on()` = cờ instance HOẶC công tắc app (`AUTO_PUBLISH` trong pineline.config.json); render xong
+  đăng lên kênh ★ (job có kênh riêng thì theo kênh đó).
+- Port fix V2 17→27/11 (`docs/fixes/2026-11-27-port-v2-11-17-to-27.md`).
+
 
 ## 2026-11-24
 - **Kênh YouTube chọn ngay khi tạo job:** hộp «Thêm job» (Link / File trên máy) có ô «Làm xong tự đăng lên kênh» —

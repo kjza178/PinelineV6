@@ -478,19 +478,27 @@ def auto_publish_get_config():
     import os
 
     import agents.auto_publisher as auto_publisher
-    # instance_on: cờ instance auto_publish (PINELINE_FLAG_AUTO_PUBLISH). Tắt → server KHÔNG tự đăng sau render dù
-    # config.enabled bật (server.py: _instance_flag("auto_publish")) — giao diện phải nói rõ, không để công tắc «chết».
+    # 2026-11-27: tự đăng = (cờ instance auto_publish HOẶC công tắc app AUTO_PUBLISH) VÀ config.enabled. Công tắc trong
+    # app luôn bật/tắt được (trước: instance v6 tắt → công tắc bị khoá).
+    from core.config import get as _g
     flag = os.getenv("PINELINE_FLAG_AUTO_PUBLISH")
-    on = True if flag is None else flag.strip().lower() in ("1", "true", "yes", "on")
-    return {"ok": True, "config": auto_publisher.load_config(), "instance_on": on}
+    inst = True if flag is None else flag.strip().lower() in ("1", "true", "yes", "on")
+    app_on = str(_g("AUTO_PUBLISH") or "").strip().lower() in ("1", "true", "yes", "on")
+    cfg = auto_publisher.load_config()
+    return {"ok": True, "config": cfg, "instance_on": inst, "app_on": app_on,
+            "effective": bool((inst or app_on) and cfg.get("enabled", True))}
 
 
 @router.post("/api/auto-publish/config")
 @router.post("/auto-publish/config")
 def auto_publish_save_config(body: dict):
     import agents.auto_publisher as auto_publisher
-    cfg = auto_publisher.save_config(body)
-    return {"ok": True, "config": cfg}
+    b = dict(body or {})
+    if "enabled" in b:          # công tắc «Tự đăng» trong app → AUTO_PUBLISH (không cần sửa instances/*.json)
+        from core.config import save_config
+        save_config({"AUTO_PUBLISH": "1" if b.get("enabled") else None})
+    cfg = auto_publisher.save_config(b)
+    return {"ok": True, "config": cfg, "effective": auto_publish_get_config()["effective"]}
 
 
 @router.post("/api/auto-publish/trigger")

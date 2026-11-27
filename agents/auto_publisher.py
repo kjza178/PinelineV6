@@ -210,7 +210,9 @@ def _enqueue_job_record(
         from core.fileio import file_lock
         with file_lock(_data_path(QUEUE_LOCK_FILE), timeout=5.0, stale_sec=30.0):
             items = _read_publish_queue()
-            existing = next((it for it in items if it.get("job_id") == job_id), None)
+            # 2026-11-27: 1 job có thể đăng NHIỀU kênh → bản ghi theo (job, kênh)
+            existing = next((it for it in items if it.get("job_id") == job_id
+                             and (it.get("account_id") or None) == (account_id or None)), None)
             if existing:
                 if privacy is not None:
                     existing["privacy"] = privacy
@@ -242,7 +244,8 @@ def _enqueue_job_record(
             return items
     except Exception:
         items = _read_publish_queue()
-        if not any(it.get("job_id") == job_id for it in items):
+        if not any(it.get("job_id") == job_id and (it.get("account_id") or None) == (account_id or None)
+                   for it in items):
             items.append({
                 "job_id": job_id,
                 "privacy": privacy,
@@ -256,17 +259,24 @@ def _enqueue_job_record(
         return items
 
 
-def _dequeue_job_record(job_id: str) -> list[dict[str, Any]]:
-    """Xoá job khỏi hàng chờ upload sau khi đã xử lý xong."""
+def _dequeue_job_record(job_id: str, account_id: str | None = "*") -> list[dict[str, Any]]:
+    """Xoá job khỏi hàng chờ upload sau khi đã xử lý xong. account_id="*" = mọi kênh của job; còn lại chỉ bản ghi
+    (job, kênh) đó (2026-11-27: 1 job đăng nhiều kênh)."""
     job_id = str(job_id or "").strip()
+
+    def _keep(it: dict) -> bool:
+        if it.get("job_id") != job_id:
+            return True
+        return account_id != "*" and (it.get("account_id") or None) != (account_id or None)
     try:
         from core.fileio import file_lock
         with file_lock(_data_path(QUEUE_LOCK_FILE), timeout=5.0, stale_sec=30.0):
-            items = [it for it in _read_publish_queue() if it.get("job_id") != job_id]
+            items = [it for it in _read_publish_queue() if _keep(it)]
             _write_publish_queue(items)
             return items
-    except Exception:
-        items = [it for it in _read_publish_queue() if it.get("job_id") != job_id]
+    except Exception as e:  # noqa: BLE001
+        print(f"[auto-publish] khoá hàng chờ lỗi ({e}) — ghi không khoá", flush=True)
+        items = [it for it in _read_publish_queue() if _keep(it)]
         _write_publish_queue(items)
         return items
 
@@ -919,7 +929,7 @@ def _drain_publish_queue_loop() -> None:
                     flush=True,
                 )
                 break
-            _dequeue_job_record(jid)
+            _dequeue_job_record(jid, item.get("account_id") or None)
             _sync_queue_state_badge()
         time.sleep(1.0)
 
@@ -1028,7 +1038,7 @@ def publish_job(
             )
             _sync_queue_state_badge()
         else:
-            _dequeue_job_record(job_id)
+            _dequeue_job_record(job_id, account_id or None)
             with _lock:
                 _active_jobs.discard(job_id)
             _sync_queue_state_badge()
@@ -1080,6 +1090,12 @@ def _publish_job_internal(
             pass
 
     existing_yt = row.get("yt_url") or m_data.get("yt_url")
+    # 2026-11-27: đăng nhiều kênh — đã đăng ở KÊNH NÀY chưa (yt_uploads[kênh]); kênh khác chưa → vẫn đăng
+    _ups = m_data.get("yt_uploads") if isinstance(m_data.get("yt_uploads"), dict) else {}
+    if _ups:
+        existing_yt = _ups.get(str(account_id or "")) or ""
+    elif existing_yt and m_data.get("yt_account") and account_id and m_data.get("yt_account") != account_id:
+        existing_yt = ""
     if not force and existing_yt:
         return {"ok": True, "already_uploaded": True, "yt_url": existing_yt, "video_id": existing_yt.split("/")[-1]}
 
@@ -1395,6 +1411,9 @@ def _publish_job_internal(
         m.data["upload_status"] = "uploaded"
         m.data["yt_account"] = account_id
         m.data["yt_channel"] = ch_title
+        ups = m.data.get("yt_uploads") if isinstance(m.data.get("yt_uploads"), dict) else {}
+        ups[str(account_id or "")] = yt_url
+        m.data["yt_uploads"] = ups
         js.persist(m)
     except Exception:
         pass

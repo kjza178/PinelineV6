@@ -93,12 +93,14 @@ def test_v6_get_routes_have_no_side_effects():
 
 def test_server_background_starts_respect_instance_flags():
     f = _func_src(ROOT / "server.py", {"_start_agent_watch", "_start_agent_brain", "_resume_hg_merge",
-                                       "_queue_run_one"})
+                                       "_queue_run_one", "auto_publish_on"})
     assert '_instance_flag("agent_watch")' in f["_start_agent_watch"]
     assert '_instance_flag("agent_brain")' in f["_start_agent_brain"]
     assert '_instance_flag("hg_merge_resume")' in f["_resume_hg_merge"]
     q = f["_queue_run_one"]
-    assert q.index('_instance_flag("auto_publish")') < q.index("auto_publisher.enqueue_publish(job_id)")
+    # 2026-11-27: cổng tự đăng = auto_publish_on() (cờ instance auto_publish HOẶC công tắc app AUTO_PUBLISH)
+    assert q.index("auto_publish_on()") < q.index("auto_publisher.enqueue_publish(job_id)")
+    assert '_instance_flag("auto_publish")' in f["auto_publish_on"]
     src = (ROOT / "server.py").read_text(encoding="utf-8")
     assert 'WORK_ROOT = Path(os.getenv("WORK_DIR") or "work")' in src
     assert 'os.getenv("PINELINE_ROUTERS")' in src

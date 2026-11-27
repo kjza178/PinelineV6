@@ -361,6 +361,28 @@ def _v6_router(inst: Instance) -> APIRouter:
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
 
+    @r.get(V6_PREFIX + "/yt/job/{job_id}")
+    def yt_job_status(job_id: str):
+        """Tab «YouTube» của job: kênh gán, đã đăng kênh nào, đang chờ."""
+        from services import yt_publish
+        try:
+            return yt_publish.job_status(job_id)
+        except ValueError as e:
+            raise HTTPException(404, str(e)) from e
+
+    @r.post(V6_PREFIX + "/yt/job/{job_id}")
+    def yt_job_set(job_id: str, body: dict):
+        """{account_ids: [...], privacy, schedule_hours} → đặt kênh đăng cho job (job xong → đăng ngay)."""
+        from services import yt_publish
+        b = body if isinstance(body, dict) else {}
+        try:
+            r = yt_publish.set_job_targets([job_id], b.get("account_ids") or [], privacy=b.get("privacy") or None,
+                                           schedule_hours=b.get("schedule_hours"),
+                                           mode="replace" if b.get("account_ids") else "clear")
+            return {**r, "status": yt_publish.job_status(job_id)}
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+
     # ── Tên phim tiếng Việt (2026-11-21) — logic ở services/title_vi ──
     @r.get(V6_PREFIX + "/titles")
     def titles_get():
