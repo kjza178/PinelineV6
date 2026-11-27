@@ -308,3 +308,28 @@ def test_ffmpeg_passthrough_args_follow_ffmpeg_version(monkeypatch):
         monkeypatch.setattr(ocr, "_FPS_MODE", None)
         monkeypatch.setattr(subprocess, "run", lambda *a, _o=out, **k: R(_o))
         assert ocr.passthrough_frames_args() == want
+
+
+# ── port V2 11-23 / 11-27 ──
+def test_asr_salvage_assigns_indices():
+    from engines.asr.asr import ensure_asr_indices
+    rows = [{"start": 0, "end": 1, "text": "a"}, {"start": 1, "end": 2, "text": "b"}]
+    assert [r["i"] for r in ensure_asr_indices(rows)] == [0, 1]
+
+
+def test_store_asr_without_i_uses_order(tmp_path):
+    from engines.translate_simple.script_store import ScriptStore
+    st = ScriptStore(tmp_path)
+    rows = st.ensure_from_asr([{"start": 0, "end": 1, "text": "你好"}, {"start": 1, "end": 2, "text": "再见"}])
+    assert [r["i"] for r in rows] == [0, 1] and rows[1]["zh"]
+
+
+def test_preflight_lock_dead_owner_is_stale(tmp_path, monkeypatch):
+    import psutil
+    from engines import source_preflight as sp
+    p = tmp_path / "lock"
+    p.write_text("999999")
+    monkeypatch.setattr(psutil, "pid_exists", lambda pid: False)
+    assert sp._lock_owner_dead(p) is True
+    monkeypatch.setattr(psutil, "pid_exists", lambda pid: True)
+    assert sp._lock_owner_dead(p) is False

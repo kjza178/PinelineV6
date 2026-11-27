@@ -697,6 +697,11 @@ def _run_engine(script: str, work_dir: Path, *args: str) -> None:
         # bị "Dừng" kill -> không coi là lỗi thật
         if jid in _STOP_JOBS:
             raise _Stopped(jid)
+        # port V2 fix 2026-11-27 (asr-stop-reported-as-fail): engine tự thoát vì thấy file .stop (Demucs/ASR) —
+        # trước UI báo «lỗi mã 1» gây hiểu nhầm
+        tail_txt = "\n".join(list(_tail)[-12:])
+        if (Path(work_dir) / ".stop").exists() or "Đã dừng" in tail_txt or "(.stop)" in tail_txt:
+            raise _Stopped(jid)
         _save_engine_tail(Path(work_dir), script_name, proc.returncode, list(_tail))
         why = _engine_reason(list(_tail))
         # giữ tiền tố «<script> lỗi (mã N)» (agent_brain_notify.short_error / phân loại lỗi cũ dựa vào nó)

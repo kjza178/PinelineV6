@@ -274,9 +274,21 @@ def pick_device(device: str) -> tuple[str, str]:
     return "cpu", "int8"
 
 
+def ensure_asr_indices(rows: list) -> list:
+    """port V2 fix 2026-11-23 (asr-salvage-missing-i): FireRed chỉ gắn `i` khi chạy TRỌN — crash giữa chừng thì
+    asr.json salvage không có `i` → luồng dịch bỏ mọi câu (script rỗng, park «chưa có script»). Thiếu `i` ở bất kỳ
+    câu nào → đánh lại 0..n-1 theo thứ tự."""
+    if rows and any(not isinstance(r, dict) or r.get("i") is None for r in rows):
+        for k, r in enumerate(rows):
+            if isinstance(r, dict):
+                r["i"] = k
+    return rows
+
+
 def _salvage_asr(m: Manifest, asr_path: Path, rows: list, wav: Path | None,
                  total: float, err: BaseException | None = None) -> None:
     """Crash/treo: giữ asr.json đã có, status pending để bấm Tiếp tục."""
+    ensure_asr_indices(rows)
     if rows:
         try:
             atomic_write_json(asr_path, rows)
