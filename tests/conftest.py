@@ -57,3 +57,12 @@ def _isolate_translate_ai_state():
     ts_rv._DEAD.clear()
     ts_cfg._LIVE.update(seen=None, switch={})
     ts_cfg._LOCAL_PROBE.update(t=0.0, ok=False)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_disk_library_state(tmp_path_factory, monkeypatch):
+    """2026-11-27: services.disk_library nhớ thư mục Hongguo 2 vào data/hg_last_library.json — test không được ghi
+    file thật của repo (và không được đọc kết quả test trước)."""
+    from services import disk_library as dl
+    monkeypatch.setattr(dl, "_LAST_HG", tmp_path_factory.mktemp("hglast") / "hg_last_library.json")
+    yield

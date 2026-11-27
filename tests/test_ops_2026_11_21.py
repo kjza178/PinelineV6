@@ -333,3 +333,25 @@ def test_preflight_lock_dead_owner_is_stale(tmp_path, monkeypatch):
     assert sp._lock_owner_dead(p) is True
     monkeypatch.setattr(psutil, "pid_exists", lambda pid: True)
     assert sp._lock_owner_dead(p) is False
+
+
+# ── «Phim chờ làm»: Hongguo 2 không trả lời → nhớ thư mục lần trước; phim ở thư mục ngoài gốc vẫn hiện ──
+def test_disk_library_falls_back_to_last_hg_folder(tmp_path, monkeypatch):
+    from services import disk_library as dl
+    lib = tmp_path / "HG"
+    (lib / "Phim A").mkdir(parents=True)
+    (lib / "Phim A" / "Phim A (merged).mp4").write_bytes(b"x" * 10)
+    monkeypatch.setattr(dl, "_LAST_HG", tmp_path / "last.json")
+    monkeypatch.setattr(dl, "_HG_CACHE", {"at": 0.0, "val": ({}, None, "")})
+    monkeypatch.setattr(dl, "_hg_library", lambda: ({}, lib, ""))           # lần 1: Hongguo trả thư mục
+    dl._hg_library_cached(0)
+    monkeypatch.setattr(dl, "_hg_library", lambda: ({}, None, "rpc down"))  # lần 2: Hongguo không trả lời
+    by, root, err = dl._hg_library_cached(0)
+    assert root == lib and "lần trước" in err
+
+
+def test_disk_library_missing_dir_flag(tmp_path, monkeypatch):
+    from services import disk_library as dl
+    monkeypatch.setattr(dl, "_hg_library_cached", lambda *a, **k: ({}, None, ""))
+    r = dl.scan(lib=tmp_path / "khong_co")
+    assert r["ok"] is False and r["missing_dir"] is True

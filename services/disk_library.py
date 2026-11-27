@@ -110,11 +110,45 @@ def lib_dir() -> Path:
     return hg_root if hg_root and hg_root.is_dir() else root()
 
 
+_LAST_HG = Path(__file__).resolve().parents[1] / "data" / "hg_last_library.json"
+
+
 def _hg_library_cached(max_age: float = 30.0) -> tuple[dict, Path | None, str]:
     if time.time() - _HG_CACHE["at"] > max_age:
-        _HG_CACHE["val"] = _hg_library()
+        val = _hg_library()
+        by, folder, err = val
+        if folder and folder.is_dir():
+            _remember_hg_root(folder)
+        elif not by:
+            # 2026-11-27: Hongguo 2 chưa mở / lần đầu trả rỗng → dùng thư mục Hongguo 2 lần trước còn nhớ (trước: rơi về
+            # LIBRARY_DIR — máy mới không có D:\Lib → «Phim chờ làm» trống dù đã tải phim)
+            last = _last_hg_root()
+            if last:
+                val = (by, last, f"{err or 'Hongguo 2 không trả lời'} — dùng thư mục Hongguo 2 lần trước")
+        _HG_CACHE["val"] = val
         _HG_CACHE["at"] = time.time()
     return _HG_CACHE["val"]
+
+
+def _remember_hg_root(folder: Path) -> None:
+    """Nhớ thư mục lưu phim của Hongguo 2 (cache, data/ — gitignore) để lần sau Hongguo chưa mở vẫn quét được."""
+    try:
+        cur = json.loads(_LAST_HG.read_text(encoding="utf-8")).get("folder") if _LAST_HG.is_file() else ""
+        if cur != str(folder):
+            _LAST_HG.parent.mkdir(parents=True, exist_ok=True)
+            _LAST_HG.write_text(json.dumps({"folder": str(folder), "at": time.time()}), encoding="utf-8")
+    except (OSError, ValueError) as e:
+        print(f"[disk_library] nhớ thư mục Hongguo 2 lỗi: {e}", flush=True)
+
+
+def _last_hg_root() -> Path | None:
+    try:
+        f = json.loads(_LAST_HG.read_text(encoding="utf-8")).get("folder") if _LAST_HG.is_file() else ""
+    except (OSError, ValueError) as e:
+        print(f"[disk_library] đọc thư mục Hongguo 2 lần trước lỗi: {e}", flush=True)
+        return None
+    p = Path(f) if f else None
+    return p if p and p.is_dir() else None
 
 
 def _imported() -> set[str]:
@@ -169,15 +203,25 @@ def scan(lib: Path | None = None, fresh: bool = False) -> dict:
     lib = Path(lib) if lib else (hg_root if hg_root and hg_root.is_dir() else root())
     source = "hongguo2" if hg_items else "disk"
     if not lib.is_dir():
-        return {"ok": False, "root": str(lib), "items": [], "source": source, "hg_error": hg_err,
-                "error": f"Không thấy thư mục thư viện {lib} — sửa ở Cài đặt → Thư mục"}
+        return {"ok": False, "root": str(lib), "items": [], "source": source, "hg_error": hg_err, "missing_dir": True,
+                "error": f"Không thấy thư mục thư viện {lib}"
+                         + (f" (Hongguo 2: {hg_err})" if hg_err else "")
+                         + " — mở Hongguo 2 rồi bấm «Quét lại», chọn thư mục chứa phim đã tải ngay dưới đây,"
+                         " hoặc sửa ở Cài đặt → Thư mục"}
     import agents.hongguo_bridge as hg
     done = _imported()
     with _merge_lock:
         busy = set(_merge_q) | ({_merge_cur} if _merge_cur else set())
         errs = dict(_merge_err)
     items: list[dict] = []
-    for p in sorted(lib.iterdir(), key=lambda x: x.name.lower()):
+    # 2026-11-27: phim Hongguo 2 báo ở thư mục KHÁC thư mục gốc (đổi chỗ lưu giữa chừng…) — trước bị bỏ sót
+    extra_dirs = []
+    seen_root = {_norm(x) for x in lib.iterdir()} if lib.is_dir() else set()
+    for hgi in hg_items.values():
+        f = Path(str(hgi.get("folder") or ""))
+        if str(f) and f.is_dir() and _norm(f) not in seen_root:
+            extra_dirs.append(f)
+    for p in sorted(list(lib.iterdir()) + extra_dirs, key=lambda x: x.name.lower()):
         if p.name.startswith("."):
             continue
         if p.is_file():

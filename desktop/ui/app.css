@@ -397,3 +397,5 @@ td.mono{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all}
 .yt-row img,.yt-row .yt-ph{width:26px;height:26px;border-radius:50%;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;background:var(--line);font-size:11px}
 .yt-row .grow{flex:1}
 #yt-job .row-ctl{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0}
+.lib-fix{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.lib-fix input{flex:1;min-width:280px}

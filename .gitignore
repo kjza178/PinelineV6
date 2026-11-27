@@ -40,6 +40,7 @@ token*.json
 client_secret*.json
 data/test_channel/
 data/yt_accounts/
+data/hg_last_library.json
 cookies/
 cookies*.txt
 .env

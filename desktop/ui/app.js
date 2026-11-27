@@ -1833,7 +1833,22 @@ async function loadDisk(fresh = false) {
   $("#disk-foot").textContent = disk.source === "hongguo2"
     ? `Nguồn: thư viện Hongguo 2 · thư mục ${disk.root}`
     : `Nguồn: thư mục ${disk.root || "(chưa đặt)"} — không đọc được Hongguo 2${disk.hg_error ? ` (${disk.hg_error})` : ""}. Đổi thư mục ở Cài đặt → Thư mục.`;
-  if (!disk.ok) { grid.innerHTML = `<p class="note">${esc(disk.error || "Không quét được")}</p>`; $("#disk-stats").textContent = ""; return; }
+  if (!disk.ok) {
+    // 2026-11-27: thiếu thư mục thư viện → cho chọn ngay thư mục chứa phim đã tải (lưu LIBRARY_DIR), không phải vào Cài đặt
+    grid.innerHTML = `<p class="note">${esc(disk.error || "Không quét được")}</p>` + (disk.missing_dir ? `<div class="row-ctl lib-fix">
+      <input id="lib-dir-in" placeholder="Thư mục chứa phim đã tải, vd D:\\Hongguo\\Downloads" value="">
+      <button type="button" class="btn sm primary" id="lib-dir-save">Dùng thư mục này</button>
+      <button type="button" class="btn sm" id="lib-rescan">Quét lại (Hongguo 2)</button></div>` : "");
+    $("#disk-stats").textContent = "";
+    $("#lib-dir-save")?.addEventListener("click", (e) => act(e.currentTarget, "Đã lưu thư mục thư viện", async () => {
+      const v = ($("#lib-dir-in").value || "").trim().replace(/^"|"$/g, "");
+      if (!v) throw new Error("nhập đường dẫn thư mục");
+      await api("POST", "/api/v6/paths", { paths: { LIBRARY_DIR: v } });
+      await loadDisk(true);
+    }));
+    $("#lib-rescan")?.addEventListener("click", () => loadDisk(true));
+    return;
+  }
   const c = disk.counts || {};
   $("#disk-stats").textContent = [`${disk.items.length} phim`, c.ready ? `${c.ready} sẵn sàng` : "", c.need_merge ? `${c.need_merge} cần gộp tập` : "",
     c.merging ? `${c.merging} đang gộp` : "", c.done ? `${c.done} đã làm` : ""].filter(Boolean).join(" · ");

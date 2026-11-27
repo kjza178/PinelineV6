@@ -1,6 +1,9 @@
 # CHANGELOG — V6
 
 ## 2026-11-27
+- **«Phim chờ làm» không hiện phim đã tải**: Hongguo 2 chưa mở / lần đầu trả rỗng → trước rơi về `LIBRARY_DIR`
+  (máy mới không có `D:\Lib`) → danh sách trống. Nay nhớ thư mục Hongguo 2 lần trước (`data/hg_last_library.json`,
+  gitignore); phim Hongguo báo ở thư mục ngoài gốc vẫn hiện; thiếu thư mục → ô nhập «Dùng thư mục này» + «Quét lại».
 - **Tab «YouTube» trong chi tiết job**: tích 1 hoặc NHIỀU kênh, chọn chế độ / hẹn giờ. Job chưa xong → render xong tự
   đăng lên các kênh đã chọn; job đã xong → «Đăng ngay». Mỗi kênh đăng 1 lần (`manifest.yt_uploads[kênh]`), hiện link
   từng kênh, «đang chờ đăng», «Bỏ tự đăng». `publish_to.accounts=[{id, channel}]` (đọc được dạng cũ 1 kênh). Hàng đăng
