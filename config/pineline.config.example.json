@@ -20,7 +20,7 @@
   "OMNI_MODEL": "splendor1811/omnivoice-vietnamese",
   "VIENEU_DEVICE": "cuda",
   "OMNI_DEVICE": "cuda",
-  "VIENEU_BATCH": "8",
+  "VIENEU_BATCH": "16",
   "VIENEU_STALL_SEC": "600",
   "ASR_STALL_SEC": "900",
   "TRANSLATE_BATCH": "20",

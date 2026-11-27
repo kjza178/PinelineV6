@@ -226,3 +226,17 @@ def test_publish_queue_keeps_one_record_per_channel(tmp_path, monkeypatch):
     assert sorted(i["account_id"] for i in json.loads(q.read_text())) == ["UC1", "UC2"]
     ap._dequeue_job_record("j1", "UC1")
     assert [i["account_id"] for i in json.loads(q.read_text())] == ["UC2"]
+
+
+def test_skip_current_upload_stops_chunk_loop(monkeypatch):
+    """Port lỗi V2 11-21: «Bỏ qua video đang đăng» phải dừng upload trong server."""
+    import agents.auto_publisher as ap
+    monkeypatch.setattr(ap, "get_auto_state", lambda: {"current_job_id": "j1", "current_title": "Phim"})
+    monkeypatch.setattr(ap, "is_any_job_uploading", lambda: (True, "j1"))
+    ap._skip_current.clear()
+    r = ap.request_skip_current_upload()
+    assert r["ok"] and ap._skip_current.is_set()
+    ap._skip_current.clear()
+    monkeypatch.setattr(ap, "is_any_job_uploading", lambda: (False, None))
+    monkeypatch.setattr(ap, "get_auto_state", lambda: {})
+    assert ap.request_skip_current_upload()["ok"] is False

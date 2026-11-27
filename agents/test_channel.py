@@ -1265,7 +1265,8 @@ def run_full_test_for_season(
     }
 
 
-def _batch_worker(names: list[str], auto_delete: bool, title_vi_map: dict[str, str] | None = None):
+def _batch_worker(names: list[str], auto_delete: bool, title_vi_map: dict[str, str] | None = None,
+                  project_id: str | None = None):
     global BATCH_STATE
     BATCH_STATE["running"] = True
     BATCH_STATE["cancel"] = False
@@ -1311,7 +1312,8 @@ def _batch_worker(names: list[str], auto_delete: bool, title_vi_map: dict[str, s
         print(f"[batch-test] {BATCH_STATE['step_text']}", flush=True)
 
         try:
-            up_res = upload_test_sample(nm, sample_path, title_vi=t_vi)
+            # port lỗi V2 11-21: test hàng loạt theo tài khoản đã chọn (trước xoay pool → dính tài khoản hết lượt)
+            up_res = upload_test_sample(nm, sample_path, title_vi=t_vi, project_id=project_id)
         except Exception as e:
             BATCH_STATE["errors"] += 1
             film_db.upsert_library_block(name=nm, title_vi=t_vi, status="failed", reason=f"Lỗi upload: {e}")
@@ -1393,7 +1395,8 @@ def stop_batch_test() -> dict[str, Any]:
     return {"ok": True, "stopped": True, "message": "Đã gửi lệnh dừng."}
 
 
-def start_batch_test(names: list[str] | None = None, limit: int = 500, auto_delete: bool = False, title_vi_map: dict[str, str] | None = None) -> dict[str, Any]:
+def start_batch_test(names: list[str] | None = None, limit: int = 500, auto_delete: bool = False, title_vi_map: dict[str, str] | None = None,
+                     project_id: str | None = None) -> dict[str, Any]:
     """Bắt đầu chạy Test All hàng loạt ngầm."""
     if not get_status().get("connected"):
         return {"ok": False, "error": "Chưa kết nối Kênh Phụ Test. Vui lòng bấm '🔗 Đăng nhập Kênh Test'."}
@@ -1417,7 +1420,7 @@ def start_batch_test(names: list[str] | None = None, limit: int = 500, auto_dele
     if not names:
         return {"ok": True, "started": False, "message": "Không có phim nào chưa test trong thư viện."}
 
-    th = threading.Thread(target=_batch_worker, args=(names, auto_delete, title_vi_map), daemon=True)
+    th = threading.Thread(target=_batch_worker, args=(names, auto_delete, title_vi_map, project_id or None), daemon=True)
     th.start()
     return {"ok": True, "started": True, "total": len(names), "names": names}
 

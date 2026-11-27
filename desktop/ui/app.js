@@ -1885,7 +1885,7 @@ function diskCard(it) {
   return `<article class="lib-card${diskPicked.has(it.name) ? " picked" : ""}${pick ? " can-pick" : ""}" data-name="${esc(it.name)}" title="${esc(it.path || it.folder || "")}">`
     + `<div class="poster">${diskPoster(it)}<span class="tag ${cls} st">${esc(t)}</span>${pick ? `<span class="pick" aria-hidden="true">✓</span>` : ""}</div>`
     + `<div class="tt">${esc(it.title)}</div><div class="tvi">${esc(it.title_vi || "")}</div><div class="meta">${esc(diskMeta(it))} ${diskBlockTag(it)}</div>`
-    + (it.merge_error ? `<div class="err small">Gộp lỗi: ${esc(it.merge_error)}</div>` : "")
+    + (it.merge_error ? `<div class="err small">Gộp lỗi: ${esc(it.merge_error)}</div>${/KHÔNG gộp/.test(it.merge_error) ? '<button class="btn sm ghost" data-disk="merge-force">Gộp bỏ qua tập lỗi</button>' : ""}` : "")
     + `<div class="acts">${diskActs(it)}</div></article>`;
 }
 function diskRow(it) {
@@ -1894,7 +1894,7 @@ function diskRow(it) {
     + `<td>${pick ? `<input type="checkbox" data-pick${diskPicked.has(it.name) ? " checked" : ""}>` : ""}</td>`
     + `<td><div class="thumb">${diskPoster(it)}</div></td>`
     + `<td title="${esc(it.path || it.folder || "")}"><b style="font-weight:500">${esc(it.title)}</b>${it.title_vi ? `<div class="mut small">${esc(it.title_vi)}</div>` : ""}`
-    + `${it.merge_error ? `<div class="err small">Gộp lỗi: ${esc(it.merge_error)}</div>` : ""}</td>`
+    + `${it.merge_error ? `<div class="err small">Gộp lỗi: ${esc(it.merge_error)}</div>${/KHÔNG gộp/.test(it.merge_error) ? '<button class="btn sm ghost" data-disk="merge-force">Gộp bỏ qua tập lỗi</button>' : ""}` : ""}</td>`
     + `<td>${it.episodes > 1 ? `${it.episodes} tập` : ""}</td><td>${esc(fmtSize(it.size))}</td>`
     + `<td>${it.mtime ? esc(new Date(it.mtime * 1000).toLocaleDateString("vi-VN")) : ""}</td>`
     + `<td><span class="tag ${cls}">${esc(t)}</span></td><td>${diskBlockTag(it)}</td><td class="acts">${diskActs(it)}</td></tr>`;
@@ -1951,9 +1951,10 @@ async function diskDelete(btn, names) {
     loadDisk();
   });
 }
-async function diskMerge(btn, names) {
+async function diskMerge(btn, names, force = false) {
+  if (force && !confirm("Gộp BỎ QUA tập lỗi / thiếu?\n\nFile gộp sẽ thiếu các tập đó (nhảy cốt truyện). Nên tải lại tập lỗi ở Hongguo 2 trước.")) return;
   return act(btn, "", async () => {
-    const r = await api("POST", "/api/v6/disk-library/merge", { names });
+    const r = await api("POST", "/api/v6/disk-library/merge", { names, force });
     say(r.queued?.length ? `Đã xếp gộp ${r.queued.length} bộ — chạy lần lượt` : "Các bộ này đang gộp hoặc không hợp lệ");
     names.forEach((x) => diskPicked.delete(x));
     loadDisk();
@@ -1966,6 +1967,7 @@ $("#disk-grid").addEventListener("click", (e) => {
   if (b) {
     if (b.dataset.disk === "add") diskAdd(b, [name]);
     if (b.dataset.disk === "merge") diskMerge(b, [name]);
+    if (b.dataset.disk === "merge-force") diskMerge(b, [name], true);
     if (b.dataset.disk === "delete") diskDelete(b, [name]);
     if (b.dataset.disk === "test") openTest(name);
     if (b.dataset.disk === "cleanup") act(b, "", async () => {
@@ -2153,7 +2155,10 @@ $("#disk-test-sel").addEventListener("click", (e) => {
   if (!items.length) return;
   if (!confirm(`Test bản quyền ${items.length} phim trên kênh test?\n\nMỗi phim: cắt mẫu 90s, đăng «Không công khai» lên kênh test, kết quả về sau ~5 phút. Chạy nền lần lượt.`)) return;
   act(e.currentTarget, "", async () => {
-    const r = await api("POST", "/test-channel/batch-start", { names: items.map((it) => it.name), title_vi_map: Object.fromEntries(items.map((it) => [it.name, it.title_vi || ""])) });
+    let pid = ""; try { pid = localStorage.getItem("tc_preferred_project") || ""; } catch (_) { /* không có storage */ }
+    // 2026-11-27: test hàng loạt theo tài khoản test đã chọn lần trước (trước: xoay pool, dính tài khoản hết lượt)
+    const r = await api("POST", "/test-channel/batch-start", { names: items.map((it) => it.name), project_id: pid,
+      title_vi_map: Object.fromEntries(items.map((it) => [it.name, it.title_vi || ""])) });
     say(`Đã bắt đầu test ${r.total ?? items.length} phim — kết quả hiện dần trên từng phim`);
     diskPicked.clear(); loadDisk();
   });
@@ -2408,7 +2413,13 @@ $("#films-hide-gone").addEventListener("change", loadFilms);
 ["#pub-auto", "#films-privacy", "#pub-sched"].forEach((sel) => $(sel).addEventListener("change", savePubCfg));
 $("#pub-skip").addEventListener("click", (e) => {
   if (!confirm("Bỏ qua video đang tải lên YouTube?")) return;
-  act(e.currentTarget, "Đã bỏ qua video đang đăng", () => api("POST", "/api/uploader/skip-current"));
+  // 2026-11-27: huỷ upload TRONG server (auto_publisher) — trước chỉ gọi yt_uploader cũ nên không dừng được
+  act(e.currentTarget, "", async () => {
+    let r = null;
+    try { r = await api("POST", "/api/auto-publish/skip-current"); } catch (err) { r = { ok: false, error: err.message }; }
+    try { await api("POST", "/api/uploader/skip-current"); } catch (_) { /* yt_uploader không có trên máy này */ }
+    say(r?.ok ? (r.message || "Đã yêu cầu bỏ qua") : (r?.error || "Không có video nào đang đăng"), r?.ok ? "" : "err");
+  });
 });
 $("#yt-acc").addEventListener("click", onYtAccClick);
 $("#job-pub").addEventListener("change", syncToolbar);
@@ -2443,7 +2454,13 @@ $("#films-all").addEventListener("change", (e) => {
 $("#pub-scan").addEventListener("click", (e) => {
   const label = $("#films-privacy").options[$("#films-privacy").selectedIndex].text;
   if (!confirm(`Đăng MỌI phim đã xong mà chưa có trên YouTube, chế độ «${label}»?\n\nVideo sẽ được gửi lên kênh YouTube đã cấu hình.`)) return;
-  act(e.currentTarget, "Đã bắt đầu đăng các phim chưa đăng", async () => { await api("POST", "/api/auto-publish/scan"); loadFilms(); });
+  act(e.currentTarget, "", async () => {
+    const r = await api("POST", "/api/auto-publish/scan");
+    // 2026-11-27: nói đúng tình trạng (trước luôn «đã bắt đầu» dù đang bận / 0 phim)
+    say(r.busy ? `Đang đăng «${r.current_title || r.current_job_id || "?"}» (${r.progress_percent || 0}%) — các phim khác sẽ đăng sau`
+      : (r.scanned ? `Đã xếp ${r.scanned} phim vào hàng đăng` : "Không có phim mới nào cần đăng"));
+    loadFilms();
+  });
 });
 $("#films-check-all").addEventListener("click", (e) => act(e.currentTarget, "Đã kiểm bản quyền xong", async () => { await api("POST", "/films/check-block-all"); loadFilms(); }));
 $("#films-purge").addEventListener("click", (e) => {

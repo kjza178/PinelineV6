@@ -179,11 +179,20 @@ def max_consec_fail() -> int:
 
 def hold_yield_sec() -> float:
     """R7.3: job HOLD CẦN NGƯỜI giữ ghế quá ngần này giây mà còn job khác chờ → nhường ghế (0 = tắt = luật
-    Studio cũ: giữ ghế vô thời hạn). Mặc định 0 — chủ dự án bật khi muốn chạy 24/7 không người canh."""
+    Studio cũ: giữ ghế vô thời hạn). 2026-11-27 (lỗi V2 11-17 «1 job HOLD chặn cả hàng ~10 giờ»): mặc định 1800 s
+    (30 phút); đặt QUEUE_HOLD_YIELD_SEC (env hoặc pineline.config.json) = 0 để giữ luật cũ."""
+    raw = os.getenv("QUEUE_HOLD_YIELD_SEC")
+    if raw is None:
+        try:
+            from core.config import get as _g
+            raw = _g("QUEUE_HOLD_YIELD_SEC")
+        except Exception as e:  # noqa: BLE001
+            print(f"[queue] đọc QUEUE_HOLD_YIELD_SEC lỗi: {e}", flush=True)
+            raw = None
     try:
-        return max(0.0, float(os.getenv("QUEUE_HOLD_YIELD_SEC", "0") or 0))
+        return max(0.0, float(raw if raw not in (None, "") else 1800))
     except ValueError:
-        return 0.0
+        return 1800.0
 
 
 def set_notify_hook(fn: Callable[[str], None] | None) -> None:

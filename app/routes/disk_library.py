@@ -46,7 +46,7 @@ def disk_library_add(body: dict, request: Request):
 @router.post("/api/v6/disk-library/merge")
 def disk_library_merge(body: dict):
     from services import disk_library
-    return disk_library.merge(_names(body))
+    return disk_library.merge(_names(body), force=bool((body or {}).get("force")))
 
 
 @router.post("/api/v6/disk-library/delete")

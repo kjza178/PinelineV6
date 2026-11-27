@@ -529,6 +529,14 @@ def auto_publish_trigger(body: dict):
     return JSONResponse(res, status_code=code)
 
 
+@router.post("/api/auto-publish/skip-current")
+@router.post("/auto-publish/skip-current")
+def auto_publish_skip_current():
+    """Bỏ qua video đang đăng TRONG server (auto_publisher) — port V2 2026-11-21."""
+    import agents.auto_publisher as auto_publisher
+    return auto_publisher.request_skip_current_upload()
+
+
 @router.post("/api/auto-publish/scan")
 @router.post("/auto-publish/scan")
 def auto_publish_scan():

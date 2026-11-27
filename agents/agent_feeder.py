@@ -826,18 +826,24 @@ def _concat_videos_smart(inputs: list[Path], out_mp4: Path) -> dict:
                         "part_durations": [m["duration"] for m in metas],
                     }
 
-        # Fallback: chỉ encode phần lệch W×H; phần đã khớp giữ -c:v copy (audio AAC chuẩn hoá).
+        # Fallback: chuẩn hoá canvas. Port lỗi V2 11-23 (combine-duration-inflated): trước chỉ encode phần lệch W×H,
+        # phần khớp giữ -c:v copy rồi concat -c copy → timebase/fps lệch giữa phần encode và phần copy → thời lượng
+        # ảo (2 phần 5,8 h báo 34 h, auto-publish từ chối). Nay có BẤT KỲ phần nào phải encode → encode TẤT CẢ.
         hg = _hg()
         vargs = hg._pick_h264_encoder()
         vf = hg._scale_vf(tw, th)
         norm_parts: list[Path] = []
         reencoded = 0
         copied = 0
+
+        def _copyable(i: int) -> bool:
+            mm = metas[i] if i < len(metas) else {}
+            return (int(mm.get("width") or 0) == tw and int(mm.get("height") or 0) == th
+                    and mm.get("vcodec") == "h264")
+        all_copy = all(_copyable(i) for i in range(len(valid)))
         for idx, src in enumerate(valid):
             part_p = tmp_root / f"norm_{idx:04d}.mp4"
-            m = metas[idx] if idx < len(metas) else {}
-            same_wh = int(m.get("width") or 0) == tw and int(m.get("height") or 0) == th
-            can_copy = same_wh and (m.get("vcodec") == "h264")
+            can_copy = all_copy and _copyable(idx)
             if can_copy:
                 cmd = [
                     "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",

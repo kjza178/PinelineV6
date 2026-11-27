@@ -304,7 +304,51 @@ def add_jobs(names: list[str], base: str | None = None) -> dict:
     return {"ok": bool(r.get("job_ids")), **r}
 
 
-def merge(names: list[str]) -> dict:
+_merge_force: set[str] = set()
+
+
+def _probe_dur(p: Path) -> float:
+    import subprocess
+    try:
+        r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(p)],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
+        return float((r.stdout or "0").strip().splitlines()[0] or 0)
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        return 0.0
+
+
+def check_episodes(folder: Path) -> dict:
+    """Port lỗi V2 11-17 (hg-classic-removed-merge-check): trước gộp lặng lẽ BỎ tập không đọc được → file gộp thiếu
+    đoạn. Kiểm: tập không đọc được (ffprobe khung hình), tập quá ngắn (< 5 s), thiếu số tập giữa đầu–cuối.
+    → {ok, n, bad: [tên], short: [tên], missing: [số]}."""
+    import agents.hongguo_bridge as hg
+    frags = hg._list_episode_frags(Path(folder))
+    bad, short, nums = [], [], []
+    for f in frags:
+        if not hg._probe_wh(f):
+            bad.append(f.name)
+            continue
+        if _probe_dur(f) < 5.0:
+            short.append(f.name)
+        n = hg._ep_num_from_name(f.name)
+        if n:
+            nums.append(n)
+    missing = sorted(set(range(min(nums), max(nums) + 1)) - set(nums)) if nums else []
+    return {"ok": not (bad or short or missing), "n": len(frags), "bad": bad, "short": short, "missing": missing}
+
+
+def _check_msg(c: dict) -> str:
+    parts = []
+    if c["bad"]:
+        parts.append(f"{len(c['bad'])} tập không đọc được ({', '.join(c['bad'][:5])}{'…' if len(c['bad']) > 5 else ''})")
+    if c["short"]:
+        parts.append(f"{len(c['short'])} tập quá ngắn ({', '.join(c['short'][:5])})")
+    if c["missing"]:
+        parts.append(f"thiếu tập {', '.join(map(str, c['missing'][:15]))}{'…' if len(c['missing']) > 15 else ''}")
+    return "KHÔNG gộp — " + "; ".join(parts) + ". Tải lại tập lỗi ở Hongguo 2, hoặc bấm «Gộp bỏ qua tập lỗi»."
+
+
+def merge(names: list[str], force: bool = False) -> dict:
     """Xếp hàng gộp tập, chạy tuần tự nền: cùng độ phân giải → ffmpeg concat giữ nguyên chất lượng
     (hongguo_bridge.merge_series_copy); lệch → chuẩn hoá 1080p (merge_series_normalized). Tiến độ qua SSE
     `disk_library.merge`."""
@@ -319,6 +363,10 @@ def merge(names: list[str]) -> dict:
                 continue
             _merge_q.append(str(n))
             _merge_err.pop(str(n), None)
+            if force:
+                _merge_force.add(str(n))
+            else:
+                _merge_force.discard(str(n))
             queued.append(str(n))
         start = bool(_merge_q) and _merge_cur is None
         if start:
@@ -357,8 +405,11 @@ def _merge_worker() -> None:
                     last[0] = p
                     _publish("disk_library.merge", {"name": name, "state": "progress", "pct": round(p)})
 
+            chk = check_episodes(folder) if folder and name not in _merge_force else {"ok": True}
             if not folder:
                 r = {"ok": False, "error": "thư mục không hợp lệ"}
+            elif not chk["ok"]:
+                r = {"ok": False, "error": _check_msg(chk), "check": chk}
             elif hg.episode_resolutions(folder).get("mixed"):     # tập lệch độ phân giải → chuẩn hoá 1080p rồi gộp
                 r = hg.merge_series_normalized(folder, on_pct=on_pct, target_wh=hg.MERGE_MIXED_CANVAS)
             else:                                                 # cùng độ phân giải → nối giữ nguyên chất lượng

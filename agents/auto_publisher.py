@@ -78,6 +78,13 @@ _active_jobs: set[str] = set()
 _worker_thread: threading.Thread | None = None
 _drain_thread: threading.Thread | None = None
 _stop_event = threading.Event()
+# port lỗi V2 11-21 (skip-scan-publish): «Bỏ qua video đang đăng» trước chỉ gọi yt_uploader → không huỷ được upload
+# chạy TRONG server. Cờ này được kiểm trước mỗi đoạn upload.
+_skip_current = threading.Event()
+
+
+class UploadSkipped(Exception):
+    """Người dùng bấm «Bỏ qua video đang đăng»."""
 _active_lock_paths: set[Path] = set()
 
 # Trạng thái tiến trình tự động (hỗ trợ liên tiến trình qua file auto_publish_state.json)
@@ -695,35 +702,38 @@ def upload_to_youtube(
 
     # Upload video bằng Resumable chunks 256MB
     print(f"[auto-upload] Bắt đầu upload {v_path.name} ({v_path.stat().st_size // (1024*1024)} MB) lên YouTube...", flush=True)
-    media = MediaFileUpload(str(v_path), chunksize=256 * 1024 * 1024, resumable=True)
+    _skip_current.clear()
+    chunk = 64 * 1024 * 1024        # 2026-11-27: 256 MB → 64 MB để «Bỏ qua» có tác dụng nhanh (kiểm giữa các đoạn)
+    media = MediaFileUpload(str(v_path), chunksize=chunk, resumable=True)
     req = yt.videos().insert(part="snippet,status", body=body, media_body=media)
 
-    response = None
-    try:
-        while response is None:
+    def _chunk_loop(rq) -> dict:
+        resp = None
+        while resp is None:
+            if _skip_current.is_set() or _stop_event.is_set():
+                raise UploadSkipped("người dùng bỏ qua video đang đăng")
             touch_active_locks()
-            status, response = req.next_chunk()
+            status, resp = rq.next_chunk()
             touch_active_locks()
             if status:
                 prog = int(status.progress() * 100)
                 update_auto_state(progress_percent=prog, current_stage="uploading")
                 print(f"[auto-upload] Đang tải lên: {prog}%", flush=True)
+        return resp
+
+    response = None
+    try:
+        response = _chunk_loop(req)
+    except UploadSkipped:
+        raise
     except Exception as e_up:
         err_str = str(e_up)
         if "invalidTags" in err_str or "keywords" in err_str:
             print("[auto-upload] YouTube báo invalidTags -> Tự động bỏ tags và thử lại...", flush=True)
             body["snippet"]["tags"] = []
-            media = MediaFileUpload(str(v_path), chunksize=256 * 1024 * 1024, resumable=True)
+            media = MediaFileUpload(str(v_path), chunksize=chunk, resumable=True)
             req = yt.videos().insert(part="snippet,status", body=body, media_body=media)
-            response = None
-            while response is None:
-                touch_active_locks()
-                status, response = req.next_chunk()
-                touch_active_locks()
-                if status:
-                    prog = int(status.progress() * 100)
-                    update_auto_state(progress_percent=prog, current_stage="uploading")
-                    print(f"[auto-upload] Đang tải lên: {prog}%", flush=True)
+            response = _chunk_loop(req)
         else:
             raise
 
@@ -1338,6 +1348,13 @@ def _publish_job_internal(
             account_id=account_id,
             category_id=cfg.get("category_id", "24"),
         )
+    except UploadSkipped as e_skip:
+        print(f"[auto-publish] ⏭ Đã bỏ qua upload {job_id}: {e_skip}", flush=True)
+        _skip_current.clear()
+        _revert_job_to_done(job_id, "người dùng bỏ qua khi đang đăng")
+        _dequeue_job_record(job_id, account_id or None)      # không tự đăng lại — muốn đăng thì xếp lại
+        update_auto_state(last_error=None, current_stage="idle", current_job_id=None, progress_percent=0)
+        return {"ok": False, "skipped": True, "job_id": job_id, "error": "đã bỏ qua theo yêu cầu"}
     except Exception as e_fatal:
         err_msg = f"Lỗi ngoại lệ khi xuất bản {job_id}: {e_fatal}"
         print(f"[auto-publish] {err_msg}", flush=True)
@@ -1664,3 +1681,15 @@ def start_worker():
 def stop_worker():
     """Dừng worker ngầm."""
     _stop_event.set()
+
+
+def request_skip_current_upload() -> dict[str, Any]:
+    """«Bỏ qua video đang đăng» (port V2 2026-11-21): báo vòng upload dừng ở đoạn kế tiếp."""
+    st = get_auto_state()
+    busy, busy_jid = is_any_job_uploading()
+    jid = st.get("current_job_id") or busy_jid
+    if not jid and not busy:
+        return {"ok": False, "error": "không có video nào đang đăng"}
+    _skip_current.set()
+    return {"ok": True, "signaled": True, "job_id": jid, "title": st.get("current_title"),
+            "message": f"Đã yêu cầu bỏ qua «{st.get('current_title') or jid}» — dừng ở đoạn upload kế tiếp."}

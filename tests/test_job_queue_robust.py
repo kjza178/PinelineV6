@@ -272,8 +272,10 @@ def _hold_runner(ran):
     return runner
 
 
-def test_hold_keeps_the_seat_forever_by_default(root, monkeypatch):
+def test_hold_keeps_the_seat_before_default_limit(root, monkeypatch):
+    # 2026-11-27: mặc định nhường ghế sau 30 phút (trước: giữ mãi) — trong 1,3 s vẫn giữ ghế, không nhảy job
     monkeypatch.delenv("QUEUE_HOLD_YIELD_SEC", raising=False)
+    assert jq.hold_yield_sec() == 1800.0
     ran: list[str] = []
     jq.set_runner(_hold_runner(ran))
     jq.set_park_ready_hook(lambda jid: False)

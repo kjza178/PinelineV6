@@ -3604,7 +3604,9 @@ async function skipUploadItem(idx){
 
 async function skipCurrentUpload(){
   try {
-    const res = await (await fetch('/api/uploader/skip-current', { method: 'POST' })).json();
+    // 2026-11-27: huỷ upload trong server (auto-publish) trước; yt_uploader cũ nếu máy còn
+    let res = await (await fetch('/api/auto-publish/skip-current', { method: 'POST' })).json();
+    if(!res.ok){ try { res = await (await fetch('/api/uploader/skip-current', { method: 'POST' })).json(); } catch(_e) {} }
     if(res.ok){
       toast('⏭ ' + (res.message || 'Đã gửi tín hiệu skip video đang upload'));
       loadUploader();
@@ -3794,7 +3796,7 @@ async function triggerAutoPublishScan(){
   try {
     const res = await (await fetch('/api/auto-publish/scan', {method: 'POST'})).json();
     if(res && res.ok){
-      toast(`✓ Đã bắt đầu xuất bản (${res.scanned?.length || 0} phim)!`);
+      toast(res.busy ? `⏳ Đang xuất bản «${res.current_title || res.current_job_id || '?'}» (${res.progress_percent || 0}%)…` : (res.scanned ? `✓ Đã xếp ${res.scanned} phim vào hàng xuất bản` : 'Không có phim mới cần đăng'));
       pollAutoPubState();
     } else {
       toast('Lỗi: ' + (res.error || 'Thất bại'));

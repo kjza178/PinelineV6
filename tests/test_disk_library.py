@@ -69,6 +69,7 @@ def test_merge_runs_in_background_and_reports_error(lib, monkeypatch):
     monkeypatch.setattr(dl, "_publish", lambda k, d: events.append(d))
     monkeypatch.setattr(hg, "episode_resolutions", lambda f: {"mixed": False})
     monkeypatch.setattr(hg, "merge_series_copy", lambda f, on_pct=None: {"ok": False, "error": "concat hỏng"})
+    monkeypatch.setattr(dl, "check_episodes", lambda f: {"ok": True, "n": 2, "bad": [], "short": [], "missing": []})
     assert dl.merge(["BoB", "../ngoai"])["queued"] == ["BoB"]               # tên ra ngoài thư viện bị chặn
     for _ in range(100):
         if any(e.get("state") == "error" for e in events):
@@ -154,3 +155,41 @@ def test_desktop_has_copyright_test():
     for needle in ("/test-channel/test-one", "/test-channel/recheck-one", "/test-channel/status", "/test-channel/batch-start",
                    "/library/set-block-status", '"library.block"'):
         assert needle in js, needle
+
+
+def _wait_err(events):
+    for _ in range(150):
+        if any(e.get("state") == "error" for e in events):
+            return
+        time.sleep(0.02)
+
+
+def test_check_episodes_flags_bad_short_and_missing(tmp_path, monkeypatch):
+    import agents.hongguo_bridge as hg
+    for n in (1, 2, 4, 5):
+        (tmp_path / f"ep{n:02d}.mp4").write_bytes(b"x")
+    monkeypatch.setattr(hg, "_list_episode_frags", lambda f: sorted(Path(f).glob("*.mp4")))
+    monkeypatch.setattr(hg, "_probe_wh", lambda f: None if f.name == "ep05.mp4" else (1080, 1920))
+    monkeypatch.setattr(hg, "_ep_num_from_name", lambda n: int(n[2:4]))
+    monkeypatch.setattr(dl, "_probe_dur", lambda f: 2.0 if f.name == "ep02.mp4" else 90.0)
+    c = dl.check_episodes(tmp_path)
+    assert c["ok"] is False and c["bad"] == ["ep05.mp4"] and c["short"] == ["ep02.mp4"] and c["missing"] == [3]
+    assert dl._check_msg(c).startswith("KHÔNG gộp")
+
+
+def test_merge_refuses_broken_series_unless_forced(lib, monkeypatch):
+    import agents.hongguo_bridge as hg
+    events, merged = [], []
+    monkeypatch.setattr(dl, "_publish", lambda k, d: events.append(d))
+    monkeypatch.setattr(hg, "episode_resolutions", lambda f: {"mixed": False})
+    monkeypatch.setattr(hg, "merge_series_copy", lambda f, on_pct=None: merged.append(f) or {"ok": False, "error": "x"})
+    monkeypatch.setattr(dl, "check_episodes", lambda f: {"ok": False, "n": 3, "bad": [], "short": [], "missing": [2]})
+    dl.merge(["BoB"])
+    _wait_err(events)
+    assert not merged
+    err = {it["name"]: it for it in dl.scan()["items"]}["BoB"]["merge_error"]
+    assert "KHÔNG gộp" in err and "thiếu tập 2" in err
+    events.clear()
+    dl.merge(["BoB"], force=True)
+    _wait_err(events)
+    assert merged     # bỏ qua kiểm → vẫn gộp

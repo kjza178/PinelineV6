@@ -1,6 +1,13 @@
 # CHANGELOG — V6
 
 ## 2026-11-27
+- **Job đã xong vẫn báo «đang chạy»**: quét nền mỗi 60 s (`server._stale_running_sweep_once`) — job báo running mà
+  không phải job hàng chờ đang chạy, không còn tiến trình và manifest 3 phút không đổi → chữa trạng thái (log
+  `[heal-sweep]`). **Cần restart server.**
+- **Sửa 9 lỗi V6 giống V2** (`docs/fixes/2026-11-27-port-v2-11-17-to-27.md` mục «Đã sửa»): kiểm tập trước gộp + «Gộp
+  bỏ qua tập lỗi»; xoá job xoá cả part `_pNN`; «Bỏ qua video đang đăng» huỷ thật upload trong server; Test hàng loạt
+  theo dự án ưu tiên; VIENEU_BATCH mẫu 16; gộp job feeder re-encode mọi phần; prompt ảnh bìa bản ngắn (chữ Việt có
+  dấu); HOLD nhường ghế sau 30 phút (`QUEUE_HOLD_YIELD_SEC`); pair_fill có model dự phòng. **Cần restart server.**
 - **Films UI / Kênh test: bỏ thông tin đăng nhập V2 ghi cứng**: `tools/lib_check.list_yt_accounts` trả tài khoản mặc
   định «Sage Review» + Gmail của V2 khi không đọc được yt_uploader → nay lấy kênh V6 (services/yt_accounts), không có
   → []. Films UI / test_channel bỏ tên kênh V2 «Sai Kira» làm mặc định (trước hiện «🟢 Sẵn sàng (Sai Kira)» dù chưa

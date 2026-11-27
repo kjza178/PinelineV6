@@ -585,6 +585,45 @@ def _heal_stale_running(work_dir: Path) -> list[str]:
     return healed
 
 
+STALE_RUNNING_SEC = float(os.getenv("STALE_RUNNING_SEC") or 180)
+
+
+def _stale_running_sweep_once() -> list[str]:
+    """2026-11-27: job báo «đang chạy» mà KHÔNG còn gì chạy thật (không phải job hiện tại của hàng chờ, không claim
+    bước, không tiến trình con, manifest im > STALE_RUNNING_SEC) → _heal_stale_running (có kết quả trên ổ → Xong,
+    không → Chờ). Trước chỉ heal khi bấm chạy lại job đó → «job đã xong, đã chạy job khác mà job đó vẫn đang chạy».
+    Log ghi bước nào kẹt để truy nguyên nhân gốc."""
+    out: list[str] = []
+    try:
+        from state.index import index as _idx
+        rows = _idx.list()
+    except Exception as e:  # noqa: BLE001
+        print(f"[heal-sweep] đọc danh sách job lỗi: {e}", flush=True)
+        return out
+    cur = job_queue.queue_state().get("current")
+    for r in rows:
+        if r.get("status") != "running":
+            continue
+        jid = r["job_id"]
+        if jid == cur or (cur and _split_parent_id(jid) == cur):
+            continue
+        if _job_lineage_busy(jid) or _job_proc_alive(jid):
+            continue
+        wd = WORK_ROOT / jid
+        try:
+            age = time.time() - (wd / "manifest.json").stat().st_mtime
+        except OSError:
+            continue
+        if age < STALE_RUNNING_SEC:
+            continue
+        healed = _heal_stale_running(wd)
+        if healed:
+            msg = f"{jid}: {', '.join(healed)} (im {int(age)} s, bước «{r.get('running_stage')}» kẹt running)"
+            print(f"[heal-sweep] {msg}", flush=True)
+            out.append(msg)
+    return out
+
+
 def _next_incomplete_stage(work_dir: Path) -> str | None:
     """Bước WIRED đầu tiên chưa done (để mark_running đúng — không ép lại ASR)."""
     work_dir = Path(work_dir)
@@ -6927,10 +6966,27 @@ def delete_job(job_id: str):
     # chặn path traversal: work_dir phải là con trực tiếp của root
     if work_dir.parent != root or not work_dir.is_dir():
         return JSONResponse({"error": "not found"}, status_code=404)
+    import core.film_db as _fdb
+    dirs = _fdb.job_dirs_with_parts(WORK_ROOT, job_id)      # 2026-11-27: kèm part auto-split <job>_pNN
     try:
         shutil.rmtree(work_dir)
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"error": str(e)}, status_code=500)
+    parts = []
+    for d in dirs:
+        if d.resolve() == work_dir:
+            continue
+        try:
+            shutil.rmtree(d)
+            parts.append(d.name)
+        except OSError as e_p:
+            print(f"[delete] xoá part {d.name} lỗi: {e_p}", flush=True)
+    for pid in parts:
+        try:
+            from state.index import index as _ji
+            _ji.remove(pid)
+        except Exception as e_ix:  # noqa: BLE001
+            print(f"[delete] index.remove {pid}: {e_ix}", flush=True)
     # fix 2026-11-14: báo index ngay → event `job.removed` tới mọi UI liền (trước đây chờ watcher quét đủ, tới 30 s,
     # job đã xoá vẫn nằm trong danh sách).
     try:
@@ -6938,7 +6994,7 @@ def delete_job(job_id: str):
         _job_index.remove(job_id)
     except Exception as e:  # noqa: BLE001
         print(f"[delete] index.remove {job_id}: {e}", flush=True)
-    return {"deleted": job_id}
+    return {"deleted": job_id, "parts_deleted": parts}
 
 
 # ===== Hongguo 2 bridge (engine RPC — agents/hongguo_bridge) =====
@@ -7215,6 +7271,22 @@ def _title_write_hook(work_dir, data: dict) -> None:
             _maybe_translate_title(wd.name, f"{title} {gt}")
     except Exception as e:  # noqa: BLE001
         print(f"[title] hook {Path(work_dir).name}: {e}", flush=True)
+
+
+@app.on_event("startup")
+def _start_stale_running_sweep():
+    """Quét job «đang chạy» giả mỗi 60 s (xem _stale_running_sweep_once)."""
+    if _UNDER_PYTEST:
+        return
+
+    def _loop():
+        while True:
+            time.sleep(60)
+            try:
+                _stale_running_sweep_once()
+            except Exception as e:  # noqa: BLE001
+                print(f"[heal-sweep] lỗi: {e}", flush=True)
+    threading.Thread(target=_loop, name="stale-running-sweep", daemon=True).start()
 
 
 @app.on_event("startup")

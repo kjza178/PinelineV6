@@ -81,9 +81,9 @@ def test_hooks_from_title_and_sanitize():
         title_vi=title, story_moment="mine fight", badge_text="TRỌN BỘ THUYẾT MINH",
         hook_texts=["CỘNG ĐIỂM VÕ ĐẠO", "LÃO LỤC THÀNH THÁNH"],
     )
-    assert "INTEGRATED 3D LATIN TYPOGRAPHY" in prompt
-    assert "LAO LUC THANH THANH" in prompt  # không dấu — tránh AI vỡ chữ
-    assert "LÃO LỤC" not in prompt or "diacritic" in prompt.lower()
+    # 2026-11-27 (port V2 11-17): bỏ khoá «3D Latin không dấu / UE5» — giữ chữ Việt CÓ DẤU, chữ theo ảnh nền
+    assert "INTEGRATED 3D LATIN TYPOGRAPHY" not in prompt and "Unreal Engine" not in prompt
+    assert "LÃO LỤC THÀNH THÁNH" in prompt
     assert meta_studio.vi_to_image_latin("Võ Đạo Cộng Điểm") == "VO DAO CONG DIEM"
     assert meta_studio.pick_badge_text("TRỌN BỘ THUYẾT MINH") in ("NEW", "HOT")
     assert meta_studio.pick_badge_text("HOT") == "HOT"

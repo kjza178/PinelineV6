@@ -692,6 +692,32 @@ def get(job_id: str) -> dict | None:
         return d
 
 
+def job_dirs_with_parts(root: Path, job_id: str) -> list[Path]:
+    """Thư mục của job + các part auto-split `<job>_pNN` (port lỗi V2 11-19: xoá job còn sót part vài GB).
+    Chỉ thư mục con TRỰC TIẾP của root. Xoá 1 part → chỉ part đó."""
+    import re as _re
+    root = Path(root)
+    out = []
+    p = root / job_id
+    if p.is_dir() and p.resolve().parent == root.resolve():
+        out.append(p)
+    if not _re.search(r"_p\d{2,}$", job_id) and root.is_dir():
+        pat = _re.compile(_re.escape(job_id) + r"_p\d{2,}$")
+        out += sorted(d for d in root.iterdir() if d.is_dir() and pat.match(d.name))
+    return out
+
+
+def _rm_job_dirs(job_id: str) -> int:
+    n = 0
+    for p in job_dirs_with_parts(_work(), job_id):
+        try:
+            shutil.rmtree(p)
+            n += 1
+        except OSError as e:
+            print(f"[film_db] xoá thư mục {p} lỗi: {e}", flush=True)
+    return n
+
+
 def delete_film(job_id: str, delete_work: bool = True) -> dict:
     """Xoá 1 film khỏi database và tuỳ chọn xoá thư mục work trên ổ đĩa."""
     jid = str(job_id or "").strip()
@@ -699,14 +725,7 @@ def delete_film(job_id: str, delete_work: bool = True) -> dict:
         return {"ok": False, "error": "job_id không hợp lệ"}
     work_deleted = False
     if delete_work:
-        try:
-            root = _work().resolve()
-            p = (_work() / jid).resolve()
-            if (p.parent == root or p.parent == _work()) and p.is_dir():
-                shutil.rmtree(p)
-                work_deleted = True
-        except Exception as e:
-            pass
+        work_deleted = _rm_job_dirs(jid) > 0
     with _lock, connect() as con:
         con.execute("DELETE FROM events WHERE job_id=?", (jid,))
         n = con.execute("DELETE FROM films WHERE job_id=?", (jid,)).rowcount
@@ -720,15 +739,8 @@ def delete_films(job_ids: list[str], delete_work: bool = True) -> dict:
         return {"ok": False, "deleted_count": 0, "deleted_ids": [], "error": "Danh sách rỗng"}
     work_deleted_count = 0
     if delete_work:
-        root = _work().resolve()
         for jid in ids:
-            try:
-                p = (_work() / jid).resolve()
-                if (p.parent == root or p.parent == _work()) and p.is_dir():
-                    shutil.rmtree(p)
-                    work_deleted_count += 1
-            except Exception:
-                pass
+            work_deleted_count += 1 if _rm_job_dirs(jid) else 0
     with _lock, connect() as con:
         placeholders = ",".join("?" * len(ids))
         con.execute(f"DELETE FROM events WHERE job_id IN ({placeholders})", ids)

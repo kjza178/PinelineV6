@@ -162,3 +162,37 @@ def test_heal_misattributed_failure(tmp_path):
     assert server._heal_misattributed_fail(wd) == ["translate"]
     st = json.loads((wd / "manifest.json").read_text(encoding="utf-8"))["stages"]
     assert st["translate"]["status"] == "pending" and st["mux"]["status"] == "failed"
+
+
+def test_stale_running_sweep_heals_finished_job(tmp_path, monkeypatch):
+    """2026-11-27: job xong (output có) mà mux còn «running», hàng chờ đã chạy job khác → quét nền sửa về Xong."""
+    import os
+    import time as _t
+    monkeypatch.setattr(server, "WORK_ROOT", tmp_path)
+    wd = _write(tmp_path / "s1", {"stages": {"mux": {"status": "running"}}})
+    old = _t.time() - 600
+    os.utime(wd / "manifest.json", (old, old))
+    from state import index as idx
+    monkeypatch.setattr(idx.index, "list", lambda: [{"job_id": "s1", "status": "running", "running_stage": "mux"},
+                                                    {"job_id": "s2", "status": "running", "running_stage": "tts"}])
+    monkeypatch.setattr(server.job_queue, "queue_state", lambda: {"current": "s2"})
+    monkeypatch.setattr(server, "_job_lineage_busy", lambda j: None)
+    monkeypatch.setattr(server, "_job_proc_alive", lambda j: False)
+    healed = []
+    monkeypatch.setattr(server, "_heal_stale_running", lambda w: healed.append(w.name) or ["mux->done"])
+    out = server._stale_running_sweep_once()
+    assert healed == ["s1"] and "s1: mux->done" in out[0]          # s2 = job đang chạy thật → không đụng
+
+
+def test_delete_job_removes_split_parts(tmp_path, monkeypatch):
+    """Port lỗi V2 11-19: xoá job còn sót thư mục part `<job>_pNN` (vài GB)."""
+    import core.film_db as fdb
+    for d in ("abc", "abc_p01", "abc_p02", "abcd", "x_abc_p01"):
+        (tmp_path / d).mkdir()
+    names = [p.name for p in fdb.job_dirs_with_parts(tmp_path, "abc")]
+    assert names == ["abc", "abc_p01", "abc_p02"]
+    assert [p.name for p in fdb.job_dirs_with_parts(tmp_path, "abc_p01")] == ["abc_p01"]   # xoá 1 part → chỉ part đó
+    monkeypatch.setattr(server, "WORK_ROOT", tmp_path)
+    r = server.delete_job("abc")
+    assert sorted(r["parts_deleted"]) == ["abc_p01", "abc_p02"]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["abcd", "x_abc_p01"]

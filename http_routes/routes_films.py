@@ -386,7 +386,8 @@ def tc_batch_start(payload: Dict[str, Any] = Body(...)):
     title_vi_map = payload.get("title_vi_map")
     limit = int(payload.get("limit") or 500)
     auto_delete = bool(payload.get("auto_delete", False))
-    res = test_channel.start_batch_test(names=names, limit=limit, auto_delete=auto_delete, title_vi_map=title_vi_map)
+    res = test_channel.start_batch_test(names=names, limit=limit, auto_delete=auto_delete, title_vi_map=title_vi_map,
+                                        project_id=str(payload.get("project_id") or "") or None)
     return JSONResponse(res, status_code=200 if res.get("ok") else 400)
 
 
