@@ -35,7 +35,9 @@ def _get_base_url(req: Request) -> str:
 @router.get("/films/ui", response_class=HTMLResponse)
 @router.get("/library/ui", response_class=HTMLResponse)
 def films_ui():
-    for p in (ROOT / "static" / "ui" / "films_ui.html", ROOT / "films_ui.html"):
+    # 2026-11-27: bản duy trì là films_ui.html ở gốc (như routes_ui /films/ui) — trước /library/ui ưu tiên bản cũ
+    # static/ui/ (còn hộp Cài đặt V4, tài khoản V2)
+    for p in (ROOT / "films_ui.html", ROOT / "static" / "ui" / "films_ui.html"):
         if p.exists():
             from core.instance import localize_html  # review2: :8801/:8802 cứng → instance
             return HTMLResponse(localize_html(p.read_text(encoding="utf-8"), server=""))
