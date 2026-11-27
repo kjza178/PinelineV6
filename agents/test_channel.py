@@ -2,7 +2,7 @@
 test_channel.py — Quản lý Kênh Phụ Test (Burner Channel) độc lập trong Pineline.
 
 Chức năng:
-- Đăng nhập Google OAuth Kênh Phụ / Gmail Test riêng (tách biệt hoàn toàn với kênh Sage Review).
+- Đăng nhập Google OAuth Kênh Phụ / Gmail Test riêng (tách biệt hoàn toàn với kênh chính).
 - Upload clip mẫu 90s ngầm trực tiếp qua YouTube API ở chế độ Unlisted.
 - Tự động chờ YouTube Content ID quét (Clean, Blocked, Claim nhạc).
 - Tự động xoá video test trên YouTube sau khi có kết quả để giữ kênh test sạch.
@@ -152,7 +152,7 @@ def get_channel_limit_state() -> dict[str, Any]:
     return {"reached": False}
 
 
-def mark_channel_limit_reached(channel_title: str = "Sai Kira"):
+def mark_channel_limit_reached(channel_title: str = ""):
     """Đánh dấu Kênh YouTube chạm giới hạn upload hôm nay."""
     CHANNEL_LIMIT_FILE.write_text(json.dumps({
         "exhausted_date": _quota_day(),
@@ -245,7 +245,7 @@ def verify_all_projects_health(force: bool = False) -> dict[str, dict[str, Any]]
             yt = build("youtube", "v3", credentials=creds)
             res = yt.channels().list(mine=True, part="snippet").execute()
             items = res.get("items") or []
-            ch_title = items[0].get("snippet", {}).get("title", "") if items else "Sai Kira"
+            ch_title = items[0].get("snippet", {}).get("title", "") if items else ""
             ch_id = items[0].get("id", "") if items else ""
 
             email = cur.get("email") or ""
@@ -275,7 +275,7 @@ def verify_all_projects_health(force: bool = False) -> dict[str, dict[str, Any]]
             is_disabled = "accessnotconfigured" in err_s or "has not been used in project" in err_s
             health[pid] = {
                 "api_enabled": not is_disabled,
-                "channel_title": cur.get("channel_title") or "Sai Kira",
+                "channel_title": cur.get("channel_title") or "",
                 "channel_id": cur.get("channel_id") or "",
                 "email": cur.get("email") or "",
                 "enable_url": default_enable_url,

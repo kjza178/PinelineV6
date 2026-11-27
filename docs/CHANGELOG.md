@@ -1,6 +1,10 @@
 # CHANGELOG — V6
 
 ## 2026-11-27
+- **Films UI / Kênh test: bỏ thông tin đăng nhập V2 ghi cứng**: `tools/lib_check.list_yt_accounts` trả tài khoản mặc
+  định «Sage Review» + Gmail của V2 khi không đọc được yt_uploader → nay lấy kênh V6 (services/yt_accounts), không có
+  → []. Films UI / test_channel bỏ tên kênh V2 «Sai Kira» làm mặc định (trước hiện «🟢 Sẵn sàng (Sai Kira)» dù chưa
+  đăng nhập) và «Sage Review» trong lời giới thiệu.
 - **«Phim chờ làm» không hiện phim đã tải**: Hongguo 2 chưa mở / lần đầu trả rỗng → trước rơi về `LIBRARY_DIR`
   (máy mới không có `D:\Lib`) → danh sách trống. Nay nhớ thư mục Hongguo 2 lần trước (`data/hg_last_library.json`,
   gitignore); phim Hongguo báo ở thư mục ngoài gốc vẫn hiện; thiếu thư mục → ô nhập «Dùng thư mục này» + «Quét lại».

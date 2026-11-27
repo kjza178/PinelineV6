@@ -355,3 +355,25 @@ def test_disk_library_missing_dir_flag(tmp_path, monkeypatch):
     monkeypatch.setattr(dl, "_hg_library_cached", lambda *a, **k: ({}, None, ""))
     r = dl.scan(lib=tmp_path / "khong_co")
     assert r["ok"] is False and r["missing_dir"] is True
+
+
+def test_no_hardcoded_v2_accounts():
+    """2026-11-27: films UI / test channel / lib_check không còn tên kênh + Gmail của V2 ghi cứng."""
+    import re
+    root = Path(__file__).resolve().parents[1]
+    for rel in ("static/ui/films_ui.html", "static/films_ui.html", "films_ui.html", "tools/lib_check.py",
+                "tools/test_channel.py", "agents/test_channel.py"):
+        src = (root / rel).read_text(encoding="utf-8")
+        code = re.sub(r"#.*|«[^»]*»", "", src)          # bỏ chú thích lịch sử
+        assert "@gmail.com" not in src, rel
+        assert "'Sai Kira'" not in code and '"Sai Kira"' not in code and "Sage Review 100%" not in code, rel
+
+
+def test_lib_check_accounts_from_v6(monkeypatch):
+    from tools import lib_check
+    from services import yt_accounts
+    monkeypatch.setattr(yt_accounts, "list_accounts", lambda: {"accounts": [{"id": "UC1", "title": "Kênh A"}]})
+    assert lib_check.list_yt_accounts()[0]["channel_title"] == "Kênh A"
+    monkeypatch.setattr(yt_accounts, "list_accounts", lambda: {"accounts": []})
+    monkeypatch.setattr(lib_check, "YT_DIR", Path("/khong/co/yt_uploader"))
+    assert lib_check.list_yt_accounts() == []

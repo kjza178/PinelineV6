@@ -373,14 +373,26 @@ def clear_samples(older_than_hours: float = 0) -> dict[str, Any]:
 
 
 def list_yt_accounts() -> list[dict[str, Any]]:
-    """Lấy danh sách tài khoản đã cấu hình trong Z:\\yt_uploader."""
+    """Kênh YouTube để chọn: kênh V6 (services/yt_accounts — đăng nhập trong app) trước, rồi tài khoản trong
+    yt_uploader (nếu máy có). 2026-11-27: bỏ tài khoản V2 ghi cứng (tên kênh + Gmail) — không có kênh → []."""
+    out: list[dict[str, Any]] = []
+    try:
+        from services import yt_accounts as v6
+        for a in v6.list_accounts().get("accounts") or []:
+            out.append({"id": a.get("id"), "name": a.get("title") or a.get("id"), "channel_title": a.get("title") or "",
+                        "channel_id": a.get("channel_id") or a.get("id"), "email": a.get("email") or ""})
+    except Exception as e:  # noqa: BLE001
+        print(f"[lib_check] đọc kênh V6 lỗi: {e}", flush=True)
+    if out:
+        return out
     import importlib
     import sys
+    if not Path(str(YT_DIR)).is_dir():
+        return []
     sys.path.insert(0, str(YT_DIR))
     try:
         yt_accounts = importlib.import_module("yt_accounts")
         accs = yt_accounts.list_accounts() if hasattr(yt_accounts, "list_accounts") else []
-        out = []
         for a in accs:
             out.append({
                 "id": getattr(a, "id", "default"),
@@ -389,9 +401,10 @@ def list_yt_accounts() -> list[dict[str, Any]]:
                 "channel_id": getattr(a, "channel_id", ""),
                 "email": getattr(a, "email", "")
             })
-        return out or [{"id": "default", "name": "default", "channel_title": "Sage Review", "email": "noemimarton1988@gmail.com"}]
-    except Exception:
-        return [{"id": "default", "name": "default", "channel_title": "Sage Review", "email": "noemimarton1988@gmail.com"}]
+        return out
+    except Exception as e:  # noqa: BLE001
+        print(f"[lib_check] đọc tài khoản yt_uploader lỗi: {e}", flush=True)
+        return []
 
 
 def batch_enqueue_untested_lib(names: list[str] | None = None, limit: int = 50, privacy: str = "unlisted", account: str = "default") -> dict[str, Any]:
