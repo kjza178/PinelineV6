@@ -272,7 +272,7 @@ class Manifest:
     def mark_done(self, name: str, **payload) -> dict:
         prev = dict(self.data.get("stages", {}).get(name) or {})
         # Giữ voice/speed/engine nếu payload không truyền lại
-        for k in ("voice", "speed", "tts_engine", "engine"):
+        for k in ("voice", "speed", "tts_engine", "engine", "device"):
             if k not in payload and k in prev:
                 payload[k] = prev[k]
         self.data.setdefault("stages", {})[name] = {

@@ -51,11 +51,23 @@ MODEL_ID = "FireRedASR2-AED"
 
 
 def _roots() -> tuple[Path, Path]:
-    root = Path(os.getenv("FIRERED_ROOT") or cfg("FIRERED_ROOT", "") or
-                str(Path(__file__).resolve().parents[2] / "vendor" / "FireRedASR2S"))
-    models = Path(os.getenv("FIRERED_MODELS") or cfg("FIRERED_MODELS", "") or
-                  str(root / "pretrained_models"))
-    return root, models
+    """Một nguồn với Cài đặt / check_env: core.machine.firered_paths (env > config > vendor/, D:/AI_CACHE/firered)."""
+    from core.machine import firered_paths
+    return firered_paths()
+
+
+def _cfg_flag(key: str, default: bool) -> bool:
+    raw = str(os.getenv(key) or cfg(key, "") or "").strip().lower()
+    return default if not raw else raw not in ("0", "false", "no", "off")
+
+
+def _cfg_int(key: str, default: int, lo: int, hi: int) -> int:
+    raw = str(os.getenv(key) or cfg(key, "") or "").strip()
+    try:
+        return max(lo, min(hi, int(raw))) if raw else default
+    except ValueError:
+        print(f"[{ENGINE}] {key}={raw!r} không phải số → {default}", flush=True)
+        return default
 
 
 def _ensure_firered_importable(root: Path) -> None:
@@ -483,15 +495,35 @@ def run_asr_firered(
         )
         punc_config = FireRedPuncConfig(use_gpu=use_gpu)
 
+        # 2026-11-16 tăng tốc (thay vì TensorRT): (1) TẮT LID — nhận dạng ngôn ngữ từng câu, model 3,3 GB, Pineline không
+        # dùng kết quả (nguồn luôn tiếng Trung); (2) ASR theo LÔ trên GPU (trước 1 câu / lượt); (3) dấu câu theo lô.
+        enable_lid = _cfg_flag("FIRERED_LID", False)
+        asr_bs = _cfg_int("FIRERED_ASR_BATCH", 4 if use_gpu else 1, 1, 32)
+        punc_bs = _cfg_int("FIRERED_PUNC_BATCH", 16, 1, 128)
+        print(f"[{ENGINE}] lô ASR={asr_bs} · lô dấu câu={punc_bs} · LID={'bật' if enable_lid else 'tắt'}", flush=True)
         asr_system_config = FireRedAsr2SystemConfig(
             str(vad_dir),
             str(need["FireRedLID"]),
             "aed", str(need["FireRedASR2-AED"]),
             str(need["FireRedPunc"]),
             vad_config, lid_config, asr_config, punc_config,
-            enable_vad=1, enable_lid=1, enable_punc=1,
+            asr_batch_size=asr_bs, punc_batch_size=punc_bs,
+            enable_vad=1, enable_lid=1 if enable_lid else 0, enable_punc=1,
         )
         asr_system = FireRedAsr2System(asr_system_config)
+
+        def _process(path, *a, **kw):
+            """Hết VRAM khi chạy theo lô → giảm lô một nửa, thử lại đoạn đó (tới lô 1)."""
+            while True:
+                try:
+                    return asr_system.process(path, *a, **kw)
+                except RuntimeError as e:
+                    if "out of memory" not in str(e).lower() or asr_system.config.asr_batch_size <= 1:
+                        raise
+                    nb = max(1, asr_system.config.asr_batch_size // 2)
+                    print(f"[{ENGINE}] hết VRAM ở lô {asr_system.config.asr_batch_size} → thử lại lô {nb}", flush=True)
+                    asr_system.config.asr_batch_size = nb
+                    free_gpu_vram()
 
         st.update({"cur_text": "đang nhận diện (FireRedASR2)…", "progress": 20,
                    "updated_at": time.time()})
@@ -523,7 +555,7 @@ def run_asr_firered(
                   flush=True)
 
         try:
-            rows = transcribe_sliced(asr_system.process, wav, tmp_dir, on_slice=_on_slice)
+            rows = transcribe_sliced(_process, wav, tmp_dir, on_slice=_on_slice)
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 

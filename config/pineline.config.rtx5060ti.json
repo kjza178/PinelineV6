@@ -8,13 +8,11 @@
   "OMNI_MODEL": "splendor1811/omnivoice-vietnamese",
   "VIENEU_DEVICE": "cuda",
   "OMNI_DEVICE": "cuda",
-
-  "VIENEU_BATCH": "8",
+  "VIENEU_BATCH": "16",
   "VIENEU_CPU_THREADS": "2",
   "VIENEU_LOW_PRIORITY": "1",
   "VIENEU_STALL_SEC": "600",
   "VIENEU_BOOT_SEC": "180",
-
   "ASR_STALL_SEC": "900",
   "TRANSLATE_BATCH": "50",
   "LLM_NUM_CTX": "8192",

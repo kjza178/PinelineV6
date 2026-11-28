@@ -196,7 +196,7 @@ def test_llm_conn(payload: Dict[str, Any] = Body(...)):
     """Thử gửi 1 prompt nhỏ đến LLM để đo độ trễ và kiểm tra model."""
     import urllib.request
 
-    base_url = str(payload.get("base_url") or config.get("LLM_BASE_URL") or "http://127.0.0.1:8083/v1").rstrip("/")
+    base_url = str(payload.get("base_url") or config.llm_settings()["base"]).rstrip("/")   # config: đã lọc LAN
     api_key = str(payload.get("api_key") or config.get("LLM_API_KEY") or "sk-local").strip()
     model = str(payload.get("model") or config.get("LLM_MODEL") or "local").strip()
 
@@ -475,16 +475,30 @@ def uploader_save_settings(payload: Dict[str, Any] = Body(...)):
 @router.get("/api/auto-publish/config")
 @router.get("/auto-publish/config")
 def auto_publish_get_config():
+    import os
+
     import agents.auto_publisher as auto_publisher
-    return {"ok": True, "config": auto_publisher.load_config()}
+    # 2026-11-27: tự đăng = (cờ instance auto_publish HOẶC công tắc app AUTO_PUBLISH) VÀ config.enabled. Công tắc trong
+    # app luôn bật/tắt được (trước: instance v6 tắt → công tắc bị khoá).
+    from core.config import get as _g
+    flag = os.getenv("PINELINE_FLAG_AUTO_PUBLISH")
+    inst = True if flag is None else flag.strip().lower() in ("1", "true", "yes", "on")
+    app_on = str(_g("AUTO_PUBLISH") or "").strip().lower() in ("1", "true", "yes", "on")
+    cfg = auto_publisher.load_config()
+    return {"ok": True, "config": cfg, "instance_on": inst, "app_on": app_on,
+            "effective": bool((inst or app_on) and cfg.get("enabled", True))}
 
 
 @router.post("/api/auto-publish/config")
 @router.post("/auto-publish/config")
 def auto_publish_save_config(body: dict):
     import agents.auto_publisher as auto_publisher
-    cfg = auto_publisher.save_config(body)
-    return {"ok": True, "config": cfg}
+    b = dict(body or {})
+    if "enabled" in b:          # công tắc «Tự đăng» trong app → AUTO_PUBLISH (không cần sửa instances/*.json)
+        from core.config import save_config
+        save_config({"AUTO_PUBLISH": "1" if b.get("enabled") else None})
+    cfg = auto_publisher.save_config(b)
+    return {"ok": True, "config": cfg, "effective": auto_publish_get_config()["effective"]}
 
 
 @router.post("/api/auto-publish/trigger")
@@ -513,6 +527,14 @@ def auto_publish_trigger(body: dict):
         return res
     code = 400 if res.get("refused_oversized") else 500
     return JSONResponse(res, status_code=code)
+
+
+@router.post("/api/auto-publish/skip-current")
+@router.post("/auto-publish/skip-current")
+def auto_publish_skip_current():
+    """Bỏ qua video đang đăng TRONG server (auto_publisher) — port V2 2026-11-21."""
+    import agents.auto_publisher as auto_publisher
+    return auto_publisher.request_skip_current_upload()
 
 
 @router.post("/api/auto-publish/scan")

@@ -4,7 +4,7 @@ agent_core.py — AI Agent nhúng trong Pineline V2.
 Không gọi HTTP self. Tools gọi runtime đã bind từ server.py
 (list jobs, queue, manifest, draft YT).
 
-LLM Agent: AGENT_BASE_URL / AGENT_API_KEY / AGENT_MODEL (fallback LLM_*).
+LLM Agent: AGENT_MODEL (+ AGENT_FALLBACK_MODEL) — nhà cung cấp / Aurora / AI trên máy (2026-11-21: bỏ AGENT_BASE_URL).
 Job translate vẫn dùng LLM_* local riêng.
 """
 from __future__ import annotations
@@ -1135,10 +1135,48 @@ def summarize_job(j: dict, work_root: Path) -> dict:
     }
 
 
+def resolve_job_id(work_root: Path, job_id: str) -> str:
+    """Port V5 fix 2026-11-20 (agent-resolve-short-job-id): AI hay cắt id — «9aa089_p01» trong khi thư mục thật là
+    «9aa0891fbfd1_p01», hoặc chỉ đưa vài ký tự đầu. Nhận: id đủ · tiền tố duy nhất (≥ 4 ký tự) · dạng <tiền tố>_pNN.
+    Không khớp / mơ hồ → FileNotFoundError kèm ứng viên."""
+    import re as _re
+    raw = str(job_id or "").strip()
+    if not raw:
+        raise FileNotFoundError("thiếu job_id")
+    root = Path(work_root)
+    if (root / raw / "manifest.json").is_file():
+        return raw
+    names = [d.name for d in root.iterdir() if d.is_dir() and (d / "manifest.json").is_file()] if root.is_dir() else []
+    hits: list[str] = []
+    m = _re.match(r"^([0-9a-fA-F]{4,})_p0*(\d+)$", raw)
+    if m:
+        part_re = _re.compile(rf"^{_re.escape(m.group(1))}[0-9a-fA-F]*_p0*{int(m.group(2))}$", _re.I)
+        hits = [n for n in names if part_re.match(n)]
+    if not hits and len(raw) >= 4:
+        hits = [n for n in names if n.startswith(raw)]
+    if len(hits) == 1:
+        return hits[0]
+    pref = raw.split("_p")[0] if "_p" in raw.lower() else raw
+    cands = sorted(hits or [n for n in names if len(pref) >= 3 and n.startswith(pref)])[:5]
+    hint = f" · ứng viên: {', '.join(cands)}" if cands else ""
+    raise FileNotFoundError(f"không thấy job «{raw}» (dùng id đủ hoặc ≥4 ký tự đầu; part: «9aa089_p01» → "
+                            f"«9aa0891fbfd1_p01»){' — nhiều job khớp' if len(hits) > 1 else ''}{hint}")
+
+
+def _normalize_tool_job_args(work_root: Path, args: dict) -> dict:
+    out = dict(args or {})
+    if out.get("job_id") is not None:
+        out["job_id"] = resolve_job_id(work_root, str(out["job_id"]))
+    if isinstance(out.get("job_ids"), list):
+        out["job_ids"] = [resolve_job_id(work_root, str(x)) for x in out["job_ids"] if str(x).strip()]
+    return out
+
+
 def _load_script(work_root: Path, job_id: str) -> list[dict]:
+    job_id = resolve_job_id(work_root, job_id)
     sp = work_root / job_id / "script.json"
     if not sp.is_file():
-        raise FileNotFoundError(f"chưa có script.json cho {job_id}")
+        raise FileNotFoundError(f"chưa có script.json cho {job_id} (job có nhưng chưa dịch xong)")
     rows = json.loads(sp.read_text(encoding="utf-8"))
     if not isinstance(rows, list):
         raise ValueError("script.json không phải list")
@@ -1315,6 +1353,9 @@ def _dispatch(name: str, args: dict, allow_mutate: bool) -> str:
         }, ensure_ascii=False)
 
     try:
+        # port V5 2026-11-20: chuẩn hoá job_id / job_ids rút gọn cho mọi tool có tham số job
+        if isinstance(args, dict) and ("job_id" in args or "job_ids" in args):
+            args = _normalize_tool_job_args(rt.work_root, args)
         if name == "pineline_status":
             return json.dumps(
                 classify_jobs(rt.list_jobs(), rt.work_root),
@@ -1752,15 +1793,16 @@ def _chat_turn(
     import core.config as _cfg
     c = _cfg.agent_llm()
     models = [c["model"]] + ([c["fallback"]] if c["fallback"] else [])
-    last: Exception | None = None
+    errs: list[str] = []
     for i, m in enumerate(models):
         try:
             return _chat_turn_model(messages, use_tools, m, tool_choice=tool_choice)
         except Exception as e:  # noqa: BLE001
-            last = e
+            errs.append(f"{m}: {str(e)[:220]}")
             if i + 1 < len(models):
                 print(f"[agent] LLM {m} lỗi ({str(e)[:160]}) → thử {models[i + 1]}", flush=True)
-    raise last  # type: ignore[misc]
+    # 2026-11-20: báo lỗi CẢ model chính lẫn dự phòng (trước chỉ lỗi cuối → «Aurora :3377» che mất lỗi thật của model chính)
+    raise RuntimeError(" | ".join(errs) if len(errs) > 1 else errs[0])
 
 
 def _chat_turn_model(
@@ -1769,9 +1811,30 @@ def _chat_turn_model(
     model: str,
     tool_choice: Any = "auto",
 ) -> dict:
-    base, key, _ = _llm_cfg()
+    # Nhà cung cấp API riêng (engines/providers): deepseek/…, alibaba/… — gọi qua module của nhà đó (có tools).
+    from engines import providers as _providers
+    hit = _providers.resolve(model)
+    if hit is not None:
+        prov, bare = hit
+        return _providers.chat_message(prov, bare, messages, temperature=0.2, max_tokens=2048,
+                                       tools=TOOLS if use_tools else None,
+                                       tool_choice=(tool_choice if tool_choice is not None else "auto") if use_tools else None,
+                                       retries=3, timeout=180)
+    # fix 2026-11-15: Aurora (chatgpt/… aurora/…) và Ollama (local/<tên>) trước đây bị gửi nhầm tới AGENT_BASE_URL /
+    # LLM_BASE_URL (llama :8083) kèm tên model đó → Agent / Agent dự phòng chọn Aurora không chạy. Nay đi qua
+    # engines.llm.chat (đúng đường Aurora / Ollama) bằng giao thức JSON {tool,args} | {final} (không cần native tools).
+    if _routed_via_llm(model):
+        return _chat_turn_text_protocol(messages, model, via_llm=True)
+    # 2026-11-21: còn lại = AI trên máy (local / llama / llama/<tên> / tên model đang nạp) → llama-server ở Cài đặt →
+    # AI trên máy (LLAMA_BASE_URL). AGENT_BASE_URL / LLM_BASE_URL không còn đọc (config cũ trỏ :3377 Aurora / 9router).
+    if _looks_cloud_router(model):
+        raise RuntimeError(f"Model «{model}» là model router cloud (9router) — V6 không dùng. Chọn nhà cung cấp "
+                           "(deepseek/…, alibaba/…), Aurora (chatgpt/…) hoặc AI trên máy (local) trong Cài đặt → AI.")
+    from core import machine as _machine
+    base, key = _machine.llama_base_url(), "sk-local"
     url = f"{base}/chat/completions"
-    enable_think = (os.getenv("LLM_ENABLE_THINKING") or "").strip() in ("1", "true", "yes")
+    from engines.llm import _thinking
+    enable_think = _thinking()
     payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
@@ -1800,8 +1863,67 @@ def _chat_turn_model(
     return choice.get("message") or {}
 
 
-def _chat_turn_text_protocol(messages: list[dict], model: str | None = None) -> dict:
-    """Fallback khi model không tool-call: ép JSON {tool,args} hoặc {final}."""
+def _is_llama_model(model: str | None) -> bool:
+    m = (model or "").strip().lower()
+    return m in ("local", "llama", "auto", "default") or m.startswith("llama/")
+
+
+def _looks_cloud_router(model: str | None) -> bool:
+    m = (model or "").strip().lower()
+    return m.startswith("ollama/") or "-cloud" in m or m.endswith(":cloud")
+
+
+def _routed_via_llm(model: str | None) -> bool:
+    """Model không đi qua base OpenAI của Agent: Aurora (chatgpt/… aurora/…) hoặc Ollama (local/<tên>)."""
+    m = (model or "").strip().lower()
+    if m.startswith("local/"):
+        return True
+    try:
+        from engines.llm import is_chatgpt
+        return is_chatgpt(m)
+    except Exception as e:  # noqa: BLE001
+        print(f"[agent] không xác định đường đi của model {model!r}: {e}", flush=True)
+        return False
+
+
+def _flatten_for_text(messages: list[dict]) -> list[dict]:
+    """Lịch sử có tool_calls / role=tool → chỉ còn system / user / assistant dạng chữ (đường Aurora / Ollama)."""
+    out = []
+    for m in messages:
+        role = m.get("role")
+        if role == "tool":
+            out.append({"role": "user", "content": f"KẾT QUẢ CÔNG CỤ {m.get('name') or ''}:\n{m.get('content') or ''}"})
+        elif role == "assistant" and m.get("tool_calls"):
+            calls = [{"tool": (c.get("function") or {}).get("name"),
+                      "args": (c.get("function") or {}).get("arguments")} for c in m.get("tool_calls") or []]
+            out.append({"role": "assistant", "content": json.dumps(calls[0] if len(calls) == 1 else calls,
+                                                                   ensure_ascii=False)})
+        else:
+            out.append({"role": role or "user", "content": m.get("content") or ""})
+    return out
+
+
+def _tool_menu() -> str:
+    lines = []
+    for t in TOOLS:
+        f = t.get("function") or {}
+        params = list(((f.get("parameters") or {}).get("properties") or {}).keys())
+        lines.append(f"- {f.get('name')}({', '.join(params)}): {str(f.get('description') or '')[:140]}")
+    return "\n".join(lines)
+
+
+def _chat_turn_text_protocol(messages: list[dict], model: str | None = None, *, via_llm: bool = False) -> dict:
+    """Fallback khi model không tool-call: ép JSON {tool,args} hoặc {final}.
+    via_llm=True: gọi qua engines.llm.chat (Aurora / Ollama) thay vì base OpenAI của Agent."""
+    if via_llm:
+        from engines.llm import chat as _llm_chat
+        sys_msg = {"role": "system", "content": (
+            "Bạn gọi được các CÔNG CỤ sau (không có native tools):\n" + _tool_menu() + "\n"
+            "Mỗi lượt CHỈ trả MỘT JSON thuần: {\"tool\":\"<tên>\",\"args\":{...}} để gọi công cụ, hoặc "
+            "{\"final\":\"câu trả lời cho người dùng\"} khi đã đủ thông tin.")}
+        content = (_llm_chat([sys_msg, *_flatten_for_text(messages)], model=model, temperature=0.2,
+                             json_mode=True, max_tokens=1024, timeout=180) or "").strip()
+        return _text_protocol_message(content)
     extra = {
         "role": "system",
         "content": (
@@ -1843,7 +1965,11 @@ def _chat_turn_text_protocol(messages: list[dict], model: str | None = None) -> 
         )
     r.raise_for_status()
     content = ((r.json().get("choices") or [{}])[0].get("message") or {}).get("content") or ""
-    content = content.strip()
+    return _text_protocol_message(content.strip())
+
+
+def _text_protocol_message(content: str) -> dict:
+    """JSON {final} | {tool,args} → message dict (content / tool_calls giả lập)."""
     m = re.search(r"\{[\s\S]*\}", content)
     if not m:
         return {"content": content}

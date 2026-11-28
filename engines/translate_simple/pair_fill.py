@@ -110,13 +110,29 @@ def run(rows: list[dict], pv: PlanView, *, model: str | None, conf_review: float
         import engines.cloud_retry as cloud_retry
         from engines.llm import chat
 
-        def _once():
-            return chat([{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}],
-                        model=model, temperature=0.1, json_mode=True,
-                        max_tokens=min(cfg.max_tokens(), 2048), timeout=cfg.timeout())
-        out = cloud_retry.call_with_cloud_retry(_once, model=model, label="[simple-pairfill]",
-                                                what=f"{len(cands)} cặp", stop_check=stop_check,
-                                                retries=0, cfg_get=cfg.get)
+        from . import stage_review as _sr
+        # port lỗi V2 11-22 (model-route-sticky / simple-gate-qa-full): model chính hỏng → chuỗi dự phòng (model dự
+        # phòng → AI máy); model đã bị đánh dấu hỏng trong lượt này thì bỏ qua luôn.
+        tries = [m for m in [model] + cfg.fallback_models(model) if m and not _sr._is_dead(m)] or [model]
+        out, last = None, None
+        for m in tries:
+            def _once(_m=m):
+                return chat([{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}],
+                            model=_m, temperature=0.1, json_mode=True,
+                            max_tokens=min(cfg.max_tokens(), 2048), timeout=cfg.timeout())
+            try:
+                out = cloud_retry.call_with_cloud_retry(_once, model=m, label="[simple-pairfill]",
+                                                        what=f"{len(cands)} cặp", stop_check=stop_check,
+                                                        retries=0, cfg_get=cfg.get)
+                break
+            except Exception as e_m:  # noqa: BLE001
+                if "stopped by user" in str(e_m).lower():
+                    raise
+                last = e_m
+                _sr._mark_dead(m, e_m)
+                print(f"[simple-pairfill] model {m} lỗi: {type(e_m).__name__}: {str(e_m)[:120]}", flush=True)
+        if out is None:
+            raise last or RuntimeError("không model nào trả lời")
         got = parse(out, want, pv, conf_min)
     except Exception as e:  # noqa: BLE001
         if "stopped by user" in str(e).lower():

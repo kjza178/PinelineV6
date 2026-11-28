@@ -20,6 +20,7 @@ import time
 from pathlib import Path
 
 from core.manifest import Manifest
+from core.timeutil import now_iso as _now_iso
 from state import job_state as js
 
 STAGE = "mux"
@@ -169,7 +170,7 @@ def do_render(work_dir: str | Path, force: bool = True, audio_mode: str = "voice
             keep = {k: v for k, v in prev.items()
                     if k not in ("status", "error", "cur_text", "started_at")}
             d.setdefault("stages", {})[STAGE] = {
-                **keep, "status": "done", "finished_at": time.time(),
+                **keep, "status": "done", "finished_at": _now_iso(),
                 "output_path": str(out_mp4),
             }
             return None

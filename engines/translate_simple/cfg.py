@@ -6,7 +6,15 @@ Không sửa config.json. Khoá:
   SIMPLE_MODEL             model REVIEW cloud (trống = REVIEW model như luồng cũ: _resolve_review_model)
   SIMPLE_BATCH             số câu / lô review (30)
   SIMPLE_CTX               số câu ngữ cảnh chỉ đọc mỗi phía lô (4)
-  SIMPLE_WORKERS           số lô gọi song song (8)
+  SIMPLE_CONTEXT           A8: auto | full | window — full = mọi lô gửi CẢ PHIM + plan đầy đủ ở phần đầu cố định
+                           (cache được); auto = full khi model là deepseek/… alibaba/… (film_context.py) (auto)
+  SIMPLE_FULL_BATCH        ép cỡ lô ở chế độ full (trống = TỰ TÍNH: số câu ÷ số request song song, kẹp
+                           SIMPLE_LOT_MIN..SIMPLE_LOT_MAX = 40..200) — luôn ≤ trần output (out_cap)
+  SIMPLE_FULL_MAX_TOKENS   trần phần đầu MỖI CHƯƠNG; cả phim vượt → chia chương (40000)
+  SIMPLE_CHAPTER_MARGIN    số câu ngữ cảnh hai bên mỗi chương (100)
+  SIMPLE_OUT_TOKENS_PER_LINE  ước lượng token output / câu để giới hạn cỡ lô (90)
+  SIMPLE_WORKERS           số lô gọi song song cho model KHÔNG phải nhà cung cấp API (Aurora, local) (8).
+                           deepseek/… alibaba/… dùng <TÊN>_CONCURRENCY (mặc định 32) — workers_for(model)
   SIMPLE_REPAIR_ROUNDS     số lượt vá câu bị cờ (2, tối đa 2)
   SIMPLE_CONF_MIN          ngưỡng conf (độ chắc spk/to) để kiểm xưng hô (0.7)
   SIMPLE_GATE_FLAG_RATIO   tỉ lệ câu còn cờ tối đa để qua cổng (0.03)
@@ -15,8 +23,8 @@ Không sửa config.json. Khoá:
   SIMPLE_TIMEOUT           timeout giây mỗi lần gọi (300)
   SIMPLE_TEMPERATURE       (0.2)
   SIMPLE_PRONOUN_ANALYZE   1 = chạy pronoun_consistency.ensure_analyze_before_translate sau plan (0)
-  SIMPLE_NMT_WAIT_PLAN     1 = NMT chờ plan (chọn đúng flavor base/QT) thay vì song song (0)
-  SIMPLE_NMT_UNLOAD        1 = nhả model NMT sau khi nháp (1)
+  SIMPLE_REQUIRE_PLAN      1 = lập plan hỏng (lỗi cloud / plan trống) → không soát, park để lần sau lập lại (1)
+  (2026-11-15: V6 bỏ hẳn NMT — các khoá SIMPLE_DRAFT / SIMPLE_NMT_WAIT_PLAN / SIMPLE_NMT_UNLOAD không còn dùng)
   SIMPLE_TRACE_MAX_MB      trace.jsonl vượt ngưỡng → xoay sang trace.1.jsonl (8; 0 = không xoay)
   SIMPLE_SUGGEST_PAIRS     1 = REVIEW được đề xuất cặp xưng hô thiếu → plan_suggestions.json (1)
 
@@ -112,17 +120,18 @@ def pipeline_default() -> str:
 
 
 def _infer_job_pipeline(d: dict, wd) -> str | None:
-    """Job chưa đóng dấu (tạo trước P6): suy luồng đã dùng. None = chưa bắt đầu dịch."""
-    from pathlib import Path
+    """Job chưa đóng dấu: suy luồng đã dùng. None = theo mặc định instance.
+
+    2026-11-17: KHÔNG còn suy «legacy» từ script.json / stage translate đã chạy — job V2/V5 chép sang (hoặc dịch dở)
+    bị kéo về luồng cũ = NMT + TRANSLATE_MODEL (local) thay vì model Soát & dịch chính (DeepSeek…). Luồng simple làm
+    tiếp trên script.json cũ được (ScriptStore giữ câu đã có, câu chưa soát sẽ được soát). Luồng cũ chỉ khi
+    instance/config chọn legacy."""
     st = (d.get("stages") or {}).get("translate") or {}
     ag = d.get("agent") or {}
     if not isinstance(st, dict):
         st = {}
     if str(st.get("mode") or "").lower() == PIPELINE_SIMPLE or (isinstance(ag, dict) and ag.get("simple_park")):
         return PIPELINE_SIMPLE
-    if (Path(wd) / "script.json").exists() or st.get("started_at") \
-            or str(st.get("status") or "").lower() in ("running", "done", "error", "failed"):
-        return PIPELINE_LEGACY
     return None
 
 
@@ -130,8 +139,8 @@ def job_pipeline(work_dir, *, fresh: bool = False, stamp: bool = True) -> str:
     """Luồng dịch cho 1 job — mọi đường gọi dịch trong server hỏi hàm này (server._translate_pipeline_simple(wd)).
 
     - Đã đóng dấu manifest.translate_pipeline → giữ nguyên (job dở luồng cũ hoàn tất bằng luồng cũ).
-    - Chưa đóng dấu: dấu vết simple (stages.translate.mode=simple / agent.simple_park) → simple; dấu vết luồng
-      cũ (script.json / stage translate đã chạy) → legacy; chưa dịch → pipeline_default() (mặc định instance).
+    - Chưa đóng dấu (hoặc dấu legacy «inferred» cũ khi instance là simple): dấu vết simple → simple; còn lại →
+      pipeline_default() (mặc định instance). script.json có sẵn KHÔNG còn ép luồng cũ (2026-11-17).
     - fresh=True («Dịch LẠI» từ đầu — force, không phải Soát lại) → pipeline_default() và đóng dấu lại.
     stamp=True: ghi dấu qua state.job_state.try_mutate khi đổi (lỗi ghi → bỏ qua, vẫn trả luồng)."""
     import json
@@ -146,7 +155,10 @@ def job_pipeline(work_dir, *, fresh: bool = False, stamp: bool = True) -> str:
     except Exception:  # noqa: BLE001
         d = {}
     cur = str(d.get(JOB_PIPELINE_KEY) or "").strip().lower()
-    if not fresh and cur in (PIPELINE_SIMPLE, PIPELINE_LEGACY):
+    cur_why = str(d.get(JOB_PIPELINE_KEY + "_why") or "").strip().lower()
+    # dấu «legacy/inferred» cũ (đoán từ script.json) không còn giá trị → tính lại theo mặc định instance
+    stale = cur == PIPELINE_LEGACY and cur_why == "inferred" and pipeline_default() == PIPELINE_SIMPLE
+    if not fresh and not stale and cur in (PIPELINE_SIMPLE, PIPELINE_LEGACY):
         return cur
     if fresh:
         p, why = pipeline_default(), "fresh"
@@ -170,12 +182,86 @@ def batch() -> int:
     return _int("SIMPLE_BATCH", 30, 4, 120)
 
 
+def context_mode() -> str:
+    v = str(get("SIMPLE_CONTEXT", "auto") or "auto").strip().lower()
+    return v if v in ("auto", "full", "window") else "auto"
+
+
+def full_batch() -> int | None:
+    """Cỡ lô ép ở chế độ full; None = tự tính theo số request song song (film_context.lot_size)."""
+    raw = str(get("SIMPLE_FULL_BATCH", "") or "").strip()
+    if not raw:
+        return None
+    try:
+        return max(4, min(int(float(raw)), 2000))
+    except ValueError:
+        print(f"[simple] SIMPLE_FULL_BATCH={raw!r} không phải số → tự tính", flush=True)
+        return None
+
+
+def full_max_tokens() -> int:
+    return _int("SIMPLE_FULL_MAX_TOKENS", 40000, 2000, 2000000)
+
+
+def chapter_margin() -> int:
+    return _int("SIMPLE_CHAPTER_MARGIN", 100, 0, 2000)
+
+
+def out_tokens_per_line() -> int:
+    return _int("SIMPLE_OUT_TOKENS_PER_LINE", 90, 20, 1000)
+
+
+def out_cap(model: str | None) -> int:
+    """Trần max_tokens output cho model: nhà cung cấp API → <TÊN>_MAX_TOKENS (engines/providers), khác → SIMPLE_MAX_TOKENS."""
+    try:
+        from engines import providers
+        hit = providers.resolve(model or "")
+        if hit is not None:
+            return hit[0].out_cap()
+    except Exception as e:  # noqa: BLE001
+        print(f"[simple] đọc trần output của {model!r} lỗi: {e}", flush=True)
+    lv = _local_override(model, "max_tokens")
+    return lv if lv else max_tokens()
+
+
+def _local_override(model: str | None, name: str) -> int:
+    """AI trên máy (core/local_ai): LOCAL_MAX_TOKENS / LOCAL_CONCURRENCY nếu ĐÃ đặt; chưa đặt → 0 (dùng SIMPLE_*)."""
+    try:
+        from core import local_ai
+        if local_ai.is_local_model(model) and local_ai.snapshot(probe=False)[name]["set"]:
+            return int(local_ai.value(name))
+    except Exception as e:  # noqa: BLE001
+        print(f"[simple] đọc cài đặt AI trên máy ({name}) lỗi: {e}", flush=True)
+    return 0
+
+
 def ctx() -> int:
     return _int("SIMPLE_CTX", 4, 0, 20)
 
 
 def workers() -> int:
-    return _int("SIMPLE_WORKERS", 8, 1, 32)
+    return _int("SIMPLE_WORKERS", 8, 1, 512)
+
+
+def workers_for(model: str | None) -> int:
+    """Số lô gọi cùng lúc: nhà cung cấp API → <TÊN>_CONCURRENCY (mặc định 32); model khác → SIMPLE_WORKERS (8)."""
+    try:
+        from engines import providers
+        hit = providers.resolve(model or "")
+        if hit is not None:
+            return hit[0].concurrency()
+    except Exception as e:  # noqa: BLE001
+        print(f"[simple] đọc số request song song của {model!r} lỗi: {e}", flush=True)
+    lv = _local_override(model, "concurrency")
+    return lv if lv else workers()
+
+
+def lot_min() -> int:
+    return _int("SIMPLE_LOT_MIN", 40, 4, 1000)
+
+
+def lot_max() -> int:
+    return _int("SIMPLE_LOT_MAX", 200, 4, 2000)
 
 
 def repair_rounds() -> int:
@@ -232,12 +318,10 @@ def pronoun_analyze() -> bool:
     return _flag("SIMPLE_PRONOUN_ANALYZE", "0")
 
 
-def nmt_wait_plan() -> bool:
-    return _flag("SIMPLE_NMT_WAIT_PLAN", "0")
-
-
-def nmt_unload() -> bool:
-    return _flag("SIMPLE_NMT_UNLOAD", "1")
+def require_plan() -> bool:
+    """R1.2: 1 (mặc định) = lập plan hỏng thì KHÔNG soát (park, lần sau lập lại) — không dịch cả phim thiếu bảng
+    nhân vật / xưng hô. 0 = vẫn dịch với plan tạm (như trước), plan hỏng vẫn không được lưu."""
+    return _flag("SIMPLE_REQUIRE_PLAN", "1")
 
 
 def trace_max_bytes() -> int:
@@ -296,6 +380,82 @@ def zh_namefix() -> bool:
 
 def zh_namefix_min() -> float:
     return _float("SIMPLE_ZH_NAMEFIX_MIN", 0.75, 0.5, 1.0)
+
+
+def cjk_strip_max(n_rows: int) -> int:
+    """2026-11-21: sau mọi lượt vá (+ dự phòng) còn ≤ N câu sót chữ Hán → gỡ chữ Hán, giữ phần Việt, cho chạy tiếp
+    (đánh cờ mềm «cjk_stripped» để người xem) thay vì park cả job. SIMPLE_CJK_STRIP=0 tắt; SIMPLE_CJK_STRIP_MAX
+    (mặc định max(10, 1% số câu))."""
+    if not _flag("SIMPLE_CJK_STRIP", "1"):
+        return 0
+    raw = str(get("SIMPLE_CJK_STRIP_MAX", "") or "").strip()
+    if raw:
+        try:
+            return max(0, int(raw))
+        except ValueError:
+            pass
+    return max(10, int(n_rows * 0.01))
+
+
+_LOCAL_PROBE: dict = {"t": 0.0, "ok": False}
+
+
+def _local_llm_up() -> bool:
+    """llama-server trên máy có model đang chạy không (dò GET /models, nhớ 60 s)."""
+    import time as _t
+    if _t.time() - _LOCAL_PROBE["t"] < 60:
+        return bool(_LOCAL_PROBE["ok"])
+    ok = False
+    try:
+        from core import machine
+        from engines.llm import get_llama_models
+        ok = bool(get_llama_models(machine.llama_base_url()))
+    except Exception as e:  # noqa: BLE001
+        print(f"[simple] dò AI trên máy lỗi: {e}", flush=True)
+    _LOCAL_PROBE.update(t=_t.time(), ok=ok)
+    return ok
+
+
+def fallback_models(primary: str | None = None) -> list[str]:
+    """Chuỗi dự phòng khi model Soát & dịch chính hỏng (hết tiền/quota, key sai, mất mạng, 5xx sau khi đã thử lại):
+    1) SIMPLE_FALLBACK_MODEL (Cài đặt → AI dịch → «Dự phòng»);
+    2) 2026-11-21: AI trên máy («local» = llama-server) nếu đang chạy — SIMPLE_LOCAL_FALLBACK=0 để tắt.
+    Bỏ model trùng model chính."""
+    out: list[str] = []
+    m = str(get("SIMPLE_FALLBACK_MODEL", "") or "").strip()
+    if m and m != (primary or ""):
+        out.append(m)
+    loc_on = str(get("SIMPLE_LOCAL_FALLBACK", "1") or "1").strip().lower() not in ("0", "false", "no", "off")
+    try:
+        from core.local_ai import is_local_model
+        prim_local = is_local_model(primary) or any(is_local_model(x) for x in out)
+    except Exception:  # noqa: BLE001
+        prim_local = False
+    if loc_on and not prim_local and _local_llm_up():
+        out.append("local")
+    return out
+
+
+def fallback_model(primary: str | None = None) -> str | None:
+    """Model dự phòng đầu tiên (xem fallback_models) hoặc None."""
+    fb = fallback_models(primary)
+    return fb[0] if fb else None
+
+
+_LIVE: dict = {"seen": None, "switch": {}}
+
+
+def live_model(current: str | None) -> str | None:
+    """2026-11-21: đổi «Soát & dịch» (SIMPLE_MODEL) trong Cài đặt khi job đang dịch → lô kế tiếp dùng model mới
+    (trước: giữ model lúc bắt đầu tới hết lượt). Chỉ đổi model ĐÃ BỊ THAY trong Cài đặt — model dự phòng gọi có chủ
+    đích (vá bằng dự phòng) giữ nguyên."""
+    m = str(get("SIMPLE_MODEL", "") or "").strip()
+    seen = _LIVE["seen"]
+    if m and seen is not None and m != seen:
+        _LIVE["switch"] = {k: m for k in (*_LIVE["switch"].keys(), seen) if k != m}
+    if m:
+        _LIVE["seen"] = m
+    return _LIVE["switch"].get(current or "", current)
 
 
 def review_model(work_dir=None) -> str | None:

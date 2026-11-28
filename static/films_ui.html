@@ -102,21 +102,19 @@ small{color:#888}
 <header style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px;background:#141414;border-bottom:1px solid #282828;flex-wrap:wrap">
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <nav style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <a href="http://127.0.0.1:8801/" class="b nav-link" style="text-decoration:none;border-color:#38bdf8;color:#38bdf8;background:#0c2d48;font-weight:600" title="Pineline Studio :8801">⬅ Studio</a>
-      <a href="http://127.0.0.1:8801/ui3" class="b nav-link" style="text-decoration:none" title="UI3 queue">UI3</a>
-      <a href="http://127.0.0.1:8801/hongguo" class="b nav-link" style="text-decoration:none" title="Hongguo tải phim">📥 Hongguo</a>
+      <a href="/v6/" class="b nav-link" style="text-decoration:none;border-color:#38bdf8;color:#38bdf8;background:#0c2d48;font-weight:600" title="Về giao diện chính">⬅ Giao diện chính</a>
+      <a href="/studio" class="b nav-link" style="text-decoration:none" title="UI3 queue">UI3</a>
+      <a href="/hongguo2" class="b nav-link" style="text-decoration:none" title="Hongguo tải phim">📥 Hongguo</a>
     </nav>
     <div style="height:20px;width:1px;background:#333"></div>
     <div class="tabs">
-      <button id="t-lib" class="on" onclick="tab('lib')">Thư viện chưa làm</button>
-      <button id="t-seasons" onclick="tab('seasons')">🆕 Mùa mới</button>
-      <button id="t-done" onclick="tab('done')">Đã làm (Database)</button>
+      <button id="t-done" class="on" onclick="tab('done')">Đã làm (Database)</button>
       <button id="t-upload" onclick="tab('upload')" style="color:#f87171">📤 Đăng YouTube</button>
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
     <button class="b danger sm" id="hdr-skip-upload" onclick="skipCurrentUpload()" title="Bỏ qua video đang upload YouTube" style="display:none;font-weight:700">⏭ Skip đang upload</button>
-    <button class="b" onclick="openSettingsModal()" style="font-size:12px;padding:5px 12px;border-radius:6px;border-color:#475569;color:#f1f5f9;background:#1e293b">⚙️ Cài đặt</button>
+    <a class="b" href="/v6/" style="font-size:12px;padding:5px 12px;border-radius:6px;border-color:#475569;color:#f1f5f9;background:#1e293b;text-decoration:none" title="Cài đặt nằm ở giao diện chính">⚙️ Cài đặt (giao diện chính)</a>
     <button class="b pri" onclick="syncDb()" title="Đồng bộ lại dữ liệu từ manifest vào database" style="font-weight:600;padding:5px 12px">🔄 Đồng bộ DB</button>
   </div>
 </header>
@@ -131,113 +129,11 @@ small{color:#888}
   </div>
 </div>
 <main>
-<section id="p-lib">
-  <div class="st" id="lib-st">Đang quét thư viện…</div>
-
-  <!-- Thanh Tiến Trình Trực Tiếp (Live Progress Banner) & Recheck 15 Phút -->
-  <div id="tc-live-banner" class="hide" style="background:#0a1526;border:1px solid #1e3a8a;border-radius:8px;padding:12px 16px;margin:8px 0 14px;box-shadow:0 4px 16px rgba(0,0,0,0.4)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span id="tc-banner-spinner" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#38bdf8;box-shadow:0 0 8px #38bdf8"></span>
-        <span style="font-weight:700;font-size:13.5px;color:#93c5fd" id="tc-banner-title">⚡ TIẾN TRÌNH TEST BẢN QUYỀN KÊNH PHỤ</span>
-        <span class="badge running" id="tc-banner-badge" style="font-size:10.5px">Đang chạy</span>
-      </div>
-      <div id="tc-banner-counts" style="font-size:12px;color:#94a3b8">...</div>
-    </div>
-    <!-- Thanh chạy tiến độ phần trăm % -->
-    <div style="background:#172554;border-radius:6px;height:8px;width:100%;overflow:hidden;margin-bottom:8px;border:1px solid #1e40af">
-      <div id="tc-banner-bar" style="height:100%;width:0%;background:linear-gradient(90deg, #38bdf8, #818cf8, #c084fc);transition:width 0.35s ease"></div>
-    </div>
-    <!-- Dòng bước thực hiện trực tiếp & nút hành động -->
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <div id="tc-banner-step" style="font-size:12.5px;font-weight:600;color:#f8fafc">
-        ✂️ Đang chuẩn bị...
-      </div>
-      <div id="tc-banner-actions" style="display:flex;gap:6px"></div>
-    </div>
+<section id="p-done">
+  <div style="margin:0 0 10px;padding:8px 12px;border-radius:6px;background:#10203a;border:1px solid #1e3a5f;color:#bfdbfe;font-size:12.5px">
+    Danh sách phim, tự đăng YouTube, kiểm bản quyền, dọn phim mất thư mục: dùng <a href="/v6/" style="color:#93c5fd">giao diện chính → Thư viện phim</a>.
+    Trang này giữ các công cụ chưa chuyển: gộp job, metadata / thumbnail, hàng chờ upload, kênh test.
   </div>
-
-  <!-- Thanh tác vụ Hàng loạt khi tick chọn nhiều Series -->
-  <div id="lib-series-batch-bar" class="hide" style="background:#0c233c;border:1px solid #0284c7;border-radius:6px;padding:8px 14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-    <div style="font-size:13px;color:#bae6fd;display:flex;align-items:center;gap:8px">
-      <span>☑️ Đã chọn <b id="series-picked-count" style="color:#fff;font-size:14.5px">0</b> bộ phim (<b id="series-picked-seasons" style="color:#7dd3fc">0</b> mùa sẵn sàng)</span>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="b pri" style="background:#0284c7;border-color:#38bdf8;padding:5px 12px;font-weight:600" onclick="addCheckedSeries()">➕ Đẩy vào Hàng chờ Download / Xử lý</button>
-      <button class="b" style="padding:5px 10px;background:#3b2f14;border-color:#f59e0b;color:#fde68a" onclick="mergeCheckedSeasons()" title="Ghép các mùa need_merge đã tick / trong bộ đã chọn">🔗 Ghép mùa đã chọn</button>
-      <button class="b" style="padding:5px 10px;background:#24292f" onclick="priorityCheckedSeries()" title="Đánh dấu ưu tiên cho feeder tự động lấy trước">★ Đặt ưu tiên</button>
-      <button class="b danger" style="padding:5px 10px;background:#7f1d1d" onclick="skipCheckedSeries()" title="Bỏ qua các bộ đã chọn">🚫 Bỏ qua</button>
-      <button class="b sm" onclick="clearSeriesSelection()" style="background:#181818">✕ Bỏ chọn</button>
-    </div>
-  </div>
-
-  <div class="lib-toolbar" style="margin-bottom:12px;display:flex;flex-direction:column;gap:8px">
-    <div class="tb-row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 10px;background:#141a22;border:1px solid #243044;border-radius:8px">
-      <span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Hàng chờ</span>
-      <label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:#181818;padding:5px 10px;border-radius:4px;border:1px solid #38bdf8;font-size:12px;color:#7dd3fc;user-select:none" title="Tick chọn tất cả các bộ phim đang hiển thị">
-        <input type="checkbox" id="pick-all-series" onchange="togglePickAllSeries(this)">
-        <b>Chọn tất cả</b>
-      </label>
-      <button class="b pri" id="btn-add-checked" onclick="addCheckedUnified()" style="background:#0284c7;border-color:#38bdf8" title="Đẩy các bộ hoặc mùa đã tick vào hàng chờ xử lý">➕ Thêm đã tick</button>
-      <button class="b" id="btn-merge-all-lib" onclick="mergeAllNeedMerge()" style="background:#3b2f14;border-color:#f59e0b;color:#fde68a" title="Ghép tất cả mùa đang chờ ghép trong thư viện">🔗 Ghép tất cả chờ ghép</button>
-      <span style="flex:1"></span>
-      <input id="lib-q" placeholder="Lọc theo tên…" oninput="renderLib()" size="22" style="padding:6px 10px">
-      <label style="display:inline-flex;align-items:center;gap:5px;color:#94a3b8;font-size:12px;user-select:none"><input type="checkbox" id="show-skip" onchange="renderLib()"> hiện bộ đã bỏ</label>
-    </div>
-    <div class="tb-row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 10px;background:#1a1510;border:1px solid #3b2d18;border-radius:8px">
-      <span style="font-size:11px;color:#a16207;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Test YT</span>
-      <button class="b warning" onclick="startPinelineTestAllPrompt()" title="Quét ngầm toàn bộ phim chưa test trong D:/Lib">⚡ Test All thư viện</button>
-      <button class="b" onclick="testCheckedPrompt()" title="Chỉ test những mùa đã tick">⚡ Test đã tick</button>
-      <button class="b sm danger" id="btn-batch-stop" onclick="stopBatchTestPrompt()" title="Dừng Test All sau bộ hiện tại" style="display:none">⏹ Dừng test</button>
-      <div id="tc-status-wrap" style="display:inline-flex;align-items:center">
-        <button class="b" id="btn-test-channel-conn" style="border-color:#38bdf8;color:#38bdf8;background:#0c2d48" onclick="openTestChannelModal()">🔗 Kênh Test</button>
-        <div id="tc-connected-badge" class="hide" style="display:inline-flex;align-items:center;gap:6px;background:#064e3b;border:1px solid #10b981;border-radius:4px;padding:5px 9px;font-size:12px;color:#a7f3d0;cursor:pointer" onclick="openTestChannelModal()" title="Quản lý Projects / Quota">
-          <span>🟢 <b id="tc-name">Chưa kết nối</b></span>
-          <span style="font-size:10.5px;background:#047857;padding:2px 6px;border-radius:3px;color:#fff">Projects</span>
-          <button class="b sm" style="padding:1px 5px;font-size:10px;margin-left:4px" onclick="event.stopPropagation();disconnectTestChannel()" title="Huỷ liên kết">✕</button>
-        </div>
-      </div>
-    </div>
-    <div class="tb-row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 10px;background:#161616;border:1px solid #262626;border-radius:8px">
-      <span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Lọc</span>
-      <select id="lib-f-block" onchange="renderLib()" style="padding:6px 10px;border-radius:4px;background:#181818;border:1px solid #444;color:#eee">
-        <option value="">Bản quyền: Tất cả</option>
-        <option value="clean">🟢 Đã test: Sạch</option>
-        <option value="partially_blocked">⚠️ Đã test: Bị chặn 1 phần</option>
-        <option value="blocked">🔴 Đã test: Bị chặn</option>
-        <option value="claim">🟡 Đã test: Dính Claim</option>
-        <option value="testing">⏳ Đang test</option>
-        <option value="unknown">⚪ Chưa test</option>
-      </select>
-      <button class="b" style="border-color:#eab308;color:#fde047;background:#201c10" onclick="scanLibraryBlocks(true)" title="Đối chiếu block từ yt_uploader">🛡️ Đồng bộ Block</button>
-      <button class="b sm" style="border-color:#64748b;color:#cbd5e1" onclick="clearSamplesCachePrompt()" title="Xoá cache clip mẫu 90s">🧹 Dọn samples</button>
-    </div>
-  </div>
-  <div id="lib-list"></div>
-</section>
-
-<section id="p-seasons" class="hide">
-  <div class="st" id="sn-st">Quét watchlist / films.db — chỉ thông tin, không tải.</div>
-  <div class="acts" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-    <button class="b pri" id="sn-btn-discover" onclick="snDiscover()">🔎 Tìm mùa mới</button>
-    <button class="b" id="sn-btn-vi" onclick="snTranslateOnly()" title="Ưu tiên tên Việt từ Thư viện / films.db; thiếu mới dịch thô gtx (cùng Hongguo)">🇻🇳 Đồng bộ tên Việt</button>
-    <label style="display:inline-flex;align-items:center;gap:5px;color:#94a3b8;font-size:12px;user-select:none">
-      <input type="checkbox" id="sn-show-older" onchange="snRender()"> hiện mùa cũ (≤ max đã biết)
-    </label>
-    <label style="display:inline-flex;align-items:center;gap:5px;color:#94a3b8;font-size:12px;user-select:none">
-      <input type="checkbox" id="sn-show-related" checked onchange="snRender()"> cùng chuyện (related)
-    </label>
-    <input id="sn-q" placeholder="Lọc theo tên franchise…" size="28" oninput="snRender()" style="padding:6px 10px">
-    <span class="grow" style="flex:1"></span>
-    <a href="http://127.0.0.1:8801/hongguo" class="b pri" style="text-decoration:none;font-size:12px" target="_blank" rel="noopener">Hongguo</a>
-    <a href="https://www.duanjubaike.net/" class="b" style="text-decoration:none;font-size:12px" target="_blank" rel="noopener" title="duanjubaike">Baike</a>
-    <button class="b sm" type="button" onclick="snOpenBaikeSearch()" title="Mở Baike với ô lọc hiện tại">🔍 Baike lọc</button>
-  </div>
-  <div id="sn-list"></div>
-  <div class="sn-empty" id="sn-empty">Chưa quét. Bấm <b>Tìm mùa mới</b> — dựa watchlist (xoá Lib vẫn nhớ meta). Chỉ <b>+ Thêm</b> mới đẩy vào hàng tải Hongguo.</div>
-</section>
-
-<section id="p-done" class="hide">
   <div class="st" id="st">…</div>
 
   <div id="alert-missing" class="alert-box hide">
@@ -547,113 +443,7 @@ small{color:#888}
   </div>
 </div>
 
-<!-- Modal Cài Đặt Hệ Thống -->
-<div id="settings-modal" class="modal-bg hide">
-  <div class="modal-box" style="max-width:680px;width:95%">
-    <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #333;padding-bottom:10px;margin-bottom:14px">
-      <h3 style="margin:0;color:#f8fafc;display:flex;align-items:center;gap:8px;font-size:16px">⚙️ Cài Đặt Hệ Thống Pineline V4</h3>
-      <button class="b sm" onclick="closeSettingsModal()">✕ Đóng</button>
-    </div>
-
-    <!-- Tabs: Storage | AI | Telegram | Render -->
-    <div style="display:flex;gap:8px;border-bottom:1px solid #333;padding-bottom:8px;margin-bottom:14px;flex-wrap:wrap">
-      <button type="button" class="b on" id="st-tab-storage" onclick="switchSettingsTab('storage')">📂 Thư Viện & Ổ Đĩa</button>
-      <button type="button" class="b" id="st-tab-ai" onclick="switchSettingsTab('ai')">🤖 AI & LLM</button>
-      <button type="button" class="b" id="st-tab-tele" onclick="switchSettingsTab('tele')">📱 Telegram Bot</button>
-      <button type="button" class="b" id="st-tab-render" onclick="switchSettingsTab('render')">🎬 Render</button>
-    </div>
-
-    <!-- Tab Storage -->
-    <div id="st-pane-storage">
-      <div class="meta-field">
-        <label>Thư viện phim gốc (LIBRARY_DIR):</label>
-        <input type="text" id="cfg-lib-dir" placeholder="D:\Lib" style="padding:7px 10px;border-radius:5px;background:#181818;border:1px solid #333;color:#eee">
-        <div style="font-size:11px;color:#888;margin-top:2px">Nơi chứa các thư mục phim gốc được chia theo mùa/tập.</div>
-      </div>
-      <div class="meta-field">
-        <label>Thư mục làm việc tạm của Job (WORK_DIR):</label>
-        <input type="text" id="cfg-work-dir" placeholder="D:\PinelineV4_work" style="padding:7px 10px;border-radius:5px;background:#181818;border:1px solid #333;color:#eee">
-        <div style="font-size:11px;color:#888;margin-top:2px">Nơi lưu audio/sub/output từng job đang xử lý.</div>
-      </div>
-      <div class="meta-field">
-        <label>Thư mục công cụ Upload (YT_UPLOADER_DIR):</label>
-        <input type="text" id="cfg-yt-dir" placeholder="Z:\yt_uploader" style="padding:7px 10px;border-radius:5px;background:#181818;border:1px solid #333;color:#eee">
-      </div>
-    </div>
-
-    <!-- Tab AI & LLM -->
-    <div id="st-pane-ai" class="hide">
-      <div class="meta-field">
-        <label>Endpoint LLM Dịch thuật (LLM_BASE_URL):</label>
-        <input type="text" id="cfg-llm-base" placeholder="http://127.0.0.1:8083/v1" style="padding:7px 10px;border-radius:5px;background:#181818;border:1px solid #333;color:#eee">
-      </div>
-      <div class="meta-field">
-        <label>LLM API Key (LLM_API_KEY):</label>
-        <input type="password" id="cfg-llm-key" placeholder="sk-local hoặc API key" style="padding:7px 10px;border-radius:5px;background:#181818;border:1px solid #333;color:#eee">
-      </div>
-      <div class="meta-field">
-        <label>Model Dịch Thuật (TRANSLATE_MODEL / LLM_MODEL):</label>
-        <div style="display:flex;gap:6px">
-          <input type="text" id="cfg-llm-model" placeholder="local hoặc qwen36-tq3..." style="padding:7px 10px;border-radius:5px;background:#181818;border:1px solid #333;color:#eee;flex:1">
-          <select id="cfg-llm-avail-sel" style="background:#222;border:1px solid #444;color:#eee;padding:6px;border-radius:5px" onchange="if(this.value)$('cfg-llm-model').value=this.value">
-            <option value="">Gợi ý model...</option>
-          </select>
-        </div>
-      </div>
-      <div class="meta-field">
-        <label>Model AI Agent Co-pilot (AGENT_MODEL):</label>
-        <input type="text" id="cfg-agent-model" placeholder="ollama/gemma4:31b-cloud hoặc openclaw" style="padding:7px 10px;border-radius:5px;background:#181818;border:1px solid #333;color:#eee">
-      </div>
-      <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
-        <button type="button" class="b sm" onclick="testLlmConn()" style="border-color:#38bdf8;color:#38bdf8">🔌 Kiểm tra kết nối LLM</button>
-        <span id="cfg-llm-test-result" style="font-size:12px;color:#aaa"></span>
-      </div>
-    </div>
-
-    <!-- Tab Render / batch -->
-    <div id="st-pane-render" class="hide">
-      <div class="meta-field" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:12px;background:#141b24;border:1px solid #1e293b;border-radius:8px">
-        <input type="checkbox" id="cfg-hs-blur" checked style="width:18px;height:18px;cursor:pointer">
-        <div>
-          <label for="cfg-hs-blur" style="margin:0;font-size:13.5px;color:#f8fafc;cursor:pointer;font-weight:600">Che hardsub (blur / stretch)</label>
-          <div style="font-size:11.5px;color:#94a3b8;margin-top:3px">Bật = làm mờ chữ Trung cứng trên hình khi render. Tắt = giữ nguyên khung hình (không blur vùng hardsub). Áp dụng config batch + job mux mới.</div>
-        </div>
-      </div>
-      <div style="font-size:12px;color:#64748b">Đồng bộ qua <code>/config</code> (sidecar) · key <code>hardsub_blur</code>. UI3 cũng có checkbox cùng tên trên thanh Render.</div>
-    </div>
-
-    <!-- Tab Telegram -->
-    <div id="st-pane-tele" class="hide">
-      <div class="meta-field" style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <input type="checkbox" id="cfg-tele-active" style="width:18px;height:18px;cursor:pointer">
-        <label for="cfg-tele-active" style="margin:0;font-size:13px;color:#f8fafc;cursor:pointer">Bật gửi thông báo tiến độ & hoàn thành qua Telegram</label>
-      </div>
-      <div class="meta-field">
-        <label>Telegram Bot Token (TELEGRAM_BOT_TOKEN):</label>
-        <input type="text" id="cfg-tele-token" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" style="padding:7px 10px;border-radius:5px;background:#181818;border:1px solid #333;color:#eee">
-        <div style="font-size:11px;color:#888;margin-top:2px">Lấy từ @BotFather trên Telegram.</div>
-      </div>
-      <div class="meta-field">
-        <label>Chat ID / User ID người nhận (TELEGRAM_ALLOWED_USERS):</label>
-        <input type="text" id="cfg-tele-users" placeholder="12345678, 87654321..." style="padding:7px 10px;border-radius:5px;background:#181818;border:1px solid #333;color:#eee">
-        <div style="font-size:11px;color:#888;margin-top:2px">ID người nhận, có thể phân cách nhiều người bằng dấu phẩy.</div>
-      </div>
-      <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
-        <button type="button" class="b sm" onclick="testTelegramMsg()" style="border-color:#22c55e;color:#4ade80">📨 Gửi tin nhắn Test Telegram</button>
-        <span id="cfg-tele-test-result" style="font-size:12px;color:#aaa"></span>
-      </div>
-    </div>
-
-    <div style="margin-top:20px;border-top:1px solid #333;padding-top:12px;display:flex;justify-content:space-between;align-items:center">
-      <span id="st-save-msg" style="font-size:12px;color:#4ade80"></span>
-      <div style="display:flex;gap:8px">
-        <button type="button" class="b" onclick="closeSettingsModal()">Hủy</button>
-        <button type="button" class="b pri" style="background:#0284c7;border-color:#38bdf8;padding:7px 18px" onclick="saveSettings()">💾 Lưu Cài Đặt</button>
-      </div>
-    </div>
-  </div>
-</div>
-
+<!-- 2026-11-15: hộp «Cài Đặt Hệ Thống V4» đã gỡ (ghi đè khoá AI của /v6/). Thư mục → /v6/ Cài đặt → Thư mục; AI → /v6/ Cài đặt → AI dịch. -->
 <div id="del-modal" class="modal-bg hide">
   <div class="modal-box">
     <h3 style="margin:0 0 10px;color:#ff8787">🗑️ Xác nhận xoá phim</h3>
@@ -710,7 +500,7 @@ small{color:#888}
     </div>
 
     <div style="background:#0c1d2e;border:1px solid #1e3a5f;border-radius:6px;padding:12px;margin-bottom:14px;font-size:12px;color:#cbd5e1;line-height:1.6">
-      <b style="color:#7dd3fc">🛡️ Bảo vệ Kênh chính Sage Review 100%:</b><br>
+      <b style="color:#7dd3fc">🛡️ Bảo vệ kênh chính 100%:</b><br>
       • Hãy chọn một <b>Gmail phụ</b> hoặc <b>Kênh phụ riêng</b> để cấp quyền Google OAuth.<br>
       • Pineline sẽ dùng kênh này để tự động upload clip mẫu 90s (Unlisted) và kiểm tra Content ID.<br>
       • Sau khi có kết quả, video test sẽ được <b>tự động xoá</b> trên YouTube.<br>
@@ -729,6 +519,17 @@ small{color:#888}
           <div style="font-weight:700;font-size:16px;color:#38bdf8" id="tc-modal-today-uploads">0 video</div>
           <div style="font-size:10.5px;color:#64748b" id="tc-modal-total-uploads">Tổng kênh: 0</div>
         </div>
+      </div>
+    </div>
+
+    <!-- Chọn account dùng khi Test phim -->
+    <div style="margin-bottom:12px;background:#052e16;border:1px solid #166534;border-radius:6px;padding:10px">
+      <div style="font-weight:600;font-size:12.5px;color:#4ade80;margin-bottom:6px">🎯 Account dùng khi bấm Test trên phim</div>
+      <select id="tc-default-project" onchange="setPreferredTestProject(this.value)" style="width:100%;padding:8px 10px;border-radius:4px;background:#0f172a;border:1px solid #22c55e;color:#e2e8f0;font-size:13px;font-weight:600">
+        <option value="">⏳ Đang tải…</option>
+      </select>
+      <div style="font-size:11px;color:#86efac;margin-top:6px;line-height:1.45">
+        Chọn acc còn hạn trên Cloud (vd 12/100). Modal Test từng phim cũng hiện dropdown này.
       </div>
     </div>
 
@@ -788,6 +589,13 @@ small{color:#888}
       <div style="font-weight:600;font-size:13.5px;color:#38bdf8;margin-bottom:6px">⚡ Tự Động Kiểm Tra Qua Kênh Phụ</div>
       <div style="font-size:12px;color:#94a3b8;margin-bottom:10px;line-height:1.5">
         Pineline sẽ tự cắt mẫu 90s, tự upload ngầm Unlisted lên Kênh Phụ và đợi YouTube quét Content ID.
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;color:#cbd5e1;display:block;margin-bottom:4px">Account / Project để test</label>
+        <select id="tbm-project" style="width:100%;padding:7px 8px;border-radius:4px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:12.5px">
+          <option value="">⏳ Đang tải danh sách account…</option>
+        </select>
+        <div id="tbm-project-hint" style="font-size:11px;color:#64748b;margin-top:4px"></div>
       </div>
       <div style="margin-bottom:10px">
         <label style="font-size:12px;color:#cbd5e1;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
@@ -1039,6 +847,26 @@ const jq=s=>JSON.stringify(String(s??'')).replace(/&/g,'&amp;').replace(/"/g,'&q
 const POSTER_BASE='http://127.0.0.1:8801/api/hg/poster?name=';
 const dur=s=>{if(!s)return'';const m=Math.round(s/60);return m>=60?Math.floor(m/60)+'h'+String(m%60).padStart(2,'0'):m+'m'};
 const POSTER=POSTER_BASE;
+/** Bỏ hg_name = job_id / downloads / …_p01 — dùng title series Lib. */
+function resolveFilmPosterName(f){
+  const jid = String(f.job_id||'').trim();
+  const stripPart = (s)=>String(s||'').replace(/\s*-\s*Phần\s+\d+\s*\/\s*\d+\s*$/i,'').trim();
+  const junk = (n)=>{
+    n = String(n||'').trim();
+    if(!n) return true;
+    if(jid && n===jid) return true;
+    const low=n.toLowerCase();
+    if(low==='downloads'||low==='download'||low==='work') return true;
+    if(/^[0-9a-f]{8,16}(_p\d{2})?$/i.test(n)) return true;
+    if(/^\d{1,3}$/.test(n)) return true;
+    return false;
+  };
+  for(const cand of [f.hg_name, stripPart(f.title), stripPart(f.series), f.title, f.series]){
+    const n = String(cand||'').trim();
+    if(!junk(n)) return n;
+  }
+  return '';
+}
 
 function toast(t){
   const e=$('toast');
@@ -1048,20 +876,17 @@ function toast(t){
   e._t=setTimeout(()=>e.style.display='none',6000);
 }
 
+// 2026-11-15: bỏ tab «Thư viện chưa làm» + «Mùa mới» (phụ thuộc Hongguo 1 — đã bỏ khỏi V6).
 function tab(n){
-  for(const k of ['lib','seasons','done','upload']){
+  if(n!=='upload') n='done';
+  for(const k of ['done','upload']){
     const btn = $('t-'+k);
     const pane = $('p-'+k);
     if(btn) btn.classList.toggle('on', k===n);
     if(pane) pane.classList.toggle('hide', k!==n);
   }
   if(n==='done') load();
-  else if(n==='upload') loadUploader();
-  else if(n==='seasons'){
-    if(!SN_DATA){ snLoadWatchlist(); snDiscover(); }
-    else snRender();
-  }
-  else loadLib();
+  else loadUploader();
 }
 
 /* ---- Mùa mới (watchlist discover, info-only) ---- */
@@ -1076,7 +901,7 @@ function snHgUrl(sid, title){
   if(sid) p.set('sid', String(sid));
   if(title) p.set('q', String(title));
   const qs=p.toString();
-  return 'http://127.0.0.1:8801/hongguo'+(qs?('?'+qs):'');
+  return '/hongguo2'+(qs?('?'+qs):'');
 }
 function snBaikeUrl(sid, title){
   const t=String(title||'').trim();
@@ -1357,6 +1182,7 @@ async function snAdd(sid, btn){
 /* ---- Thư viện chưa làm ---- */
 let LIB=null;
 async function loadLib(){
+  if(!$('p-lib')) return;          // tab đã bỏ — các nút cũ gọi loadLib() thì bỏ qua
   $('lib-st').textContent='Đang quét thư viện…';
   try{ LIB=await (await fetch('/library')).json(); }catch(e){ $('lib-st').textContent='Không đọc được thư viện: '+e; return; }
   if(LIB.error){ $('lib-st').textContent='Lỗi: '+LIB.error; return; }
@@ -1501,6 +1327,64 @@ function openTestBlockModal(name, title, status, reason, ytUrl, core){
   
   updateTestModalBadge(status, reason);
   $('test-block-modal').classList.remove('hide');
+  fillTestProjectSelect();
+  checkTestChannelStatus().then(() => fillTestProjectSelect());
+}
+
+function getPreferredTestProjectId(projs){
+  let pref = '';
+  try { pref = localStorage.getItem('tc_preferred_project') || ''; } catch(e){}
+  if(pref && projs.some(p => p.id === pref)) return pref;
+  if(TEST_CHANNEL && TEST_CHANNEL.last_connected_project && projs.some(p => p.id === TEST_CHANNEL.last_connected_project)){
+    return TEST_CHANNEL.last_connected_project;
+  }
+  return projs[0] ? projs[0].id : '';
+}
+
+function setPreferredTestProject(pid){
+  try { localStorage.setItem('tc_preferred_project', pid || ''); } catch(e){}
+  const tbm = $('tbm-project');
+  if(tbm && pid) tbm.value = pid;
+  const tc = $('tc-default-project');
+  if(tc && pid) tc.value = pid;
+  toast(pid ? `✓ Test sẽ dùng: ${pid}` : 'Đã bỏ chọn account mặc định');
+}
+
+function _projectOptionHtml(projs){
+  return projs.map(p => {
+    const ch = p.channel_title || p.email || p.id;
+    const tag = p.exhausted_today
+      ? (p.exhausted_reason === 'upload_limit' ? ' · cờ upload-limit local' : ' · cờ quota local')
+      : ' · sẵn sàng';
+    const label = `${p.name || p.id} — ${ch}${tag}`;
+    return `<option value="${esc(p.id)}">${esc(label)}</option>`;
+  }).join('');
+}
+
+function fillTestProjectSelect(){
+  const projs = (TEST_CHANNEL && Array.isArray(TEST_CHANNEL.projects)) ? TEST_CHANNEL.projects.filter(p => p.connected) : [];
+  const prefer = getPreferredTestProjectId(projs);
+  const opts = projs.length
+    ? _projectOptionHtml(projs)
+    : '<option value="">⚠️ Chưa có account — cấp quyền bên dưới</option>';
+
+  const sel = $('tbm-project');
+  const hint = $('tbm-project-hint');
+  if(sel){
+    const prev = sel.value;
+    sel.innerHTML = opts;
+    sel.value = (prev && projs.some(p => p.id === prev)) ? prev : prefer;
+    if(hint){
+      hint.textContent = projs.length
+        ? 'Chọn acc còn hạn Cloud. Chỉ upload acc này — không xoay vòng đốt cờ.'
+        : '';
+    }
+  }
+  const tcSel = $('tc-default-project');
+  if(tcSel){
+    tcSel.innerHTML = opts;
+    if(projs.length) tcSel.value = prefer;
+  }
 }
 
 function updateTestModalBadge(st, reason){
@@ -1753,6 +1637,9 @@ async function checkTestChannelStatus(){
     if(res.projects){
       renderProjectsList(res.projects, res.available_projects, res.total_projects);
     }
+    if($('test-block-modal') && !$('test-block-modal').classList.contains('hide')){
+      fillTestProjectSelect();
+    }
   } catch(e){}
 }
 
@@ -1773,22 +1660,33 @@ function renderProjectsList(projects, avail, total){
       st = `<span style="color:#fbbf24;font-size:11px" title="Chưa bật YouTube Data API v3 trên Google Console">⚠️ Chưa bật API</span>`;
       btn = `<a href="${p.enable_url}" target="_blank" class="b sm" style="padding:2px 8px;font-size:11px;background:#b45309;color:#fff;text-decoration:none;display:inline-block" title="Bật YouTube Data API v3 trên Google Cloud Console">⚡ Bật API trên Console</a>`;
     } else if(p.exhausted_today){
-      st = `<span style="color:#f87171;font-size:11px">⚠️ Hết quota hôm nay (429)</span>`;
-      btn = `<button class="b sm" style="padding:2px 8px;font-size:11px;background:#2563eb;color:#fff" onclick="resetProjectQuota(${jq(p.id)})" title="Reset cờ 429 nếu quota đã reset">⚡ Thử lại Quota</button>`;
+      const er = p.exhausted_reason || 'api_quota';
+      const erLabel = er === 'upload_limit' ? 'Giới hạn upload kênh'
+        : er === 'rate_limit' ? 'Rate limit tạm (30p)'
+        : 'Hết quota API (GCP)';
+      st = `<span style="color:#f87171;font-size:11px">⚠️ ${erLabel}</span>`;
+      btn = `<button class="b sm" style="padding:2px 8px;font-size:11px;background:#2563eb;color:#fff" onclick="resetProjectQuota(${jq(p.id)})" title="Xoá cờ local nếu GCP/Console còn hạn mức">⚡ Thử lại Quota</button>`;
     } else {
-      st = `<span style="color:#4ade80;font-size:11px">🟢 Sẵn sàng (${esc(p.channel_title || 'Sai Kira')})</span>`;
+      st = `<span style="color:#4ade80;font-size:11px">🟢 Sẵn sàng (${esc(p.channel_title || 'chưa rõ tên kênh')})</span>`;
       btn = `<button class="b sm" style="padding:2px 8px;font-size:11px;background:#262626" onclick="startTestChannelOAuth(${jq(p.id)})" title="Đổi sang kênh YouTube khác cho project này">🔄 Đổi kênh</button>`;
     }
+    let prefer = '';
+    try { prefer = localStorage.getItem('tc_preferred_project') || ''; } catch(e){}
+    const isPick = prefer === p.id;
+    const pickBtn = p.connected
+      ? `<button class="b sm" style="padding:2px 8px;font-size:11px;${isPick ? 'background:#166534;border-color:#22c55e;color:#bbf7d0' : 'background:#14532d;border-color:#166534;color:#86efac'}" onclick="setPreferredTestProject(${jq(p.id)})" title="Dùng account này khi Test phim">${isPick ? '✓ Đang chọn test' : '🎯 Chọn test'}</button>`
+      : '';
     return `
-      <div style="display:flex;align-items:center;justify-content:space-between;background:#181818;padding:6px 10px;border-radius:4px;border:1px solid #333;margin-bottom:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between;background:#181818;padding:6px 10px;border-radius:4px;border:1px solid ${isPick ? '#22c55e' : '#333'};margin-bottom:4px">
         <div>
           <span style="font-weight:600;font-size:12px;color:#eee">${esc(p.name)}</span>
           <span style="margin-left:6px">${st}</span>
         </div>
-        <div>${btn}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${pickBtn}${btn}</div>
       </div>
     `;
   }).join('');
+  fillTestProjectSelect();
 }
 
 function openTestChannelModal(){
@@ -2087,7 +1985,7 @@ function startBatchProgressPolling(){
         if(res.uploaded_count > 0){
           toast(`🏁 Tiến trình Test All đã hoàn thành đợt upload!\nTổng cộng: ${res.uploaded_count} video đã up lên Kênh Phụ và đang hẹn giờ recheck 5p.`);
         } else {
-          toast(`⚠️ ĐÃ DỪNG TEST ALL (0 video đã up)!\nNguyên nhân: Kênh YouTube (${TEST_CHANNEL ? TEST_CHANNEL.channel_title : 'Sai Kira'}) đang bị YouTube khóa 24h do vượt quá số video upload trong ngày (uploadLimitExceeded).`);
+          toast(`⚠️ ĐÃ DỪNG TEST ALL (0 video đã up)!\nNguyên nhân: Kênh YouTube (${(TEST_CHANNEL && TEST_CHANNEL.channel_title) || 'kênh test'}) đang bị YouTube khóa 24h do vượt quá số video upload trong ngày (uploadLimitExceeded).`);
         }
         loadLib();
       }
@@ -2155,18 +2053,31 @@ async function doPinelineDirectTestOne(){
     toast('⚠️ Vui lòng kết nối Kênh Phụ Test trước.');
     return;
   }
+  await checkTestChannelStatus();
+  fillTestProjectSelect();
+  const projectId = ($('tbm-project') && $('tbm-project').value) || '';
+  if(!projectId){
+    toast('⚠️ Chọn Account / Project để test trước.');
+    return;
+  }
   const btn = $('btn-pineline-test-one');
   if(btn){
     btn.disabled = true;
     btn.textContent = '⏳ Đang test qua Kênh Phụ…';
   }
   const autoDel = $('tbm-auto-delete') ? $('tbm-auto-delete').checked : false;
-  toast('Đang cắt mẫu 90s và upload ngầm lên Kênh Phụ Test (mất ~45-75s)…');
+  const projLabel = ($('tbm-project').selectedOptions[0] || {}).text || projectId;
+  toast(`Đang cắt mẫu 90s và upload bằng «${projLabel}» (mất ~45-75s)…`);
   try {
     const res = await (await fetch('/test-channel/test-one', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({name: CURRENT_TEST_LIB.name, title_vi: CURRENT_TEST_LIB.title, auto_delete: autoDel})
+      body: JSON.stringify({
+        name: CURRENT_TEST_LIB.name,
+        title_vi: CURRENT_TEST_LIB.title,
+        auto_delete: autoDel,
+        project_id: projectId
+      })
     })).json();
     if(res.ok){
       updateTestModalBadge(res.status, res.reason);
@@ -2178,14 +2089,21 @@ async function doPinelineDirectTestOne(){
       toast(`[Kết quả Test Kênh Phụ]\nTrạng thái: ${res.status.toUpperCase()}\n${res.reason || ''}\n${res.deleted_after_test ? '(Đã tự xoá clip trên YouTube)' : '(Đã giữ lại clip trên Kênh Phụ)'}`);
       loadLib();
     } else {
-      if(res.channel_limit_reached || (res.error && res.error.includes('uploadLimitExceeded'))){
-        alert("⚠️ KÊNH YOUTUBE ĐÃ HẾT LƯỢT UPLOAD HÔM NAY!\n\n" +
-              "• Kênh '" + (TEST_CHANNEL ? TEST_CHANNEL.channel_title : "Sai Kira") + "' đã chạm giới hạn số lượng video upload tối đa trong ngày của YouTube.\n" +
-              "• YouTube áp đặt giới hạn này trong 24 giờ.\n\n" +
-              "👉 CÁCH KHẮC PHỤC NGAY:\n" +
-              "1. Mở studio.youtube.com -> Cài đặt -> Kênh -> Điều kiện sử dụng tính năng -> Xác minh Số điện thoại để nâng giới hạn upload.\n" +
-              "2. Hoặc tạo thêm Kênh Phụ (Brand Channel) mới trong cùng Gmail rồi cấp quyền lại cho Project khác.\n" +
-              "3. Hoặc chờ 24h để YouTube tự động mở lại.");
+      if(res.channel_limit_reached || (res.error && (res.error.includes('uploadLimitExceeded') || res.limit_kind === 'upload_limit'))){
+        const tried = Array.isArray(res.tried) ? res.tried : [];
+        const chans = [...new Set(tried.filter(t => t.reason === 'upload_limit').map(t => t.channel || t.project_id))].filter(Boolean);
+        const chList = chans.length ? chans.join(', ') : (TEST_CHANNEL ? TEST_CHANNEL.channel_title : 'Kênh Test');
+        const upUtc = (TEST_CHANNEL && TEST_CHANNEL.today_uploads_utc != null) ? TEST_CHANNEL.today_uploads_utc : '?';
+        alert("⚠️ GIỚI HẠN UPLOAD/NGÀY CỦA KÊNH (uploadLimitExceeded)\n\n" +
+              "Đây KHÔNG phải hết quota API GCP.\n" +
+              "• YouTube chặn số video upload/ngày trên kênh: " + chList + "\n" +
+              "• Đếm gần đúng trên kênh đang xem: ~" + upUtc + " video (UTC hôm nay).\n" +
+              "• Kênh chưa xác minh SĐT thường chỉ được rất ít video/ngày.\n\n" +
+              "👉 CÁCH KHẮC PHỤC:\n" +
+              "1. studio.youtube.com → Cài đặt → Kênh → Điều kiện tính năng → Xác minh SĐT.\n" +
+              "2. Tạo Brand Channel mới / dùng Gmail khác → Cấp quyền Project còn trống.\n" +
+              "3. Chờ YouTube reset (thường theo ngày, ~24h).\n" +
+              "4. Nút ⚡ Reset Quota chỉ xoá cờ local — YouTube vẫn từ chối nếu kênh còn bị limit.");
       } else {
         toast('Lỗi: ' + (res.error || 'Thất bại'));
       }
@@ -2706,7 +2624,7 @@ async function load(){
     const titleVi = f.title_vi ? esc(f.title_vi) : esc(f.title);
     const titleOrig = f.title_vi ? `<small style="color:#888">${esc(f.title)}</small>` : '';
     const gone = !f.work_exists;
-    const posterName = f.hg_name || f.title || f.series || '';
+    const posterName = resolveFilmPosterName(f);
     const posterUrl = posterName ? (POSTER + encodeURIComponent(posterName)) : '';
     const mergeInfo = MERGEABLE_MAP[f.job_id];
     const canMergeParts = mergeInfo && mergeInfo.merge_ready && mergeInfo.job_id === parentJobId(f.job_id);
@@ -3686,7 +3604,9 @@ async function skipUploadItem(idx){
 
 async function skipCurrentUpload(){
   try {
-    const res = await (await fetch('/api/uploader/skip-current', { method: 'POST' })).json();
+    // 2026-11-27: huỷ upload trong server (auto-publish) trước; yt_uploader cũ nếu máy còn
+    let res = await (await fetch('/api/auto-publish/skip-current', { method: 'POST' })).json();
+    if(!res.ok){ try { res = await (await fetch('/api/uploader/skip-current', { method: 'POST' })).json(); } catch(_e) {} }
     if(res.ok){
       toast('⏭ ' + (res.message || 'Đã gửi tín hiệu skip video đang upload'));
       loadUploader();
@@ -3832,215 +3752,11 @@ function pickFilmForUpload(jobId){
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   SETTINGS (Cấu hình Thư viện, AI, Telegram)
-   ══════════════════════════════════════════════════════════════════════════ */
-function openSettingsModal(){
-  $('settings-modal').classList.remove('hide');
-  switchSettingsTab('storage');
-  loadSettings();
-}
-
-function closeSettingsModal(){
-  $('settings-modal').classList.add('hide');
-  $('st-save-msg').textContent = '';
-}
-
-function switchSettingsTab(tabName){
-  for(const k of ['storage', 'ai', 'tele', 'render']){
-    const btn = $('st-tab-' + k);
-    const pane = $('st-pane-' + k);
-    if(btn) btn.classList.toggle('on', k === tabName);
-    if(pane) pane.classList.toggle('hide', k !== tabName);
-  }
-}
-
-async function loadSettings(){
-  // Tab Render: luôn nạp /config (không phụ thuộc /api/settings)
-  try{
-    const cfg = await (await fetch('/config')).json();
-    const o = (cfg && cfg.opts) || {};
-    if($('cfg-hs-blur')){
-      // Không dùng !== false: chuỗi "false"/"off" vẫn truthy với phép đó
-      const v = o.hardsub_blur;
-      if(v == null) $('cfg-hs-blur').checked = true;
-      else {
-        const s = String(v).trim().toLowerCase();
-        $('cfg-hs-blur').checked = !(['0','false','off','no','tắt','tat','không','khong',''].includes(s) || v === false);
-      }
-    }
-  }catch(_e){
-    if($('cfg-hs-blur')) $('cfg-hs-blur').checked = true;
-  }
-
-  try {
-    const r = await fetch('/api/settings');
-    const res = await r.json().catch(()=>({}));
-    if(!r.ok || res.ok === false){
-      if(r.status===404) toast('⚠️ API /api/settings chưa có trên sidecar :8802');
-      return;
-    }
-    const c = res.config || {};
-
-    // Tab Storage
-    if($('cfg-lib-dir')) $('cfg-lib-dir').value = c.LIBRARY_DIR || '';
-    if($('cfg-work-dir')) $('cfg-work-dir').value = c.WORK_DIR || '';
-    if($('cfg-yt-dir')) $('cfg-yt-dir').value = c.YT_UPLOADER_DIR || '';
-
-    // Tab AI
-    if($('cfg-llm-base')) $('cfg-llm-base').value = c.LLM_BASE_URL || '';
-    if($('cfg-llm-key')) $('cfg-llm-key').value = c.LLM_API_KEY || '';
-    if($('cfg-llm-model')) $('cfg-llm-model').value = c.TRANSLATE_MODEL || c.LLM_MODEL || '';
-    if($('cfg-agent-model')) $('cfg-agent-model').value = c.AGENT_MODEL || '';
-
-    // Gợi ý model dropdown
-    const sel = $('cfg-llm-avail-sel');
-    if(sel){
-      sel.innerHTML = '<option value="">Gợi ý model...</option>';
-      if(res.available_models && res.available_models.length){
-        for(const m of res.available_models){
-          const opt = document.createElement('option');
-          opt.value = m;
-          opt.textContent = m;
-          sel.appendChild(opt);
-        }
-      }
-    }
-
-    // Tab Telegram
-    if($('cfg-tele-active')) $('cfg-tele-active').checked = Boolean(c.AGENT_TELEGRAM);
-    if($('cfg-tele-token')) $('cfg-tele-token').value = c.TELEGRAM_BOT_TOKEN || '';
-    if($('cfg-tele-users')) $('cfg-tele-users').value = c.TELEGRAM_ALLOWED_USERS || '';
-
-  } catch(e) {
-    console.error('loadSettings error:', e);
-  }
-}
-
-async function saveSettings(){
-  const msgEl = $('st-save-msg');
-  if(msgEl){ msgEl.style.color = '#38bdf8'; msgEl.textContent = '⏳ Đang lưu cấu hình...'; }
-
-  const payload = {
-    LIBRARY_DIR: ($('cfg-lib-dir')||{value:''}).value.trim(),
-    WORK_DIR: ($('cfg-work-dir')||{value:''}).value.trim(),
-    YT_UPLOADER_DIR: ($('cfg-yt-dir')||{value:''}).value.trim(),
-    LLM_BASE_URL: ($('cfg-llm-base')||{value:''}).value.trim(),
-    LLM_API_KEY: ($('cfg-llm-key')||{value:''}).value.trim(),
-    LLM_MODEL: ($('cfg-llm-model')||{value:''}).value.trim(),
-    TRANSLATE_MODEL: ($('cfg-llm-model')||{value:''}).value.trim(),
-    AGENT_MODEL: ($('cfg-agent-model')||{value:''}).value.trim(),
-    AGENT_TELEGRAM: !!($('cfg-tele-active') && $('cfg-tele-active').checked),
-    TELEGRAM_BOT_TOKEN: ($('cfg-tele-token')||{value:''}).value.trim(),
-    TELEGRAM_ALLOWED_USERS: ($('cfg-tele-users')||{value:''}).value.trim()
-  };
-
-  try {
-    const res = await (await fetch('/api/settings', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload)
-    })).json();
-
-    // Lưu hardsub_blur vào batch config (sidecar /config)
-    let blurOk = true;
-    try{
-      const hs = !!($('cfg-hs-blur') && $('cfg-hs-blur').checked);
-      const br = await (await fetch('/config', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({opts:{hardsub_blur: hs}, by:'films-ui'})
-      })).json();
-      blurOk = !!(br && br.ok);
-    }catch(_e){ blurOk = false; }
-
-    if(res.ok){
-      if(msgEl){ msgEl.style.color = '#4ade80'; msgEl.textContent = '✓ ' + (res.message || 'Đã lưu') + (blurOk ? ' · blur OK' : ' · blur chưa lưu (/config)'); }
-      toast('💾 Cài đặt đã lưu' + (blurOk ? ' (kèm hardsub_blur)' : ''));
-      setTimeout(() => {
-        closeSettingsModal();
-      }, 1000);
-    } else {
-      if(msgEl){ msgEl.style.color = '#f87171'; msgEl.textContent = 'Lỗi: ' + (res.error || 'Không lưu được cấu hình'); }
-    }
-  } catch(e) {
-    if(msgEl){ msgEl.style.color = '#f87171'; msgEl.textContent = 'Lỗi kết nối: ' + e; }
-  }
-}
-
-async function testLlmConn(){
-  const resEl = $('cfg-llm-test-result');
-  resEl.textContent = '⏳ Đang kiểm tra kết nối...';
-  resEl.style.color = '#aaa';
-
-  const payload = {
-    base_url: $('cfg-llm-base').value.trim(),
-    api_key: $('cfg-llm-key').value.trim(),
-    model: $('cfg-llm-model').value.trim()
-  };
-
-  try {
-    const res = await (await fetch('/api/settings/test-llm', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload)
-    })).json();
-
-    if(res.ok){
-      resEl.style.color = '#4ade80';
-      resEl.textContent = '✓ ' + (res.message || 'Kết nối LLM thành công!');
-    } else {
-      resEl.style.color = '#f87171';
-      resEl.textContent = '❌ Lỗi: ' + (res.error || 'Không kết nối được');
-    }
-  } catch(e) {
-    resEl.style.color = '#f87171';
-    resEl.textContent = '❌ Lỗi kết nối: ' + e;
-  }
-}
-
-async function testTelegramMsg(){
-  const resEl = $('cfg-tele-test-result');
-  resEl.textContent = '⏳ Đang gửi tin nhắn thử nghiệm...';
-  resEl.style.color = '#aaa';
-
-  const payload = {
-    token: $('cfg-tele-token').value.trim(),
-    user_ids: $('cfg-tele-users').value.trim()
-  };
-
-  try {
-    const res = await (await fetch('/api/settings/test-telegram', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload)
-    })).json();
-
-    if(res.ok){
-      resEl.style.color = '#4ade80';
-      resEl.textContent = '✓ ' + (res.message || 'Đã gửi tin nhắn thành công!');
-    } else {
-      resEl.style.color = '#f87171';
-      resEl.textContent = '❌ Lỗi: ' + (res.error || 'Gửi thất bại');
-    }
-  } catch(e) {
-    resEl.style.color = '#f87171';
-    resEl.textContent = '❌ Lỗi: ' + e;
-  }
-}
 
 checkCanvaStatus();
 checkTestChannelStatus();
 const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('tab') === 'upload') {
-  tab('upload');
-} else if (urlParams.get('tab') === 'done') {
-  tab('done');
-} else if (urlParams.get('tab') === 'seasons') {
-  tab('seasons');
-} else {
-  loadLib();
-}
-startBatchProgressPolling();
+tab(urlParams.get('tab') === 'upload' ? 'upload' : 'done');
 
 /* ---- Tự động Đăng Video (Auto-Publish) & AI Master Prompt ---- */
 async function loadAutoPublishConfig(){
@@ -4080,7 +3796,7 @@ async function triggerAutoPublishScan(){
   try {
     const res = await (await fetch('/api/auto-publish/scan', {method: 'POST'})).json();
     if(res && res.ok){
-      toast(`✓ Đã bắt đầu xuất bản (${res.scanned?.length || 0} phim)!`);
+      toast(res.busy ? `⏳ Đang xuất bản «${res.current_title || res.current_job_id || '?'}» (${res.progress_percent || 0}%)…` : (res.scanned ? `✓ Đã xếp ${res.scanned} phim vào hàng xuất bản` : 'Không có phim mới cần đăng'));
       pollAutoPubState();
     } else {
       toast('Lỗi: ' + (res.error || 'Thất bại'));

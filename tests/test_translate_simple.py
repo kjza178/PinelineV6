@@ -101,20 +101,34 @@ def fastclock(monkeypatch):
 
 
 def _nmt(monkeypatch, table=None, on=True, fail=False):
+    """V6 bỏ NMT (2026-11-15). Shim cho các kịch bản cũ cần «bản Việt có sẵn» trước khi soát (như job dịch dở /
+    dịch lại): sau bước plan, điền `table` vào câu chưa có vi, không manual, chưa rv — y như nháp NMT cũ.
+    Luồng V6 thật KHÔNG làm bước này. on=False / fail=True → không điền gì."""
     table = NMT if table is None else table
     seen = {}
+    orig = stage_draft.run
 
-    def draft(rows, *, text_key="text", plan=None):
-        seen["rows"] = [r["i"] for r in rows]
+    def run(store, segments, target, **kw):
+        plan, info = orig(store, segments, target, **kw)
+        todo = [r for r in store.rows if not r.get("manual") and not r.get("rv") and not (r.get("vi") or "").strip()]
+        seen["rows"] = [r["i"] for r in todo]
         seen["plan"] = plan
-        if fail:
-            raise RuntimeError("cuda OOM")
-        return {r["i"]: table.get(r["i"], "") for r in rows if table.get(r["i"])}
-    monkeypatch.setenv("MT_ZH_VI", "1" if on else "0")
-    monkeypatch.setattr(mt_zh_vi, "draft_rows", draft)
-    monkeypatch.setattr(mt_zh_vi, "resolve_model_id", lambda plan=None: "fake/base")
-    monkeypatch.setattr(mt_zh_vi, "unload", lambda: None)
+        if on and not fail:
+            for r in todo:
+                if table.get(r["i"]):
+                    r["vi"] = table[r["i"]]
+            store.write()
+        return plan, info
+    monkeypatch.setattr(stage_draft, "run", run)
     return seen
+
+
+def _seed(wd, table=None, segs=None):
+    """Bản Việt ĐÃ CÓ trước khi chạy (lần dịch trước) — thay cho «nháp NMT» cũ (V6 bỏ NMT 2026-11-15)."""
+    table = NMT if table is None else table
+    rows = [{"i": s["i"], "start": s["start"], "end": s["end"], "zh": s["text"], "vi": table.get(s["i"], "")}
+            for s in (segs or SEGS)]
+    (wd / "script.json").write_text(json.dumps(rows, ensure_ascii=False), encoding="utf-8")
 
 
 def _job(tmp_path, segs=None, plan=PLAN, script=None, manifest=None):
@@ -152,7 +166,8 @@ class FakeLLM:
         self.lock = threading.Lock()
 
     def __call__(self, messages, model=None, **kw):
-        system, user = messages[0]["content"], messages[1]["content"]
+        # chế độ cả phim (A8): [system, phần đầu cả phim, phần riêng của lô] → nối mọi message user
+        system, user = messages[0]["content"], "\n\n".join(m["content"] for m in messages[1:])
         items = _items(user)
         with self.lock:
             self.calls.append({"system": system, "user": user, "i": [x["i"] for x in items], "model": model})
@@ -238,48 +253,11 @@ def test_store_post_split_not_remapped(tmp_path):
 
 # ───────────────────────── 2. plan ∥ NMT ─────────────────────────
 
-def test_plan_and_nmt_run_in_parallel(tmp_path, monkeypatch):
-    wd = _job(tmp_path, plan=None)
-    plan_started, nmt_started = threading.Event(), threading.Event()
-
-    def fake_plan(segments, **kw):
-        plan_started.set()
-        assert nmt_started.wait(5), "NMT không chạy song song với plan"
-        return dict(PLAN)
-
-    seen = _nmt(monkeypatch)
-    orig = mt_zh_vi.draft_rows
-
-    def nmt_wait(rows, **kw):
-        nmt_started.set()
-        assert plan_started.wait(5), "plan không chạy song song với NMT"
-        return orig(rows, **kw)
-    monkeypatch.setattr(mt_zh_vi, "draft_rows", nmt_wait)
-    monkeypatch.setattr(T, "build_plan", fake_plan)
-    st = ScriptStore(wd)
-    st.ensure_from_asr(SEGS)
-    plan, info = stage_draft.run(st, SEGS, "Tiếng Việt")
-    assert plan["characters"] and info["parallel"] and info["n_nmt"] == 4
-    assert seen["rows"] == [0, 1, 2, 3, 4]
-    assert json.loads((wd / "glossary.json").read_text(encoding="utf-8"))["characters"]
-    assert st.rows[0]["vi"] == NMT[0] and st.rows[0]["mt"] == 1 and st.rows[3]["vi"] == ""
-
-
-def test_nmt_off_or_error_gives_empty_drafts(tmp_path, monkeypatch):
-    for kw in ({"on": False}, {"fail": True}):
-        wd = _job(tmp_path)
-        _nmt(monkeypatch, **kw)
-        st = ScriptStore(wd)
-        st.ensure_from_asr(SEGS, force=True)
-        _plan, info = stage_draft.run(st, SEGS, "Tiếng Việt")
-        assert info["n_nmt"] == 0 and all(not r["vi"] for r in st.rows)
-
-
 # ───────────────────────── 3. review ─────────────────────────
 
 def test_review_applies_plan_pronouns_and_translates_empty(tmp_path, monkeypatch):
     wd = _job(tmp_path)
-    _nmt(monkeypatch)
+    _seed(wd)
     fake = FakeLLM("good")
     monkeypatch.setattr(llm, "chat", fake)
     res = pipeline.run(wd, "Tiếng Việt")
@@ -300,7 +278,7 @@ def test_review_applies_plan_pronouns_and_translates_empty(tmp_path, monkeypatch
     ready, why = T.translate_ready_for_tts(wd)
     assert ready, why
     steps = {t["step"] for t in _trace(wd)}
-    assert {"nmt", "review", "gate"} <= steps
+    assert {"start", "review", "gate"} <= steps
 
 
 def test_manual_row_never_changed(tmp_path, monkeypatch):
@@ -348,7 +326,7 @@ def test_parse_lines_unit():
 def test_partial_lines_only_returned_rows_rv(tmp_path, monkeypatch):
     monkeypatch.setenv("SIMPLE_UNREVIEWED_TOLERANCE", "0")   # 2026-11-13: tắt nhận-nháp để kiểm đúng rv/park
     wd = _job(tmp_path)
-    _nmt(monkeypatch)
+    _seed(wd)
     fake = FakeLLM(script=["skip_last", "skip_last", "skip_last", "skip_last"])
     monkeypatch.setattr(llm, "chat", fake)
     res = pipeline.run(wd, "Tiếng Việt")
@@ -490,7 +468,7 @@ def test_lexicon_seed_has_golden_idioms():
 def test_review_batches_and_context(tmp_path, monkeypatch):
     segs = [{"i": k, "start": float(k), "end": k + 1.0, "text": f"句子{k}。"} for k in range(70)]
     wd = _job(tmp_path, segs=segs)
-    _nmt(monkeypatch, table={k: f"Câu {k}." for k in range(70)})
+    _seed(wd, {k: f"Câu {k}." for k in range(70)}, segs)
     monkeypatch.setenv("SIMPLE_WORKERS", "4")
     fake = FakeLLM("echo")
     monkeypatch.setattr(llm, "chat", fake)
@@ -625,26 +603,33 @@ def test_p6_instance_legacy_uses_old_flow(monkeypatch, tmp_path):
     assert _man(wd)["translate_pipeline"] == "legacy"
 
 
-def test_p6_inflight_legacy_job_keeps_legacy(monkeypatch, tmp_path):
-    """Job dở luồng cũ (script.json + stage translate đã chạy + park waiting_review B2), mặc định simple:
-    _auto_gpu / Soát lại vẫn luồng cũ; «Dịch LẠI» (force) mới chuyển sang mặc định instance."""
+def test_p6_inflight_script_job_goes_simple(monkeypatch, tmp_path):
+    """2026-11-17: job có script.json + stage translate đã chạy (vd chép từ V2, dịch dở) KHÔNG còn bị đoán luồng
+    cũ (NMT + TRANSLATE_MODEL=local) — đi luồng simple (model Soát & dịch chính, vd DeepSeek)."""
     server, SP, calls, nxt = _f2_env(monkeypatch, tmp_path)
     man = {"stages": {"translate": {"status": "pending", "started_at": "2026-11-11T10:00:00", "mode": "batch",
                                     "cur_text": "soát dở — còn 3 câu chưa rv"}},
            "agent": {"held_at": "waiting_review", "review_retries": 1, "review_retry_at": 1.0}}
     wd = _job(tmp_path, script=[{"i": s["i"], "zh": s["text"], "vi": "x", "rv": 1} for s in SEGS], manifest=man)
     _auto(server)
-    assert calls[0] == "old_translate" and not any(isinstance(c, tuple) for c in calls)
+    assert calls and calls[0][0] == "simple" and "old_translate" not in calls
     m = _man(wd)
-    assert m["translate_pipeline"] == "legacy" and m["translate_pipeline_why"] == "inferred"
-    calls.clear()
-    server._translate_flow(wd, "Tiếng Việt", None, "chatgpt/x", True)          # «Soát lại»
-    assert calls == ["old_review"]
-    calls.clear()
-    server._translate_flow(wd, "Tiếng Việt", None, None, False, force=True)    # «Dịch LẠI» từ đầu
-    assert calls == [("simple", {"force": True, "rereview": False})]
-    m = _man(wd)
-    assert m["translate_pipeline"] == "simple" and m["translate_pipeline_why"] == "fresh"
+    assert m["translate_pipeline"] == "simple" and m["translate_pipeline_why"] == "default"
+
+
+def test_p6_stale_inferred_legacy_stamp_reevaluated(monkeypatch, tmp_path):
+    """Dấu legacy «inferred» do bản cũ đóng → tính lại theo mặc định instance (simple)."""
+    server, SP, calls, nxt = _f2_env(monkeypatch, tmp_path)
+    man = {"translate_pipeline": "legacy", "translate_pipeline_why": "inferred",
+           "stages": {"translate": {"status": "running", "mode": "batch"}}}
+    wd = _job(tmp_path, script=[{"i": s["i"], "zh": s["text"], "vi": "x"} for s in SEGS[:1]], manifest=man)
+    assert server._translate_pipeline_simple(wd) is True
+    assert _man(wd)["translate_pipeline"] == "simple"
+    # instance chọn legacy → dấu legacy «default» (do instance đặt) vẫn giữ nguyên
+    monkeypatch.setenv("PINELINE_TRANSLATE_PIPELINE", "legacy")
+    (tmp_path / "b").mkdir()
+    wd2 = _job(tmp_path / "b", manifest={"translate_pipeline": "legacy", "translate_pipeline_why": "inferred"})
+    assert server._translate_pipeline_simple(wd2) is False
 
 
 def test_p6_simple_traces_inferred_simple(monkeypatch, tmp_path):
@@ -678,7 +663,12 @@ def test_p6_translate_fill_follows_job_pipeline(monkeypatch, tmp_path):
     assert out["pipeline"] == "simple" and calls == [("simple", {"force": False, "rereview": False})]
     calls.clear()
     _job(tmp_path, script=rows, manifest={"stages": {"translate": {"status": "done", "mode": "batch"}}})
-    out = server.translate_fill("j1")   # job luồng cũ (suy luận) → vá bằng run_translate cũ
+    out = server.translate_fill("j1")   # 2026-11-17: dấu vết luồng cũ KHÔNG còn ép legacy → simple
+    assert out["pipeline"] == "simple" and calls == [("simple", {"force": False, "rereview": False})]
+    calls.clear()
+    _job(tmp_path, script=rows, manifest={"stages": {"translate": {"status": "done", "mode": "batch"}},
+                                          "translate_pipeline": "legacy", "translate_pipeline_why": "default"})
+    out = server.translate_fill("j1")   # job đóng dấu legacy khi instance chọn legacy → vá bằng run_translate cũ
     assert out["pipeline"] == "legacy" and calls == ["old_fill"]
 
 
@@ -686,8 +676,9 @@ def test_p6_requested_review_style_follows_job_pipeline(monkeypatch, tmp_path):
     server = pytest.importorskip("server")
     import agents.agent_name_pass as agent_name_pass
     import agents.agent_pronoun_pass as agent_pronoun_pass
-    monkeypatch.setattr(agent_name_pass, "run_name_pass", lambda *a, **k: {"ok": True})
-    monkeypatch.setattr(agent_pronoun_pass, "run_pronoun_pass", lambda *a, **k: {"ok": True})
+    passes = []
+    monkeypatch.setattr(agent_name_pass, "run_name_pass", lambda *a, **k: passes.append("name") or {"ok": True})
+    monkeypatch.setattr(agent_pronoun_pass, "run_pronoun_pass", lambda *a, **k: passes.append("pron") or {"ok": True})
     monkeypatch.setattr(server, "WORK_ROOT", tmp_path)
     calls = []
     monkeypatch.setattr(T, "run_review", lambda *a, **k: calls.append("old_review"))
@@ -697,11 +688,12 @@ def test_p6_requested_review_style_follows_job_pipeline(monkeypatch, tmp_path):
     wd = _job(tmp_path, script=rows, manifest=man)
     res = server._run_requested_review(wd, "Tiếng Việt")
     assert calls == [("simple", {"rereview": True})] and res["style"]["pipeline"] == "simple"
+    assert passes == [] and res["names"]["skipped"]          # 2026-11-15: V6 không chạy pass tên / xưng hô V2
     calls.clear()
     man = {"stages": {}, "translate_pipeline": "legacy", "agent": {"review_request": {"model": None}}}
     wd = _job(tmp_path, script=rows, manifest=man)
     server._run_requested_review(wd, "Tiếng Việt")
-    assert calls == ["old_review"]
+    assert calls == ["old_review"] and passes == ["name", "pron"]   # luồng cũ giữ nguyên
 
 
 # ───────────────────────── 8. đầu-cuối trên cửa sổ golden (LLM giả «echo NMT») ─────────────────────────
@@ -750,3 +742,53 @@ def test_end_to_end_golden_window_echo(tmp_path, monkeypatch):
     assert m.get("unaligned", 0) <= 5, m
     print("[e2e-simple] metrics", json.dumps({k: m.get(k) for k in ("pron_acc", "idiom_acc", "chrF", "unaligned")},
                                               ensure_ascii=False))
+
+
+
+# ───────────── 2026-11-15: V6 bỏ hẳn NMT — AI dịch thẳng từ zh ─────────────
+
+def test_v6_never_runs_nmt_even_when_enabled(tmp_path, monkeypatch):
+    """MT_ZH_VI=1 (máy có NMT) vẫn KHÔNG chạy NMT ở luồng V6; mọi câu AI dịch mới, cổng done."""
+    wd = _job(tmp_path)
+
+    def boom(*a, **k):
+        raise AssertionError("luồng V6 không được chạy NMT")
+    monkeypatch.setenv("MT_ZH_VI", "1")
+    monkeypatch.setattr(mt_zh_vi, "draft_rows", boom)
+    monkeypatch.setattr(mt_zh_vi, "enabled", lambda: True)
+    fake = FakeLLM("good")
+    monkeypatch.setattr(llm, "chat", fake)
+    res = pipeline.run(wd, "Tiếng Việt")
+    assert res["status"] == "done", res["gate"]
+    rows = _read(wd)
+    assert rows[0]["vi"].startswith("Tô Tình, anh") and " em " in rows[0]["vi"]   # cặp Lâm→Tô anh/em từ plan
+    assert all(r["s_act"] == "new" for r in rows.values() if not r.get("junk"))
+    assert not any(r.get("mt") for r in rows.values())
+
+
+def test_cjk_left_after_repair_goes_to_fallback_model(tmp_path, monkeypatch):
+    """Port V5 2026-11-20 (cjk-backup-repair): model chính để sót chữ Hán cả sau vá → 1 lượt vá bằng
+    SIMPLE_FALLBACK_MODEL thay vì park cả job vì 1 chữ Hán."""
+    wd = _job(tmp_path)
+    _nmt(monkeypatch)
+    monkeypatch.setenv("SIMPLE_FALLBACK_MODEL", "alibaba/qwen-test")
+    good = FakeLLM("good")
+
+    def chat(messages, model=None, **kw):
+        out = good(messages, model=model, **kw)
+        if model == "chatgpt/gpt-test":          # model chính: luôn để sót «投影» ở câu 0
+            d = json.loads(out)
+            for ln in d["lines"]:
+                if ln["i"] == 0:
+                    ln["vi"] = ln["vi"] + " 投影"
+            return json.dumps(d, ensure_ascii=False)
+        d = json.loads(out)                       # model dự phòng: dịch sạch (không còn chữ Hán)
+        for ln in d["lines"]:
+            ln["vi"] = re.sub(r"[\u4e00-\u9fff]+", "", ln["vi"]).strip() or "hình chiếu"
+        return json.dumps(d, ensure_ascii=False)
+    monkeypatch.setattr(llm, "chat", chat)
+    res = pipeline.run(wd, "Tiếng Việt")
+    rb = res["review"]["repair_backup"]
+    assert rb["model"] == "alibaba/qwen-test" and rb["fixed"] >= 1
+    assert "投影" not in _read(wd)[0]["vi"] and res["status"] == "done"
+    assert any(c["model"] == "alibaba/qwen-test" for c in good.calls)

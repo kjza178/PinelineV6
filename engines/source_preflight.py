@@ -457,6 +457,24 @@ def run_preflight(work_dir: str | Path, video: str | Path | None = None, *,
     return pf
 
 
+def _lock_owner_dead(p: Path) -> bool:
+    try:
+        raw = p.read_text(encoding="utf-8", errors="ignore").strip()
+    except OSError:
+        return False
+    if not raw.isdigit():
+        return False
+    pid = int(raw)
+    if pid <= 0 or pid == os.getpid():
+        return False
+    try:
+        import psutil
+        return not psutil.pid_exists(pid)
+    except Exception as e:  # noqa: BLE001
+        print(f"[preflight] không dò được PID khoá {pid}: {e}", flush=True)
+        return False
+
+
 class _Lock:
     """Khoá file trong work dir (asr + separate có thể cùng gọi ensure)."""
 
@@ -474,7 +492,10 @@ class _Lock:
                 return self
             except FileExistsError:
                 try:
-                    if time.time() - self.p.stat().st_mtime > 4 * 3600:   # khoá mồ côi
+                    # port V2 fix 2026-11-27 (preflight-stale-lock): PID ghi trong khoá đã chết (ASR/preflight bị kill)
+                    # → khoá mồ côi, xoá ngay (trước chỉ sau 4 giờ → ASR đứng «đang chạy» hàng giờ). Dò bằng psutil —
+                    # KHÔNG os.kill(pid, 0): trên Windows signal 0 = CTRL_C_EVENT, gửi Ctrl+C vào tiến trình kia.
+                    if _lock_owner_dead(self.p) or time.time() - self.p.stat().st_mtime > 4 * 3600:
                         self.p.unlink()
                         continue
                 except OSError:

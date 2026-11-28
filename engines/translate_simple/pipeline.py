@@ -16,6 +16,7 @@ Cặp suy luận ghi work_dir/plan_inferred.json (KHÔNG vào glossary.json tr�
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 
@@ -28,7 +29,13 @@ INFERRED = "plan_inferred.json"
 
 
 def _now() -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%S")
+    # R1.4: cùng kiểu mốc thời gian với cả hệ (ISO UTC — core/timeutil.py), không còn giờ máy không múi giờ.
+    from core.timeutil import now_iso
+    return now_iso()
+
+
+class _PlanMissing(RuntimeError):
+    """R1.2: lập plan hỏng và SIMPLE_REQUIRE_PLAN=1 → không soát, park."""
 
 
 def _manifest_update(work_dir: Path, fn) -> bool:
@@ -220,6 +227,34 @@ def _review_missing(store: ScriptStore, pv: PlanView, plan: dict, flags: dict, *
     return info, flags
 
 
+_CJK_CHARS = re.compile(r"[\u3000-\u303f\u3400-\u9fff\uf900-\ufaff\uff00-\uff0f\uff1a-\uff20]+")
+
+
+def _strip_residual_cjk(store: ScriptStore, flags: dict) -> list:
+    """Câu còn cờ cjk sau mọi lượt vá: gỡ chữ Hán (giữ phần Việt) nếu số câu ≤ ngưỡng; cờ cjk → cờ mềm cjk_stripped.
+    Trả danh sách i đã gỡ ([] khi tắt / vượt ngưỡng / không câu nào)."""
+    cjk_i = [i for i, fl in flags.items() if any(f.get("code") == "cjk" for f in fl)]
+    lim = cfg.cjk_strip_max(len(store.rows))
+    if not cjk_i or len(cjk_i) > lim:
+        return []
+    rows = store.by_i()
+    done = []
+    for i in cjk_i:
+        r = rows.get(i)
+        if not r:
+            continue
+        old = r.get("vi") or ""
+        new = re.sub(r"\s{2,}", " ", _CJK_CHARS.sub(" ", old)).strip(" ,，:：-")
+        if not new or not re.search(r"[A-Za-zÀ-ỹ]", new):
+            continue                                   # gỡ xong không còn chữ Việt → để cổng park như cũ
+        store.set_vi(r, new, "cjk_strip", f"gỡ chữ Hán sót sau vá: {old[:60]}")
+        r["cjk_stripped"] = 1
+        flags[i] = [f for f in flags[i] if f.get("code") != "cjk"] + [
+            {"code": "cjk_stripped", "why": f"đã gỡ chữ Hán sót — xem lại: {old[:60]}"}]
+        done.append(i)
+    return done
+
+
 def _accept_unreviewed(store: ScriptStore) -> tuple[list[int], int]:
     """Còn ≤ SIMPLE_UNREVIEWED_TOLERANCE câu chưa soát VÀ mọi câu đó có bản nháp vi (không trống, không chữ Hán)
     → nhận bản nháp: rv=1 + unreviewed_accepted=1 (+ trace). Vượt ngưỡng / thiếu nháp → không đổi gì (park).
@@ -281,6 +316,7 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
             _set_stage(wd, cur_text=f"simple · {msg}"[:200])
 
     t0 = time.time()
+    stage_review._DEAD.clear()     # 2026-11-21: «model vừa hỏng» chỉ nhớ trong 1 lượt — lượt thử lại dò lại model chính
     _set_stage(wd, status="running", started_at=_now(), mode="simple", cur_text="simple · bắt đầu",
                n_total=len(segments))
     zh_rep = None
@@ -303,10 +339,23 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
     _heal_zh_stutter(store)
     n_junk = _mark_junk(store)
     store.note("start", None, f"simple run force={force} rereview={rereview} n_asr={len(segments)}")
+    # 2026-11-21: chạy lại sau lỗi / restart → nói rõ là LÀM TIẾP (câu đã soát giữ nguyên, chỉ gửi AI câu còn thiếu)
+    n_have = sum(1 for r in store.rows if r.get("rv") and not r.get("junk"))
+    if n_have and not (force or rereview):
+        prog(f"làm tiếp: đã dịch {n_have}/{len(store.rows)} câu, chỉ dịch {len(store.rows) - n_have} câu còn lại",
+             force_write=True)
     model = cfg.review_model(wd)
     try:
-        # 2) plan ∥ NMT
+        # 2) plan (V6 không dịch thô NMT — AI dịch thẳng ở bước soát)
         plan, dinfo = stage_draft.run(store, segments, target, force=force, progress=prog)
+        plan_bad = stage_draft.plan_failed(plan)
+        if plan_bad:
+            dinfo["plan_failed"] = plan_bad
+            store.note("plan", None, f"lập plan hỏng: {plan_bad}")
+        if plan_bad and cfg.require_plan():
+            # R1.2: không soát khi chưa có bảng nhân vật — câu soát lúc này mang rv=1 và sẽ KHÔNG được soát lại
+            # bằng plan đúng ở lần sau. Giữ nháp NMT, park; lần chạy kế lập lại plan.
+            raise _PlanMissing(plan_bad)
         pv = PlanView(plan)
         extra: dict = {}           # thống kê cờ «next» — rỗng khi mọi cờ tắt (manifest y hệt trước)
         if cfg.pair_rules():
@@ -326,6 +375,12 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
         rstats = stage_review.run(store, pv, model=model, stop_check=stop_check, progress=prog,
                                   rereview=rereview or force,
                                   pair_sink=pair_raw if cfg.suggest_pairs() else None)
+        # R1.1: soát LẠI mà còn câu chưa soát lại được (lô lỗi) — các câu đó giữ bản cũ (rv=1 từ trước) nên cổng
+        # vẫn có thể done; phải nói thật ra ngoài thay vì «đủ bản dịch».
+        rereview_left = int(rstats.get("n_left") or 0) if (rereview and not force) else 0
+        if rereview_left:
+            rstats["rereview_left"] = rereview_left
+            store.note("review", None, f"soát lại CHƯA xong: {rereview_left}/{rstats.get('n_todo')} câu giữ bản cũ")
         if cfg.pair_fill():
             from . import pair_fill
             pf = pair_fill.run(store.rows, pv, model=cfg.pair_fill_model(wd), conf_review=cfg.conf_min(),
@@ -347,6 +402,35 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
         cloud_dead = rstats["n_todo"] > 0 and rstats["n_ok"] == 0
         if flags and not cloud_dead:
             flags, rlog = repair.run(store, pv, flags, model=model, stop_check=stop_check, progress=prog)
+            # port V5 fix 2026-11-20 (cjk-backup-repair): sau vá bằng model chính còn câu cờ CỨNG (sót chữ Hán / trống)
+            # → 1 lượt vá bằng model dự phòng (SIMPLE_FALLBACK_MODEL) thay vì để cổng park cả job vì 1 chữ Hán sót.
+            bmodel = cfg.fallback_model(model)
+            if flags and bmodel:
+                hard = {i: fl for i, fl in flags.items() if any((f.get("code") or "") in ("cjk", "empty") for f in fl)}
+                if hard:
+                    print(f"[simple] {len(hard)} câu cjk/empty sau vá {model} → vá lại bằng dự phòng {bmodel}", flush=True)
+                    soft = {i: fl for i, fl in flags.items() if i not in hard}
+                    try:
+                        hard_left, blog = repair.run(store, pv, hard, model=bmodel, stop_check=stop_check,
+                                                     progress=prog, rounds=1)
+                    except Exception as e_b:  # noqa: BLE001 — dự phòng lỗi thì giữ cờ cũ, cổng quyết như trước
+                        print(f"[simple] vá dự phòng {bmodel} lỗi: {type(e_b).__name__}: {e_b}", flush=True)
+                        if "stopped by user" in str(e_b):
+                            raise
+                        hard_left, blog = hard, []
+                    for e in blog:
+                        e["backup"] = bmodel
+                    rlog.extend(blog)
+                    flags = {**soft, **hard_left}
+                    rstats["repair_backup"] = {"model": bmodel, "n": len(hard), "left": len(hard_left),
+                                               "fixed": len(hard) - len(hard_left)}
+        # 5a) 2026-11-21: vẫn sót chữ Hán ở vài câu → gỡ chữ Hán, cho chạy tiếp (cờ mềm), không park cả job
+        stripped = _strip_residual_cjk(store, flags) if flags else []
+        if stripped:
+            rstats["cjk_stripped"] = {"n": len(stripped), "i": stripped[:50]}
+            store.note("cjk_strip", None, f"gỡ chữ Hán sót ở {len(stripped)} câu: {stripped[:30]}")
+            print(f"[simple] gỡ chữ Hán sót ở {len(stripped)} câu (sau vá) → chạy tiếp, xem lại ở Lời thoại: "
+                  f"{stripped[:20]}", flush=True)
         store.write()
         # 5b) fix 2026-11-13: còn câu chưa soát → 1 lượt review CHỈ các câu đó (lô nhỏ); rồi ≤ ngưỡng → nhận nháp
         miss_info = None
@@ -384,6 +468,20 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
             gap = 0
         g = gate.decide(n_rows=len(store.rows), n_asr=len(segments), coverage_gap=gap,
                         n_missing=store.n_missing(), n_unreviewed=store.n_unreviewed(), flags=flags)
+    except _PlanMissing as e:
+        store.write()
+        _write_outputs(wd, store.rows)
+        why = f"chưa lập được bảng nhân vật (plan): {e}"[:200]
+        g = {"status": "park", "reasons": [why], "n_rows": len(store.rows), "n_asr": len(segments),
+             "coverage_gap": 0, "n_missing": store.n_missing(), "n_unreviewed": store.n_unreviewed(),
+             "n_flagged": 0, "n_flag_soft": 0, "flag_limit": 0, "flags_by_kind": {}, "flagged_i": []}
+        store.note("gate", None, f"park: {why}")
+        _set_stage(wd, status="pending", n_missing=g["n_missing"], cur_text=f"soát dở — {why}"[:240], mode="simple",
+                   review_model=model, simple={"status": "park", "reasons": [why], "plan_failed": str(e)[:200],
+                                               "at": _now()})
+        print(f"[simple] cổng=park · {why}", flush=True)
+        return {"status": "park", "gate": g, "draft": dinfo, "review": {"n_todo": 0, "n_ok": 0, "n_left": 0},
+                "repair": [], "model": model, "t_total": round(time.time() - t0, 1), "script_path": str(store.path)}
     except Exception as e:  # noqa: BLE001
         store.write()
         stopped = "stopped by user" in str(e).lower()
@@ -405,6 +503,13 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
     if acc_txt:
         simple_info["unreviewed_accepted"] = accepted
         simple_info["accept_reason"] = acc_txt
+    rr_txt = ""
+    if rereview_left:
+        rr_txt = f" · SOÁT LẠI CHƯA XONG: {rereview_left} câu giữ bản cũ (cloud lỗi) — bấm Soát lại lần nữa"
+        simple_info["rereview_left"] = rereview_left
+        res["rereview_left"] = rereview_left
+    if plan_bad:
+        simple_info["plan_failed"] = plan_bad      # chỉ tới đây khi SIMPLE_REQUIRE_PLAN=0
     if g["status"] == "done":
         def fn_done(d):
             prev = dict((d.setdefault("stages", {})).get(STAGE) or {})
@@ -414,7 +519,7 @@ def run(work_dir: str | Path, target: str = "Tiếng Việt", *, force: bool = F
                 "glossary_path": str(wd / "glossary.json"), "n_segments": len(store.rows), "n_missing": 0,
                 "model": f"simple:{model}", "mode": "simple", "reviewed": True, "review_model": model,
                 "progress": 100, "cur_text": f"simple · đủ bản dịch ({g['n_flagged']} cờ ≤ {g['flag_limit']})"
-                + (f" · nhận {len(accepted)} câu nháp chưa soát" if acc_txt else ""),
+                + (f" · nhận {len(accepted)} câu nháp chưa soát" if acc_txt else "") + rr_txt,
                 "simple": simple_info, "updated_at": time.time(),
             }
         _manifest_update(wd, fn_done)

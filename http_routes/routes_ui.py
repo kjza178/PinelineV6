@@ -1,7 +1,12 @@
-"""Trang UI: /, /ui3, /ui4, /hongguo, /hongguo2, /films/ui, /studio, /v5-map.
+"""Trang UI: / (→ /v6/), /studio, /hongguo2, /films/ui, /v5-map (+ đường cũ chuyển hướng).
 
-/hongguo2 = skin WinUI 2.x (Browse/Ranking/New/Library).
-/films|/film|/films/ui = films_ui.html · /studio = index3 (Lồng tiếng Studio).
+2026-11-15 (2): `/` chuyển sang giao diện mới `/v6/` (app desktop / trình duyệt mở `/` là vào app chính); Studio ở
+`/studio` (cũng `/ui3`, `/index3.html`).
+
+2026-11-15 (chủ dự án): Studio (UI3, trước là index3.html) thành trang chính `index.html` ở `/`; UI0 cũ và UI4 bỏ;
+Hongguo 1 (hongguo.html) bỏ, thay bằng hongguo2. Đường cũ giữ được: /ui3, /index3.html, /studio → cùng trang `/`;
+/ui4, /index4.html → chuyển về `/`; /hongguo, /ui-hg → chuyển sang /hongguo2 (Hongguo 1 đã bỏ hẳn).
+/films|/film|/films/ui = films_ui.html.
 
 Tách từ server.py (đợt 7). Chỉ được nạp từ cuối server.py (sau khi mọi hàm/model lõi đã
 định nghĩa): truy cập server qua `S.<tên>` để patch `server.<tên>` trong test vẫn có tác dụng."""
@@ -10,7 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 from fastapi.responses import HTMLResponse
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 router = APIRouter()
 
@@ -39,8 +44,15 @@ def find_index() -> Path | None:
     return None
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/")
+def root():
+    """Trang chủ = giao diện mới (desktop/ui ở /v6/)."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/v6/", status_code=307)
+
+
 def index():
+    """Studio (index.html)."""
     p = find_index()
     if not p:
         return HTMLResponse(
@@ -71,22 +83,25 @@ def _html_file(name: str) -> HTMLResponse:
 @router.get("/ui3", response_class=HTMLResponse)
 @router.get("/index3.html", response_class=HTMLResponse)
 def ui3():
-    """UI C — Shell vs Data (khung tĩnh, chống giật innerHTML)."""
-    return _html_file("index3.html")
+    """Studio (UI3) — nay chính là trang `/` (index.html); giữ đường cũ cho dấu trang / desktop_path cũ."""
+    return index()
 
 
-@router.get("/ui4", response_class=HTMLResponse)
-@router.get("/index4.html", response_class=HTMLResponse)
+@router.get("/ui4")
+@router.get("/index4.html")
 def ui4():
-    """UI D — Full ops: preview + script grid + queue bảng %."""
-    return _html_file("index4.html")
+    """UI4 đã bỏ (2026-11-15) → về Studio."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/", status_code=307)
 
 
-@router.get("/hongguo", response_class=HTMLResponse)
-@router.get("/ui-hg", response_class=HTMLResponse)
-def ui_hongguo():
-    """UI riêng — điều khiển Hongguo Downloader (search/tải/merge)."""
-    return _html_file("hongguo.html")
+@router.get("/hongguo")
+@router.get("/ui-hg")
+def ui_hongguo(request: Request):
+    """Hongguo 1 đã bỏ (2026-11-15) → chuyển sang Hongguo 2 (giữ query)."""
+    from fastapi.responses import RedirectResponse
+    q = str(request.url.query or "")
+    return RedirectResponse("/hongguo2" + (f"?{q}" if q else ""), status_code=307)
 
 
 @router.get("/hongguo2", response_class=HTMLResponse)
@@ -98,16 +113,41 @@ def ui_hongguo2():
 @router.get("/films/ui", response_class=HTMLResponse)
 @router.get("/film", response_class=HTMLResponse)
 @router.get("/films", response_class=HTMLResponse)
-def ui_films():
-    """Films UI (thư viện phim / mùa mới) — cùng host :8801."""
+def ui_films(request: Request):
+    """Films UI (thư viện phim / mùa mới) — cùng host :8801.
+
+    fix 2026-11-14: `GET /films` cũng là API JSON danh sách phim (routes_films.list_films) mà CHÍNH films_ui.html
+    gọi (`fetch('/films?limit=…')`). Router này nạp trước nên trước đây mọi lời gọi đó nhận HTML → trang Phim hỏng
+    («reading 'series'»). Nay: trình duyệt mở trang (không query, Accept HTML) → HTML; còn lại → API JSON.
+    """
+    if request.url.path == "/films" and (request.query_params or "text/html" not in request.headers.get("accept", "")):
+        import os
+        on = os.getenv("PINELINE_ROUTERS")      # None = bật hết (V5); có giá trị = danh sách router instance bật
+        try:
+            if on is not None and "films" not in {x.strip() for x in on.split(",")}:
+                raise RuntimeError("instance không bật router «films»")
+            from http_routes import routes_films
+        except Exception as e:  # noqa: BLE001 — router films tắt / lỗi import
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"error": f"thư viện phim chưa bật trên instance này ({e})"}, status_code=404)
+        qp = request.query_params
+        try:
+            limit = int(qp.get("limit") or 5000)
+        except ValueError:
+            limit = 5000
+        from fastapi.responses import JSONResponse
+        # route khai báo response_class=HTMLResponse → phải tự bọc JSONResponse (dict trả thẳng sẽ hỏng 500)
+        return JSONResponse(routes_films.list_films(q=qp.get("q", ""), status=qp.get("status", ""), limit=limit,
+                                                    order=qp.get("order", "recent"), work_exists=qp.get("work_exists"),
+                                                    block_status=qp.get("block_status", "")))
     return _html_file("films_ui.html")
 
 
 @router.get("/studio", response_class=HTMLResponse)
 @router.get("/studio/ui", response_class=HTMLResponse)
 def ui_studio():
-    """Lồng tiếng Studio — UI3 ops shell."""
-    return _html_file("index3.html")
+    """Lồng tiếng Studio — nay là trang `/`."""
+    return index()
 
 
 @router.get("/v5-map", response_class=HTMLResponse)

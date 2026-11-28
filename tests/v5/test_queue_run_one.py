@@ -141,7 +141,9 @@ def test_missing_url_finalizes_running_stage(tmp_path, monkeypatch):
 
     assert result == ("failed", "manifest không có URL nguồn")
     saved = json.loads((work_dir / "manifest.json").read_text(encoding="utf-8"))
-    assert saved["stages"]["asr"]["status"] == "failed"
+    # 2026-11-21: lỗi thuộc bước Tải nguồn (trước ghi lên bước đầu lượt chạy = asr); asr không bị treo «running»
+    assert saved["stages"]["download"]["status"] == "failed"
+    assert saved["stages"]["asr"]["status"] == "pending"
 
 
 def test_download_failure_returns_detail_and_finalizes(tmp_path, monkeypatch):
@@ -156,7 +158,8 @@ def test_download_failure_returns_detail_and_finalizes(tmp_path, monkeypatch):
     assert status == "failed"
     assert "network down" in detail
     saved = json.loads((work_dir / "manifest.json").read_text(encoding="utf-8"))
-    assert saved["stages"]["asr"]["status"] == "failed"
+    assert saved["stages"]["download"]["status"] == "failed" and "network down" in saved["stages"]["download"]["error"]
+    assert saved["stages"]["asr"]["status"] == "pending"
 
 
 def test_executor_submission_failure_returns_detail(tmp_path, monkeypatch):

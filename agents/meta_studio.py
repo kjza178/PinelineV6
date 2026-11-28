@@ -31,6 +31,12 @@ SERIES_META_DIR = ROOT / "data" / "series_meta"
 SERIES_META_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _work_root() -> Path:
+    """Work root của instance đang chạy (fix 2026-11-14: trước cứng ROOT/"work")."""
+    from core.instance import work_root_now
+    return work_root_now(ROOT / "work")
+
+
 def to_series_slug(text: str) -> str:
     """Chuyển tên series sang slug không dấu (vd: 'Sinh Tồn Sa Mạc' -> 'sinh_ton_sa_mac')."""
     if not text:
@@ -195,54 +201,62 @@ def build_master_image_prompt(
     badge_text: str = "NEW",
     sub_text: str = "",
     font_material: str = "",
+    trust_hooks: bool = False,
+    typo_color: str = "",
+    typo_integration: str = "",
 ) -> str:
-    """Prompt ảnh AI: scene + chữ 3D LATIN (không dấu) — giảm gen sai chữ Việt có dấu.
+    """Prompt ảnh thumb NGẮN: ref poster + 2 dòng title + typo theo nền.
 
-    Badge NEW/HOT. Hook/sub đã sanitize; bản nung ảnh = vi_to_image_latin(...).
+    Bỏ khóa 3D-Latin/UE5/ice-chrome. Giữ chữ Việt có dấu (đúng title).
+    ``trust_hooks=True``: giữ đúng 2 dòng hook đã chốt. Tham số story/palette cũ
+    được bỏ qua (tương thích chữ ký) — ngoại hình 100% từ ảnh tham chiếu.
     """
-    title = clean_series_name(title_vi or "", fallback=title_vi) or title_zh or "donghua"
-    hooks = sanitize_hook_texts(hook_texts, title_vi=title_vi or title, title_zh=title_zh)
+    del story_moment, visual_dna, palette, layout, emotional_trigger
+    del font_material, typo_color, typo_integration  # không nhồi vào prompt ngắn
+    title = clean_series_name(title_vi or "", fallback=title_vi) or title_zh or "Donghua"
+    if trust_hooks and hook_texts and len([h for h in hook_texts if str(h or "").strip()]) >= 2:
+        hooks = [
+            re.sub(r"\s+", " ", str(hook_texts[0] or "").strip())[:56],
+            re.sub(r"\s+", " ", str(hook_texts[1] or "").strip())[:56],
+        ]
+    else:
+        hooks = sanitize_hook_texts(hook_texts, title_vi=title_vi or title, title_zh=title_zh)
     badge = pick_badge_text(badge_text, title_vi=title_vi)
-    sub = (sub_text or title).strip()[:48]
-    moment = (story_moment or emotional_trigger or "decisive confrontation from the plot").strip()
-    dna = (visual_dna or "main character faithful to reference image").strip()
-    colors = (palette or "palette matching the film's real setting, not generic fire-gold").strip()
-    lay = (layout or "character on the right third, bold 3D text on the left").strip()
-    mat = (font_material or "premium 3D metallic type matching the chosen color system").strip()
-    line1 = vi_to_image_latin(hooks[0])
-    line2 = vi_to_image_latin(hooks[1])
-    sub_img = vi_to_image_latin(sub)
-    # Spell-out giúp model ít đổi chữ: V O   D A O
-    def _spell(s: str) -> str:
-        return " · ".join(list(s.replace(" ", "  ")))
+    line1 = (hooks[0] or title).strip()
+    line2 = (hooks[1] if len(hooks) > 1 else "").strip()
+    sub = (sub_text or "").strip()[:48]
+    # Phụ đề đáy: bỏ nếu trùng một trong hai dòng title (tránh stamp lặp)
+    sub_use = ""
+    if sub:
+        su = sub.upper()
+        if su not in {line1.upper(), line2.upper(), title.upper()} and su not in {
+            f"{line1} {line2}".upper().strip(),
+        }:
+            sub_use = sub
 
-    return (
-        "REFERENCE IMAGE MANDATE: Strictly preserve the exact facial features, hairstyle, hair color, "
-        "gender, outfit design, and 3D/2D rendering style of the main character from the attached "
-        "reference image(s).\n\n"
-        f"Create a high-CTR 16:9 horizontal YouTube thumbnail for the donghua «{title}».\n\n"
-        f"STORY MOMENT (must match real plot, not a generic trope):\n{moment}\n\n"
-        f"CHARACTER & POSE:\n{dna}\n"
-        "Diverse pose matching THIS film — do NOT default to open palm shooting fire at camera.\n\n"
-        f"ENVIRONMENT & COLOR PALETTE:\n{colors}\n{lay}\n\n"
-        "INTEGRATED 3D LATIN TYPOGRAPHY (LEFT / TOP-LEFT — NO VIETNAMESE DIACRITICS):\n"
-        "Image models corrupt Vietnamese tone marks (ă â ê ô ơ ư ạ ệ…). "
-        "Therefore ALL on-image text MUST be ASCII uppercase Latin ONLY.\n"
-        f"- Top badge ribbon EXACTLY: \"{badge}\" "
-        "(NEW or HOT only — NEVER 'TRỌN BỘ THUYẾT MINH')\n"
-        f"- Main 3D Headline EXACTLY two lines (copy character-perfect, do not invent letters):\n"
-        f"  1) \"{line1}\"\n"
-        f"  2) \"{line2}\"\n"
-        f"  Letter check line1: {_spell(line1)}\n"
-        f"  Letter check line2: {_spell(line2)}\n"
-        f"  Material: {mat}. Sharp, high-contrast, readable on mobile.\n"
-        f"- Bottom subtitle banner EXACTLY: \"{sub_img}\"\n"
-        "Do NOT add extra words. Do NOT restore diacritics. Do NOT write Chinese characters.\n"
-        "Avoid cluttered HUD/stat bars unless the plot is literally a system/RPG panel moment.\n\n"
-        "QUALITY: 16:9 widescreen, Unreal Engine 5 / premium Chinese 3D donghua key art, "
-        "high contrast, rich depth of field, clear focal hierarchy."
-    )
-
+    parts = [
+        "Use the attached reference image to create the YouTube thumbnail.",
+        "Keep the same character(s), face, outfit, art style, colors, and lighting as the reference.",
+        "Remove Chinese titles, season marks (第X季), and watermarks from the reference — "
+        "no Chinese characters on the final image.",
+        "",
+        f'A breathtaking 16:9 YouTube thumbnail for the Chinese Donghua series «{title}».',
+        "",
+        f'- Top ribbon text: "{badge}"',
+        "- Title needs great typography (exact text, do not invent or misspell letters):",
+        f'  Line 1: "{line1}"',
+    ]
+    if line2:
+        parts.append(f'  Line 2: "{line2}"')
+    if sub_use:
+        parts.append(f'- Small bottom label (optional, keep short): "{sub_use}"')
+    parts += [
+        "",
+        "Typography must be designed from the reference background "
+        "(colors, contrast, mood) — readable on mobile, elegant, not a generic stamp.",
+        "Do not invent a different cast or costume. Do not add HUD/stat bars.",
+    ]
+    return "\n".join(parts)
 
 def finalize_thumb_meta_fields(
     data: dict, title_vi: str = "", title_zh: str = "", job_id: str = "",
@@ -536,7 +550,7 @@ def get_film_story_info(
     # 1. Nếu có job_id: Đọc manifest.json và .series.json trong thư mục nguồn
     if job_id:
         try:
-            work_dir = ROOT / "work" / str(job_id).strip()
+            work_dir = _work_root() / str(job_id).strip()
             mf_file = work_dir / "manifest.json"
             if mf_file.is_file():
                 mdata = json.loads(mf_file.read_text(encoding="utf-8"))
@@ -1017,10 +1031,11 @@ def _get_chatgpt_token() -> str:
 
 
 def _chatgpt_candidate_bases() -> list[str]:
-    """Ưu tiên CHATGPT_BASE_URL trong pineline.config (local :3377), rồi Aurora LAN."""
+    """Ưu tiên AURORA_BASE_URL / CHATGPT_BASE_URL trong pineline.config (local :3377), rồi dự phòng.
+    2026-11-19: địa chỉ LAN bị bỏ (machine.no_lan; ALLOW_LAN_LLM=1 mở)."""
     bases: list[str] = []
     for k in ("AURORA_BASE_URL", "CHATGPT_BASE_URL"):
-        v = _cfg(k).rstrip("/")
+        v = _machine.no_lan(k, _cfg(k).rstrip("/"))
         if v and v not in bases:
             bases.append(v)
     for u in _machine.aurora_base_urls():  # machine-config: :3377 + AURORA_FALLBACK_URLS
@@ -1035,7 +1050,7 @@ def extract_job_summary(job_id: str, max_chars: int = 5500) -> str:
     """
     if not job_id:
         return ""
-    work_dir = ROOT / "work" / str(job_id).strip()
+    work_dir = _work_root() / str(job_id).strip()
     if not work_dir.is_dir():
         return ""
 
@@ -1191,7 +1206,7 @@ def get_job_reference_images(job_id: str = "", poster_name: str = "") -> list[by
     để truyền vào Aurora /v1/images/edits giúp giữ đúng khuôn mặt, trang phục và art style nhân vật.
     """
     refs: list[bytes] = []
-    work_dir = (ROOT / "work" / str(job_id).strip()) if job_id else None
+    work_dir = (_work_root() / str(job_id).strip()) if job_id else None
     orig_path_str = ""
 
     if work_dir and (work_dir / "manifest.json").is_file():
@@ -1263,6 +1278,28 @@ def get_job_reference_images(job_id: str = "", poster_name: str = "") -> list[by
 
 
 def _call_chatgpt(messages: list[dict], model: str = "gpt-5-6") -> str:
+    """Viết tiêu đề / mô tả / tags: Aurora trước; Aurora không chạy / lỗi → AI dịch chính (vd DeepSeek) + dự phòng.
+    2026-11-21: máy không có Aurora trước rơi về model mặc định (llama local, thường không chạy) → metadata kiểu mẫu."""
+    try:
+        return _call_aurora(messages, model=model)
+    except Exception as e_aur:  # noqa: BLE001
+        print(f"[meta] Aurora lỗi ({type(e_aur).__name__}: {str(e_aur)[:120]}) → dùng AI dịch chính", flush=True)
+        from engines.llm import chat
+        from engines.translate_simple import cfg as _tc
+        main = _tc.review_model(None)
+        last: Exception = e_aur
+        for m in [main] + [x for x in _tc.fallback_models(main) if x != main]:
+            if not m:
+                continue
+            try:
+                return chat(messages, model=m, temperature=0.6, max_tokens=3500)
+            except Exception as e_m:  # noqa: BLE001
+                last = e_m
+                print(f"[meta] model {m} lỗi: {type(e_m).__name__}: {str(e_m)[:120]}", flush=True)
+        raise last
+
+
+def _call_aurora(messages: list[dict], model: str = "gpt-5-6") -> str:
     """Gọi LLM qua Aurora / Chat2Api chạy trên Raspberry Pi 5.
     Ưu tiên model mới nhất (gpt-5-6 Luna / auto GPT-6) và tự động fallback.
     """

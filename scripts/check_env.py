@@ -121,6 +121,38 @@ def check_torch(skip: bool) -> None:
         row("torch + CUDA", WARN, str(e)[:80])
 
 
+def check_python_pkgs() -> None:
+    """Python ĐANG chạy doctor có đủ thư viện của server không (2026-11-16: server chạy bằng python hệ thống thiếu demucs
+    → ASR bỏ bước tách giọng, chỉ thấy CẢNH BÁO trong log)."""
+    pick = ROOT / ".pineline_env_path"
+    venv = pick.read_text(encoding="utf-8").strip() if pick.is_file() else ""
+    same = (not venv) or Path(venv).resolve() == Path(sys.executable).resolve()
+    row("Python đang dùng", OK if same else WARN, sys.executable,
+        "" if same else f"run_v6.bat chạy server bằng {venv} — chạy doctor bằng python đó để kiểm đúng")
+    for mod, need, why in (("demucs", WARN, "tách giọng trước ASR (thiếu → ASR trên âm gốc, kém hơn) + âm nền demucs_*"),
+                           ("faster_whisper", OPT, "lời mẫu khi tạo giọng clone"),
+                           ("yt_dlp", WARN, "tải link không phải Bilibili / dự phòng Bilibili"),
+                           ("google_auth_oauthlib", WARN, "đăng YouTube + kênh test bản quyền (thiếu → trang Phim / Test BQ lỗi)"),
+                           ("googleapiclient", WARN, "đăng YouTube + kênh test bản quyền"),
+                           ("psutil", WARN, "dừng / dọn tiến trình engine"),
+                           ("funasr", OPT, "ASR Nano / Paraformer / SenseVoice — scripts\\install\\install_funasr_safe.bat")):
+        if importlib.util.find_spec(mod) is None:
+            row(f"thư viện {mod}", need, f"thiếu — {why}",
+                f"\"{sys.executable}\" -m pip install -r scripts\\install\\install\\requirements-main.txt")
+        else:
+            row(f"thư viện {mod}", OK, "có")
+    # 2026-11-19: FireRed KHÔNG cài bằng pip — mã nguồn ở vendor/FireRedASR2S, engine tự thêm vào sys.path
+    # (find_spec("fireredasr2s") luôn «thiếu» = báo sai). Kiểm thư viện phụ thuộc mà install_firered_asr.bat cài.
+    miss = [mod for mod in FIRERED_DEPS if importlib.util.find_spec(mod) is None]
+    row("thư viện cho FireRed", OPT if miss else OK,
+        f"thiếu {', '.join(miss)} — chỉ cần khi dùng ASR FireRed" if miss else "đủ (" + ", ".join(FIRERED_DEPS) + ")",
+        "scripts\\install_firered_asr.bat" if miss else "")
+
+
+# Thư viện pip mà FireRedASR2S cần (cùng danh sách scripts/install_firered_asr.bat cài) — tên module import.
+FIRERED_DEPS = ("cn2an", "kaldiio", "kaldi_native_fbank", "sentencepiece", "textgrid", "peft")
+
+
 def check_config_files() -> None:
     for name, need in (("pineline.config.json", True), ("config.json", False)):
         p = ROOT / name
@@ -137,7 +169,7 @@ def check_config_files() -> None:
 
 
 def _models_using(m, prefixes: tuple[str, ...]) -> list[str]:
-    keys = ("LLM_MODEL", "TRANSLATE_MODEL", "REVIEW_MODEL", "REVIEW_PASS1_MODEL", "PLAN_MODEL",
+    keys = ("TRANSLATE_MODEL", "REVIEW_MODEL", "REVIEW_PASS1_MODEL", "PLAN_MODEL",
             "AURORA_REVIEW_MODEL", "AGENT_MODEL", "NAME_MODEL", "PRONOUN_MODEL")
     out = []
     for k in keys:
@@ -147,22 +179,38 @@ def _models_using(m, prefixes: tuple[str, ...]) -> list[str]:
     return out
 
 
-def check_llm(m, offline: bool) -> None:
-    base = m.setting("LLM_BASE_URL").rstrip("/")
-    if offline:
-        row("LLM_BASE_URL", SKIP, f"{base} (offline)", "")
+def _tts_gpu_row(py: Path) -> None:
+    """2026-11-21: lồng tiếng (VieNeu) chạy GPU hay CPU = torch trong vieneu_env có CUDA không."""
+    if not py.is_file():
+        return
+    import subprocess
+    code = "import torch;print(torch.__version__, torch.cuda.is_available())"
+    try:
+        r = subprocess.run([str(py), "-c", code], capture_output=True, text=True, timeout=180)
+        out = (r.stdout or r.stderr or "").strip().splitlines()[-1:] or [""]
+        line = out[0]
+    except Exception as e:  # noqa: BLE001
+        row("Lồng tiếng GPU (vieneu_env)", WARN, f"không chạy được {py.name}: {e}")
+        return
+    if line.endswith("True"):
+        row("Lồng tiếng GPU (vieneu_env)", OK, f"torch {line} — lồng tiếng chạy GPU")
     else:
-        ok, d = _http_get(base + "/models")
-        row("LLM_BASE_URL", OK if ok else MISS, f"{base} → {d}",
-            "" if ok else "Bật llama-server/LLM, hoặc sửa LLM_BASE_URL (+LLM_API_KEY, LLM_MODEL) trong pineline.config.json")
+        row("Lồng tiếng GPU (vieneu_env)", WARN, f"torch {line or '?'} — lồng tiếng sẽ chạy CPU (rất chậm)",
+            f'"{py}" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128')
+
+
+def check_llm(m, offline: bool) -> None:
+    """2026-11-21: chỉ còn 3 loại AI — nhà cung cấp API, Aurora, AI trên máy (llama-server). LLM_BASE_URL bỏ."""
     lb = m.llama_base_url()
-    if lb.rstrip("/") != base:
-        if offline:
-            row("llama-server (LLAMA_BASE_URL)", SKIP, f"{lb} (offline)")
-        else:
-            ok, d = _http_get(m.llama_root_url() + "/health")
-            row("llama-server (LLAMA_BASE_URL)", OK if ok else OPT, f"{lb} → {d}",
-                "" if ok else "Chỉ cần khi dùng model 'local'/'llama/...'/TRANSLATE_PRESET. Sửa LLAMA_BASE_URL nếu llama chạy cổng khác")
+    if m.setting("LLM_BASE_URL", "") or m.setting("AGENT_BASE_URL", ""):
+        row("LLM_BASE_URL / AGENT_BASE_URL", WARN, "còn trong pineline.config.json nhưng V6 không đọc nữa",
+            "Có thể xoá 2 khoá này (và CLOUD_LLM_*) khỏi pineline.config.json")
+    if offline:
+        row("AI trên máy (LLAMA_BASE_URL)", SKIP, f"{lb} (offline)")
+    else:
+        ok, d = _http_get(m.llama_root_url() + "/health")
+        row("AI trên máy (LLAMA_BASE_URL)", OK if ok else OPT, f"{lb} → {d}",
+            "" if ok else "Chỉ cần khi dùng model 'local'. Sửa ở Cài đặt → AI → AI trên máy nếu llama chạy cổng khác")
     why = m.preset_switch_unavailable_reason()
     if not why:
         row("Đổi preset llama", OK, " ".join(m.model_start_cmd("<preset>"))[:110])
@@ -192,28 +240,23 @@ def check_aurora(m, offline: bool) -> None:
 
 
 def check_cloud(m, offline: bool) -> None:
+    """Model ollama/…-cloud (9router) — V6 bỏ hoàn toàn (2026-11-21): còn key nào dùng thì báo đổi."""
     used = _models_using(m, ("ollama/",))
-    if not used:
-        return
-    b = m.cloud_llm_base_url()
-    has_key = bool(m.setting("CLOUD_LLM_API_KEY", "") or "20128" in m.setting("LLM_BASE_URL", ""))
-    if offline:
-        row("9router/cloud LLM", WARN if not has_key else SKIP, f"{b} (offline) — dùng bởi {', '.join(used)}",
-            "" if has_key else "Thiếu CLOUD_LLM_API_KEY")
-        return
-    ok, d = _http_get(b + "/models")
-    row("9router/cloud LLM", OK if ok else MISS, f"{b} → {d}; dùng bởi {', '.join(used)}",
-        "" if ok else "Sửa CLOUD_LLM_BASE_URL/CLOUD_LLM_API_KEY hoặc đổi các model ollama/...-cloud")
+    if used:
+        row("9router/cloud LLM", MISS, f"V6 không dùng 9router — dùng bởi {', '.join(used)}",
+            "Đổi các key trên sang deepseek/…, alibaba/…, chatgpt/… hoặc 'local' (Cài đặt → AI)")
 
 
 def check_hongguo(m, offline: bool) -> None:
-    b = m.hongguo_base_url()
-    if offline:
-        row("Hongguo Downloader", OPT, f"{b} (offline) — chỉ cần khi tải Hongguo")
+    """Hongguo 2 (engine RPC). Hongguo 1 (Downloader :8000) đã bỏ khỏi V6 — 2026-11-15."""
+    try:
+        import agents.hongguo_rpc as rpc
+        ed = rpc.engine_dir()
+        ok = rpc.helper_available()
+    except Exception as e:  # noqa: BLE001
+        row("Hongguo 2", OPT, f"lỗi dò engine: {e}", "Chỉ cần khi tải phim Hongguo")
         return
-    ok, d = _http_get(b + "/", timeout=2.0)
-    row("Hongguo Downloader", OK if ok else OPT, f"{b} → {d}",
-        "" if ok else "Chỉ cần khi dùng tải Hongguo: mở Hongguo Downloader hoặc sửa HONGGUO_BASE_URL")
+    row("Hongguo 2", OK if ok else OPT, str(ed), "" if ok else "Chỉ cần khi tải phim Hongguo: cài / mở Hongguo 2")
 
 
 def _dir_row(item: str, p: Path | None, status_if_missing: str, fix: str, want_file: str = "") -> None:
@@ -246,25 +289,30 @@ def check_dirs(m) -> None:
     _dir_row("voice_samples/", ROOT / "voice_samples", OPT, copy)
     _dir_row("models/ (cdx23, …)", ROOT / "models", OPT, copy + " — cần cho tách nhạc nền/âm thanh")
     _dir_row("cookies/", ROOT / "cookies", OPT, copy + " — cần khi tải Douyin/Bilibili/YouTube")
-    w = ROOT / "work"
-    wd = m.setting("WORK_DIR", "")
-    if wd:
-        _dir_row("WORK_DIR", Path(wd), MISS, "Tạo thư mục WORK_DIR hoặc sửa key")
-    else:
-        _dir_row("work/", w, MISS, "Tạo thư mục work (hoặc junction: mklink /J work E:\\pineline_work)")
-    mt_on = m.flag("MT_ZH_VI", "0")
-    mt_local = m.setting("MT_ZH_VI_LOCAL", "")
-    _dir_row("MT model (MT_MODEL_DIR)", Path(mt_local) if mt_local else m.mt_model_dir(), WARN if mt_on else OPT,
-             "Chép thư mục model MT (HachimiMT ct2) hoặc để tự tải từ HuggingFace lần đầu; sửa MT_MODEL_DIR/MT_ZH_VI_LOCAL")
-    fr = m.setting("FIRERED_ROOT", "")
-    _dir_row("FIRERED_ROOT", Path(fr) if fr else ROOT / "vendor" / "FireRedASR2S", OPT,
-             "Chỉ cần khi dùng ASR FireRed: chép FireRedASR2S, sửa FIRERED_ROOT")
-    fm = m.setting("FIRERED_MODELS", "")
-    if fm:
-        _dir_row("FIRERED_MODELS", Path(fm), OPT, "python scripts/download_firered_models.py hoặc chép tay")
+    # 2026-11-19 portable: thư mục job/tạm theo instance (instances/<tên>.json + <tên>.local.json), không cứng ROOT/work
+    try:
+        from core.instance import load as _load_inst
+        inst = _load_inst()
+        hint = (f"Chạy run_v6.bat (tự tạo), hoặc sửa work_root/temp trong instances/{inst.name}.local.json")
+        _dir_row(f"work_root ({inst.name})", inst.work_root, MISS, hint)
+        _dir_row(f"temp ({inst.name})", inst.temp, OPT, hint)
+    except Exception as e:  # noqa: BLE001
+        row("instance", MISS, f"không đọc được instance: {e}", "Kiểm instances/v6.json và v6.local.json (JSON hợp lệ)")
+    # NMT (MT_ZH_VI / HachimiMT) đã bỏ khỏi V6 (2026-11-17) — không kiểm thư mục model MT nữa
+    # FireRed: cùng hàm với engine + Cài đặt (core.machine.firered_status); bắt buộc khi Cài đặt chọn ASR FireRed
+    try:
+        import core.batch_config as _bc
+        fr_used = str(_bc.load().get("asr_engine") or "") == "firered_asr"
+    except Exception:  # noqa: BLE001
+        fr_used = False
+    fs = m.firered_status()
+    row("ASR FireRed", OK if fs["ok"] else (MISS if fr_used else OPT),
+        f"{fs['root']} · model {fs['models']}" if fs["ok"] else fs["why"],
+        "" if fs["ok"] else "scripts\\install_firered_asr.bat — hoặc Cài đặt → Giọng đọc → Nhận dạng tiếng Trung chọn «Nano + căn thời gian»")
     vp = m.setting("VIENEU_PY", "")
     if vp:
         _dir_row("VIENEU_PY", Path(vp), MISS, "python install.py --gpu (tạo vieneu_env) hoặc sửa VIENEU_PY")
+        _tts_gpu_row(Path(vp))
     else:
         row("VIENEU_PY", OPT, "chưa đặt — dùng ../vieneu_env", "python install.py --gpu")
     hf = m.setting("HF_HOME", "")
@@ -287,6 +335,7 @@ def main(argv: list[str] | None = None) -> int:
     check_python()
     check_programs()
     check_torch(a.no_torch)
+    check_python_pkgs()
     check_config_files()
     cfg, m = _load_machine()
     if m is not None:

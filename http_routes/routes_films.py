@@ -35,7 +35,9 @@ def _get_base_url(req: Request) -> str:
 @router.get("/films/ui", response_class=HTMLResponse)
 @router.get("/library/ui", response_class=HTMLResponse)
 def films_ui():
-    for p in (ROOT / "static" / "ui" / "films_ui.html", ROOT / "films_ui.html"):
+    # 2026-11-27: bản duy trì là films_ui.html ở gốc (như routes_ui /films/ui) — trước /library/ui ưu tiên bản cũ
+    # static/ui/ (còn hộp Cài đặt V4, tài khoản V2)
+    for p in (ROOT / "films_ui.html", ROOT / "static" / "ui" / "films_ui.html"):
         if p.exists():
             from core.instance import localize_html  # review2: :8801/:8802 cứng → instance
             return HTMLResponse(localize_html(p.read_text(encoding="utf-8"), server=""))
@@ -53,8 +55,8 @@ def list_films(
 ):
     try:
         film_db.sync_uploads()
-    except Exception:
-        pass
+    except Exception as e:  # noqa: BLE001
+        print(f"[films] sync_uploads lỗi (vẫn trả danh sách): {e}", flush=True)
 
     rows = film_db.query(
         q=q,
@@ -65,6 +67,7 @@ def list_films(
         block_status=block_status,
     )
     return {
+        "ok": True,   # trang Phim cũ (films_ui.html) đòi d.ok — thiếu → «Lỗi: Không đọc được dữ liệu» (fix 2026-11-15)
         "total": len(rows),
         "stats": film_db.stats(),
         "films": rows,
@@ -296,20 +299,46 @@ def tc_auth_url(req: Request, redirect_uri: Optional[str] = Query(None), project
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
+def _yt_account_callback(code: str, state: str, redirect_uri: str):
+    from services import yt_accounts
+    try:
+        acc = yt_accounts.finish(code, state, redirect_uri)["account"]
+    except Exception as e:  # noqa: BLE001
+        print(f"[yt-accounts] đăng nhập kênh lỗi: {e}", flush=True)
+        return HTMLResponse(f"<meta charset='utf-8'><h3>Không thêm được kênh: {e}</h3>", status_code=500)
+    try:
+        from events.bus import bus
+        bus.publish("yt.accounts.changed", {"id": acc["id"], "title": acc["title"]})
+    except Exception as e_pub:  # noqa: BLE001
+        print(f"[yt-accounts] publish lỗi: {e_pub}", flush=True)
+    import html as _h
+    return HTMLResponse(f"""<html><head><meta charset="utf-8"></head><body style="background:#0f172a;color:#f8fafc;
+        font-family:sans-serif;padding:40px;text-align:center"><h2 style="color:#22c55e">Đã thêm kênh đăng phim</h2>
+        <p><b>{_h.escape(acc['title'])}</b></p><p style="color:#94a3b8">Đóng trang này — Pineline tự cập nhật.</p>
+        <script>setTimeout(function(){{ window.close(); }}, 3000);</script></body></html>""")
+
+
 @router.get("/test-channel/callback")
 def tc_callback(req: Request, code: str = Query(""), state: str = Query("")):
     host = req.headers.get("host") or _host_fallback()
     redirect_uri = f"http://{host}/test-channel/callback"
     if not code:
         return HTMLResponse("<h3>⚠️ Không tìm thấy authorization code từ Google.</h3>", status_code=400)
+    if state.startswith("yt-"):          # 2026-11-21: đăng nhập kênh ĐĂNG phim (services/yt_accounts)
+        return _yt_account_callback(code, state, redirect_uri)
     try:
         res = test_channel.finish_oauth(code, redirect_uri, project_id=state)
         ch_name = res.get("channel_title") or "Kênh Test"
+        try:   # báo app (SSE) — hộp Test bản quyền tự nạp lại tài khoản, không polling (2026-11-16)
+            from events.bus import bus
+            bus.publish("test_channel.changed", {"project_id": state, "channel_title": ch_name})
+        except Exception as e_pub:  # noqa: BLE001
+            print(f"[test-channel] publish test_channel.changed lỗi: {e_pub}", flush=True)
         html = f"""
         <html><head><meta charset="utf-8"></head><body style="background:#0f172a;color:#f8fafc;font-family:sans-serif;padding:40px;text-align:center">
         <h2 style="color:#22c55e">🎉 Kết nối Kênh Phụ thành công!</h2>
         <p>Đã cấp quyền cho kênh: <b>{ch_name}</b></p>
-        <p style="color:#94a3b8">Cửa sổ này sẽ tự đóng sau 3 giây...</p>
+        <p style="color:#94a3b8">Có thể đóng trang này và quay lại Pineline — app tự cập nhật.</p>
         <script>setTimeout(function(){{ window.close(); }}, 3000);</script>
         </body></html>
         """
@@ -357,7 +386,8 @@ def tc_batch_start(payload: Dict[str, Any] = Body(...)):
     title_vi_map = payload.get("title_vi_map")
     limit = int(payload.get("limit") or 500)
     auto_delete = bool(payload.get("auto_delete", False))
-    res = test_channel.start_batch_test(names=names, limit=limit, auto_delete=auto_delete, title_vi_map=title_vi_map)
+    res = test_channel.start_batch_test(names=names, limit=limit, auto_delete=auto_delete, title_vi_map=title_vi_map,
+                                        project_id=str(payload.get("project_id") or "") or None)
     return JSONResponse(res, status_code=200 if res.get("ok") else 400)
 
 

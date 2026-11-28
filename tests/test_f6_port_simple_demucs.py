@@ -83,11 +83,30 @@ def test_stage_gate_hold_and_qa_override(job):
     assert rr.status == "done" and ag.get("held_at") != "simple_gate"
 
 
-def test_stage_engine_error_parks_not_fail(job):
-    def boom(*a, **k):
-        raise RuntimeError("cloud 503")
-    rr = Runner(simple_translate_steps(runner=boom)).run(_ctx(job))
-    assert rr.status == "park" and "lỗi: cloud 503" in _man(job)["agent"]["hold_reason"]
+def test_stage_transient_error_parks_not_fail(job):
+    """Lỗi tạm (cloud limit / timeout / mất kết nối) → park: hàng chờ tự thử lại (B2)."""
+    for exc in (RuntimeError("429 rate limit"), TimeoutError("read timed out"), ConnectionError("reset")):
+        def boom(*a, _e=exc, **k):
+            raise _e
+        rr = Runner(simple_translate_steps(runner=boom)).run(_ctx(job))
+        assert rr.status == "park", exc
+        assert "lỗi tạm" in _man(job)["agent"]["hold_reason"]
+        assert _man(job)["stages"].get("translate", {}).get("status") != "failed"
+
+
+def test_stage_code_error_fails_at_once_with_traceback(job):
+    """R1.3: lỗi không phải cloud (bug code) → KHÔNG park / đếm lượt thử lại; stage translate = failed ngay,
+    traceback đủ nằm trong <job>/translate_error.log."""
+    def bug(*a, **k):
+        raise KeyError("truong_khong_ton_tai")
+    rr = Runner(simple_translate_steps(runner=bug)).run(_ctx(job))
+    m = _man(job)
+    assert rr.status == "fail" and "KeyError" in rr.detail
+    assert m["stages"]["translate"]["status"] == "failed" and "KeyError" in m["stages"]["translate"]["error"]
+    ag = m.get("agent") or {}
+    assert "review_retries" not in ag and ag.get("held_at") != "waiting_review"
+    log = (job / "translate_error.log").read_text(encoding="utf-8")
+    assert "Traceback" in log and "truong_khong_ton_tai" in log
 
 
 def test_stage_stop_is_stopped_not_park(job):

@@ -656,3 +656,26 @@ def test_simple_heals_asr_stutter_like_old_flow(tmp_path, monkeypatch):
     monkeypatch.setattr(llm, "chat", FakeLLM("echo"))
     pipeline.run(wd, "Tiếng Việt")
     assert _read(wd)[1]["zh"] == "好好好好"
+
+
+def test_pair_fill_falls_back_to_backup_model(tmp_path, monkeypatch):
+    """2026-11-27 (port V2 11-22): model chính của «bổ sung cặp» hỏng → thử model dự phòng (SIMPLE_FALLBACK_MODEL)."""
+    monkeypatch.setenv("SIMPLE_PAIR_FILL", "1")
+    monkeypatch.setenv("SIMPLE_PAIR_FILL_MODEL", "chatgpt/hong")
+    monkeypatch.setenv("SIMPLE_FALLBACK_MODEL", "chatgpt/du-phong")
+    monkeypatch.setenv("SIMPLE_LOCAL_FALLBACK", "0")
+    wd = _job(tmp_path, plan=PLAN_F, segs=SEGS_F)
+    _nmt(monkeypatch, table=NMT_F)
+    fake = FillFake(GOOD_FILL)
+    fill_models = []
+
+    def spy(messages, model=None, **kw):
+        if "chuyên gia xưng hô" in messages[0]["content"]:
+            fill_models.append(model)
+            if model == "chatgpt/hong":
+                raise RuntimeError("Aurora/ChatGPT 402 (no-retry) insufficient balance")
+        return fake(messages, model, **kw)
+    monkeypatch.setattr(llm, "chat", spy)
+    res = pipeline.run(wd, "Tiếng Việt")
+    assert fill_models[:2] == ["chatgpt/hong", "chatgpt/du-phong"]
+    assert res["review"]["pair_fill"]["added"] == 1

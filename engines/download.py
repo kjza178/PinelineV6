@@ -358,6 +358,12 @@ def download_video(
     url = normalize_url(url)
     platform = detect_platform(url)
 
+    # 2026-11-16: Bilibili → bộ tải gốc (engines/bili: API DASH + CDN UPOS + đa luồng). Lỗi → rơi xuống yt-dlp bên dưới.
+    if platform == "bilibili" and _bili_native_on():
+        res = _download_bili_native(url, work_dir, cookies=cookies, cookies_dir=cookies_dir, proxy=proxy)
+        if res is not None:
+            return res
+
     user_cap = _cfg_max_height()
     # opts nền (cookie/proxy) trước để probe duration
     ydl_opts: dict = {
@@ -661,6 +667,89 @@ def download_video(
     )
     # agentK 2026-11-12: preflight nguồn ngay sau tải (VIDEO_PREFLIGHT=1) — lỗi audio → chuẩn hoá;
     # không cứu được → stage download failed với lý do rõ (không để ASR fail mã 1).
+    try:
+        from engines.source_preflight import PreflightError, after_download
+    except ImportError:
+        return result
+    try:
+        if after_download(work_dir, video_path) is not None:
+            result = Manifest(work_dir).stage(STAGE) or result
+    except PreflightError as e:
+        js.mark_failed(work_dir, STAGE, e)
+        raise RuntimeError(str(e)) from e
+    except Exception as e:  # noqa: BLE001
+        print(f"[preflight] lỗi bất ngờ ({type(e).__name__}: {e}) — bỏ qua, dùng nguồn gốc")
+    return result
+
+
+def _bili_native_on() -> bool:
+    import os
+    try:
+        from core.config import get as cfg
+    except Exception:  # noqa: BLE001
+        def cfg(k, d=""):  # type: ignore
+            return os.getenv(k, d)
+    return str(os.getenv("BILI_NATIVE") or cfg("BILI_NATIVE", "1") or "1").strip().lower() not in ("0", "false", "off", "no")
+
+
+def _bili_cookie_header(cookies: str | None, cookies_dir) -> str:
+    """Cookie cho bộ tải gốc: file --cookies (Netscape) nếu có, không thì cookies/bilibili_cookies.*."""
+    from engines.bili import cookies as bck
+    if cookies and Path(cookies).is_file():
+        try:
+            d = bck._parse_netscape(Path(cookies).read_text(encoding="utf-8", errors="replace"))
+            if d:
+                return "; ".join(f"{k}={v}" for k, v in d.items())
+        except OSError as e:
+            print(f"[bili] đọc cookie {cookies} lỗi: {e}", flush=True)
+    return bck.header()
+
+
+def _download_bili_native(url: str, work_dir: Path, *, cookies=None, cookies_dir=None, proxy=None) -> dict | None:
+    """Tải Bilibili bằng engines/bili. Thành công → mark_done + preflight như nhánh yt-dlp, trả stage.
+    Lỗi → ghi log, trả None (gọi tiếp yt-dlp). Bị dừng («tải lại từ đầu») → {}."""
+    from engines.bili import fetch as bfetch
+    if proxy:
+        print("[bili] có proxy → dùng yt-dlp (bộ tải gốc chưa hỗ trợ proxy)")
+        return None
+    t_last = [0.0]
+
+    def on_progress(done: int, total: int, speed: float) -> None:
+        now = _time_mod.time()
+        if now - t_last[0] < 1.0 and done < total:
+            return
+        t_last[0] = now
+
+        def fn(d):
+            st = d.setdefault("stages", {}).setdefault(STAGE, {})
+            st.update({"status": "running", "downloaded": done, "total": total or None,
+                       "progress": round(min(done / total * 100, 100), 1) if total else None,
+                       "speed": round(speed) if speed > 0 else None,
+                       "eta": round((total - done) / speed) if total and speed > 0 and total > done else None,
+                       "cur_text": "tải Bilibili (gốc)", "updated_at": now})
+        js.try_mutate(work_dir, fn)
+
+    user_cap = _cfg_max_height()
+    try:
+        meta = bfetch.download(url, work_dir, cookie=_bili_cookie_header(cookies, cookies_dir),
+                               max_height=lambda dur: _auto_height_for_duration(dur, user_cap),
+                               prefer_hevc=_cfg_prefer_hevc(), stop=lambda: _is_stopped(work_dir),
+                               on_progress=on_progress)
+    except bfetch.Stopped:
+        print(f"[stop] tải Bilibili job {work_dir.name} dừng")
+        return {}
+    except Exception as e:  # noqa: BLE001 — bộ tải gốc lỗi → yt-dlp thử tiếp, ghi lý do để tra
+        print(f"[bili] bộ tải gốc lỗi: {type(e).__name__}: {e} → chuyển sang yt-dlp", flush=True)
+        return None
+    if meta.get("duration_sec") and meta["duration_sec"] >= 2 * 3600 and not _cfg_max_height():
+        print(f"[bili] phim dài {int(meta['duration_sec'] / 3600)}h — đã tải {meta.get('height')}p")
+    video_path = str(work_dir / "source.mp4")
+    (work_dir / "meta.json").write_text(json.dumps({k: meta.get(k) for k in (
+        "platform", "source_url", "title", "id", "duration_sec", "uploader", "width", "height", "vcodec", "webpage_url")},
+        ensure_ascii=False, indent=2), encoding="utf-8")
+    js.mark_done(work_dir, STAGE, video_path=video_path, **meta)
+    result = Manifest(work_dir).stage(STAGE) or {"video_path": video_path, **meta}
+    print(f"[ok] Tải xong (Bilibili gốc): {meta.get('title')} | {meta.get('height')}p | {meta.get('quality')}")
     try:
         from engines.source_preflight import PreflightError, after_download
     except ImportError:

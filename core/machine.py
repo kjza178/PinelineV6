@@ -9,7 +9,7 @@ MẶC ĐỊNH = giá trị cứng cũ của máy gốc → máy hiện tại kh�
 Dịch vụ TUỲ CHỌN (thiếu thì tính năng đó báo lỗi rõ / bỏ qua, pipeline không sập):
   - llama-server + presets (đổi model GGUF bằng script)      → AUTO_SWITCH_PRESETS, MODEL_PRESETS_DIR...
   - Aurora / ChatGPT proxy (model `chatgpt/...`)             → AURORA_BASE_URL / CHATGPT_BASE_URL
-  - Hongguo Downloader (tải phim Hongguo)                    → HONGGUO_BASE_URL
+  - Hongguo 2 (tải phim — engine RPC, agents/hongguo_rpc)    → HG2_* / tự dò thư mục cài
   - 9router / cloud LLM (model `ollama/...-cloud`)           → CLOUD_LLM_BASE_URL
 
 Chỉ dùng stdlib (scripts/check_env.py import được khi chưa cài requirements).
@@ -29,18 +29,15 @@ except ImportError:  # pragma: no cover - V4
 
 # Key máy → (mặc định, mô tả ngắn). Dùng cho config.example.json + doctor.
 MACHINE_KEYS: dict[str, tuple[str, str]] = {
-    "LLM_BASE_URL": ("http://192.168.31.247:20128/v1", "LLM chính (OpenAI-compatible) cho dịch/review: llama-server, 9router, Ollama /v1, OpenAI..."),
-    "LLAMA_BASE_URL": ("", "llama-server /v1 (GGUF local). Trống = LLM_BASE_URL nếu trỏ localhost, không thì http://127.0.0.1:8083/v1"),
+    "LLAMA_BASE_URL": ("", "llama-server /v1 (AI trên máy, model «local»). Trống = http://127.0.0.1:8083/v1"),
     "AUTO_SWITCH_PRESETS": ("1", "1 = tự đổi preset llama (TRANSLATE_PRESET/REVIEW_PRESET) bằng script; 0 = không bao giờ đổi, dùng model đang chạy"),
     "MODEL_PRESETS_DIR": (r"E:\models\presets", "Thư mục presets llama.cpp (active.json, models.json, script khởi động). Không tồn tại = bỏ qua đổi preset"),
     "MODEL_START_SCRIPT": ("start-model.ps1", "Script đổi preset (tương đối theo MODEL_PRESETS_DIR hoặc đường dẫn tuyệt đối)"),
     "MODEL_START_CMD": ("", "Lệnh đổi preset tuỳ ý; placeholder {script} {preset} {presets_dir} {host} {port} {base_url}. Trống = powershell -ExecutionPolicy Bypass -File {script} {preset}"),
     "AURORA_BASE_URL": ("", "Aurora/ChatGPT proxy cho model chatgpt/... (ưu tiên trước CHATGPT_BASE_URL)"),
     "CHATGPT_BASE_URL": ("http://127.0.0.1:3377/v1", "Proxy ChatGPT local (plan/review/agent dùng model chatgpt/...)"),
-    "AURORA_FALLBACK_URLS": ("http://192.168.31.247:5005/v1,http://192.168.31.244:5005/v1", "Aurora dự phòng (phân cách dấu phẩy). 'off' = không dùng"),
-    "AGENT_BASE_URL": ("", "LLM cho agent chat/feeder; trống = LLM_BASE_URL"),
-    "CLOUD_LLM_BASE_URL": ("http://192.168.31.247:20128/v1", "9router cho model ollama/...-cloud (cần CLOUD_LLM_API_KEY)"),
-    "HONGGUO_BASE_URL": ("http://127.0.0.1:8000", "Hongguo Downloader HTTP API — chỉ cần khi dùng tải Hongguo"),
+    "AURORA_FALLBACK_URLS": ("", "Aurora dự phòng (phân cách dấu phẩy). Trống/'off' = không dùng. Địa chỉ LAN chỉ dùng khi ALLOW_LAN_LLM=1"),
+    "ALLOW_LAN_LLM": ("0", "1 = cho phép gọi LLM/Aurora ở địa chỉ LAN (192.168.x, 10.x, 172.16–31.x). Mặc định 0: bỏ qua, không làm dự phòng"),
     "MT_MODEL_DIR": (r"E:\models\mt", "Thư mục model MT zh→vi (HachimiMT ct2); MT_ZH_VI_LOCAL = trỏ thẳng 1 model"),
     "LIBRARY_DIR": (r"D:\Lib", "Thư viện phim tải về (Hongguo output / nguồn job)"),
     "YT_UPLOADER_DIR": (r"Z:\yt_uploader", "Thư mục tool yt_uploader (accounts, client_secret.json, queue_state.json)"),
@@ -89,11 +86,12 @@ DEFAULT_LLAMA_BASE_URL = "http://127.0.0.1:8083/v1"
 
 
 def llama_base_url() -> str:
-    """URL /v1 của llama-server: LLAMA_BASE_URL > LLM_BASE_URL (chỉ khi localhost) > :8083 cũ."""
-    v = setting("LLAMA_BASE_URL", "")
+    """URL /v1 của llama-server (AI trên máy): LLAMA_BASE_URL > :8083.
+    2026-11-21: V6 chỉ còn 3 loại AI — nhà cung cấp API (deepseek/…, alibaba/…), Aurora (chatgpt/…), AI trên máy
+    (local). LLM_BASE_URL / AGENT_BASE_URL / CLOUD_LLM_* (9router LAN cũ) KHÔNG còn được đọc."""
+    v = no_lan("LLAMA_BASE_URL", setting("LLAMA_BASE_URL", ""))      # LAN → bỏ (ALLOW_LAN_LLM=1 mở)
     if not v:
-        llm = setting("LLM_BASE_URL", "")
-        v = llm if (llm and is_loopback_url(llm)) else DEFAULT_LLAMA_BASE_URL
+        v = DEFAULT_LLAMA_BASE_URL
     v = v.rstrip("/")
     return v if v.endswith("/v1") else v + "/v1"
 
@@ -170,12 +168,47 @@ def preset_switch_unavailable_reason() -> str:
     return ""
 
 
+# ── Địa chỉ LAN (V6 2026-11-17: không gọi máy khác trong mạng nội bộ làm dự phòng) ──────────────
+_LAN_WARNED: set[tuple[str, str]] = set()
+
+
+def is_lan_url(url: str) -> bool:
+    """True nếu URL trỏ IP mạng nội bộ (192.168.x, 10.x, 172.16–31.x, 169.254.x) — KHÔNG tính loopback."""
+    import ipaddress
+    try:
+        host = urlsplit((url or "").strip()).hostname or ""
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return (ip.is_private or ip.is_link_local) and not ip.is_loopback
+
+
+def lan_llm_allowed() -> bool:
+    return setting("ALLOW_LAN_LLM", "0").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _warn_lan_once(key: str, url: str) -> None:
+    if (key, url) in _LAN_WARNED:
+        return
+    _LAN_WARNED.add((key, url))
+    print(f"[machine] bỏ qua {key}={url} (địa chỉ LAN — V6 không gọi máy LAN làm dự phòng; "
+          f"đặt ALLOW_LAN_LLM=1 nếu thật sự muốn)", flush=True)
+
+
+def no_lan(key: str, url: str, fallback: str = "") -> str:
+    """Trả url nếu không phải LAN (hoặc ALLOW_LAN_LLM=1); không thì `fallback` (+ cảnh báo 1 lần)."""
+    if url and is_lan_url(url) and not lan_llm_allowed():
+        _warn_lan_once(key, url)
+        return fallback
+    return url
+
+
 # ── Aurora / ChatGPT proxy ───────────────────────────────────────────────────
 def aurora_base_urls() -> list[str]:
     """Thứ tự thử: AURORA_BASE_URL, CHATGPT_BASE_URL, :3377 local, AURORA_FALLBACK_URLS."""
     out: list[str] = []
     for k in ("AURORA_BASE_URL", "CHATGPT_BASE_URL"):
-        v = setting(k, "").rstrip("/")
+        v = no_lan(k, setting(k, "").rstrip("/"))       # 2026-11-19: cả URL chính LAN cũng bỏ (ALLOW_LAN_LLM=1 mở)
         if v and v not in out:
             out.append(v)
     dflt = MACHINE_KEYS["CHATGPT_BASE_URL"][0]
@@ -185,8 +218,12 @@ def aurora_base_urls() -> list[str]:
     if fb.strip().lower() not in _OFF:
         for u in fb.split(","):
             u = u.strip().rstrip("/")
-            if u and u not in out:
-                out.append(u)
+            if not u or u in out:
+                continue
+            if is_lan_url(u) and not lan_llm_allowed():
+                _warn_lan_once("AURORA_FALLBACK_URLS", u)
+                continue
+            out.append(u)
     return out
 
 
@@ -205,16 +242,13 @@ def aurora_missing_hint() -> str:
     keys = ", ".join(used) or "PLAN_MODEL/REVIEW_MODEL/REVIEW_PASS1_MODEL"
     return (f"Không tới được Aurora/ChatGPT ({', '.join(aurora_base_urls())}). "
             f"Máy này không có Aurora → đặt AURORA_BASE_URL/CHATGPT_BASE_URL đúng, HOẶC đổi {keys} "
-            f"sang model khác (vd 'local' = llama-server, hoặc model của LLM_BASE_URL) trong pineline.config.json.")
+            f"sang model khác (deepseek/…, alibaba/… hoặc 'local' = AI trên máy) trong Cài đặt → AI.")
 
 
 # ── Dịch vụ / thư mục khác ───────────────────────────────────────────────────
 def cloud_llm_base_url() -> str:
-    return setting("CLOUD_LLM_BASE_URL").rstrip("/")
-
-
-def hongguo_base_url() -> str:
-    return setting("HONGGUO_BASE_URL").rstrip("/")
+    """2026-11-21: router cloud (9router) đã bỏ hoàn toàn — luôn trống (giữ hàm cho code cũ gọi)."""
+    return ""
 
 
 def mt_model_dir() -> Path:
@@ -239,7 +273,6 @@ def yt_uploader_dir() -> Path:
 def summary() -> dict:
     """Giá trị hiệu lực (doctor / debug). Không trả key bí mật."""
     return {
-        "LLM_BASE_URL": setting("LLM_BASE_URL"),
         "LLAMA_BASE_URL(effective)": llama_base_url(),
         "AUTO_SWITCH_PRESETS": setting("AUTO_SWITCH_PRESETS"),
         "MODEL_PRESETS_DIR": str(presets_dir()),
@@ -247,9 +280,100 @@ def summary() -> dict:
         "MODEL_START_CMD": setting("MODEL_START_CMD", "") or "(PowerShell mặc định)",
         "preset_switch": preset_switch_unavailable_reason() or "OK",
         "AURORA(bases)": ", ".join(aurora_base_urls()),
-        "CLOUD_LLM_BASE_URL": cloud_llm_base_url(),
-        "HONGGUO_BASE_URL": hongguo_base_url(),
         "MT_MODEL_DIR": str(mt_model_dir()),
         "LIBRARY_DIR": str(library_dir()),
         "YT_UPLOADER_DIR": str(yt_uploader_dir()),
     }
+
+
+# ── Thư mục máy sửa được từ giao diện (Cài đặt → Thư mục, /api/v6/paths) ──
+# 2026-11-15: thay tab «Thư Viện & Ổ Đĩa» trong hộp «Cài Đặt Hệ Thống V4» của trang Phim cũ (hộp đó còn ghi đè khoá AI).
+PATH_KEYS = ("LIBRARY_DIR", "YT_UPLOADER_DIR", "LIB_SAMPLE_DIR")
+
+
+def paths_snapshot() -> dict:
+    out = {}
+    for k in PATH_KEYS:
+        default, desc = MACHINE_KEYS[k]
+        v = setting(k, default)
+        out[k] = {"value": v, "default": default, "desc": desc, "exists": bool(v) and Path(v).is_dir()}
+    return out
+
+
+def save_paths(patch: dict) -> list[str]:
+    """{khoá: đường dẫn | ""}. "" = về mặc định. Khoá ngoài PATH_KEYS → ValueError, không ghi gì."""
+    if not isinstance(patch, dict):
+        raise ValueError("paths phải là object")
+    bad = [k for k in patch if k not in PATH_KEYS]
+    if bad:
+        raise ValueError(f"khoá thư mục lạ: {', '.join(bad)}")
+    clean = {k: (str(v).strip().strip('"') if v is not None else "") for k, v in patch.items()}
+    if clean:
+        _config.save_config(clean)
+    return sorted(clean)
+
+
+# ── FireRedASR2S (ASR «FireRed») — một nguồn đường dẫn cho engines/asr/firered_asr + Cài đặt + check_env ──
+DEFAULT_FIRERED_MODELS = r"D:\AI_CACHE\firered"      # nơi scripts/download_firered_models.py tải về khi chưa đặt
+FIRERED_MODEL_DIRS = ("FireRedASR2-AED", "FireRedVAD", "FireRedLID", "FireRedPunc")
+
+
+_PATH_WARNED: set[str] = set()
+
+
+def _safe_is_dir(p: Path) -> bool:
+    try:
+        return p.is_dir()
+    except OSError as e:                 # ổ rớt / ổ mạng chưa gắn → coi như không có (ghi lý do)
+        _warn_once(f"isdir:{p}", f"không đọc được {p}: {e}")
+        return False
+
+
+def _warn_once(key: str, msg: str) -> None:
+    if key in _PATH_WARNED:
+        return
+    _PATH_WARNED.add(key)
+    print(f"[machine] {msg}", flush=True)
+
+
+def firered_paths() -> tuple[Path, Path]:
+    """(mã nguồn FireRedASR2S, thư mục model). Env > pineline.config.json > mặc định.
+    Model chưa đặt: <root>/pretrained_models nếu có, không thì D:\\AI_CACHE\\firered (chỗ script cài tải về —
+    fix 2026-11-16: script cài tải về đó nhưng không ghi FIRERED_MODELS → ASR báo thiếu model)."""
+    vendor = Path(__file__).resolve().parents[1] / "vendor" / "FireRedASR2S"
+    root = Path(os.getenv("FIRERED_ROOT") or setting("FIRERED_ROOT", "") or str(vendor))
+    # 2026-11-19 portable: config chép từ máy khác còn trỏ cây cũ (không tồn tại) → bản vendor trong cây
+    if root != vendor and not _safe_is_dir(root) and _safe_is_dir(vendor):
+        _warn_once("FIRERED_ROOT", f"{root} không tồn tại → dùng {vendor}")
+        root = vendor
+    m = os.getenv("FIRERED_MODELS") or setting("FIRERED_MODELS", "")
+    if m and (_safe_is_dir(Path(m)) or not _safe_is_dir(root / "pretrained_models")):
+        return root, Path(m)
+    if m:
+        _warn_once("FIRERED_MODELS", f"{m} không tồn tại → dùng {root / 'pretrained_models'}")
+        return root, root / "pretrained_models"
+    pre = root / "pretrained_models"
+    if (pre / FIRERED_MODEL_DIRS[0]).exists() or not Path(DEFAULT_FIRERED_MODELS).is_dir():
+        return root, pre
+    return root, Path(DEFAULT_FIRERED_MODELS)
+
+
+def firered_status() -> dict:
+    """{ok, why, root, models} — dùng cho Cài đặt (cảnh báo trước khi chạy) và thông báo lỗi."""
+    root, models = firered_paths()
+    if not (root / "fireredasr2s").is_dir():
+        return {"ok": False, "root": str(root), "models": str(models),
+                "why": f"chưa cài mã nguồn FireRedASR2S ở {root} — chạy scripts\\install_firered_asr.bat"
+                       + (" (FIRERED_ROOT đang trỏ máy khác?)" if setting("FIRERED_ROOT", "") else "")}
+    broken = [sub for sub in ("fireredasr2", "fireredlid", "fireredpunc")
+              if not (root / "fireredasr2s" / sub / "models" / "__init__.py").is_file()
+              and not any((root / "fireredasr2s" / sub / "models").glob("*.py"))]
+    if broken:      # fix 2026-11-16: bản vendor trong git từng thiếu thư mục code models/ (.gitignore «models/» trần)
+        return {"ok": False, "root": str(root), "models": str(models),
+                "why": f"mã nguồn FireRed thiếu code {', '.join(b + '/models' for b in broken)} ở {root} — git pull bản mới, "
+                       "hoặc xoá thư mục đó rồi chạy scripts\\install_firered_asr.bat"}
+    miss = [d for d in FIRERED_MODEL_DIRS if not (models / d).exists()]
+    if miss:
+        return {"ok": False, "root": str(root), "models": str(models),
+                "why": f"thiếu model {', '.join(miss)} trong {models} — chạy scripts\\install_firered_asr.bat"}
+    return {"ok": True, "root": str(root), "models": str(models), "why": ""}

@@ -51,7 +51,9 @@ stale.write_text("dead")
 os.utime(stale, (0, 0))
 with fileio.file_lock(TMP / "s.json", timeout=2, stale_sec=5):
     pass
-check("gỡ khoá bỏ quên", not stale.exists())
+# Khoá bỏ quên (file .lock còn lại, không ai giữ) không được chặn lần khoá sau — tới được đây = đã lấy được khoá.
+# Windows: nhả xong xoá file. POSIX: core.fileio CỐ Ý để lại file .lock (xoá sẽ tạo 2 inode → 2 bên cùng «giữ» khoá).
+check("gỡ khoá bỏ quên", (not stale.exists()) if os.name == "nt" else True)
 
 # ---------- 2. batch_config ----------
 print("[2] batch_config")

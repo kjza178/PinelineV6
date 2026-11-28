@@ -39,6 +39,34 @@ GLOBAL_PUBLISH_LOCK_FILE = DATA_DIR / ".auto_publish_global.lock"
 PUBLISH_QUEUE_FILE = DATA_DIR / "auto_publish_queue.json"
 QUEUE_LOCK_FILE = DATA_DIR / ".auto_publish_queue"
 
+
+_DEFAULT_DATA_DIR = DATA_DIR
+_DEFAULT_ROOT = ROOT
+
+
+def _work_dir(job_id: str = "") -> Path:
+    """Thư mục job theo work root của instance (env) — fix 2026-11-14, trước cứng ROOT/"work".
+    ROOT bị đặt riêng (test monkeypatch) → giữ ROOT/"work" như cũ."""
+    if ROOT != _DEFAULT_ROOT:
+        base = ROOT / "work"
+    else:
+        from core.instance import work_root_now
+        base = work_root_now(ROOT / "work")
+    return base / job_id if job_id else base
+
+
+def _data_path(const: Path) -> Path:
+    """Đường dẫn file runtime theo DATA_DIR HIỆN TẠI.
+
+    Các hằng *_FILE ở trên tính lúc import. Nếu DATA_DIR bị đổi sau đó (test monkeypatch, instance khác)
+    mà hằng vẫn trỏ thư mục mặc định → trả file cùng tên dưới DATA_DIR mới, để không ghi nhầm vào data/
+    thật. Hằng đã bị đặt riêng (không còn nằm trong thư mục mặc định) thì giữ nguyên.
+    """
+    if DATA_DIR != _DEFAULT_DATA_DIR and const.parent == _DEFAULT_DATA_DIR:
+        return DATA_DIR / const.name
+    return const
+
+
 # YouTube thường từ chối video >~12h; 11.5h + 64GiB = soft refuse (auto) / confirm (manual).
 YT_MAX_DURATION_SEC = 41400
 YT_HUGE_SIZE_BYTES = 64 * 1024 * 1024 * 1024
@@ -50,6 +78,13 @@ _active_jobs: set[str] = set()
 _worker_thread: threading.Thread | None = None
 _drain_thread: threading.Thread | None = None
 _stop_event = threading.Event()
+# port lỗi V2 11-21 (skip-scan-publish): «Bỏ qua video đang đăng» trước chỉ gọi yt_uploader → không huỷ được upload
+# chạy TRONG server. Cờ này được kiểm trước mỗi đoạn upload.
+_skip_current = threading.Event()
+
+
+class UploadSkipped(Exception):
+    """Người dùng bấm «Bỏ qua video đang đăng»."""
 _active_lock_paths: set[Path] = set()
 
 # Trạng thái tiến trình tự động (hỗ trợ liên tiến trình qua file auto_publish_state.json)
@@ -69,9 +104,9 @@ AUTO_STATE: dict[str, Any] = {
 def get_auto_state() -> dict[str, Any]:
     """Lấy trạng thái tiến trình tự động xuất bản (đồng bộ liên tiến trình qua file)."""
     with _lock:
-        if STATE_FILE.is_file():
+        if _data_path(STATE_FILE).is_file():
             try:
-                data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+                data = json.loads(_data_path(STATE_FILE).read_text(encoding="utf-8"))
                 if isinstance(data, dict):
                     AUTO_STATE.update(data)
             except Exception:
@@ -95,9 +130,9 @@ def update_auto_state(**kwargs) -> dict[str, Any]:
     trạng thái đang upload của tiến trình chính (server).
     """
     with _lock:
-        if STATE_FILE.is_file():
+        if _data_path(STATE_FILE).is_file():
             try:
-                disk_data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+                disk_data = json.loads(_data_path(STATE_FILE).read_text(encoding="utf-8"))
                 if isinstance(disk_data, dict):
                     AUTO_STATE.update(disk_data)
             except Exception:
@@ -106,17 +141,17 @@ def update_auto_state(**kwargs) -> dict[str, Any]:
         cur = dict(AUTO_STATE)
     try:
         from core.fileio import atomic_write_json
-        atomic_write_json(STATE_FILE, cur)
+        atomic_write_json(_data_path(STATE_FILE), cur)
     except Exception:
         pass
     return cur
 
 
 def _read_publish_queue() -> list[dict[str, Any]]:
-    if not PUBLISH_QUEUE_FILE.is_file():
+    if not _data_path(PUBLISH_QUEUE_FILE).is_file():
         return []
     try:
-        data = json.loads(PUBLISH_QUEUE_FILE.read_text(encoding="utf-8"))
+        data = json.loads(_data_path(PUBLISH_QUEUE_FILE).read_text(encoding="utf-8"))
         return data if isinstance(data, list) else []
     except Exception:
         return []
@@ -125,7 +160,7 @@ def _read_publish_queue() -> list[dict[str, Any]]:
 def _write_publish_queue(items: list[dict[str, Any]]) -> None:
     try:
         from core.fileio import atomic_write_json
-        atomic_write_json(PUBLISH_QUEUE_FILE, items)
+        atomic_write_json(_data_path(PUBLISH_QUEUE_FILE), items)
     except Exception:
         pass
 
@@ -141,7 +176,7 @@ def is_auto_split_part(job_id: str) -> bool:
         return False
     if _SPLIT_PART_ID_RE.match(jid):
         return True
-    mf = ROOT / "work" / jid / "manifest.json"
+    mf = _work_dir(jid) / "manifest.json"
     if not mf.is_file():
         return False
     try:
@@ -166,6 +201,7 @@ def _enqueue_job_record(
     schedule_hours: float | None = None,
     force: bool = False,
     allow_oversized: bool = False,
+    account_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Thêm job vào hàng chờ upload liên tiến trình (data/auto_publish_queue.json)."""
     job_id = str(job_id or "").strip()
@@ -179,9 +215,11 @@ def _enqueue_job_record(
         return _read_publish_queue()
     try:
         from core.fileio import file_lock
-        with file_lock(QUEUE_LOCK_FILE, timeout=5.0, stale_sec=30.0):
+        with file_lock(_data_path(QUEUE_LOCK_FILE), timeout=5.0, stale_sec=30.0):
             items = _read_publish_queue()
-            existing = next((it for it in items if it.get("job_id") == job_id), None)
+            # 2026-11-27: 1 job có thể đăng NHIỀU kênh → bản ghi theo (job, kênh)
+            existing = next((it for it in items if it.get("job_id") == job_id
+                             and (it.get("account_id") or None) == (account_id or None)), None)
             if existing:
                 if privacy is not None:
                     existing["privacy"] = privacy
@@ -191,6 +229,8 @@ def _enqueue_job_record(
                     existing["force"] = True
                 if allow_oversized:
                     existing["allow_oversized"] = True
+                if account_id:
+                    existing["account_id"] = account_id
             else:
                 items.append({
                     "job_id": job_id,
@@ -198,6 +238,7 @@ def _enqueue_job_record(
                     "schedule_hours": schedule_hours,
                     "force": bool(force),
                     "allow_oversized": bool(allow_oversized),
+                    "account_id": account_id or None,
                     "enqueued_at": time.time(),
                 })
             # Sắp xếp hàng chờ theo thứ tự bộ & phần (P1 -> Pn)
@@ -210,30 +251,39 @@ def _enqueue_job_record(
             return items
     except Exception:
         items = _read_publish_queue()
-        if not any(it.get("job_id") == job_id for it in items):
+        if not any(it.get("job_id") == job_id and (it.get("account_id") or None) == (account_id or None)
+                   for it in items):
             items.append({
                 "job_id": job_id,
                 "privacy": privacy,
                 "schedule_hours": schedule_hours,
                 "force": bool(force),
                 "allow_oversized": bool(allow_oversized),
+                "account_id": account_id or None,
                 "enqueued_at": time.time(),
             })
             _write_publish_queue(items)
         return items
 
 
-def _dequeue_job_record(job_id: str) -> list[dict[str, Any]]:
-    """Xoá job khỏi hàng chờ upload sau khi đã xử lý xong."""
+def _dequeue_job_record(job_id: str, account_id: str | None = "*") -> list[dict[str, Any]]:
+    """Xoá job khỏi hàng chờ upload sau khi đã xử lý xong. account_id="*" = mọi kênh của job; còn lại chỉ bản ghi
+    (job, kênh) đó (2026-11-27: 1 job đăng nhiều kênh)."""
     job_id = str(job_id or "").strip()
+
+    def _keep(it: dict) -> bool:
+        if it.get("job_id") != job_id:
+            return True
+        return account_id != "*" and (it.get("account_id") or None) != (account_id or None)
     try:
         from core.fileio import file_lock
-        with file_lock(QUEUE_LOCK_FILE, timeout=5.0, stale_sec=30.0):
-            items = [it for it in _read_publish_queue() if it.get("job_id") != job_id]
+        with file_lock(_data_path(QUEUE_LOCK_FILE), timeout=5.0, stale_sec=30.0):
+            items = [it for it in _read_publish_queue() if _keep(it)]
             _write_publish_queue(items)
             return items
-    except Exception:
-        items = [it for it in _read_publish_queue() if it.get("job_id") != job_id]
+    except Exception as e:  # noqa: BLE001
+        print(f"[auto-publish] khoá hàng chờ lỗi ({e}) — ghi không khoá", flush=True)
+        items = [it for it in _read_publish_queue() if _keep(it)]
         _write_publish_queue(items)
         return items
 
@@ -262,9 +312,17 @@ def touch_active_locks() -> None:
 
 
 def is_pid_alive(pid: int) -> bool:
-    """Kiểm tra xem PID có đang thực sự chạy trên Windows không."""
+    """Kiểm tra PID có đang chạy không (Windows: OpenProcess; hệ khác: tín hiệu 0)."""
     if pid <= 0:
         return False
+    if os.name != "nt":
+        try:
+            os.kill(int(pid), 0)
+            return True
+        except PermissionError:
+            return True     # có tiến trình nhưng của user khác
+        except OSError:
+            return False
     try:
         import ctypes
         kernel32 = ctypes.windll.kernel32
@@ -280,7 +338,7 @@ def is_pid_alive(pid: int) -> bool:
 
 def get_job_lock_path(job_id: str) -> Path:
     """Xác định đường dẫn file lock của job (ưu tiên trong thư mục work/<job_id>)."""
-    w_dir = ROOT / "work" / job_id
+    w_dir = _work_dir(job_id)
     if w_dir.is_dir():
         return w_dir / ".upload.lock"
     return DATA_DIR / f".upload_{job_id}.lock"
@@ -351,7 +409,7 @@ def acquire_global_publish_lock(
     Nếu có job trước đang upload dở, hàm này sẽ CHỜ đến khi job trước hoàn tất,
     tuyệt đối không ghi đè hoặc bỏ qua job trước hay job sau.
     """
-    lock_path = GLOBAL_PUBLISH_LOCK_FILE
+    lock_path = _data_path(GLOBAL_PUBLISH_LOCK_FILE)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
     logged_wait = False
@@ -419,12 +477,12 @@ def is_any_job_uploading(stale_sec: float = 14400.0) -> tuple[bool, str | None]:
     with _lock:
         if _active_jobs:
             return True, next(iter(_active_jobs))
-    if GLOBAL_PUBLISH_LOCK_FILE.exists():
+    if _data_path(GLOBAL_PUBLISH_LOCK_FILE).exists():
         try:
-            content = GLOBAL_PUBLISH_LOCK_FILE.read_text(encoding="utf-8").strip().split()
+            content = _data_path(GLOBAL_PUBLISH_LOCK_FILE).read_text(encoding="utf-8").strip().split()
             owner_pid = int(content[0]) if content else -1
             owner_job = content[2] if len(content) > 2 else None
-            mtime = GLOBAL_PUBLISH_LOCK_FILE.stat().st_mtime
+            mtime = _data_path(GLOBAL_PUBLISH_LOCK_FILE).stat().st_mtime
             if is_pid_alive(owner_pid) and (time.time() - mtime < stale_sec):
                 return True, owner_job
         except Exception:
@@ -466,10 +524,10 @@ def load_config() -> dict[str, Any]:
         "account_id": "default",         # Tài khoản trong Z:\yt_uploader\accounts
         "category_id": "24",             # 24 = Entertainment, 1 = Film & Animation
     }
-    if not CONFIG_FILE.is_file():
+    if not _data_path(CONFIG_FILE).is_file():
         return default_cfg
     try:
-        cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        cfg = json.loads(_data_path(CONFIG_FILE).read_text(encoding="utf-8"))
         default_cfg.update(cfg)
     except Exception:
         pass
@@ -480,13 +538,30 @@ def save_config(cfg: dict[str, Any]) -> dict[str, Any]:
     """Lưu cấu hình tự động upload."""
     current = load_config()
     current.update(cfg)
-    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8")
+    _data_path(CONFIG_FILE).parent.mkdir(parents=True, exist_ok=True)
+    _data_path(CONFIG_FILE).write_text(json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8")
     return current
 
 
+def _default_v6_account() -> str | None:
+    try:
+        from services import yt_accounts
+        return yt_accounts.default_id()
+    except Exception as e:  # noqa: BLE001
+        print(f"[auto-publish] đọc kênh mặc định V6 lỗi: {e}", flush=True)
+        return None
+
+
 def get_youtube_service(account_id: str = "default"):
-    r"""Lấy YouTube API service từ tài khoản trong Z:\yt_uploader\accounts."""
+    r"""YouTube API service: kênh V6 (services/yt_accounts — đăng nhập trong app) trước; không có → tài khoản cũ
+    trong yt_uploader\accounts."""
+    try:
+        from services import yt_accounts
+        if yt_accounts.has(account_id):
+            return yt_accounts.service(account_id)
+    except Exception as e:  # noqa: BLE001
+        print(f"[auto-publish] kênh V6 {account_id}: {e}", flush=True)
+        raise
     tok_path = YT_DIR / "accounts" / account_id / "token.json"
     if not tok_path.is_file():
         # Fallback về token cũ ở thư mục gốc nếu có
@@ -627,35 +702,38 @@ def upload_to_youtube(
 
     # Upload video bằng Resumable chunks 256MB
     print(f"[auto-upload] Bắt đầu upload {v_path.name} ({v_path.stat().st_size // (1024*1024)} MB) lên YouTube...", flush=True)
-    media = MediaFileUpload(str(v_path), chunksize=256 * 1024 * 1024, resumable=True)
+    _skip_current.clear()
+    chunk = 64 * 1024 * 1024        # 2026-11-27: 256 MB → 64 MB để «Bỏ qua» có tác dụng nhanh (kiểm giữa các đoạn)
+    media = MediaFileUpload(str(v_path), chunksize=chunk, resumable=True)
     req = yt.videos().insert(part="snippet,status", body=body, media_body=media)
 
-    response = None
-    try:
-        while response is None:
+    def _chunk_loop(rq) -> dict:
+        resp = None
+        while resp is None:
+            if _skip_current.is_set() or _stop_event.is_set():
+                raise UploadSkipped("người dùng bỏ qua video đang đăng")
             touch_active_locks()
-            status, response = req.next_chunk()
+            status, resp = rq.next_chunk()
             touch_active_locks()
             if status:
                 prog = int(status.progress() * 100)
                 update_auto_state(progress_percent=prog, current_stage="uploading")
                 print(f"[auto-upload] Đang tải lên: {prog}%", flush=True)
+        return resp
+
+    response = None
+    try:
+        response = _chunk_loop(req)
+    except UploadSkipped:
+        raise
     except Exception as e_up:
         err_str = str(e_up)
         if "invalidTags" in err_str or "keywords" in err_str:
             print("[auto-upload] YouTube báo invalidTags -> Tự động bỏ tags và thử lại...", flush=True)
             body["snippet"]["tags"] = []
-            media = MediaFileUpload(str(v_path), chunksize=256 * 1024 * 1024, resumable=True)
+            media = MediaFileUpload(str(v_path), chunksize=chunk, resumable=True)
             req = yt.videos().insert(part="snippet,status", body=body, media_body=media)
-            response = None
-            while response is None:
-                touch_active_locks()
-                status, response = req.next_chunk()
-                touch_active_locks()
-                if status:
-                    prog = int(status.progress() * 100)
-                    update_auto_state(progress_percent=prog, current_stage="uploading")
-                    print(f"[auto-upload] Đang tải lên: {prog}%", flush=True)
+            response = _chunk_loop(req)
         else:
             raise
 
@@ -693,7 +771,7 @@ def _revert_job_to_done(job_id: str, error_msg: str | None = None) -> None:
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
         from core.manifest import Manifest
-        w_dir = ROOT / "work" / job_id
+        w_dir = _work_dir(job_id)
         if (w_dir / "manifest.json").is_file():
             m = Manifest(w_dir)
             if not m.data.get("yt_url"):
@@ -739,6 +817,7 @@ def enqueue_publish(
     schedule_hours: float | None = None,
     force: bool = False,
     allow_oversized: bool = False,
+    account_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Đưa job vừa hoàn thành vào hàng đợi xuất bản tuần tự (không làm đứt quãng job đang upload).
@@ -765,7 +844,7 @@ def enqueue_publish(
         row = film_db.get(job_id) or {}
         out_path = row.get("output_path")
         if not out_path or not Path(str(out_path)).is_file():
-            cand = ROOT / "work" / job_id / "output.mp4"
+            cand = _work_dir(job_id) / "output.mp4"
             out_path = str(cand) if cand.is_file() else out_path
         reasons = _oversized_youtube_reasons(row, out_path)
         if reasons:
@@ -786,6 +865,7 @@ def enqueue_publish(
         schedule_hours=schedule_hours,
         force=force,
         allow_oversized=allow_oversized,
+        account_id=account_id,
     )
     _sync_queue_state_badge()
     print(f"[auto-publish] Đã xếp job {job_id} vào hàng đợi xuất bản (tổng hàng chờ: {len(items)}).", flush=True)
@@ -836,6 +916,7 @@ def _drain_publish_queue_loop() -> None:
                 schedule_hours=item.get("schedule_hours"),
                 force=bool(item.get("force", False)),
                 allow_oversized=bool(item.get("allow_oversized", False)),
+                account_id=item.get("account_id") or None,
             )
             if isinstance(res, dict) and res.get("stop_queue"):
                 print(
@@ -858,7 +939,7 @@ def _drain_publish_queue_loop() -> None:
                     flush=True,
                 )
                 break
-            _dequeue_job_record(jid)
+            _dequeue_job_record(jid, item.get("account_id") or None)
             _sync_queue_state_badge()
         time.sleep(1.0)
 
@@ -869,6 +950,7 @@ def publish_job(
     schedule_hours: float | None = None,
     force: bool = False,
     allow_oversized: bool = False,
+    account_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Quy trình toàn diện: Sinh Metadata qua Aurora → Dựng Thumbnail 16:9 → Upload lên YouTube.
@@ -900,7 +982,7 @@ def publish_job(
         row0 = film_db.get(job_id) or {}
         out0 = row0.get("output_path")
         if not out0 or not Path(str(out0)).is_file():
-            cand0 = ROOT / "work" / job_id / "output.mp4"
+            cand0 = _work_dir(job_id) / "output.mp4"
             out0 = str(cand0) if cand0.is_file() else out0
         reasons0 = _oversized_youtube_reasons(row0, out0)
         if reasons0:
@@ -951,7 +1033,8 @@ def publish_job(
                 result = {"ok": False, "skipped": True, "reason": f"job currently being published by PID {owner_pid}"}
                 return result
 
-            result = _publish_job_internal(job_id, privacy=privacy, schedule_hours=schedule_hours, force=force)
+            result = _publish_job_internal(job_id, privacy=privacy, schedule_hours=schedule_hours, force=force,
+                                           account_id=account_id)
             return result
     finally:
         release_job_lock(lock_fd, lock_path)
@@ -965,7 +1048,7 @@ def publish_job(
             )
             _sync_queue_state_badge()
         else:
-            _dequeue_job_record(job_id)
+            _dequeue_job_record(job_id, account_id or None)
             with _lock:
                 _active_jobs.discard(job_id)
             _sync_queue_state_badge()
@@ -982,8 +1065,11 @@ def _publish_job_internal(
     privacy: str | None = None,
     schedule_hours: float | None = None,
     force: bool = False,
+    account_id: str | None = None,
 ) -> dict[str, Any]:
     cfg = load_config()
+    # 2026-11-21 (V6 đa kênh): kênh chọn khi đăng > kênh mặc định của V6 (services/yt_accounts) > account_id cấu hình cũ
+    account_id = account_id or _default_v6_account() or cfg.get("account_id", "default")
     if not force and not cfg.get("enabled", True):
         print(f"[auto-publish] Bỏ qua job {job_id} vì tính năng tự động upload đang tắt trong cấu hình.", flush=True)
         return {"ok": False, "skipped": True, "reason": "auto_publish disabled in config"}
@@ -1005,7 +1091,7 @@ def _publish_job_internal(
     if not row:
         return {"ok": False, "error": f"Không tìm thấy job {job_id} trong database"}
 
-    mf_path = ROOT / "work" / job_id / "manifest.json"
+    mf_path = _work_dir(job_id) / "manifest.json"
     m_data = {}
     if mf_path.is_file():
         try:
@@ -1014,15 +1100,21 @@ def _publish_job_internal(
             pass
 
     existing_yt = row.get("yt_url") or m_data.get("yt_url")
+    # 2026-11-27: đăng nhiều kênh — đã đăng ở KÊNH NÀY chưa (yt_uploads[kênh]); kênh khác chưa → vẫn đăng
+    _ups = m_data.get("yt_uploads") if isinstance(m_data.get("yt_uploads"), dict) else {}
+    if _ups:
+        existing_yt = _ups.get(str(account_id or "")) or ""
+    elif existing_yt and m_data.get("yt_account") and account_id and m_data.get("yt_account") != account_id:
+        existing_yt = ""
     if not force and existing_yt:
         return {"ok": True, "already_uploaded": True, "yt_url": existing_yt, "video_id": existing_yt.split("/")[-1]}
 
     # Tìm file video hoàn chỉnh
     out_path = row.get("output_path")
     if not out_path or not Path(out_path).is_file():
-        cand = ROOT / "work" / job_id / "output.mp4"
+        cand = _work_dir(job_id) / "output.mp4"
         if not cand.is_file():
-            cand = ROOT / "work" / job_id / "final.mp4"
+            cand = _work_dir(job_id) / "final.mp4"
         if cand.is_file():
             out_path = str(cand)
         else:
@@ -1050,7 +1142,7 @@ def _publish_job_internal(
     # Đánh dấu upload_status = 'uploading' vào manifest và films.db ngay từ đầu để scanner không quét trúng
     try:
         from core.manifest import Manifest
-        m = Manifest(ROOT / "work" / job_id)
+        m = Manifest(_work_dir(job_id))
         m.data["upload_status"] = "uploading"
         m.data["upload_started_at"] = now_utc
         js.persist(m)
@@ -1253,9 +1345,16 @@ def _publish_job_internal(
             thumb_path=thumb_path,
             privacy=privacy,
             publish_at=publish_at_iso,
-            account_id=cfg.get("account_id", "default"),
+            account_id=account_id,
             category_id=cfg.get("category_id", "24"),
         )
+    except UploadSkipped as e_skip:
+        print(f"[auto-publish] ⏭ Đã bỏ qua upload {job_id}: {e_skip}", flush=True)
+        _skip_current.clear()
+        _revert_job_to_done(job_id, "người dùng bỏ qua khi đang đăng")
+        _dequeue_job_record(job_id, account_id or None)      # không tự đăng lại — muốn đăng thì xếp lại
+        update_auto_state(last_error=None, current_stage="idle", current_job_id=None, progress_percent=0)
+        return {"ok": False, "skipped": True, "job_id": job_id, "error": "đã bỏ qua theo yêu cầu"}
     except Exception as e_fatal:
         err_msg = f"Lỗi ngoại lệ khi xuất bản {job_id}: {e_fatal}"
         print(f"[auto-publish] {err_msg}", flush=True)
@@ -1301,12 +1400,19 @@ def _publish_job_internal(
     yt_url = up_res["yt_url"]
     video_id = up_res["video_id"]
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # 2026-11-21: tên kênh thật đã đăng (trước ghi cứng «Sage Review»)
+    ch_title = str(account_id or "")
+    try:
+        from services import yt_accounts
+        ch_title = (yt_accounts.get(account_id) or {}).get("title") or ch_title
+    except Exception as e_ch:  # noqa: BLE001
+        print(f"[auto-publish] đọc tên kênh {account_id}: {e_ch}", flush=True)
 
     # 6. Cập nhật Database films.db
     with film_db._lock, film_db.connect() as con:
         con.execute(
             "UPDATE films SET yt_url = ?, status = 'uploaded', uploaded_at = ?, yt_channel = ?, updated_at = ? WHERE job_id = ?",
-            (yt_url, now_utc, "Sage Review", now_utc, job_id)
+            (yt_url, now_utc, ch_title, now_utc, job_id)
         )
         con.execute(
             "INSERT INTO events(ts, job_id, kind, detail) VALUES (?,?,?,?)",
@@ -1316,10 +1422,15 @@ def _publish_job_internal(
     # 7. Cập nhật manifest.json của job
     try:
         from core.manifest import Manifest
-        m = Manifest(ROOT / "work" / job_id)
+        m = Manifest(_work_dir(job_id))
         m.data["yt_url"] = yt_url
         m.data["uploaded_at"] = now_utc
         m.data["upload_status"] = "uploaded"
+        m.data["yt_account"] = account_id
+        m.data["yt_channel"] = ch_title
+        ups = m.data.get("yt_uploads") if isinstance(m.data.get("yt_uploads"), dict) else {}
+        ups[str(account_id or "")] = yt_url
+        m.data["yt_uploads"] = ups
         js.persist(m)
     except Exception:
         pass
@@ -1336,7 +1447,7 @@ def _publish_job_internal(
             "thumb": str(thumb_path) if thumb_path else "",
             "privacy": privacy,
             "publish_at": publish_at_iso,
-            "account": cfg.get("account_id", "default"),
+            "account": account_id,
         }
         with UPLOAD_HISTORY_FILE.open("a", encoding="utf-8") as hf:
             hf.write(json.dumps(hist_entry, ensure_ascii=False) + "\n")
@@ -1405,7 +1516,7 @@ def _collect_and_enqueue_done_jobs() -> list[dict[str, Any]]:
         title = str(f.get("title_vi") or f.get("title") or f.get("title_zh") or "")
         if _SPLIT_PART_TITLE_RE.search(title):
             continue
-        mf = ROOT / "work" / jid / "manifest.json"
+        mf = _work_dir(jid) / "manifest.json"
         if mf.is_file():
             try:
                 m_chk = json.loads(mf.read_text(encoding="utf-8"))
@@ -1483,7 +1594,7 @@ def scan_and_publish_completed_jobs() -> dict[str, Any]:
     try:
         from core.fileio import file_lock
         # Scan chỉ giữ lock ngắn — stale 3 phút (trước 4h khiến worker kẹt sau restart sidecar)
-        with file_lock(SCAN_LOCK_FILE, timeout=0.5, stale_sec=180.0):
+        with file_lock(_data_path(SCAN_LOCK_FILE), timeout=0.5, stale_sec=180.0):
             count = _scan_and_publish_impl()
             return {"ok": True, "busy": False, "scanned": count}
     except TimeoutError:
@@ -1570,3 +1681,15 @@ def start_worker():
 def stop_worker():
     """Dừng worker ngầm."""
     _stop_event.set()
+
+
+def request_skip_current_upload() -> dict[str, Any]:
+    """«Bỏ qua video đang đăng» (port V2 2026-11-21): báo vòng upload dừng ở đoạn kế tiếp."""
+    st = get_auto_state()
+    busy, busy_jid = is_any_job_uploading()
+    jid = st.get("current_job_id") or busy_jid
+    if not jid and not busy:
+        return {"ok": False, "error": "không có video nào đang đăng"}
+    _skip_current.set()
+    return {"ok": True, "signaled": True, "job_id": jid, "title": st.get("current_title"),
+            "message": f"Đã yêu cầu bỏ qua «{st.get('current_title') or jid}» — dừng ở đoạn upload kế tiếp."}

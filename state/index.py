@@ -22,6 +22,15 @@ STAGES = ("download", "asr", "translate", "tts", "mux")
 _RANK = {"running": 0, "held": 1, "pending": 2, "failed": 3, "done": 4}
 
 
+def _publish_label(pt) -> str:
+    """Tên kênh sẽ tự đăng (nhiều kênh → «A, B»)."""
+    if not isinstance(pt, dict):
+        return ""
+    if isinstance(pt.get("accounts"), list):
+        return ", ".join(str(a.get("channel") or a.get("id")) for a in pt["accounts"] if isinstance(a, dict))
+    return str(pt.get("channel") or pt.get("account_id") or "")
+
+
 def summarize(job_id: str, data: dict) -> dict[str, Any]:
     """Tóm tắt nhẹ cho danh sách (không stat file). Chi tiết lấy qua GET /api/jobs/{id}."""
     stages = data.get("stages") or {}
@@ -38,6 +47,7 @@ def summarize(job_id: str, data: dict) -> dict[str, Any]:
     else:
         status = "pending"
     running = next((n for n, v in st.items() if v == "running"), None)
+    failed = next((n for n, v in st.items() if v == "failed"), None)
     cur = (stages.get(running) or {}).get("cur_text") if running else None
     req = data.get("request") or {}
     return {
@@ -49,7 +59,19 @@ def summarize(job_id: str, data: dict) -> dict[str, Any]:
         "cur_text": (cur or "")[:160],
         "held_at": agent.get("held_at"),
         "hold_reason": (agent.get("hold_reason") or "")[:160],
-        "group_id": data.get("group_id"),
+        "group_id": data.get("group_id") or req.get("group_id"),
+        # 2026-11-20: danh sách job / hàng chờ trên /v6/ cần bộ phim, tập, bước lỗi (không % — % đổi liên tục → job.touched)
+        "group_title": data.get("group_title_vi") or req.get("group_title") or "",
+        "group_title_orig": req.get("group_title") or "",
+        "group_index": req.get("group_index"),
+        "group_total": req.get("group_total"),
+        "failed_stage": failed,
+        "error": ((stages.get(failed) or {}).get("error") or "")[:400] if failed else "",
+        # 2026-11-20: _auto_gpu dừng giữa chừng không lỗi/HOLD (vd dịch chưa đủ) → lý do hiện ở cột «Đang làm»
+        "stop_note": (str(((data.get("last_stop") or {}).get("why")) or "")[:200]) if status == "pending" else "",
+        # 2026-11-21: kênh YouTube sẽ tự đăng khi render xong (mỗi job một kênh)
+        "publish_to": _publish_label(data.get("publish_to")),
+        "yt_url": data.get("yt_url") or "",
         "updated_at": data.get("updated_at"),
     }
 

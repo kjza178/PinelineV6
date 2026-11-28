@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from core.manifest import Manifest, register_write_hook
+from core.timeutil import now_iso as _iso
 from state.index import index as _index
 
 
@@ -38,6 +39,10 @@ def _now() -> float:
 
 def _update(wd: Path | str, fn: Callable[[dict], Any]) -> dict:
     wd = Path(wd)
+    # 2026-11-21: không có manifest.json → KHÔNG lấy khoá (khoá liên tiến trình tạo thư mục + manifest.json.lock) —
+    # trước: gọi nhầm với job_id trần (đường dẫn tương đối) đẻ thư mục rác <job_id>/manifest.json.lock ở thư mục gốc repo.
+    if not (wd / "manifest.json").is_file():
+        raise StateError(f"không có manifest: {wd}")
     m = Manifest(wd)
     declined = []
 
@@ -68,10 +73,13 @@ def _stage(data: dict, name: str) -> dict:
 def mark_running(wd, stage: str, *, cur_text: str = "đang chạy…", **extra) -> dict:
     def fn(d):
         st = _stage(d, stage)
+        fresh = st.get("status") != "running"     # lượt chạy MỚI (không phải gọi lặp khi đang chạy)
         st.update(extra)
         st["status"] = "running"
         st["cur_text"] = cur_text
-        st.setdefault("started_at", _now())
+        if fresh or not st.get("started_at"):
+            st["started_at"] = _iso()             # ISO UTC — cùng dạng core.manifest (core/timeutil.py)
+            st.pop("finished_at", None)           # mốc xong của lượt trước không còn đúng
         st.pop("error", None)
         st["updated_at"] = _now()
     return _update(wd, fn)
@@ -82,7 +90,7 @@ def mark_done(wd, stage: str, **payload) -> dict:
         st = _stage(d, stage)
         st.update(payload)
         st["status"] = "done"
-        st["finished_at"] = _now()
+        st["finished_at"] = _iso()
         st.pop("error", None)
         st["updated_at"] = _now()
     return _update(wd, fn)
@@ -93,7 +101,7 @@ def mark_failed(wd, stage: str, error: BaseException | str) -> dict:
         st = _stage(d, stage)
         st["status"] = "failed"
         st["error"] = str(error)[:500]
-        st["finished_at"] = _now()
+        st["finished_at"] = _iso()
         st["updated_at"] = _now()
     return _update(wd, fn)
 
@@ -341,6 +349,23 @@ def set_queue_opts(wd, opts: dict, *, merge: bool = False) -> dict:
             d.setdefault("queue_opts", {}).update(clean)
         else:
             d["queue_opts"] = clean
+    return _update(wd, fn)
+
+
+def set_publish_target(wd, targets, *, privacy: str | None = None,
+                       schedule_hours: float | None = None, channel: str = "") -> dict:
+    """Kênh YouTube đăng job (render xong tự đăng). targets: [{id, channel}] (2026-11-27: nhiều kênh) — hoặc 1 id
+    dạng cũ (str). Rỗng / None = bỏ gán."""
+    if isinstance(targets, str):
+        targets = [{"id": targets, "channel": channel or targets}] if targets else []
+    tl = [{"id": str(t["id"]), "channel": str(t.get("channel") or t["id"])}
+          for t in (targets or []) if isinstance(t, dict) and t.get("id")]
+
+    def fn(d):
+        if not tl:
+            d.pop("publish_to", None)
+            return
+        d["publish_to"] = {"accounts": tl, "privacy": privacy or None, "schedule_hours": schedule_hours, "at": _now()}
     return _update(wd, fn)
 
 

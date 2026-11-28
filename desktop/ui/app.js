@@ -1,30 +1,133 @@
-// Pineline V6 UI — KHÔNG polling. Một kết nối SSE /api/events:
-//   snapshot (lúc nối) → job.updated / job.removed / stage.progress.
-// Vẽ lại gộp theo requestAnimationFrame → 100 event/giây vẫn chỉ ~60 lần vẽ, chỉ đụng hàng đổi.
+// Pineline V6 UI desktop — KHÔNG polling.
+//   • Một kết nối SSE /api/events: snapshot (lúc nối) → job.updated / job.removed / job.touched / stage.progress.
+//   • Request HTTP CHỈ phát sinh khi: người dùng bấm nút; mở chi tiết 1 job; job đang mở / hàng chờ thật sự đổi
+//     (theo event, có gộp nhịp bằng setTimeout). Để yên = 0 request.
+//   • Vẽ gộp theo requestAnimationFrame → 100 event/giây vẫn chỉ ~60 lần vẽ, chỉ đụng hàng đổi.
 "use strict";
 const STAGES = ["download", "asr", "translate", "tts", "mux"];
-const jobs = new Map();          // job_id → row data
+const STAGE_VI = { download: "Tải nguồn", asr: "Nhận dạng tiếng (ASR)", translate: "Dịch", tts: "Lồng tiếng (TTS)", mux: "Ghép / render" };
+const REDO_WARN = {
+  download: "Video nguồn sẽ được TẢI LẠI từ đầu (file cũ bị thay).",
+  asr: "Kết quả nhận dạng tiếng cũ bị bỏ, nhận dạng lại từ đầu (tốn GPU).",
+  translate: "Bản dịch hiện tại bị XOÁ và dịch lại từ đầu — câu máy dịch/soát đều mất (câu bạn đã sửa tay được giữ).",
+  tts: "Toàn bộ clip giọng đọc bị xoá và đọc lại từ đầu.",
+  mux: "Video kết quả được render lại từ đầu.",
+};
+const jobs = new Map();          // job_id → hàng tóm tắt (từ SSE)
 const dirty = new Set();
+const picked = new Set();        // job_id được tick
 let filter = "", rafQueued = false, fullRedraw = true;
+let selected = null, detail = null, queue = { queue: [], current: null, busy: false };
+// Khung chi tiết có tab. Tab Bản dịch / Giọng / Kết quả chỉ nạp dữ liệu KHI MỞ (không polling).
+const TABS = [["overview", "Tổng quan"], ["script", "Lời thoại"], ["voice", "Giọng đọc"], ["result", "Kết quả"], ["yt", "YouTube"]];
+let tab = "overview";
+let script = null;                       // {rows, wav:Set, exists} của job đang mở
+let scriptFilter = "all", scriptQ = "", scriptShown = 200;
+let voices = null;                       // danh sách giọng clone (nạp 1 lần)
+const PAGE = 200;                        // số câu vẽ mỗi lần (bản dịch dài hàng nghìn câu)
 const $ = (s) => document.querySelector(s);
-const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+// ───────────── gọi API ─────────────
+async function api(method, url, body) {
+  const opt = { method, headers: {} };
+  if (body !== undefined) { opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+  let r, data = null;
+  try { r = await fetch(url, opt); } catch (e) { throw new Error("không gọi được backend: " + e.message); }
+  try { data = await r.json(); } catch (_) { /* thân không phải JSON */ }
+  if (!r.ok || (data && data.error)) {
+    const d = data && (data.error || data.detail);
+    throw new Error(typeof d === "string" ? d : (d ? JSON.stringify(d) : `HTTP ${r.status}`));
+  }
+  return data;
+}
+
+let msgTimer = null;
+function say(text, kind = "ok") {
+  const el = $("#msg");
+  el.textContent = text; el.className = kind; el.hidden = false;
+  clearTimeout(msgTimer);
+  msgTimer = setTimeout(() => { el.hidden = true; }, kind === "err" ? 9000 : 3500);
+}
+
+// Chạy 1 thao tác của nút: khoá nút trong lúc chờ (chống bấm trùng), báo kết quả.
+async function act(btn, okText, fn) {
+  if (btn) btn.disabled = true;
+  try { await fn(); if (okText) say(okText); } catch (e) { say("Lỗi: " + e.message, "err"); } finally {
+    if (btn) btn.disabled = false;
+    syncToolbar();
+  }
+}
+
+// Gộp nhịp: nhiều lời gọi trong `ms` → chạy 1 lần cuối (không dùng vòng hẹn giờ lặp).
+function debounce(fn, ms) {
+  let t = null;
+  return () => { clearTimeout(t); t = setTimeout(fn, ms); };
+}
+
+// ───────────── bảng job ─────────────
 function schedule() {
   if (!rafQueued) { rafQueued = true; requestAnimationFrame(paint); }
 }
 
+function inQueue(id) { return queue.current === id || (queue.queue || []).includes(id); }
+
+const ST_VI = { running: "Đang chạy", done: "Xong", failed: "Lỗi", error: "Lỗi", held: "Tạm dừng", pending: "Chờ",
+  stopped: "Đã dừng", parked: "Tạm dừng", skipped: "Bỏ qua" };
+const stVi = (s) => ST_VI[s] || s || "—";
+function badge(s, extra = "") { return `<span class="b ${esc(s)}">${esc(stVi(s))}${esc(extra)}</span>`; }
+function stepsHtml(j) {
+  return `<div class="steps">${STAGES.map((s) => { const v = j.stages?.[s] || "pending";
+    return `<i class="${esc(v)}" title="${esc(STAGE_VI[s])}: ${esc(stVi(v))}"></i>`; }).join("")}</div>`;
+}
+function qPos(id) { const i = (queue.queue || []).indexOf(id); return i >= 0 ? i + 1 : 0; }
 function rowHtml(j) {
-  const cells = STAGES.map((s) => `<td><span class="b ${esc(j.stages?.[s])}">${esc(j.stages?.[s] || "-")}</span></td>`).join("");
-  const note = j.status === "held" ? `⏸ ${j.held_at || ""} ${j.hold_reason || ""}` : (j.cur_text || "");
-  return `<td title="${esc(j.job_id)}">${esc(j.title)}</td><td><span class="b ${esc(j.status)}">${esc(j.status)}</span></td>${cells}<td class="note">${esc(note)}</td>`;
+  const pos = qPos(j.job_id);
+  const q = queue.current === j.job_id ? '<span class="q">▶ đang chạy</span>' : (pos ? `<span class="q">chờ #${pos}</span>` : "");
+  // tên bộ (hợp tập Bilibili): bản Việt nếu đã dịch, cắt 1 dòng — đủ tên (kèm bản gốc) khi rê chuột
+  const gTip = j.group_title_orig && j.group_title_orig !== j.group_title ? `${j.group_title}\n${j.group_title_orig}` : j.group_title;
+  // 2026-11-21: kênh YouTube tự đăng khi xong / đã đăng
+  const pub = j.yt_url ? '<span class="q pub">✓ đã đăng YouTube</span>'
+    : (j.publish_to ? `<span class="q pub" title="Render xong tự đăng lên kênh này">▶ YT: ${esc(j.publish_to)}</span>` : "");
+  const grp = j.group_title ? `<span class="grp" title="Bộ: ${esc(gTip)}"><span class="grp-name">${esc(j.group_title)}</span>${j.group_index ? ` · tập ${esc(j.group_index)}${j.group_total ? "/" + esc(j.group_total) : ""}` : ""}</span>` : "";
+  const note = j.status === "held" ? `${j.held_at || ""} ${j.hold_reason || ""}`.trim()
+    : j.status === "failed" ? `Lỗi ở ${STAGE_VI[j.failed_stage] || j.failed_stage || "?"}${j.error ? ": " + j.error : ""}` : (j.cur_text || (queue.current === j.job_id && queue.phase ? queue.phase : "") || (j.stop_note ? "Đã dừng: " + j.stop_note : ""));
+  return `<td class="ck"><input type="checkbox" class="pick"${picked.has(j.job_id) ? " checked" : ""}></td>`
+    + `<td><div class="title" title="${esc(j.title)}">${esc(j.title)}</div><div class="jid">${q}${pub}${grp}${esc(j.job_id)}</div></td>`
+    + `<td>${stepsHtml(j)}</td><td>${badge(j.status)}</td><td class="note" title="${esc(note)}">${esc(note)}</td>`;
 }
 
 const RANK = { running: 0, held: 1, pending: 2, failed: 3, done: 4 };
+// Lọc theo trạng thái (thanh trên bảng job) — nhớ lựa chọn trên máy
+const JOB_FILTERS = [["all", "Tất cả"], ["running", "Đang chạy"], ["queue", "Hàng chờ"], ["failed", "Lỗi"], ["held", "Tạm dừng"],
+  ["todo", "Chưa chạy"], ["done", "Xong"]];
+let jobFilter = (() => { try { return localStorage.getItem("jobs.filter") || "all"; } catch (_) { return "all"; } })();
+function jobMatch(j, f) {
+  if (f === "running") return j.status === "running";
+  if (f === "queue") return inQueue(j.job_id);
+  if (f === "failed") return j.status === "failed";
+  if (f === "held") return j.status === "held";
+  if (f === "todo") return j.status === "pending" && !inQueue(j.job_id);
+  if (f === "done") return j.status === "done";
+  return true;
+}
+function paintJobFilter() {
+  const all = [...jobs.values()];
+  $("#job-filter").innerHTML = JOB_FILTERS.map(([k, t]) => {
+    const n = k === "all" ? all.length : all.filter((j) => jobMatch(j, k)).length;
+    return `<label${!n && k !== "all" && k !== jobFilter ? ' class="dim"' : ""}><input type="radio" name="job-filter" value="${k}"${k === jobFilter ? " checked" : ""}>${esc(t)} <span class="n">${n}</span></label>`;
+  }).join("");
+  const nFail = all.filter((j) => j.status === "failed" && !inQueue(j.job_id)).length;
+  $("#btn-retry-failed").hidden = !nFail; $("#btn-retry-failed").textContent = `Chạy lại ${nFail} job lỗi`;
+}
 function visible() {
   const f = filter.toLowerCase();
+  // trong hàng chờ: theo đúng thứ tự sẽ chạy; còn lại: đang chạy → tạm dừng → chờ → lỗi → xong
+  const key = (j) => (queue.current === j.job_id ? -1 : qPos(j.job_id) ? qPos(j.job_id) / 1e4 : 1 + (RANK[j.status] ?? 9));
   return [...jobs.values()]
-    .filter((j) => !f || (j.title + " " + j.job_id).toLowerCase().includes(f))
-    .sort((a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9) || a.job_id.localeCompare(b.job_id));
+    .filter((j) => (!f || (j.title + " " + j.job_id + " " + (j.group_title || "")).toLowerCase().includes(f)) && jobMatch(j, jobFilter))
+    .sort((a, b) => key(a) - key(b) || String(a.group_title || "").localeCompare(String(b.group_title || ""))
+      || (Number(a.group_index) || 0) - (Number(b.group_index) || 0) || a.job_id.localeCompare(b.job_id));
 }
 
 function paint() {
@@ -33,14 +136,22 @@ function paint() {
   if (fullRedraw) {
     fullRedraw = false; dirty.clear();
     const list = visible();
-    tbody.innerHTML = list.map((j) => `<tr data-id="${esc(j.job_id)}">${rowHtml(j)}</tr>`).join("");
-    $("#count").textContent = `${list.length}/${jobs.size} job`;
+    tbody.innerHTML = list.map((j) => `<tr data-id="${esc(j.job_id)}"${j.job_id === selected ? ' class="sel"' : ""}>${rowHtml(j)}</tr>`).join("");
+    const nRun = [...jobs.values()].filter((x) => x.status === "running").length;
+    $("#count").textContent = jobs.size ? `${jobs.size} job${list.length !== jobs.size ? ` · đang hiện ${list.length}` : ""}${nRun ? ` · ${nRun} đang chạy` : ""}` : "";
+    $("#nav-running").textContent = nRun || ""; $("#nav-running").hidden = !nRun;
+    $("#empty").hidden = jobs.size > 0;
+    $("#list table").hidden = jobs.size === 0;
+    if (jobs.size && !list.length) tbody.innerHTML = `<tr><td colspan="5" class="note">Không có job nào ở mục «${esc((JOB_FILTERS.find(([k]) => k === jobFilter) || [])[1] || "")}».</td></tr>`;
+    paintJobFilter();
+    syncToolbar();
     return;
   }
   for (const id of dirty) {
-    const tr = tbody.querySelector(`tr[data-id="${CSS.escape(id)}"]`);
     const j = jobs.get(id);
-    if (!tr || !j) { fullRedraw = true; continue; }
+    const tr = tbody.querySelector(`tr[data-id="${CSS.escape(id)}"]`);
+    if (!j) { fullRedraw = true; continue; }
+    if (!tr) continue;                       // đang bị ô lọc ẩn → không cần vẽ lại cả bảng
     tr.innerHTML = rowHtml(j);
     tr.classList.remove("flash"); void tr.offsetWidth; tr.classList.add("flash");
   }
@@ -51,30 +162,2423 @@ function paint() {
 function upsert(row) {
   const prev = jobs.get(row.job_id);
   jobs.set(row.job_id, { ...prev, ...row });
-  if (!prev || prev.status !== row.status) fullRedraw = true;   // đổi thứ tự sắp xếp
+  if (!prev || prev.status !== row.status) { fullRedraw = true; refreshQueueSoon(); }   // đổi thứ tự / hàng chờ nhích
   else dirty.add(row.job_id);
   schedule();
+  if (row.job_id === selected) {
+    paintDetail(); refreshDetailSoon();
+    // dịch / soát vừa xong (hoặc vừa bắt đầu) → bản dịch đang mở đã cũ: nạp lại 1 lần
+    const tPrev = prev?.stages?.translate, tNow = row.stages?.translate;
+    if (tab === "script" && script && tPrev !== tNow) loadScript();
+  }
 }
 
+function syncToolbar() {
+  for (const id of [...picked]) if (!jobs.has(id)) picked.delete(id);
+  const n = picked.size;
+  $("#sel-count").textContent = n ? `đã chọn ${n}` : "";
+  $("#btn-enqueue").disabled = n === 0;
+  $("#btn-dequeue").disabled = ![...picked].some(inQueue);
+  $("#btn-q-stop").disabled = !(queue.busy || queue.paused);
+  $("#btn-del-sel").disabled = !n || [...picked].some((id) => jobs.get(id)?.status === "running" || queue.current === id);
+  $("#btn-pub-sel").disabled = !n || !$("#job-pub").value;
+  const vis = visible();
+  $("#ck-all").checked = vis.length > 0 && vis.every((j) => picked.has(j.job_id));
+}
+
+// ───────────── hàng chờ ─────────────
+function paintQueue() {
+  const cur = queue.current ? (jobs.get(queue.current)?.title || queue.current) : null;
+  const n = (queue.queue || []).length;
+  let text = cur ? `Đang chạy «${cur}»${queue.phase ? ` — ${queue.phase}` : ""}${n ? ` · ${n} job đang chờ` : ""}`
+    : (n ? `${n} job đang chờ` : "Trống — chọn job rồi bấm «Chạy job đã chọn»");
+  // persist_ok=false: backend không ghi được hàng chờ ra đĩa (đĩa đầy / file bị khoá) — vẫn chạy, nhưng restart sẽ mất thứ tự
+  if (queue.persist_ok === false) text += " · ⚠ không lưu được hàng chờ ra đĩa (kiểm tra ổ đĩa)";
+  // paused: backend tự TẠM DỪNG vì nhiều job lỗi liên tiếp (lỗi chung: GPU, đĩa, cloud, cấu hình) — R7.4
+  const pz = queue.paused;
+  if (pz) {
+    const last = (pz.fails || []).slice(-1)[0] || {};
+    text = `⏸ TẠM DỪNG: ${pz.reason || "nhiều job lỗi"} · còn ${n} job chưa chạy` + (last.detail ? ` · lỗi gần nhất: ${last.detail}` : "");
+  }
+  $("#q-state").textContent = text;
+  $("#q-state").title = text;
+  $("#q-state").classList.toggle("warn", queue.persist_ok === false || !!pz);
+  $("#q-dot").className = "q-dot" + (pz || queue.persist_ok === false ? " warn" : (cur ? " run" : ""));
+  $("#btn-q-resume").hidden = !pz;
+  $("#btn-q-panel").textContent = n ? `Thứ tự hàng chờ (${n})` : "Thứ tự hàng chờ";
+  if (!$("#qpanel").hidden) paintQueuePanel();
+  fullRedraw = true; schedule();
+}
+// Bảng thứ tự hàng chờ: đưa lên đầu / lên / xuống / gỡ từng job; xếp lại theo bộ → tập
+function paintQueuePanel() {
+  const items = queue.queue_items || (queue.queue || []).map((id) => ({ job_id: id, title: id }));
+  const cur = queue.current ? (jobs.get(queue.current)?.title || queue.current) : "";
+  $("#qp-sub").textContent = (cur ? `đang chạy «${cur}» · ` : "") + `${items.length} job đang chờ`;
+  $("#qp-list").innerHTML = items.length ? items.map((it, k) => {
+    const j = jobs.get(it.job_id) || {};
+    const grp = it.group_title ? ` <span class="mut small">${esc(it.group_title)}${it.group_index ? " · tập " + esc(it.group_index) : ""}</span>` : "";
+    return `<li data-id="${esc(it.job_id)}"><span class="qp-n">${k + 1}</span><span class="qp-t" title="${esc(it.job_id)}">${esc(j.title || it.title || it.job_id)}${grp}</span>`
+      + `<span class="qp-a"><button class="btn xs ghost" data-qm="top" title="Chạy kế tiếp"${k ? "" : " disabled"}>⤒</button>`
+      + `<button class="btn xs ghost" data-qm="up" title="Lên một bậc"${k ? "" : " disabled"}>↑</button>`
+      + `<button class="btn xs ghost" data-qm="down" title="Xuống một bậc"${k < items.length - 1 ? "" : " disabled"}>↓</button>`
+      + `<button class="btn xs ghost danger" data-qm="remove" title="Gỡ khỏi hàng chờ (không xoá job)">✕</button></span></li>`;
+  }).join("") : '<li class="note">Hàng chờ trống — chọn job ở bảng dưới rồi bấm «Chạy job đã chọn».</li>';
+}
+async function refreshQueue() {
+  try { queue = await api("GET", "/api/queue/jobs"); paintQueue(); fullRedraw = true; schedule(); } catch (_) { /* SSE báo mất kết nối riêng */ }
+}
+const refreshQueueSoon = debounce(refreshQueue, 600);
+
+// Nhật ký hàng chờ (file, sống qua restart): gọi 1 lần khi bấm nút.
+const HIST_VI = { done: "xong", failed: "lỗi", stopped: "đã dừng", held: "tạm dừng", parked: "tạm dừng",
+  waiting_review: "chờ soát", sidelined: "nhường ghế" };
+async function showQueueLog() {
+  const d = await api("GET", "/api/v6/queue/history?limit=200");
+  const rows = (d.history || []).map((h) => `<tr><td class="nowrap">${esc(h.at || "")}</td><td><span class="b ${esc(h.status === "sidelined" ? "held" : h.status)}">${esc(HIST_VI[h.status] || h.status)}</span></td>`
+    + `<td title="${esc(h.job_id)}">${esc(h.title || h.job_id)}</td><td class="note">${esc(h.detail || "")}</td></tr>`).join("");
+  $("#log-rows").innerHTML = rows || '<tr><td colspan="4" class="note">Chưa có mục nào.</td></tr>';
+  $("#dlg-log").showModal();
+}
+
+// ───────────── chi tiết job ─────────────
+async function loadDetail(id) {
+  try {
+    const d = await api("GET", "/api/jobs/" + encodeURIComponent(id));
+    if (id !== selected) return;             // người dùng đã chọn job khác
+    detail = d; paintDetail();
+  } catch (e) {
+    if (id === selected) { detail = null; paintDetail(e.message); }
+  }
+}
+// Job đang mở có thay đổi (job.updated / job.touched) → nạp lại chi tiết, tối đa 1 lần / 1,5 s.
+const refreshDetailSoon = debounce(() => { if (selected) loadDetail(selected); }, 1500);
+
+function select(id) {
+  selected = (id && id !== selected) ? id : null;
+  detail = null;
+  tab = "overview"; script = null; scriptFilter = "all"; scriptQ = ""; scriptShown = PAGE; ytJob = null; ytJobDirty = false;
+  fullRedraw = true; schedule();
+  paintDetail();
+  if (selected) loadDetail(selected);
+}
+
+function pct(st) {
+  const p = Number(st?.progress ?? st?.review_progress);
+  return Number.isFinite(p) && p > 0 && p < 100 ? ` ${Math.round(p)}%` : "";
+}
+
+function paintDetail(err) {
+  const box = $("#detail");
+  const j = selected ? jobs.get(selected) : null;
+  if (!selected || !j) { box.hidden = true; box.innerHTML = ""; delete box.dataset.job; box.classList.remove("wide"); return; }
+  box.hidden = false;
+  if (box.dataset.job !== j.job_id || !box.querySelector("#d-top")) {
+    box.dataset.job = j.job_id;
+    box.innerHTML = `<div id="d-top"></div><nav class="tabs" role="tablist">${TABS.map(([k, v]) =>
+      `<button class="tab" role="tab" data-act="tab" data-tab="${k}">${v}</button>`).join("")}</nav><div id="tab-body"></div>`;
+  }
+  box.classList.toggle("wide", tab === "script");
+  box.querySelectorAll(".tab").forEach((b) => { const on = b.dataset.tab === tab; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); });
+  const running = j.status === "running";
+  const held = j.status === "held";
+  $("#d-top").innerHTML = `
+    <div class="d-head"><h2 title="${esc(j.job_id)}">${esc(j.title)}</h2><button class="btn ghost sm" data-act="close" title="Đóng">✕</button></div>
+    <div class="d-id">${badge(j.status)}${inQueue(j.job_id) ? '<span class="tag info">trong hàng chờ</span>' : ""}<span>${esc(j.job_id)}</span></div>
+    ${running && j.cur_text ? `<div class="sub">${esc(j.cur_text)}</div>` : ""}
+    ${held ? `<div class="hold"><b>Đang tạm dừng${j.held_at ? ` ở bước ${esc(j.held_at)}` : ""}</b><br>${esc(j.hold_reason || "")}</div>` : ""}
+    ${err ? `<div class="err">Không đọc được chi tiết: ${esc(err)}</div>` : ""}
+    <div class="d-actions">
+      ${held ? '<button class="btn primary" data-act="resume" title="Gỡ tạm dừng và chạy tiếp">Chạy tiếp</button>' : ""}
+      <button class="btn primary" data-act="enqueue"${running || inQueue(j.job_id) ? " disabled" : ""} title="Thêm vào hàng chờ, chạy hết các bước theo Cài đặt">Chạy</button>
+      <button class="btn danger" data-act="stop"${running ? "" : " disabled"}>Dừng</button>
+      <button class="btn" data-act="reveal" title="Mở thư mục job trên máy">Mở thư mục</button>
+      <span class="grow"></span>
+      <button class="btn danger ghost" data-act="delete"${running ? " disabled" : ""}>Xoá</button>
+    </div>`;
+  if (tab === "overview") paintOverview(j);
+  else if (tab === "voice") paintVoice(false);
+  else if (tab === "result") paintResult(j);
+  else if (tab === "yt") { paintYtJob(false); if (!ytJobDirty && ytJob) loadYtJobSoon(); }   // job đổi (vd đăng xong) → đọc lại
+  else if (tab === "script") syncScriptLock(j);      // không vẽ lại danh sách (đang gõ thì mất chữ)
+}
+
+// 2026-11-20: số câu ASR / dịch / lồng tiếng — manifest có sẵn (n_segments, n_missing…) nhưng trước không hiện.
+function stageFacts(s, st) {
+  const n = (v) => (v === undefined || v === null || v === "") ? null : Number(v);
+  const out = [];
+  const seg = n(st.n_segments);
+  if (s === "asr") {
+    if (seg !== null) out.push(`${seg.toLocaleString("vi-VN")} câu`);
+    if (n(st.done_sec) && n(st.done_sec) > 0) out.push(`${fmtTime(st.done_sec)} đã nghe`);
+    const eng = st.asr_engine || st.engine;
+    if (eng) out.push(String(eng));
+  } else if (s === "translate") {
+    if (seg !== null) out.push(`${seg.toLocaleString("vi-VN")} câu`);
+    if (n(st.n_missing)) out.push(`thiếu ${n(st.n_missing)}`);
+  } else if (s === "tts") {
+    if (st.device && st.device.label) out.push(`chạy ${st.device.label}`);
+    if (seg !== null) out.push(`${seg.toLocaleString("vi-VN")} câu`);
+    if (n(st.n_missing)) out.push(`thiếu tiếng ${n(st.n_missing)} câu`);
+  }
+  return out.join(" · ");
+}
+
+function paintOverview(j) {
+  const running = j.status === "running";
+  const stages = STAGES.map((s) => {
+    const sum = j.stages?.[s] || "pending";
+    const st = detail?.stages?.[s] || {};
+    const facts = stageFacts(s, st);
+    const text = (st.error ? `<div class="err">${esc(st.error)}</div>` : (st.cur_text ? `<div class="sub">${esc(st.cur_text)}</div>` : ""))
+      + (facts ? `<div class="sub facts">${esc(facts)}</div>` : "");
+    return `<li><div class="st-head"><b>${esc(STAGE_VI[s])}</b>${badge(sum, pct(st))}`
+      + (sum === "done"
+        ? `<button class="btn ghost sm" data-act="stage" data-stage="${s}" data-force="1"${running ? " disabled" : ""} title="Bỏ kết quả cũ của bước này và làm lại từ đầu">Làm lại</button>`
+        : `<button class="btn sm" data-act="stage" data-stage="${s}"${running ? " disabled" : ""} title="Chạy riêng bước này (làm tiếp phần còn dở)">Chạy bước này</button>`)
+      + `</div>${text}</li>`;
+  }).join("");
+  $("#tab-body").innerHTML = `<ol class="stages">${stages}</ol>`;
+}
+
+// ───────────── tab Bản dịch (D2) ─────────────
+const FLAG_VI = { pronoun: "xưng hô", name: "tên", empty: "trống", cjk: "còn chữ Hán", cjk_stripped: "đã gỡ chữ Hán — xem lại" };
+function fmtTime(sec) {
+  const t = Math.max(0, Number(sec) || 0), m = Math.floor(t / 60), s = Math.floor(t % 60);
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+function translating(j) { return (j?.stages?.translate) === "running"; }
+
+async function loadScript() {
+  const id = selected;
+  if (!id) return;
+  const body = $("#tab-body");
+  if (!script) body.innerHTML = '<p class="hint">Đang tải bản dịch…</p>';
+  try {
+    const d = await api("GET", `/api/v6/jobs/${encodeURIComponent(id)}/script`);
+    if (id !== selected || tab !== "script") return;
+    script = { rows: d.rows || [], wav: new Set(d.wav || []), exists: d.exists, source: d.source || "" };
+    paintScript(true);
+  } catch (e) {
+    if (id === selected && tab === "script") body.innerHTML = `<div class="err">Không đọc được bản dịch: ${esc(e.message)}</div>`;
+  }
+}
+
+function scriptMatches(r) {
+  if (scriptFilter === "flag" && !(r.s_flags && r.s_flags.length)) return false;
+  if (scriptFilter === "unrev" && (r.rv || r.junk)) return false;
+  if (scriptFilter === "manual" && !r.manual) return false;
+  if (scriptFilter === "fixed" && !(!r.manual && (r.s_act === "fixed" || r.s_act === "new"))) return false;
+  if (scriptFilter === "empty" && (r.vi || "").trim()) return false;
+  if (scriptQ) {
+    const q = scriptQ.toLowerCase();
+    if (!((r.zh || "").toLowerCase().includes(q) || (r.vi || "").toLowerCase().includes(q) || String(r.i) === q)) return false;
+  }
+  return true;
+}
+
+function lineHtml(r, locked, enc) {
+  const tags = [];
+  for (const f of r.s_flags || []) tags.push(`<span class="tag warn">${esc(FLAG_VI[f] || f)}</span>`);
+  if (r.manual) tags.push('<span class="tag ok">sửa tay</span>');
+  else if (!r.rv && !r.junk) tags.push('<span class="tag">chưa soát</span>');
+  if (r.unreviewed_accepted) tags.push('<span class="tag">nháp chưa soát</span>');
+  if (!r.manual && r.rv && r.s_act) tags.push(`<span class="tag ${r.s_act === "pass" ? "mut" : "info"}" title="${esc(ACT_TIP[r.s_act] || "")}">${esc(ACT_VI[r.s_act] || r.s_act)}</span>`);
+  if (r.s_spk && r.s_spk !== "?") tags.push(`<span class="tag mut">${esc(r.s_spk)} → ${esc(r.s_to || "?")}</span>`);
+  const why = (!r.manual && r.s_why && r.s_act !== "pass") ? `<div class="why small mut">Máy sửa: ${esc(r.s_why)}</div>` : "";
+  const has = script.wav.has(Number(r.i));
+  return `<div class="ln" data-i="${esc(r.i)}">
+    <div class="ln-meta"><b>#${esc(r.i)}</b> <span class="mut">${fmtTime(r.start)}</span> ${tags.join(" ")}</div>
+    <div class="zh"><span class="zh-text">${esc(r.zh || "")}</span>${locked || r.junk ? "" : ` <button class="btn xs ghost" data-act="zh-edit" data-i="${esc(r.i)}" title="Sửa câu Trung (khi ASR nghe nhầm)">✎</button>`}</div>
+    <textarea class="zh-edit" data-i="${esc(r.i)}" rows="1" spellcheck="false" hidden>${esc(r.zh || "")}</textarea>
+    <textarea class="vi" data-i="${esc(r.i)}" data-junk="${r.junk ? 1 : 0}" rows="2" spellcheck="false"${locked || r.junk ? " readonly" : ""}>${esc(r.vi || "")}</textarea>${why}
+    <div class="ln-act"><button class="btn sm" data-act="play" data-i="${esc(r.i)}"${has ? "" : " disabled"} title="${has ? "Nghe giọng đọc câu này" : "Câu này chưa có giọng đọc"}">▶ Nghe</button>
+    <button class="btn sm" data-act="clip" data-i="${esc(r.i)}" title="Đọc lại riêng câu này bằng giọng của job">Đọc lại câu</button>
+    <button class="btn sm ghost" data-act="hist" data-i="${esc(r.i)}" title="Câu này đã qua những bước nào: nháp → soát → vá → hậu kỳ (cũ → mới, lý do)">Lịch sử</button>
+    <span class="st" data-st="${esc(r.i)}"></span></div><div class="hist small" data-hist="${esc(r.i)}" hidden></div></div>`;
+}
+
+const ACT_VI = { pass: "giữ nháp", fixed: "máy đã sửa", new: "dịch mới" };
+const ACT_TIP = { pass: "Soát xong, bản nháp đã đúng nên giữ nguyên", fixed: "Bước soát/vá đã đổi bản nháp — xem lý do bên dưới hoặc «Lịch sử»", new: "Câu chưa có nháp, máy dịch mới từ câu Trung" };
+const STEP_VI = { nmt: "nháp NMT", review: "soát", "review-retry": "soát lại (lô lỗi)", repair1: "vá lượt 1", repair2: "vá lượt 2", post: "hậu kỳ", force: "dịch lại", junk: "câu rác", unreviewed_accepted: "nhận nháp chưa soát", "review-missing": "soát câu còn thiếu" };
+
+async function toggleHistory(btn) {
+  const i = btn.dataset.i, box = document.querySelector(`[data-hist="${CSS.escape(String(i))}"]`);
+  if (!box) return;
+  if (!box.hidden) { box.hidden = true; return; }
+  box.hidden = false; box.textContent = "đang tải…";
+  try {
+    const d = await api("GET", `/api/v6/jobs/${encodeURIComponent(selected)}/script/${encodeURIComponent(i)}/history`);
+    if (!d.history.length) { box.innerHTML = '<span class="mut">Chưa có lịch sử (job dịch bằng luồng cũ, hoặc trace đã xoay).</span>'; return; }
+    box.innerHTML = d.history.map((h) => {
+      const t = h.ts ? new Date(h.ts * 1000).toLocaleString("vi-VN") : "";
+      const chg = ("old" in h || "new" in h) ? `<div><s class="mut">${esc(h.old || "∅")}</s> → <b>${esc(h.new || "∅")}</b></div>` : "";
+      return `<div class="h-it"><span class="tag mut">${esc(STEP_VI[h.step] || h.step)}</span> <span class="mut">${esc(t)}</span>${chg}${h.why ? `<div class="mut">${esc(h.why)}</div>` : ""}</div>`;
+    }).join("") + (d.n > d.history.length ? `<div class="mut">… ${d.n - d.history.length} mục cũ hơn không hiện</div>` : "");
+  } catch (e) { box.innerHTML = `<span class="err">Lỗi: ${esc(e.message)}</span>`; }
+}
+
+function paintScript(rebuild) {
+  const body = $("#tab-body");
+  const j = jobs.get(selected);
+  if (!script || !j) return;
+  if (!script.exists) {
+    if (script.source === "asr" && script.rows.length) {       // đã có lời gốc (ASR), chưa dịch → hiện câu Trung
+      if (rebuild || !body.querySelector("#sc-list.asr-list")) {   // thanh tìm vẽ 1 lần (gõ tìm không mất focus)
+        const dur = Number(script.rows[script.rows.length - 1].end) || 0;
+        body.innerHTML = `<div class="sc-bar"><input id="sc-q" placeholder="Tìm trong câu Trung, hoặc số câu…" value="${esc(scriptQ)}">
+            <button class="btn sm" data-act="sc-reload" title="Nạp lại từ đĩa">Tải lại</button></div>
+          <div class="callout">Lời gốc nhận dạng (ASR): <b>${script.rows.length} câu</b> · ${esc(fmtTime(dur))}. Chưa dịch — chạy bước «Dịch» ở tab Tổng quan.</div>
+          <div id="sc-list" class="asr-list"></div>`;
+      }
+      const q = scriptQ.toLowerCase();
+      const list = script.rows.filter((r) => !q || (r.zh || "").toLowerCase().includes(q) || String(r.i) === q);
+      $("#sc-list").innerHTML = (list.slice(0, scriptShown).map((r) => `<div class="ln asr"><div class="ln-meta"><b>#${esc(r.i)}</b> <span class="mut">${fmtTime(r.start)} → ${fmtTime(r.end)}</span></div><div class="zh">${esc(r.zh)}</div></div>`).join("")
+        || '<p class="hint">Không có câu nào khớp.</p>') + (list.length > scriptShown ? `<button class="btn more" data-act="sc-more">Xem thêm (${list.length - scriptShown} câu)</button>` : "");
+      return;
+    }
+    body.innerHTML = '<p class="hint">Job này chưa có lời thoại. Bước «Nhận dạng giọng» (ASR) xong sẽ hiện câu Trung ở đây; bước «Dịch» xong sẽ hiện bản dịch.</p>';
+    return;
+  }
+  const rows = script.rows;
+  const n = { all: rows.length, flag: 0, unrev: 0, manual: 0, empty: 0, fixed: 0 };
+  for (const r of rows) {
+    if (!r.manual && (r.s_act === "fixed" || r.s_act === "new")) n.fixed++;
+    if (r.s_flags && r.s_flags.length) n.flag++;
+    if (!r.rv && !r.junk) n.unrev++;
+    if (r.manual) n.manual++;
+    if (!(r.vi || "").trim()) n.empty++;
+  }
+  if (rebuild || !body.querySelector("#sc-list")) {
+    const opt = (k, label) => `<option value="${k}"${scriptFilter === k ? " selected" : ""}>${label} (${n[k]})</option>`;
+    body.innerHTML = `<div class="sc-bar">
+        <select id="sc-filter" aria-label="Lọc câu">${opt("all", "Tất cả")}${opt("flag", "Bị cờ")}${opt("fixed", "Máy đã sửa")}${opt("unrev", "Chưa soát")}${opt("empty", "Trống")}${opt("manual", "Đã sửa tay")}</select>
+        <input id="sc-q" placeholder="Tìm trong câu Trung / Việt, hoặc số câu…" value="${esc(scriptQ)}">
+        <button class="btn sm" data-act="sc-reload" title="Nạp lại bản dịch từ đĩa">Tải lại</button>
+      </div>
+      <div id="sc-lock" class="hold" hidden>Đang dịch / soát — tạm khoá sửa (sửa bây giờ sẽ bị ghi đè). Bản dịch tự nạp lại khi xong.</div>
+      <p class="hint">Sửa câu Việt rồi bấm ra ngoài (hoặc Ctrl+Enter) để lưu. Câu đã sửa tay không bị máy soát ghi đè. Sửa xong muốn nghe lại thì bấm «Đọc lại câu».</p>
+      <div id="sc-list"></div>`;
+  }
+  syncScriptLock(j);
+  const list = rows.filter(scriptMatches);
+  const shown = list.slice(0, scriptShown);
+  const locked = translating(j);
+  const enc = encodeURIComponent(selected);
+  $("#sc-list").innerHTML = (shown.length ? shown.map((r) => lineHtml(r, locked, enc)).join("") : '<p class="hint">Không có câu nào khớp.</p>')
+    + (list.length > shown.length ? `<button class="btn more" data-act="sc-more">Xem thêm (${list.length - shown.length} câu)</button>` : "");
+}
+
+function syncScriptLock(j) {
+  const lock = $("#sc-lock");
+  if (!lock) return;
+  const on = translating(j);
+  lock.hidden = !on;
+  document.querySelectorAll("#sc-list textarea.vi").forEach((t) => { t.readOnly = on || t.dataset.junk === "1"; });
+}
+
+async function saveZh(ta) {
+  const i = Number(ta.dataset.i), id = selected;
+  const row = script?.rows.find((r) => Number(r.i) === i);
+  if (!row) return;
+  const zh = ta.value.trim();
+  const st = document.querySelector(`[data-st="${CSS.escape(String(i))}"]`);
+  ta.hidden = true;
+  if (zh === (row.zh || "").trim() || !zh) return;
+  if (st) { st.textContent = "đang lưu câu Trung…"; st.className = "st"; }
+  try {
+    const r = await api("POST", `/api/jobs/${encodeURIComponent(id)}/script-line`, { i, zh });
+    row.zh = r.zh ?? zh; row.manual = 1; delete row.rv;
+    const span = ta.closest(".ln")?.querySelector(".zh-text");
+    if (span) span.textContent = row.zh;
+    if (st) { st.textContent = "đã lưu câu Trung — câu Việt không tự dịch lại; sửa câu Việt nếu cần"; st.className = "st ok"; }
+  } catch (e) {
+    ta.value = row.zh || "";
+    if (st) { st.textContent = "Lỗi: " + e.message; st.className = "st err"; }
+  }
+}
+
+async function saveLine(ta) {
+  const i = Number(ta.dataset.i), id = selected;
+  const row = script?.rows.find((r) => Number(r.i) === i);
+  if (!row || ta.readOnly) return;
+  const vi = ta.value.trim();
+  if (vi === (row.vi || "").trim()) return;
+  const st = document.querySelector(`[data-st="${CSS.escape(String(i))}"]`);
+  if (st) { st.textContent = "đang lưu…"; st.className = "st"; }
+  try {
+    const r = await api("POST", `/api/jobs/${encodeURIComponent(id)}/script-line`, { i, vi });
+    row.vi = r.vi ?? vi; row.manual = 1; delete row.rv; row.s_flags = [];
+    if (st) { st.textContent = r.tts_stale ? "đã lưu · giọng đọc câu này đã cũ — bấm «Đọc lại câu»" : "đã lưu"; st.className = "st ok"; }
+  } catch (e) {
+    ta.value = row.vi || "";
+    if (st) { st.textContent = "Lỗi: " + e.message; st.className = "st err"; }
+  }
+}
+
+const player = new Audio();
+function playLine(i) {
+  const f = `tts/seg_${String(i).padStart(4, "0")}.wav`;
+  player.src = `/api/jobs/${encodeURIComponent(selected)}/file/${f}?t=${Date.now()}`;
+  player.play().catch((e) => say("Không phát được: " + e.message, "err"));
+}
+
+// ───────────── tab Giọng đọc (D6, theo job) ─────────────
+async function loadVoices() {
+  if (voices) return voices;
+  const d = await api("GET", "/api/voices");
+  voices = (d.vieneu || d.omnivoice || []).map((v) => v.id);
+  return voices;
+}
+
+function paintVoice(force) {
+  const body = $("#tab-body");
+  if (!force && body.querySelector("form.voice") && body.contains(document.activeElement)) return;   // đang chọn → giữ nguyên
+  const tts = detail?.stages?.tts || {};
+  const cur = { voice: tts.voice || "", speed: tts.speed || 1, engine: tts.tts_engine || tts.engine || "vieneu" };
+  const vs = voices || [];
+  const opts = vs.map((v) => `<option${v === cur.voice ? " selected" : ""}>${esc(v)}</option>`).join("");
+  body.innerHTML = `<form class="voice">
+      <label>Giọng<select name="voice">${cur.voice && !vs.includes(cur.voice) ? `<option selected>${esc(cur.voice)}</option>` : ""}${opts || '<option value="">(chưa có giọng clone)</option>'}</select></label>
+      <label>Tốc độ đọc<input name="speed" type="number" min="0.5" max="2" step="0.05" value="${esc(cur.speed)}"></label>
+      <label>Bộ đọc (TTS)<select name="engine">${["vieneu", "omnivoice"].map((e) => `<option${e === cur.engine ? " selected" : ""}>${e}</option>`).join("")}</select></label>
+      <div class="actions"><button class="btn" data-act="voice-sample" type="button" title="Đọc một câu mẫu bằng giọng + tốc độ đang chọn (lần đầu có thể mất vài chục giây)">▶ Nghe mẫu</button>
+        <button class="btn primary" data-act="voice-save" type="button">Lưu cho job này</button></div>
+      <p class="hint">Áp dụng cho lần lồng tiếng tiếp theo của job này. Đã lồng tiếng rồi thì sang tab Tổng quan bấm «Làm lại» ở bước Lồng tiếng
+      (hoặc «Đọc lại câu» ở tab Bản dịch cho từng câu). Giọng mặc định cho mọi job mới: Cài đặt → Giọng đọc.</p>
+    </form>
+    <form class="voice clone">
+      <h3>Thêm giọng clone mới</h3>
+      <p class="hint">File ghi âm 3–8 giây, một người nói, rõ, không nhạc nền (wav / mp3 / m4a…). Dài hơn sẽ tự cắt. Giọng dùng chung cho mọi job.</p>
+      <label>File mẫu<input type="file" class="clone-file" name="clone-file" accept="audio/*,.wav,.mp3,.m4a,.flac,.ogg,.opus,.aac"></label>
+      <label>Tên giọng<input name="clone-name" maxlength="60" placeholder="vd: Ngọc Huyền"></label>
+      <div class="actions"><button class="btn primary" data-act="voice-clone" type="button">Tạo giọng</button></div>
+    </form>`;
+}
+
+// ───────────── tab Kết quả ─────────────
+// ───────────── tab YouTube của job (2026-11-27): chọn 1 / nhiều kênh — job xong hay chưa ─────────────
+let ytJob = null, ytJobDirty = false;
+async function loadYtJob() {
+  const id = selected; if (!id) return;
+  if (!ytAcc) await loadYtAcc();
+  try { ytJob = await api("GET", `/api/v6/yt/job/${encodeURIComponent(id)}`); } catch (e) { ytJob = { job_id: id, error: e.message }; }
+  ytJobDirty = false;
+  if (selected === id && tab === "yt") paintYtJob(true);
+}
+const loadYtJobSoon = debounce(() => { if (tab === "yt" && !ytJobDirty) loadYtJob(); }, 1500);
+function paintYtJob(force) {
+  const body = $("#tab-body"); if (!body) return;
+  if (!ytJob || ytJob.job_id !== selected) { body.innerHTML = '<p class="hint">Đang đọc…</p>'; loadYtJob(); return; }
+  if (!force && (ytJobDirty || body.querySelector("#yt-job"))) return;     // đang chọn dở → không vẽ đè
+  const s = ytJob, accs = ytAcc?.accounts || [];
+  if (s.error) { body.innerHTML = `<div class="err">${esc(s.error)}</div>`; return; }
+  const tgt = new Set((s.targets || []).map((t) => t.id)), ups = s.uploads || {}, pend = new Set(s.pending || []);
+  const rows = accs.map((a) => {
+    const st = ups[a.id] ? `<a href="${esc(ups[a.id])}" data-ext>✓ đã đăng</a>`
+      : pend.has(a.id) ? '<span class="tag info">đang chờ đăng</span>'
+      : tgt.has(a.id) ? `<span class="tag">${s.done ? "chưa đăng" : "đăng khi job xong"}</span>` : "";
+    return `<label class="yt-row"><input type="checkbox" class="yt-pick" value="${esc(a.id)}"${tgt.has(a.id) || ups[a.id] ? " checked" : ""}${ups[a.id] ? " disabled" : ""}>
+      ${a.thumb ? `<img src="${esc(a.thumb)}" alt="" referrerpolicy="no-referrer">` : '<span class="yt-ph">▶</span>'}
+      <b>${a.default ? "★ " : ""}${esc(a.title)}</b><span class="grow"></span>${st}</label>`;
+  }).join("");
+  const oldUps = Object.entries(ups).filter(([k]) => !accs.some((a) => a.id === k));
+  body.innerHTML = `<div id="yt-job">
+    <p class="sub">${s.done ? "Job đã xong — chọn kênh rồi bấm «Đăng ngay»." : "Job chưa xong — chọn kênh, job render xong sẽ <b>tự đăng</b> lên các kênh đã chọn."}
+      Mỗi kênh đăng 1 lần; tiêu đề / mô tả / ảnh bìa tự tạo khi đăng.</p>
+    ${accs.length ? `<div class="yt-rows">${rows}</div>` : '<div class="callout warn">Chưa có kênh YouTube — thêm ở «Phim đã làm» → Kênh YouTube.</div>'}
+    ${oldUps.length ? `<p class="sub small">Đã đăng trước đây: ${oldUps.map(([, u]) => `<a href="${esc(u)}" data-ext>${esc(u)}</a>`).join(" · ")}</p>` : ""}
+    <div class="row-ctl">
+      <label class="inline">Chế độ <select id="yt-priv"><option value="unlisted">Không công khai</option><option value="private">Riêng tư</option><option value="public">Công khai</option></select></label>
+      <label class="inline">Hẹn giờ <select id="yt-sched"><option value="0">Đăng ngay</option><option value="1">Sau 1 giờ</option><option value="3">Sau 3 giờ</option><option value="6">Sau 6 giờ</option><option value="12">Sau 12 giờ</option><option value="24">Sau 1 ngày</option></select></label>
+    </div>
+    <div class="actions"><button type="button" class="btn ghost sm" data-act="yt-clear"${tgt.size ? "" : " disabled"}>Bỏ tự đăng</button><span class="grow"></span>
+      <button type="button" class="btn primary" data-act="yt-save"${accs.length ? "" : " disabled"}>${s.done ? "Đăng ngay lên kênh đã chọn" : "Lưu — tự đăng khi job xong"}</button></div></div>`;
+  $("#yt-priv").value = s.privacy || $("#films-privacy")?.value || "unlisted";
+  $("#yt-sched").value = String(Math.round(Number(s.schedule_hours) || 0));
+  body.querySelectorAll(".yt-pick, #yt-priv, #yt-sched").forEach((el) => el.addEventListener("change", () => { ytJobDirty = true; }));
+  body.querySelectorAll("a[data-ext]").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); openExternal(el.href); }));
+}
+async function saveYtJob(btn, clear) {
+  const id = selected; if (!id) return;
+  const ups = ytJob?.uploads || {};
+  const ids = clear ? [] : [...document.querySelectorAll("#yt-job .yt-pick:checked")].map((c) => c.value).filter((v) => !ups[v]);
+  if (!clear && !ids.length) { say("Chọn ít nhất 1 kênh chưa đăng", "err"); return; }
+  const names = ids.map((v) => (ytAcc?.accounts || []).find((a) => a.id === v)?.title || v);
+  if (!clear && ytJob?.done && !confirm(`Đăng «${jobs.get(id)?.title || id}» lên ${ids.length} kênh: ${names.join(", ")}?\n\nVideo được gửi lên YouTube, không tự rút lại được.${ids.length > 1 ? "\n\nLưu ý: cùng 1 video trên nhiều kênh dễ bị YouTube coi là nội dung trùng lặp." : ""}`)) return;
+  return act(btn, "", async () => {
+    const r = await api("POST", `/api/v6/yt/job/${encodeURIComponent(id)}`, clear ? { account_ids: [] }
+      : { account_ids: ids, privacy: $("#yt-priv").value, schedule_hours: Number($("#yt-sched").value) || 0 });
+    ytJob = r.status; ytJobDirty = false; paintYtJob(true);
+    say(clear ? "Đã bỏ tự đăng cho job này" : (r.published_now?.length ? `Đã xếp đăng lên ${names.join(", ")}` : `Đã lưu — job xong sẽ tự đăng lên ${names.join(", ")}`));
+  });
+}
+
+function paintResult(j) {
+  const enc = encodeURIComponent(j.job_id);
+  const done = j.stages?.mux === "done";
+  const body = $("#tab-body");
+  const cur = body.querySelector("video");
+  if (cur && cur.dataset.job === j.job_id && cur.dataset.done === String(done)) return;   // đang xem → không nạp lại
+  body.innerHTML = (done
+    ? `<video controls preload="metadata" data-job="${esc(j.job_id)}" data-done="true" src="/api/jobs/${enc}/file/output.mp4"></video>`
+    : `<p class="hint">Chưa render xong — video kết quả sẽ hiện ở đây khi bước «Ghép / render» xong.</p>`)
+    + `<div class="d-actions">
+         <a class="btn" href="/api/jobs/${enc}/srt/vi" download>Tải phụ đề Việt (.srt)</a>
+         <a class="btn" href="/api/jobs/${enc}/srt/zh" download>Tải phụ đề Trung (.srt)</a>
+         <button class="btn" data-act="reveal">Mở thư mục</button>
+       </div>`;
+}
+
+async function detailAction(btn) {
+  const id = selected, a = btn.dataset.act;
+  if (!id) return;
+  const enc = encodeURIComponent(id);
+  const title = jobs.get(id)?.title || id;
+  if (a === "close") return select(null);
+  if (a === "tab") {
+    tab = btn.dataset.tab;
+    paintDetail();
+    if (tab === "script") { if (script) paintScript(true); else loadScript(); }
+    if (tab === "voice") { try { await loadVoices(); } catch (e) { say("Không đọc được danh sách giọng: " + e.message, "err"); } if (tab === "voice") paintVoice(true); }
+    if (tab === "yt") loadYtJob();
+    return;
+  }
+  if (a === "yt-save" || a === "yt-clear") return saveYtJob(btn, a === "yt-clear");
+  if (a === "sc-reload") return loadScript();
+  if (a === "sc-more") { scriptShown += PAGE; return paintScript(false); }
+  if (a === "play") return playLine(btn.dataset.i);
+  if (a === "hist") return toggleHistory(btn);
+  if (a === "zh-edit") {
+    const ta = document.querySelector(`textarea.zh-edit[data-i="${CSS.escape(btn.dataset.i)}"]`);
+    if (ta) { ta.hidden = false; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+    return;
+  }
+  if (a === "clip") {
+    const i = Number(btn.dataset.i);
+    return act(btn, `Đã đọc lại câu #${i}`, async () => {
+      await api("POST", `/api/jobs/${enc}/tts-clip`, { i });
+      script?.wav.add(i);
+      const p = document.querySelector(`button[data-act="play"][data-i="${CSS.escape(String(i))}"]`);
+      if (p) p.disabled = false;
+      playLine(i);
+    });
+  }
+  if (a === "voice-sample") {
+    const f = btn.closest("form");
+    const q = new URLSearchParams({ engine: f.engine.value || "vieneu", voice: f.voice.value || "", speed: f.speed.value || "1" });
+    if (!f.voice.value) return say("Chưa có giọng để nghe", "err");
+    return act(btn, "", async () => {
+      btn.textContent = "Đang đọc mẫu…";
+      try {
+        const r = await fetch("/api/voice-sample?" + q);
+        if (!r.ok) { let m = `HTTP ${r.status}`; try { m = (await r.json()).error || m; } catch (_) { /* không phải JSON */ } throw new Error(m); }
+        player.src = URL.createObjectURL(await r.blob());
+        await player.play();
+      } finally { btn.textContent = "▶ Nghe mẫu"; }
+    });
+  }
+  if (a === "voice-clone") {
+    const f = btn.closest("form"), file = f.elements["clone-file"].files[0], name = f.elements["clone-name"].value.trim();
+    if (!file) return say("Chọn file ghi âm mẫu trước", "err");
+    if (!name) return say("Đặt tên cho giọng", "err");
+    return act(btn, `Đã tạo giọng «${name}»`, async () => {
+      btn.textContent = "Đang tạo (có thể mất 1 phút)…";
+      try {
+        const fd = new FormData(); fd.append("name", name); fd.append("file", file);
+        const r = await fetch("/api/clone-voice", { method: "POST", body: fd });
+        let d = null; try { d = await r.json(); } catch (_) { /* không phải JSON */ }
+        if (!r.ok || !d || d.error) throw new Error((d && d.error) || `HTTP ${r.status}`);
+        voices = null; await loadVoices(); paintVoice(true);
+      } finally { btn.textContent = "Tạo giọng"; }
+    });
+  }
+  if (a === "voice-save") {
+    const f = btn.closest("form");
+    const body = { voice: f.voice.value || null, speed: Number(f.speed.value) || null, engine: f.engine.value || null };
+    return act(btn, "Đã lưu giọng cho job này", async () => { await api("POST", `/api/jobs/${enc}/tts-voice`, body); await loadDetail(id); });
+  }
+  if (a === "enqueue") return act(btn, "Đã xếp vào hàng chờ", async () => { await api("POST", "/api/queue/jobs", { job_ids: [id] }); await refreshQueue(); });
+  if (a === "resume") return act(btn, "Đã gỡ tạm dừng, chạy tiếp", async () => { await api("POST", "/api/agent/resume/" + enc); await refreshQueue(); });
+  if (a === "stop") return act(btn, "Đã gửi lệnh dừng", async () => { await api("POST", `/api/jobs/${enc}/stop`); await refreshQueue(); });
+  if (a === "reveal") return act(btn, "", () => api("POST", `/api/jobs/${enc}/reveal`));
+  if (a === "stage") {
+    const stg = btn.dataset.stage, force = btn.dataset.force === "1";
+    // D3: bước đã xong — chạy không kèm force thì server coi như xong rồi (TTS chỉ đọc nốt phần thiếu) → nút
+    // «Làm lại» gửi force=true và phải nói rõ sẽ mất gì.
+    if (force && !confirm(`Làm lại bước «${STAGE_VI[stg]}» của «${title}»?\n\n${REDO_WARN[stg]}\n\nCác bước phía sau có thể phải chạy lại theo.`)) return;
+    return act(btn, force ? `Đang làm lại bước ${STAGE_VI[stg]}` : `Đã chạy bước ${STAGE_VI[stg]}`,
+      () => api("POST", `/api/jobs/${enc}/run/${stg}${force ? "?force=true" : ""}`));
+  }
+  if (a === "delete") {
+    if (!confirm(`Xoá VĨNH VIỄN job «${title}»?\nToàn bộ thư mục job (video, âm thanh, bản dịch) sẽ bị xoá, không phục hồi được.`)) return;
+    return act(btn, "Đã xoá job", async () => { 
+      await api("DELETE", "/api/jobs/" + enc);
+      jobs.delete(id); picked.delete(id); select(null);     // bỏ khỏi bảng ngay, không chờ event job.removed
+      refreshQueueSoon();
+    });
+  }
+}
+
+// ───────────── thêm job ─────────────
+function isLocalPath(s) { return /^[a-zA-Z]:[\\/]/.test(s) || s.startsWith("\\\\") || s.startsWith("/") || s.startsWith("~"); }
+
+// Link → «Kiểm tra» (services/add_jobs.inspect: Bilibili qua API gốc) → chọn tập → «Tạo N job» (/api/v6/jobs/from-link).
+// Đường dẫn trên máy → tạo luôn như cũ.
+let newPrev = null;
+const KIND_VI = { video: "Video", multi_p: "Video nhiều tập (P1, P2…)", collection: "Hợp tập", series: "Series", playlist: "Danh sách" };
+function fmtSec(t) { t = Number(t) || 0; const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = Math.floor(t % 60); return h ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`; }
+function newReset() { newPrev = null; $("#new-prev").hidden = true; $("#new-prev").innerHTML = ""; $("#new-ok").textContent = "Kiểm tra"; }
+function newPaint() {
+  const d = newPrev, box = $("#new-prev");
+  const ck = d.cookie;
+  const cookieLine = d.platform !== "bilibili" ? "" : ck?.login?.is_login
+    ? `<span class="tag ok">Đăng nhập: ${esc(ck.login.uname)}${ck.login.vip ? " · " + esc(ck.login.vip) : ""}</span>`
+    : `<span class="tag warn" title="${esc(ck?.error || "")}">${ck?.has_cookie ? "Cookie Bilibili hết hạn" : "Chưa đăng nhập Bilibili"} — chất lượng bị giới hạn (thường ≤480P/720P)</span>
+      <details class="more new-ck"><summary>Dán cookie Bilibili</summary><div class="inner">
+        <p class="sub">Trình duyệt đã đăng nhập bilibili.com → Cookie-Editor → Export JSON → dán. Hoặc <code>SESSDATA=…; bili_jct=…</code>. Lưu trên máy (thư mục cookies).</p>
+        <textarea id="new-ck" rows="3" placeholder='[{"name":"SESSDATA","value":"…"}, …]'></textarea>
+        <div class="actions"><span id="new-ck-err" class="err small grow"></span><button type="button" class="btn sm primary" id="new-ck-save">Lưu cookie & kiểm tra lại link</button></div></div></details>`;
+  const rows = d.parts.map((p, i) => `<tr><td><input type="checkbox" data-part="${i}"${p.exists ? " disabled" : " checked"}></td>`
+    + `<td>${i + 1}</td><td>${esc(p.title || p.url)}${p.exists ? ' <span class="tag mut">đã có job</span>' : ""}</td><td>${p.duration ? esc(fmtSec(p.duration)) : ""}</td></tr>`).join("");
+  box.innerHTML = `<div class="new-head">${d.pic ? `<img src="${esc(d.pic)}" referrerpolicy="no-referrer" alt="">` : ""}<div>
+      <b>${esc(d.title || "")}</b>
+      <div class="sub">${esc(KIND_VI[d.kind] || d.kind)} · ${d.parts.length} tập${d.total_sec ? ` · ${esc(fmtSec(d.total_sec))}` : ""} · tải bằng ${esc(d.downloader)}</div>
+      <div>${cookieLine}</div></div></div>
+    ${d.parts.length > 1 ? `<div class="row"><label class="check"><input type="checkbox" id="new-all" checked> Chọn tất cả</label><span class="grow"></span><span class="sub" id="new-cnt"></span></div>` : ""}
+    <div class="scroll new-parts"><table class="data eps"><tbody>${rows}</tbody></table></div>
+    <div class="actions"><span class="sub grow">Mỗi tập là một job; nhiều tập được gom thành một nhóm trong hàng chờ.</span><button type="button" class="btn primary" id="new-create">Tạo job</button></div>`;
+  box.hidden = false;
+  newCount();
+}
+function newSel() { return [...document.querySelectorAll("#new-prev input[data-part]:checked")].map((c) => newPrev.parts[+c.dataset.part]); }
+function newCount() {
+  const n = newSel().length, b = $("#new-create");
+  if (b) { b.disabled = !n; b.textContent = n ? `Tạo ${n} job` : "Chưa chọn tập nào"; }
+  if ($("#new-cnt")) $("#new-cnt").textContent = `Đã chọn ${n}/${newPrev.parts.length}`;
+}
+async function createJob(ev) {
+  ev.preventDefault();
+  const src = $("#new-src").value.trim(), errEl = $("#new-err"), ok = $("#new-ok");
+  if (!src) return;
+  errEl.hidden = true; ok.disabled = true;
+  try {
+    if (isLocalPath(src)) { newTab("local"); newAddPaths([src]); $("#new-src").value = ""; return; }
+    ok.textContent = "Đang đọc link…";
+    newPrev = await api("POST", "/api/v6/source/inspect", { url: src });
+    newPaint();
+  } catch (e) {
+    errEl.textContent = e.message; errEl.hidden = false;
+  } finally { ok.disabled = false; ok.textContent = "Kiểm tra"; }
+}
+// 2026-11-24: chọn kênh YouTube NGAY khi tạo job (trước chỉ gán được sau khi job đã có) — nhớ lựa chọn lần trước
+function newPubPaint() {
+  const sel = $("#new-pub"); if (!sel) return;
+  let pref = sel.value; if (!pref) { try { pref = localStorage.getItem("new.pub") || ""; } catch (_) { /* không có storage */ } }
+  const accs = (ytAcc?.accounts || []).filter((a) => a.token);
+  sel.innerHTML = '<option value="">Không tự đăng</option>' + accs.map((a) =>
+    `<option value="${esc(a.id)}"${a.id === pref ? " selected" : ""}>▶ ${esc(a.title)}${a.default ? " ★" : ""}</option>`).join("")
+    + (accs.length ? "" : '<option value="" disabled>(chưa có kênh — thêm ở Phim đã làm → Kênh YouTube)</option>');
+}
+$("#new-pub")?.addEventListener("change", (e) => { try { localStorage.setItem("new.pub", e.target.value); } catch (_) { /* chỉ phiên này */ } });
+async function newAssignPub(ids) {
+  const acc = $("#new-pub")?.value || "";
+  if (!acc || !ids?.length) return "";
+  try {
+    const r = await api("POST", "/api/v6/yt/targets", { job_ids: ids, account_id: acc });
+    return ` · tự đăng lên «${r.channel || acc}» khi xong`;
+  } catch (e) {
+    say(`Đã tạo job nhưng CHƯA gán kênh: ${e.message} — tích các job → «Đăng lên kênh…»`, "err");
+    return "";
+  }
+}
+async function newCreate(btn) {
+  const parts = newSel(); if (!parts.length) return;
+  return act(btn, "", async () => {
+    btn.textContent = "Đang tạo…";
+    const r = await api("POST", "/api/v6/jobs/from-link", { url: newPrev.url, parts: parts.map((p) => ({ url: p.url, title: p.title })), group_title: newPrev.title });
+    const pub = await newAssignPub(r.job_ids);
+    $("#dlg-new").close(); $("#new-src").value = ""; newReset();
+    say(`Đã tạo ${r.count} job${r.skipped?.length ? ` · bỏ qua ${r.skipped.length} tập đã có` : ""}${pub}`);
+  });
+}
+$("#new-src").addEventListener("input", newReset);
+
+// ── File trên máy: chọn file / thư mục (hộp chọn của Windows qua server) → /api/jobs/local-batch ──
+let newPaths = [];
+function newTab(t) {
+  document.querySelectorAll('input[name="new-tab"]').forEach((r) => { r.checked = r.value === t; });
+  $("#new-link").hidden = t !== "link"; $("#new-local").hidden = t !== "local";
+  $("#new-prev").hidden = t !== "link" || !newPrev; $("#new-err").hidden = true;
+}
+function newAddPaths(ps) { for (const p of ps) if (p && !newPaths.includes(p)) newPaths.push(p); newPaintPaths(); }
+function newPaintPaths() {
+  $("#new-picked").innerHTML = newPaths.length ? `<div class="scroll new-parts"><table class="data"><tbody>${newPaths.map((p, i) =>
+    `<tr><td>${/\.[a-z0-9]{2,4}$/i.test(p) ? "🎬" : "📁"}</td><td class="mono">${esc(p)}</td><td><button type="button" class="btn sm ghost" data-rm="${i}">Bỏ</button></td></tr>`).join("")}</tbody></table></div>` : '<p class="note">Chưa chọn gì.</p>';
+  const b = $("#new-local-ok"); b.disabled = !newPaths.length; b.textContent = newPaths.length ? `Tạo job từ ${newPaths.length} mục` : "Tạo job";
+}
+document.querySelectorAll('input[name="new-tab"]').forEach((r) => r.addEventListener("change", () => newTab(r.value)));
+$("#new-pick-files").addEventListener("click", (e) => act(e.currentTarget, "", async () => {
+  e.currentTarget.textContent = "Đang mở hộp chọn…";
+  try { const r = await api("POST", "/api/v6/fs/pick-files", {}); newAddPaths(r.paths || []); } finally { $("#new-pick-files").textContent = "Chọn file video…"; }
+}));
+$("#new-pick-dirs").addEventListener("click", (e) => act(e.currentTarget, "", async () => {
+  e.currentTarget.textContent = "Đang mở hộp chọn…";
+  try { const r = await api("POST", "/api/fs/pick-dirs"); newAddPaths(r.paths || []); } finally { $("#new-pick-dirs").textContent = "Chọn thư mục…"; }
+}));
+$("#new-path-add").addEventListener("click", () => { const v = $("#new-path").value.trim().replace(/^"|"$/g, ""); if (v) { newAddPaths([v]); $("#new-path").value = ""; } });
+$("#new-path").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("#new-path-add").click(); } });
+$("#new-picked").addEventListener("click", (e) => { const b = e.target.closest("button[data-rm]"); if (b) { newPaths.splice(+b.dataset.rm, 1); newPaintPaths(); } });
+$("#new-local-ok").addEventListener("click", (e) => {
+  const err = $("#new-err"); err.hidden = true;
+  act(e.currentTarget, "", async () => {
+    e.currentTarget.textContent = "Đang tạo job (chép / đọc file)…";
+    try {
+      const r = await api("POST", "/api/jobs/local-batch", { paths: newPaths, move: $("#new-move").checked });
+      const n = (r.job_ids || []).length, errs = r.errors || [];
+      if (!n) throw new Error(errs[0] || "không tạo được job nào");
+      const pub = await newAssignPub(r.job_ids);
+      $("#dlg-new").close(); newPaths = []; newPaintPaths();
+      say(`Đã tạo ${n} job${errs.length ? ` · ${errs.length} lỗi: ${errs[0]}` : ""}${pub}`, errs.length ? "err" : "");
+    } catch (er) { err.textContent = er.message; err.hidden = false; throw er; } finally { newPaintPaths(); }
+  });
+});
+$("#new-prev").addEventListener("change", (e) => {
+  if (e.target.id === "new-all") document.querySelectorAll("#new-prev input[data-part]:not(:disabled)").forEach((c) => { c.checked = e.target.checked; });
+  newCount();
+});
+$("#new-prev").addEventListener("click", (e) => {
+  const b = e.target.closest("#new-create"); if (b) return newCreate(b);
+  const ckb = e.target.closest("#new-ck-save");
+  if (ckb) return act(ckb, "Đã lưu cookie Bilibili", async () => {
+    $("#new-ck-err").textContent = "";
+    try { await api("POST", "/api/v6/bili/cookie", { cookie: $("#new-ck").value }); }
+    catch (er) { $("#new-ck-err").textContent = er.message; throw er; }
+    newPrev = await api("POST", "/api/v6/source/inspect", { url: newPrev.url }); newPaint();
+  });
+});
+
+// ───────────── Cài đặt → Bilibili: cookie (engines/bili/cookies) ─────────────
+async function paintBili(check = true) {
+  const st = $("#bili-st");
+  st.textContent = "Đang kiểm…";
+  try {
+    const d = await api("GET", "/api/v6/bili/cookie?check=" + (check ? 1 : 0));
+    const lg = d.login;
+    st.innerHTML = !d.has_cookie ? '<span class="tag warn">Chưa có cookie</span> — tải ở chế độ khách (thường tối đa 480P/720P).'
+      : lg?.is_login ? `<span class="tag ok">Đã đăng nhập</span> ${esc(lg.uname)}${lg.vip ? ` · <b>${esc(lg.vip)}</b>` : " · tài khoản thường (≤1080P)"} <span class="mut small">· file ${esc(d.file)}</span>`
+      : `<span class="tag bad">Cookie hết hạn / không hợp lệ</span>${d.error ? ` <span class="mut small">${esc(d.error)}</span>` : ""} — dán cookie mới.`;
+  } catch (e) { st.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+}
+$("#bili-save").addEventListener("click", (e) => {
+  const err = $("#bili-err"); err.hidden = true;
+  act(e.currentTarget, "Đã lưu cookie Bilibili", async () => {
+    try { await api("POST", "/api/v6/bili/cookie", { cookie: $("#bili-cookie").value }); }
+    catch (er) { err.textContent = er.message; err.hidden = false; throw er; }
+    $("#bili-cookie").value = ""; await paintBili();
+  });
+});
+$("#bili-check").addEventListener("click", (e) => act(e.currentTarget, "", () => paintBili(true)));
+$("#bili-clear").addEventListener("click", (e) => { if (confirm("Xoá cookie Bilibili trên máy này?")) act(e.currentTarget, "Đã xoá cookie", async () => { await api("POST", "/api/v6/bili/cookie", { clear: true }); await paintBili(false); }); });
+
+// ───────────── Cài đặt: cấu hình chung cho mọi job (core/batch_config) ─────────────
+// Mỗi khoá cấu hình có NHÃN + MỘT DÒNG GIẢI THÍCH bằng lời thường + kiểu điều khiển hợp lý (thanh trượt, lựa chọn có mô tả,
+// công tắc). Khoá lạ (backend thêm sau) tự rơi vào mục «Nâng cao» — không bao giờ hiện tên khoá ở mục cơ bản.
+const pctFmt = (v) => `${Math.round(Number(v) * 100)}%`;
+const xFmt = (v) => `${Number(v).toFixed(2).replace(/0$/, "")}×`;
+const FIELDS = {
+  voice: { label: "Giọng mặc định", hint: "Giọng clone dùng cho job mới (cả hai bộ đọc dùng chung danh sách). Tạo giọng mới ở mục «Giọng clone trên máy này» bên dưới.", type: "voice" },
+  speed: { label: "Tốc độ đọc", hint: "1× là tốc độ chuẩn. Nhanh quá dễ nuốt chữ.", type: "range", min: 0.8, max: 1.3, step: 0.05, fmt: xFmt },
+  tts_engine: { label: "Bộ đọc", type: "radio", options: [["vieneu", "VieNeu", "Nhanh, ổn định — nên dùng"], ["omnivoice", "OmniVoice", "Giọng tự nhiên hơn, chậm hơn"]] },
+  asr_engine: { label: "Nhận dạng tiếng Trung", hint: "Chuyển lời thoại gốc thành chữ trước khi dịch.", type: "select",
+    options: [["nano_fa", "Nano + căn thời gian (khuyên dùng)"], ["hybrid_fa", "Kết hợp nhiều model"], ["fun_asr_nano", "Fun-ASR Nano (chỉ chữ)"],
+      ["paraformer_zh", "Paraformer (chỉ thời gian)"], ["sensevoice", "SenseVoice"], ["firered_asr", "FireRed ASR"]] },
+  ocr: { label: "Đọc chữ trên hình", hint: "Dùng phụ đề Trung in sẵn trên video để sửa tên, chữ nghe nhầm.", type: "switch" },
+  audio_mode: { label: "Âm nền", type: "radio", options: [
+    ["voice_bgm", "Giọng Việt + nhạc thư viện", "Bỏ hẳn nhạc gốc. An toàn bản quyền — nên dùng"],
+    ["sfx_lib", "Tiếng động gốc + nhạc kho", "Giữ tiếng động, thay nhạc theo cảnh. An toàn bản quyền"],
+    ["duck_bgm", "Nhạc thư viện + tiếng gốc nhỏ", "Giữ chút tiếng động gốc dưới nhạc mới"],
+    ["voice_only", "Chỉ giọng Việt", "Không nhạc nền"],
+    ["duck", "Giữ tiếng gốc, hạ khi có lời", "Có thể dính bản quyền nhạc gốc"],
+    ["demucs_clean", "Nhạc gốc, bỏ giọng Trung", "Có thể dính bản quyền nhạc gốc"],
+    ["demucs_keep", "Nhạc gốc + giọng Trung nhỏ", "Có thể dính bản quyền nhạc gốc"]] },
+  // voice_vol của render = GIỌNG TRUNG nền (chỉ demucs_keep) — KHÔNG phải giọng Việt (giọng Việt = cfg.levels.dub = RENDER_DUB_VOL)
+  voice_vol: { label: "Giọng Trung nền", hint: "Giọng Trung gốc để nhỏ phía sau giọng Việt.", type: "range", min: 0, max: 1, step: 0.01, fmt: pctFmt },
+  orig_vol: { label: "Tiếng gốc nền", hint: "Tiếng gốc (đã tách giọng nếu có) tự hạ khi giọng Việt nói. Ở «Nhạc thư viện + tiếng gốc nhỏ» tối đa 28%.", type: "range", min: 0, max: 1, step: 0.01, fmt: pctFmt },
+  resolution: { label: "Độ phân giải", type: "radio", cols: true, options: [["source", "Giữ như video gốc", ""], ["1080", "Full HD 1080p", "Nâng lên 1080p"]] },
+  vbitrate: { label: "Chất lượng nén", hint: "Cao = đẹp hơn, file nặng hơn.", type: "select", options: [["8M", "Cao"], ["4M", "Vừa"], ["2M", "Nhẹ"]] },
+  fit: { label: "Khớp giọng với thời gian câu", hint: "Co giãn câu đọc cho vừa khoảng lời gốc.", type: "switch" },
+  hardsub_blur: { label: "Che phụ đề Trung có sẵn", hint: "Làm mờ vùng chữ in trên video gốc.", type: "switch" },
+  zoom: { label: "Phóng to khung hình", type: "select", options: [["off", "Không"], ["1.10", "10%"], ["1.12", "12%"], ["1.15", "15%"]], adv: "video" },
+  motion: { label: "Chuyển động nhẹ", hint: "Khung hình trôi chậm, giúp khác video gốc.", type: "switch", adv: "video" },
+  lut: { label: "Chỉnh màu", type: "switch", adv: "video" },
+  grain: { label: "Hạt phim", type: "select", options: [["off", "Tắt"], ["weak", "Nhẹ"], ["medium", "Vừa"], ["strong", "Mạnh"]], adv: "video" },
+  flip: { label: "Lật hình", type: "select", options: [["", "Không"], ["h", "Ngang"], ["v", "Dọc"], ["hv", "Cả hai"]], adv: "video" },
+  render_speed: { label: "Tốc độ phát video", hint: "Tăng nhẹ tốc độ để khác video gốc.", type: "range", min: 0.9, max: 1.2, step: 0.01, fmt: xFmt, adv: "video" },
+  brand_mode: { label: "Hiện tên kênh", type: "radio", options: [["off", "Không hiện", ""], ["drift", "Chữ trôi chậm", "Trôi quanh màn hình"],
+    ["corners", "Đổi góc", "Lần lượt bốn góc"], ["drift_seed", "Chữ trôi ngẫu nhiên", "Mỗi video một đường trôi khác"]] },
+  brand_text: { label: "Tên kênh", hint: "Chữ hiện trên video.", type: "text", placeholder: "vd: Phim Hay Mỗi Ngày" },
+  brand_logo: { label: "Logo", type: "select", options: [["off", "Không"], ["auto", "Tự động (logo trong thư mục assets)"]] },
+  frame: { label: "Khung viền", type: "select", options: [["off", "Không"], ["auto", "Tự động"]] },
+  // Chỉ luồng dịch cũ (translate_pipeline=legacy) đọc hai khoá này — luồng V6 tự chọn cỡ lô theo model → không hiện.
+  translate_mode: { hidden: true },
+  review_backup: { hidden: true },
+};
+const CFG_PANES = [
+  ["voice", "Giọng đọc", "Giọng và tốc độ lồng tiếng mặc định cho job mới.", [["Lồng tiếng", ["voice", "speed", "tts_engine"]], ["Nhận dạng lời thoại gốc", ["asr_engine", "ocr"]]]],
+  ["audio", "Âm thanh", "Trộn giọng Việt với nhạc và tiếng động.", [["Âm nền", ["audio_mode"]], ["Âm lượng", ["voice_vol", "orig_vol"]]]],
+  ["video", "Hình ảnh", "Chất lượng video xuất ra và các hiệu ứng giúp video khác bản gốc.", [["Xuất video", ["resolution", "vbitrate", "fit", "hardsub_blur"]]]],
+  ["brand", "Thương hiệu", "Tên kênh, logo và khung viền trên video.", [["Nhận diện kênh", ["brand_mode", "brand_text", "brand_logo", "frame"]]]],
+];
+let cfg = null;
+
+// ── ASR: cảnh báo khi engine đang chọn chưa cài trên máy (vd FireRed) — trước chỉ biết khi job lỗi «mã 1» ──
+function paintAsrWarn() {
+  const sel = $("#form-cfg")?.elements.asr_engine; if (!sel) return;
+  let w = sel.parentElement.querySelector(".asr-warn");
+  if (!w) { w = document.createElement("div"); w.className = "asr-warn err small"; sel.parentElement.appendChild(w); }
+  const st = (cfg.asr_status || {})[sel.value];
+  w.textContent = st && !st.ok ? `Chưa dùng được trên máy này: ${st.why}` : "";
+  w.hidden = !w.textContent;
+}
+// ── Giọng clone: danh sách + thiếu file mẫu + tạo giọng mới (services/voices, /api/clone-voice) ──
+async function paintVoicesSec() {
+  const sec = $("#voices-sec"); if (!sec) return;
+  let d;
+  try { d = await api("GET", "/api/v6/voices"); } catch (e) { sec.innerHTML = `<h3>Giọng clone trên máy này</h3><p class="err">Không đọc được danh sách giọng: ${esc(e.message)}</p>`; return; }
+  const rows = d.items.map((v) => `<tr data-voice="${esc(v.name)}"><td><b style="font-weight:500">${esc(v.name)}</b><div class="mut small">${esc(v.source)}${v.ok && !v.has_text ? " · chưa có lời mẫu" : ""}</div></td>`
+    + `<td>${v.ok ? '<span class="tag ok">Dùng được</span>' : `<span class="tag warn" title="${esc(v.ref)}">Thiếu file mẫu</span>`}</td>`
+    + `<td class="acts">${v.ok ? '<button type="button" class="btn sm ghost" data-vact="play">▶ Nghe</button>' : ""}<button type="button" class="btn sm ghost danger" data-vact="del">Xoá</button></td></tr>`).join("");
+  sec.innerHTML = `<h3>Giọng clone trên máy này</h3>
+    <p class="sub">${d.ok} giọng dùng được${d.missing ? ` · <b>${d.missing} thiếu file mẫu</b> (tên có trong danh sách nhưng file ghi âm chưa có trên máy)` : ""}.</p>
+    ${d.missing ? `<div class="callout">Giọng thiếu file mẫu: chép thư mục <code>voices</code> từ máy cũ (USB / mạng) vào một chỗ, vd <code>E:\\may_cu\\voices</code>, rồi chạy
+      <code>python scripts\\import_voices.py --src E:\\may_cu</code> (thêm <code>--apply</code> để chép thật) — hoặc tạo lại giọng bên dưới.</div>` : ""}
+    ${(d.orphans || []).length ? `<div class="callout warn"><b>${d.orphans.length} file giọng chưa có trong danh sách</b> (vd chép tay từ máy cũ). Đặt tên rồi bấm «Thêm».
+      <div class="uses">${d.orphans.map((o) => `<div class="use orphan" data-file="${esc(o.file)}"><div><code>${esc(o.file)}</code></div>
+        <div class="row"><input data-o="name" value="${esc(o.name.toLowerCase())}" placeholder="Tên giọng" style="width:110px"><input data-o="text" placeholder="Lời trong file (nên điền)"><button type="button" class="btn sm primary" data-vact="reg">Thêm</button></div></div>`).join("")}</div></div>` : ""}
+    <div class="field stack"><div class="lbl"><b>Tạo giọng mới</b><span>File ghi âm một người nói rõ, 3–8 giây (dài hơn tự cắt), không nhạc nền. Gõ đúng lời trong file để giọng clone chuẩn hơn.</span></div>
+      <div class="ctl"><div class="row voice-new"><input id="vnew-name" placeholder="Tên giọng (vd GiongNam1)"><input type="file" id="vnew-file" accept=".wav,.mp3,.m4a,.flac,.ogg"></div>
+        <input id="vnew-text" placeholder="Lời trong file mẫu (nên điền)" style="margin-top:8px;width:100%">
+        <div class="actions"><span id="vnew-err" class="err small grow"></span><button type="button" class="btn sm primary" id="vnew-ok">Tạo giọng</button></div></div></div>
+    ${rows ? `<div class="scroll"><table class="data"><thead><tr><th>Giọng</th><th>Trạng thái</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="note">Chưa có giọng nào — tạo giọng mới ở trên.</p>'}`;
+}
+async function refreshVoiceSelect() {
+  voices = null; await loadVoices().catch(() => null);
+  const sel = $("#form-cfg")?.elements.voice; if (!sel || sel.tagName !== "SELECT") return;
+  const cur = sel.value;
+  sel.innerHTML = (voices || []).map((x) => `<option${x === cur ? " selected" : ""}>${esc(x)}</option>`).join("") || '<option value="">(chưa có giọng)</option>';
+}
+$("#cfg-body").addEventListener("click", (e) => {
+  const b = e.target.closest("#vnew-ok, button[data-vact]"); if (!b) return;
+  if (b.id === "vnew-ok") {
+    const name = $("#vnew-name").value.trim(), file = $("#vnew-file").files[0], err = $("#vnew-err");
+    err.textContent = "";
+    if (!name) { err.textContent = "Đặt tên cho giọng"; return; }
+    if (!file) { err.textContent = "Chọn file ghi âm"; return; }
+    return act(b, "", async () => {
+      b.textContent = "Đang tạo…";
+      const fd = new FormData(); fd.append("name", name); fd.append("file", file); fd.append("text", $("#vnew-text").value.trim());
+      try {
+        const r = await fetch("/api/clone-voice", { method: "POST", body: fd });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+        say(`Đã tạo giọng «${j.voice}» (mẫu ${j.ref_sec}s)${j.has_text ? "" : " — chưa có lời mẫu, giọng có thể kém chuẩn"}`, j.has_text ? "" : "err");
+      } catch (e2) { err.textContent = e2.message; throw e2; } finally { b.textContent = "Tạo giọng"; }
+      await refreshVoiceSelect(); await paintVoicesSec();
+    });
+  }
+  if (b.dataset.vact === "reg") {
+    const row = b.closest("[data-file]");
+    return act(b, "", async () => {
+      const r = await api("POST", "/api/v6/voices/register", { file: row.dataset.file, name: row.querySelector('[data-o="name"]').value.trim(), text: row.querySelector('[data-o="text"]').value.trim() });
+      say(`Đã thêm giọng «${r.name}»`);
+      await refreshVoiceSelect(); await paintVoicesSec();
+    });
+  }
+  const name = b.closest("tr[data-voice]").dataset.voice;
+  if (b.dataset.vact === "del") {
+    if (!confirm(`Xoá giọng «${name}» khỏi danh sách?`)) return;
+    return act(b, "Đã xoá giọng", async () => { await api("POST", "/api/v6/voices/remove", { name }); await refreshVoiceSelect(); await paintVoicesSec(); });
+  }
+  if (b.dataset.vact === "play") {
+    const f = $("#form-cfg"), engine = f.querySelector('input[name="tts_engine"]:checked')?.value || "vieneu";
+    return act(b, "", async () => {
+      b.textContent = "Đang đọc…";
+      try {
+        const r = await fetch("/api/voice-sample?" + new URLSearchParams({ engine, voice: name, speed: f.elements.speed?.value || "1" }));
+        if (!r.ok) { let m = `HTTP ${r.status}`; try { m = (await r.json()).error || m; } catch (_) { /* không phải JSON */ } throw new Error(m); }
+        player.src = URL.createObjectURL(await r.blob()); await player.play();
+      } finally { b.textContent = "▶ Nghe"; }
+    });
+  }
+});
+
+// ── Âm thanh: chế độ âm nền + CHỈ những mức âm lượng mà chế độ đó dùng (engines/render._build_audio_filter) ──
+const SAFE_AUDIO = ["voice_bgm", "sfx_lib", "duck_bgm", "voice_only"];
+const LEVEL_HINT = {
+  dub: "100% = nguyên mức của bộ đọc. Mặc định 125%.",
+  bgm: "Nhạc lấy từ thư mục assets/bgm.",
+  lib_music: "Nhạc kho theo cảnh (assets/bgm_yt), tự hạ khi có lời.",
+  sfx: "Tiếng động tách từ video gốc, tự hạ khi có lời.",
+};
+const VOL_ROWS = { orig_vol: ["duck", "duck_bgm"], voice_vol: ["demucs_keep"] };
+function levelRow(name, label, hint, value, min, max, modes) {
+  const n = Number(value);
+  return `<div class="field" data-modes="${esc(modes.join(" "))}"><div class="lbl"><b>${esc(label)}</b>${hint ? `<span>${esc(hint)}</span>` : ""}</div>`
+    + `<div class="ctl"><div class="range"><input type="range" name="${esc(name)}" min="${min}" max="${max}" step="0.01" value="${esc(n)}"><output>${esc(pctFmt(n))}</output></div></div></div>`;
+}
+function audioPane() {
+  const v = String(cfg.opts.audio_mode ?? "");
+  const opt = ([val, t, d]) => `<label class="choice"><input type="radio" name="audio_mode" value="${esc(val)}"${v === val ? " checked" : ""}><div><b>${esc(t)}</b>${d ? `<span>${esc(d)}</span>` : ""}</div></label>`;
+  const all = FIELDS.audio_mode.options, safe = all.filter((o) => SAFE_AUDIO.includes(o[0])), risky = all.filter((o) => !SAFE_AUDIO.includes(o[0]));
+  const rows = Object.entries(cfg.levels || {}).map(([k, L]) => levelRow("lvl_" + k, L.label, LEVEL_HINT[k], L.value, L.min, L.max, L.modes));
+  for (const [k, modes] of Object.entries(VOL_ROWS)) if (k in cfg.defaults) rows.push(levelRow(k, FIELDS[k].label, FIELDS[k].hint, cfg.opts[k] ?? cfg.defaults[k], 0, 1, modes));
+  return `<div class="sec"><h3>Âm nền</h3><div class="field stack"><div class="ctl"><div class="choices">${safe.map(opt).join("")}</div>`
+    + `<details class="more"${risky.some((o) => o[0] === v) ? " open" : ""}><summary>Giữ nhạc gốc của phim (dễ dính bản quyền)</summary><div class="inner"><div class="choices">${risky.map(opt).join("")}</div></div></details></div></div></div>`
+    + `<div class="sec"><h3>Âm lượng</h3><p class="sub">Chỉ hiện các mức mà chế độ âm nền đang chọn dùng tới.</p><div id="vol-rows">${rows.join("")}</div></div>`;
+}
+function syncAudioRows() {
+  const m = document.querySelector('#form-cfg input[name="audio_mode"]:checked')?.value || "";
+  document.querySelectorAll("#vol-rows [data-modes]").forEach((r) => { const ms = r.dataset.modes.split(" "); r.hidden = !(ms.includes("*") || ms.includes(m)); });
+}
+function levelsPatch() {
+  const form = $("#form-cfg"), out = {};
+  for (const [k, L] of Object.entries(cfg?.levels || {})) {
+    const el = form.elements["lvl_" + k];
+    if (el && Math.abs(Number(el.value) - Number(L.value)) > 1e-9) out[k] = Number(el.value);
+  }
+  return out;
+}
+
+function asBool(v) { return v === true || ["1", "true", "on", "yes"].includes(String(v).toLowerCase()); }
+function cfgControl(k, f) {
+  const v = cfg.opts[k], name = `name="${esc(k)}"`;
+  if (f.type === "switch") return `<label class="switch"><input type="checkbox" ${name}${asBool(v) ? " checked" : ""}><span></span>${asBool(v) ? "Bật" : "Tắt"}</label>`;
+  if (f.type === "range") {
+    const n = Number(v ?? cfg.defaults[k]);
+    return `<div class="range"><input type="range" ${name} min="${f.min}" max="${f.max}" step="${f.step}" value="${esc(n)}" data-fmt="${esc(k)}"><output>${esc(f.fmt(n))}</output></div>`;
+  }
+  if (f.type === "radio") {
+    return `<div class="choices${f.cols ? " cols" : ""}">${f.options.map(([val, t, d]) =>
+      `<label class="choice"><input type="radio" ${name} value="${esc(val)}"${String(v) === val ? " checked" : ""}><div><b>${esc(t)}</b>${d ? `<span>${esc(d)}</span>` : ""}</div></label>`).join("")}</div>`;
+  }
+  if (f.type === "voice") {
+    const list = voices && voices.length ? (voices.includes(v) ? voices : [v, ...voices].filter(Boolean)) : [v].filter(Boolean);
+    return `<div class="row-ctl"><select ${name}>${list.map((x) => `<option${x === v ? " selected" : ""}>${esc(x)}</option>`).join("") || '<option value="">(chưa có giọng)</option>'}</select>`
+      + `<button type="button" class="btn sm" id="cfg-sample" title="Đọc một câu mẫu bằng giọng, tốc độ và bộ đọc đang chọn (lần đầu có thể mất vài chục giây)">▶ Nghe thử</button></div>`;
+  }
+  if (f.type === "select") {
+    const opts = f.options.some(([val]) => val === String(v ?? "")) ? f.options : [...f.options, [String(v), String(v)]];
+    return `<select ${name}>${opts.map(([val, t]) => `<option value="${esc(val)}"${String(v ?? "") === val ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
+  }
+  return `<input ${name} value="${esc(v ?? "")}" placeholder="${esc(f.placeholder || "")}">`;
+}
+function cfgField(k, solo = false) {
+  const f = FIELDS[k] || { label: cfg.labels[k] || k, type: typeof cfg.defaults[k] === "boolean" ? "switch" : "text" };
+  if (solo || f.type === "radio") {      // lựa chọn có mô tả: trải hết chiều ngang, nhãn ở trên (không lặp tiêu đề mục)
+    return `<div class="field stack">${solo ? (f.hint ? `<p class="sub">${esc(f.hint)}</p>` : "")
+      : `<div class="lbl"><b>${esc(f.label)}</b>${f.hint ? `<span>${esc(f.hint)}</span>` : ""}</div>`}<div class="ctl">${cfgControl(k, f)}</div></div>`;
+  }
+  return `<div class="field"><div class="lbl"><b>${esc(f.label)}</b>${f.hint ? `<span>${esc(f.hint)}</span>` : ""}</div><div class="ctl">${cfgControl(k, f)}</div></div>`;
+}
+function cfgSection(title, keys, sub) {
+  const ks = keys.filter((k) => k in cfg.defaults);
+  const solo = ks.length === 1 && (FIELDS[ks[0]]?.label === title);
+  const fs = ks.map((k) => cfgField(k, solo)).join("");
+  return fs ? `<div class="sec"><h3>${esc(title)}</h3>${sub ? `<p class="sub">${esc(sub)}</p>` : ""}${fs}</div>` : "";
+}
+function paintCfg() {
+  const used = new Set([...CFG_PANES.flatMap(([, , , secs]) => secs.flatMap(([, ks]) => ks)), ...Object.keys(FIELDS).filter((k) => FIELDS[k].adv || FIELDS[k].hidden)]);
+  const extra = Object.keys(cfg.defaults).filter((k) => !used.has(k));
+  const advVideo = Object.keys(FIELDS).filter((k) => FIELDS[k].adv === "video");
+  $("#cfg-body").innerHTML = CFG_PANES.map(([id, title, sub, secs]) => {
+    let html = id === "audio" ? audioPane() : secs.map(([t, ks]) => cfgSection(t, ks)).join("");
+    if (id === "voice") html += '<div class="sec" id="voices-sec"><h3>Giọng clone trên máy này</h3><p class="sub">Đang đọc…</p></div>';
+    if (id === "video") {
+      html += `<div class="sec"><details class="more"><summary>Chống trùng nội dung (phóng to, chuyển động, chỉnh màu, lật…)</summary>
+        <div class="inner">${advVideo.filter((k) => k in cfg.defaults).map((k) => cfgField(k)).join("")}</div></details></div>`;
+    }
+    return `<div class="pane" data-pane="${id}" hidden><h2>${esc(title)}</h2><p class="sub">${esc(sub)}</p>${html}</div>`;
+  }).join("") + (extra.length ? `<div class="pane" data-pane="advanced" hidden>${cfgSection("Cấu hình chung khác", extra, "Các tuỳ chọn ít dùng hoặc của luồng cũ.")}</div>` : "");
+  $("#cfg-meta").textContent = cfg.updated_at ? `Áp dụng cho job chạy sau khi lưu · sửa lần cuối ${String(cfg.updated_at).replace("T", " ").slice(0, 16)}${cfg.updated_by ? ` (${cfg.updated_by})` : ""}` : "Áp dụng cho job chạy sau khi lưu.";
+  $("#cfg-bar").hidden = true; $("#cfg-err").hidden = true;
+  syncAudioRows();
+  paintAsrWarn();
+  paintVoicesSec();
+  showPane(curPane);
+}
+function cfgPatch() {
+  const form = $("#form-cfg"), patch = {};
+  for (const k of Object.keys(cfg.defaults)) {
+    const el = form.elements[k];
+    if (!el) continue;
+    let v = el.type === "checkbox" ? el.checked : el.value;
+    if (typeof cfg.defaults[k] === "number" && el.type !== "checkbox") v = Number(v);
+    const cur = typeof cfg.defaults[k] === "boolean" ? asBool(cfg.opts[k]) : cfg.opts[k];
+    if (String(v) !== String(cur ?? "")) patch[k] = v;
+  }
+  return patch;
+}
+function onCfgInput(e) {
+  const t = e.target;
+  if (t.type === "range") t.nextElementSibling.textContent = (FIELDS[t.name]?.fmt || pctFmt)(t.value);
+  if (t.type === "checkbox" && t.closest(".switch")) t.parentElement.lastChild.textContent = t.checked ? "Bật" : "Tắt";
+  if (t.name === "audio_mode") syncAudioRows();
+  if (t.name === "asr_engine") paintAsrWarn();
+  $("#cfg-bar").hidden = !(Object.keys(cfgPatch()).length || Object.keys(levelsPatch()).length);
+}
+async function saveSettings(ev) {
+  ev.preventDefault();
+  const patch = cfgPatch(), levels = levelsPatch();
+  if (!Object.keys(patch).length && !Object.keys(levels).length) { $("#cfg-bar").hidden = true; return; }
+  const ok = $("#cfg-ok");
+  ok.disabled = true;
+  try {
+    const r = await api("POST", "/api/v6/config", { patch, levels });
+    const n = Object.keys(r.changed || {}).length + (r.levels_changed || []).length;
+    cfg = await api("GET", "/api/v6/config"); paintCfg();
+    say(n ? `Đã lưu ${n} thay đổi — áp dụng cho job chạy tiếp theo` : "Không có gì thay đổi");
+  } catch (e) {
+    $("#cfg-err").textContent = e.message; $("#cfg-err").hidden = false;
+  } finally { ok.disabled = false; }
+}
+
+// ───────────── trang Cài đặt: chuyển mục ─────────────
+let curPane = "ai";
+function showPane(id) {
+  curPane = id;
+  if (id === "bili") paintBili();
+  document.querySelectorAll(".set-it").forEach((b) => b.classList.toggle("on", b.dataset.pane === id));
+  document.querySelectorAll(".set-body .pane").forEach((p) => { p.hidden = p.dataset.pane !== id; });
+  const hasCfg = !!document.querySelector(`#cfg-body .pane[data-pane="${id}"]`);
+  $("#form-cfg").hidden = !hasCfg;
+}
+// ── Cài đặt → Thư mục (core/machine.PATH_KEYS, /api/v6/paths) ──
+const PATH_LABEL = { LIBRARY_DIR: ["Thư viện phim", "Nơi Hongguo 2 lưu phim tải về / phim nguồn trên ổ."],
+  YT_UPLOADER_DIR: ["Công cụ đăng YouTube (yt_uploader)", "Thư mục có accounts, client_secret.json, queue_state.json."],
+  LIB_SAMPLE_DIR: ["Mẫu cắt thử bản quyền", "Để trống = mặc định."] };
+async function paintPaths() {
+  const d = await api("GET", "/api/v6/paths");
+  const rows = Object.entries(d.paths).map(([k, p]) => {
+    const [t, h] = PATH_LABEL[k] || [k, p.desc];
+    const warn = p.value && !p.exists ? `<span class="err small">Không thấy thư mục này trên máy</span>` : "";
+    return `<div class="field"><div class="lbl"><b>${esc(t)}</b><span>${esc(h)}</span>${warn}</div><div class="ctl"><input name="${esc(k)}" value="${esc(p.value)}" placeholder="${esc(p.default)}" data-orig="${esc(p.value)}"></div></div>`;
+  }).join("");
+  $("#paths-body").innerHTML = `<div class="sec"><h3>Thư mục dùng chung</h3>${rows}</div>`
+    + `<div class="sec"><h3>Thư mục job</h3><div class="field"><div class="lbl"><b>Thư mục làm việc</b><span>Mỗi job một thư mục con. Đặt theo bản chạy (instances/&lt;tên&gt;.json → work_root), không sửa ở đây.</span></div><div class="ctl"><code>${esc(d.work_root)}</code></div></div></div>`;
+}
+$("#form-paths").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const paths = {};
+  $("#form-paths").querySelectorAll("input[data-orig]").forEach((i) => { if (i.value.trim() !== i.dataset.orig) paths[i.name] = i.value.trim(); });
+  if (!Object.keys(paths).length) return say("Không có gì thay đổi");
+  const err = $("#paths-err"); err.hidden = true;
+  try { await api("POST", "/api/v6/paths", { paths }); await paintPaths(); say("Đã lưu thư mục"); }
+  catch (e) { err.textContent = e.message; err.hidden = false; }
+});
+
+async function openSettings() {
+  const [c, a] = await Promise.all([api("GET", "/api/v6/config"), api("GET", "/api/v6/ai"), loadVoices().catch(() => null)]);
+  cfg = c; ai = a;
+  paintCfg(); paintAI(); paintAISimple();
+  paintPaths().catch((e) => { $("#paths-body").innerHTML = `<p class="err">Không đọc được thư mục: ${esc(e.message)}</p>`; });
+}
+
+// ───────────── Cài đặt AI: model cho từng chức năng + nhà cung cấp (core/ai_models.py) ─────────────
+let ai = null;          // snapshot GET /api/v6/ai
+const NEEDS_VI = { tools: "cần model gọi được công cụ", aurora_file: "cần upload file — chỉ Aurora", aurora_image: "tạo ảnh — chỉ Aurora" };
+
+function aiModelOptions() {
+  const set = new Set(["chatgpt/gpt-6", "chatgpt/gpt-5-6-mini", "local"]);
+  for (const p of ai.providers) p.models.forEach((m) => set.add(m));
+  ai.local.llama.forEach((m) => set.add("llama/" + m));
+  ai.local.ollama.forEach((m) => set.add(m));
+  for (const f of ai.functions) if (f.value) set.add(f.value);
+  return [...set];
+}
+
+function aiFuncRow(f) {
+  const eff = f.effective ? `<b>${esc(f.effective)}</b> <span class="mut">· ${esc(f.provider || "")}</span>` : '<span class="mut">(không có)</span>';
+  const src = `<div class="mut small">${esc(f.source)}${f.enabled === false ? ` · chức năng đang tắt (${esc(f.enabled_key)})` : ""}</div>`;
+  const warn = f.problem ? `<div class="err small">⚠ ${esc(f.problem)}</div>` : "";
+  const needs = f.needs ? `<div class="mut small">${esc(NEEDS_VI[f.needs] || f.needs)}</div>` : "";
+  let input;
+  if (f.fixed) {
+    input = `<span class="mut">${esc(f.fixed)}</span>`;
+  } else {
+    input = `<input class="ai-model" data-fn="${esc(f.id)}" list="dl-models" value="${esc(f.value)}" placeholder="${esc(f.effective || "để trống = dự phòng")}" spellcheck="false">`;
+    if (f.id === "plan") {
+      const pm = ai.plan_mode;
+      input += `<label class="row small">Chế độ <select id="ai-plan-mode">${["file", "sample"].map((x) =>
+        `<option value="${x}"${pm.value === x ? " selected" : ""}>${x === "file" ? "file (gửi cả phụ đề — chỉ Aurora)" : "sample (gửi mẫu đầu/giữa/cuối)"}</option>`).join("")}</select></label>`
+        + (pm.effective !== pm.value ? `<div class="mut small">đang chạy thực tế: ${esc(pm.effective)} (model không phải Aurora)</div>` : "");
+    }
+  }
+  return `<tr data-fn="${esc(f.id)}"><td><b>${esc(f.label)}</b><div class="mut small">${esc(f.where)}</div></td>`
+    + `<td>${input}</td><td>${eff}${src}${needs}${warn}</td>`
+    + `<td>${f.fixed ? "" : `<button type="button" class="btn sm" data-ai="test" data-fn="${esc(f.id)}">Thử</button><div class="small ai-res"></div>`}</td></tr>`;
+}
+
+function aiProviderRow(p) {
+  const status = p.has_key ? `<span class="tag ok">đã có key ${esc(p.key_hint)}</span>` : '<span class="tag warn">chưa có key</span>';
+  return `<tr data-prov="${esc(p.name)}"><td><b>${esc(p.label)}</b>${p.custom ? ' <span class="tag">tùy chỉnh</span>' : ""}<div class="mut small">${esc(p.key_key)}</div>${p.custom ? `<button type="button" class="btn sm" data-ai="cdel">Xoá</button>` : ""}</td>`
+    + `<td>${status}<input type="password" class="ai-key" placeholder="${p.has_key ? "Dán key mới để thay" : "Dán API key"}" autocomplete="off">`
+    + `${p.has_key ? '<label class="row small"><input type="checkbox" class="ai-clear"> Xoá key</label>' : ""}</td>`
+    + `<td><input class="ai-base" value="${esc(p.base_url)}" placeholder="${esc(p.default_base)}" spellcheck="false">`
+    + `<label class="row small" title="max_tokens tối đa mỗi lần gọi (${esc(p.max_tokens_key)}). Lô dịch tự thu nhỏ cho vừa (~90 token/câu). Chỉ nâng khi model hỗ trợ — quá trần model, nhà cung cấp trả lỗi 400.">Trần output <input class="ai-maxtok" inputmode="numeric" size="7" value="${esc(p.max_tokens)}" placeholder="${esc(p.max_tokens_default)}"> token</label>`
+    + `<label class="row small" title="Số lô dịch gửi CÙNG LÚC (${esc(p.concurrency_key)}). Cỡ lô tự tính = số câu ÷ số này (40–200 câu, không vượt trần output) để cả phim xong trong ~1 đợt.">Song song <input class="ai-conc" inputmode="numeric" size="4" value="${esc(p.concurrency)}" placeholder="${esc(p.concurrency_default)}"> request</label></td>`
+    + `<td><button type="button" class="btn sm" data-ai="models" title="Hỏi ${esc(p.label)} (GET /models) các model key này dùng được — cũng là cách kiểm tra key">Lấy danh sách model</button>`
+    + `<div class="small ai-res ${p.models.length ? "mut" : ""}">${p.models.length ? `${p.models.length} model đã lấy` : ""}</div></td></tr>`;
+}
+
+function paintAI() {
+  $("#dl-models").innerHTML = aiModelOptions().map((m) => `<option value="${esc(m)}">`).join("");
+  const main = ai.functions.filter((f) => !f.legacy), old = ai.functions.filter((f) => f.legacy);
+  const groups = [...new Set(main.map((f) => f.group))];
+  const funcs = groups.map((g) => `<tr class="grp"><td colspan="4">${esc(g)}</td></tr>` + main.filter((f) => f.group === g).map(aiFuncRow).join("")).join("");
+  const oldRows = old.map(aiFuncRow).join("");
+  const au = ai.aurora, lo = ai.local;
+  const presets = ai.presets.map((p) => `<button type="button" class="btn sm" data-ai="preset" data-preset="${esc(p.id)}">${esc(p.label)}</button>`).join(" ");
+  $("#ai-body").innerHTML = `
+    <div class="sec"><h3>AI cho từng chức năng</h3>
+    <p class="sub">Để trống = dùng mặc định (cột «Đang dùng»). Tiền tố: <code>deepseek/…</code> <code>alibaba/…</code> <code>chatgpt/…</code> (Aurora) <code>local</code>${customProvs().map((p) => ` <code>${esc(p.name)}/…</code>`).join("")}. Bộ cài sẵn: ${presets}</p>
+    <table class="ai-tbl"><thead><tr><th>Chức năng · dùng ở đâu</th><th>Model</th><th>Đang dùng thực tế</th><th></th></tr></thead><tbody>${funcs}</tbody></table>
+    ${old.length ? `<details class="ai-old"><summary>Luồng cũ / thử nghiệm đang tắt — KHÔNG dùng trong luồng dịch V6 (${old.length})</summary>
+      <table class="ai-tbl"><tbody>${oldRows}</tbody></table></details>` : ""}
+    </div>
+    <div class="sec"><h3>Nhà cung cấp API</h3>
+    <table class="ai-tbl"><thead><tr><th>Nhà cung cấp</th><th>API key</th><th>Địa chỉ · trần output · song song</th><th></th></tr></thead><tbody>${ai.providers.map(aiProviderRow).join("")}</tbody></table>
+    <p class="mut small">Thêm nhà cung cấp khác (OpenAI, Gemini, OpenRouter…): Cài đặt → AI dịch → «+ Thêm nhà cung cấp khác».</p>
+    <p class="mut small">Aurora: ${au.configured ? esc(au.base_url) : "chưa cấu hình AURORA_BASE_URL / CHATGPT_BASE_URL"} ·
+      llama (${esc(lo.settings?.llama_url?.value || "")}): ${lo.llama.length ? esc(lo.llama.join(", ")) : "không chạy"} · Ollama: ${lo.ollama.length ? esc(lo.ollama.join(", ")) : "không có"}</p></div>`;
+}
+
+async function openAI() {
+  ai = await api("GET", "/api/v6/ai");
+  paintAI(); paintAISimple();
+  $("#ai-err").hidden = true;
+}
+
+function aiCollect() {
+  const models = {}, providers = {};
+  for (const inp of document.querySelectorAll("#ai-body .ai-model")) {
+    const f = ai.functions.find((x) => x.id === inp.dataset.fn);
+    if (f && inp.value.trim() !== (f.value || "")) models[f.id] = inp.value.trim();
+  }
+  for (const tr of document.querySelectorAll("#ai-body tr[data-prov]")) {
+    const p = ai.providers.find((x) => x.name === tr.dataset.prov), pc = {};
+    const key = tr.querySelector(".ai-key").value.trim(), base = tr.querySelector(".ai-base").value.trim();
+    if (key) pc.api_key = key;
+    if (tr.querySelector(".ai-clear")?.checked) pc.clear_key = true;
+    if (base !== p.base_url) pc.base_url = base;
+    const mt = tr.querySelector(".ai-maxtok")?.value.trim() ?? "";
+    if (mt !== String(p.max_tokens)) pc.max_tokens = mt;
+    const cc = tr.querySelector(".ai-conc")?.value.trim() ?? "";
+    if (cc !== String(p.concurrency)) pc.concurrency = cc;
+    if (Object.keys(pc).length) providers[p.name] = pc;
+  }
+  const body = {};
+  if (Object.keys(models).length) body.models = models;
+  if (Object.keys(providers).length) body.providers = providers;
+  const pm = $("#ai-plan-mode");
+  if (pm && pm.value !== ai.plan_mode.value) body.plan_mode = pm.value;
+  return body;
+}
+
+async function saveAI(ev) {
+  ev.preventDefault();
+  const body = aiCollect();
+  if (!Object.keys(body).length) { say("Không có thay đổi nào"); return; }
+  const ok = $("#ai-ok"); ok.disabled = true;
+  try {
+    ai = await api("POST", "/api/v6/ai", body);
+    paintAI(); paintAISimple();
+    $("#ai-err").hidden = true;
+    say(`Đã lưu ${ai.changed.length} thay đổi — có hiệu lực ở lần gọi AI kế tiếp`);
+  } catch (e) { $("#ai-err").textContent = e.message; $("#ai-err").hidden = false; } finally { ok.disabled = false; }
+}
+
+async function aiAction(btn) {
+  if (btn.dataset.ai === "cdel") return customDelete(btn, btn.closest("tr").dataset.prov);
+  if (btn.dataset.ai === "preset") {
+    const label = btn.textContent;
+    const prov = { deepseek: "DeepSeek", alibaba: "Alibaba", recommended: "DeepSeek" }[btn.dataset.preset];
+    const note = prov ? `\nTên model lấy từ danh sách thật của ${prov} (ưu tiên bản «flash») — cần LƯU key trước.` : "";
+    if (!confirm(`Áp dụng bộ «${label}» cho mọi chức năng chỉnh được?\n(Lưu ngay vào cấu hình; vẫn sửa lại từng dòng được.)${note}`)) return;
+    return act(btn, `Đã áp dụng «${label}»`, async () => { ai = await api("POST", "/api/v6/ai", { preset: btn.dataset.preset }); aiPick = null; paintAI(); paintAISimple(); });
+  }
+  if (btn.dataset.ai === "models") {
+    const tr = btn.closest("tr"), res = tr.querySelector(".ai-res");
+    const p = ai.providers.find((x) => x.name === tr.dataset.prov);
+    const body = { provider: p.name };
+    const key = tr.querySelector(".ai-key").value.trim(), base = tr.querySelector(".ai-base").value.trim();
+    if (key) body.api_key = key;                  // key vừa dán, chưa lưu: chỉ dùng để hỏi, không ghi
+    if (base && base !== p.base_url) body.base_url = base;
+    res.textContent = "đang hỏi…"; res.className = "small ai-res mut"; btn.disabled = true;
+    try {
+      const r = await api("POST", "/api/v6/ai/models", body);
+      p.models = r.models;
+      $("#dl-models").innerHTML = aiModelOptions().map((m) => `<option value="${esc(m)}">`).join("");
+      res.innerHTML = `OK · ${r.models.length} model${r.suggested ? ` · gợi ý dịch/soát: <b>${esc(r.suggested)}</b>` : ""}`
+        + `<details class="small"><summary>xem</summary>${r.models.map(esc).join("<br>")}</details>`;
+      res.className = "small ai-res ok";
+    } catch (e) { res.textContent = "Lỗi: " + e.message; res.className = "small ai-res err"; } finally { btn.disabled = false; }
+    return;
+  }
+  if (btn.dataset.ai === "test") {
+    const tr = btn.closest("tr"), res = tr.querySelector(".ai-res");
+    let model = btn.dataset.model;
+    if (!model) { const f = ai.functions.find((x) => x.id === btn.dataset.fn); model = tr.querySelector(".ai-model")?.value.trim() || f?.effective; }
+    if (tr.dataset.prov && tr.querySelector(".ai-key").value.trim()) { res.textContent = "Lưu key trước rồi thử"; res.className = "small ai-res err"; return; }
+    res.textContent = "đang thử…"; res.className = "small ai-res mut"; btn.disabled = true;
+    try {
+      const r = await api("POST", "/api/v6/ai/test", { model });
+      res.textContent = r.ok ? `OK · ${r.ms} ms` : `Lỗi: ${r.error || "?"}`;
+      res.className = "small ai-res " + (r.ok ? "ok" : "err");
+    } catch (e) { res.textContent = "Lỗi: " + e.message; res.className = "small ai-res err"; } finally { btn.disabled = false; }
+  }
+}
+
+// ───────────── Cài đặt → AI dịch (bản đơn giản: chọn nhà cung cấp → key → áp dụng) ─────────────
+// Không bắt người dùng gõ tên model / tên khoá: chọn 1 nhà cung cấp, hệ thống áp bộ cài sẵn (core/ai_models.PRESETS)
+// và tự lấy tên model thật của nhà cung cấp. Chỉnh từng chức năng: mục «Nâng cao».
+const PROVS = [
+  { id: "deepseek", preset: "recommended", name: "DeepSeek", pill: "Khuyến nghị", desc: "Nhanh, rẻ, dịch nhiều phần phim cùng lúc. Cần API key.", api: true },
+  { id: "alibaba", preset: "alibaba", name: "Alibaba Qwen", desc: "Model Qwen của Alibaba Cloud. Cần API key.", api: true },
+  { id: "aurora", preset: "aurora", name: "Aurora (ChatGPT)", desc: "Miễn phí qua pool tài khoản. Dễ chậm hoặc bị chặn.", warn: "Không ổn định" },
+  { id: "local", preset: "local", name: "AI trên máy", desc: "Llama chạy trên GPU máy này. Không cần mạng, chất lượng thấp hơn.", warn: "Chất lượng thấp" },
+];
+const SPEEDS = [[8, "Tiết kiệm", "8 phần cùng lúc"], [32, "Cân bằng", "32 phần cùng lúc"], [64, "Tối đa", "64 phần cùng lúc"]];
+const USE_VI = {
+  review: "Dịch và soát toàn bộ lời thoại", review_fallback: "Dịch khi AI dịch chính lỗi (dự phòng)", plan: "Lập hồ sơ nhân vật, cách xưng hô — mỗi tập một lần",
+  translate: "Dịch chữ trên hình, tiêu đề phim", hang_fix: "Gỡ job bị kẹt sau khi dịch",
+  agent: "Trợ lý AI", agent_fallback: "Trợ lý AI khi AI chính lỗi", meta: "Tiêu đề, mô tả khi đăng YouTube", thumb: "Ảnh bìa YouTube",
+};
+const PROV_OF = (label) => (/deepseek/i.test(label) ? "deepseek" : /alibaba|qwen/i.test(label) ? "alibaba" : /aurora/i.test(label) ? "aurora" : "local");
+let aiPick = null;
+// 2026-11-28: nhà cung cấp TÙY CHỈNH (engines/providers/custom.py) — mọi API chuẩn OpenAI, người dùng tự khai.
+const ADD_PROV = "__add";
+// 2026-11-28: chọn nhà cung cấp bằng danh sách thả xuống (trước: lưới thẻ — nhiều nhà tùy chỉnh thì rối).
+function provOptions(PV, cur) {
+  const opt = (x) => `<option value="${esc(x.id)}"${x.id === aiPick ? " selected" : ""}>${esc(x.name)}${x.id === cur ? " — đang dùng" : ""}${x.pill ? ` (${esc(x.pill)})` : ""}</option>`;
+  const own = PV.filter((x) => x.custom);
+  return `<optgroup label="Có sẵn">${PV.filter((x) => !x.custom && x.id !== ADD_PROV).map(opt).join("")}</optgroup>`
+    + (own.length ? `<optgroup label="Tùy chỉnh">${own.map(opt).join("")}</optgroup>` : "")
+    + `<option value="${ADD_PROV}"${aiPick === ADD_PROV ? " selected" : ""}>+ Thêm nhà cung cấp khác…</option>`;
+}
+function customProvs() { return (ai.providers || []).filter((p) => p.custom); }
+function allProvs() {
+  return [...PROVS, ...customProvs().map((p) => ({ id: p.name, preset: `custom:${p.name}`, name: p.label, custom: true, api: true,
+    desc: `Tùy chỉnh · ${p.base_url}` })), { id: ADD_PROV, name: "+ Thêm nhà cung cấp khác", desc: "OpenAI, Gemini, OpenRouter, Groq, Claude… hoặc máy chủ AI riêng (API chuẩn OpenAI)." }];
+}
+function curProvId(review) {
+  const pre = (review.effective || "").split("/")[0].toLowerCase();
+  if (customProvs().some((p) => p.name === pre)) return pre;
+  return PROV_OF(review.provider || "");
+}
+let cprovModels = {};   // tên → [model] lấy được lúc «Kiểm tra»
+function customAddForm() {
+  const T = ai.custom_templates || [];
+  return `<div class="field"><div class="lbl"><b>Mẫu có sẵn</b><span>Chọn để điền sẵn địa chỉ — vẫn sửa được. Dịch vụ khác: «Tự nhập».</span></div>
+      <div class="ctl"><select id="cp-tpl"><option value="">Tự nhập</option>${T.map((t) => `<option value="${esc(t.id)}">${esc(t.label)}</option>`).join("")}</select><div id="cp-note" class="small sub"></div></div></div>
+    <div class="field"><div class="lbl"><b>Tên hiển thị</b><span>Vd «OpenRouter», «Máy chủ AI của Nam».</span></div><div class="ctl"><input id="cp-label" autocomplete="off"></div></div>
+    <div class="field"><div class="lbl"><b>Tên ngắn</b><span>Chữ thường không dấu, số, «_». Thành tiền tố model: <code>tên/model</code>.</span></div><div class="ctl"><input id="cp-name" autocomplete="off" spellcheck="false" placeholder="vd openrouter"></div></div>
+    <div class="field"><div class="lbl"><b>Địa chỉ API</b><span>Phần trước <code>/chat/completions</code>, thường kết thúc bằng <code>/v1</code>.</span></div><div class="ctl"><input id="cp-base" autocomplete="off" spellcheck="false" placeholder="https://…/v1"></div></div>
+    <div class="field"><div class="lbl"><b>API key</b><span>Chỉ lưu trên máy này (pineline.config.json), không lên git.</span></div><div class="ctl"><input type="password" id="cp-key" autocomplete="off"></div></div>
+    <div class="actions"><span id="cp-status" class="small grow"></span><button type="button" class="btn primary" id="cp-save">Thêm & kiểm tra</button></div>`;
+}
+function onCpTpl() {
+  const t = (ai.custom_templates || []).find((x) => x.id === $("#cp-tpl").value);
+  $("#cp-note").textContent = t?.note || "";
+  if (!t) return;
+  $("#cp-label").value = t.label; $("#cp-name").value = t.id; $("#cp-base").value = t.base_url;
+}
+async function customSave(btn) {
+  const st = $("#cp-status");
+  const body = { name: $("#cp-name").value.trim(), label: $("#cp-label").value.trim(), base_url: $("#cp-base").value.trim(),
+    api_key: $("#cp-key").value.trim(), template: $("#cp-tpl").value };
+  btn.disabled = true; st.innerHTML = '<span class="sub">Đang lưu…</span>';
+  try {
+    ai = await api("POST", "/api/v6/ai/custom-provider", body);
+    aiPick = ai.provider;
+    paintAI(); paintAISimple();
+    say(`Đã thêm ${body.label || body.name}`);
+    const tb = $("#prov-test"); if (tb && body.api_key) provTest(tb);
+  } catch (e) { st.innerHTML = `<span class="err">${esc(e.message)}</span>`; } finally { btn.disabled = false; }
+}
+async function customDelete(btn, name) {
+  const p = customProvs().find((x) => x.name === name);
+  if (!confirm(`Xoá nhà cung cấp «${p?.label || name}» và API key của nó?`)) return;
+  return act(btn, "Đã xoá nhà cung cấp", async () => {
+    ai = await api("DELETE", `/api/v6/ai/custom-provider/${encodeURIComponent(name)}`);
+    delete cprovModels[name]; aiPick = null; paintAI(); paintAISimple();
+  });
+}
+
+function niceModel(f) {
+  if (!f.effective) return '<span class="err">chưa có</span>';
+  const name = f.effective.includes("/") ? f.effective.split("/").slice(1).join("/") : f.effective;
+  return `${esc(f.provider || "")}<small>${esc(name)}</small>`;
+}
+function paintAISimple() {
+  const review = ai.functions.find((f) => f.id === "review") || {};
+  const cur = curProvId(review);
+  const PV = allProvs();
+  if (!aiPick || !PV.some((x) => x.id === aiPick)) aiPick = cur;
+  const p = PV.find((x) => x.id === aiPick);
+  const pr = ai.providers.find((x) => x.name === aiPick);
+  const uses = ai.functions.filter((f) => !f.legacy && USE_VI[f.id]).map((f) =>
+    `<div class="use"><div><b>${esc(USE_VI[f.id])}</b>${f.problem ? `<span class="err">${esc(f.problem)}</span>` : ""}</div><div class="m">${niceModel(f)}</div></div>`).join("");
+  let detail = "";
+  if (p.id === ADD_PROV) {
+    detail = customAddForm();
+  } else if (p.api) {
+    const conc = pr?.concurrency || 32;
+    detail = `
+      <div class="field"><div class="lbl"><b>API key</b><span>Lấy ở trang tài khoản ${esc(p.name)}. Chỉ lưu trên máy này.</span></div>
+        <div class="ctl"><div class="keyrow"><input type="password" id="prov-key" autocomplete="off" placeholder="${pr?.has_key ? `Đã lưu (${esc(pr.key_hint)}) — dán key mới để thay` : "Dán API key"}">
+          <button type="button" class="btn" id="prov-test">Kiểm tra</button></div><div id="prov-status" class="small">${pr?.has_key ? '<span class="ok">✓ Đã có key</span>' : ""}</div></div></div>
+      <div class="field"><div class="lbl"><b>Tốc độ dịch</b><span>Số phần phim dịch cùng lúc. Nhanh hơn không tốn thêm tiền.</span></div>
+        <div class="ctl"><div class="seg">${SPEEDS.map(([n, t, d]) => `<label title="${esc(d)}"><input type="radio" name="prov-speed" value="${n}"${Math.abs(conc - n) === Math.min(...SPEEDS.map(([m]) => Math.abs(conc - m))) ? " checked" : ""}>${esc(t)}</label>`).join("")}</div></div></div>`;
+    if (p.custom) {
+      const ms = cprovModels[p.id] || pr?.models || [];
+      const curM = (review.effective || "").startsWith(p.id + "/") ? review.effective : "";
+      detail += `<div class="field"><div class="lbl"><b>Địa chỉ API</b><span>Đổi nếu dịch vụ đổi địa chỉ.</span></div>
+          <div class="ctl"><input id="prov-base" spellcheck="false" value="${esc(pr?.base_url || "")}"></div></div>
+        <div class="field"><div class="lbl"><b>Model dùng để dịch</b><span>${ms.length ? `${ms.length} model lấy từ dịch vụ — gõ để tìm.` : "Bấm «Kiểm tra» để lấy danh sách, hoặc gõ tên model."} Dạng <code>${esc(p.id)}/tên-model</code>.</span></div>
+          <div class="ctl"><input id="prov-model" list="dl-cmodels" spellcheck="false" value="${esc(curM)}" placeholder="${esc(p.id)}/…"><datalist id="dl-cmodels">${ms.map((m) => `<option value="${esc(m)}">`).join("")}</datalist></div></div>
+        <div class="actions"><span class="grow"></span><button type="button" class="btn sm danger" id="prov-del">Xoá nhà cung cấp này</button></div>`;
+    }
+  } else if (p.id === "aurora") {
+    const L = ai.local.settings || {};
+    detail = localField("aurora_url", "Địa chỉ Aurora", "Proxy ChatGPT (OpenAI-compatible). Để trống = mặc định (CHATGPT_BASE_URL hoặc 127.0.0.1:3377).", L)
+      + `<div class="actions"><span id="loc-status" class="small grow"></span><button type="button" class="btn" id="loc-save">Lưu</button></div>`;
+  } else {
+    const L = ai.local.settings || {}, lo = ai.local;
+    const run = lo.llama.length ? `<span class="ok">✓ llama-server đang chạy: ${esc(lo.llama.join(", "))}</span>` : `<span class="err">Không kết nối được llama-server ở ${esc(L.llama_url?.value || "")}</span>`;
+    const oll = lo.ollama.length ? ` · Ollama: ${esc(lo.ollama.map((m) => m.replace(/^local\//, "")).join(", "))}` : "";
+    detail = `<div class="callout">${run}${oll}</div><p class="sub">Lưu ở đây có hiệu lực ngay cả khi nhà cung cấp chính khác (vd «Khuyến nghị» vẫn dùng AI trên máy cho việc nhỏ) — không cần bấm «Chuyển sang».</p>`
+      + localField("llama_url", "Địa chỉ llama-server", "Máy chạy model GGUF (llama.cpp). Chọn model «local» = model đang mở trên server này.", L)
+      + localField("concurrency", "Số phần dịch cùng lúc", "Nên bằng số slot của llama-server (tham số -np). Cao hơn số slot chỉ xếp hàng chờ.", L, "number")
+      + localField("max_tokens", "Độ dài trả lời tối đa (token)", "Trần token mỗi lần gọi. Phải nhỏ hơn context mỗi slot của llama-server.", L, "number")
+      + `<div class="field"><div class="lbl"><b>Cho model «suy nghĩ»</b><span>Model kiểu Qwen3 / Gemma4 nghĩ trước khi trả lời: có thể tốt hơn nhưng chậm và dễ hết token. Mặc định tắt.</span></div>`
+      + `<div class="ctl"><label class="switch"><input type="checkbox" id="loc-thinking"${L.thinking?.value ? " checked" : ""}><span></span>${L.thinking?.value ? "Bật" : "Tắt"}</label></div></div>`
+      + `<details class="more"><summary>Ollama (tuỳ chọn)</summary><div class="inner">`
+      + localField("ollama_url", "Địa chỉ Ollama", "Model chọn dạng local/<tên> chạy qua Ollama.", L)
+      + localField("num_ctx", "Context Ollama (token)", "Context cấp cho mỗi lần gọi Ollama. Lớn quá dễ tràn VRAM.", L, "number")
+      + `</div></details>`
+      + `<div class="actions"><span id="loc-status" class="small grow"></span><button type="button" class="btn" id="loc-save">Lưu & kiểm tra</button></div>`;
+  }
+  const isCur = aiPick === cur;
+  $("#ai-simple").innerHTML = `
+    <h2>AI dịch</h2><p class="sub">Chọn AI làm việc dịch. Hệ thống tự phân việc cho từng bước và tự chọn model phù hợp.</p>
+    <div class="sec"><h3>Nhà cung cấp</h3>
+      <div class="field"><div class="lbl"><b>Dùng AI nào</b><span>${esc(p.desc)}${p.pill ? ` <span class="pill">${esc(p.pill)}</span>` : ""}${p.warn ? ` <span class="pill warn">${esc(p.warn)}</span>` : ""}</span></div>
+        <div class="ctl"><select id="prov-sel">${provOptions(PV, cur)}</select></div></div>
+      ${detail}
+      ${p.id === ADD_PROV ? "" : `<div class="actions"><span class="sub grow">${isCur ? `Đang dùng ${esc(p.name)}.` : `Hiện đang dùng ${esc((PV.find((x) => x.id === cur) || {}).name || "")}.`}</span>
+        <button type="button" class="btn primary" id="prov-apply">${isCur ? "Áp dụng lại" : `Chuyển sang ${esc(p.name)}`}</button></div>`}
+    </div>
+    ${fallbackSec()}
+    <div class="sec" id="tt-sec">${titleSecBody()}</div>
+    <div class="sec"><h3>AI đang làm gì</h3><p class="sub">Muốn đổi riêng từng việc: mục «Nâng cao».</p><div class="uses">${uses}</div></div>`;
+}
+function localField(name, label, hint, L, type = "text") {
+  const o = L[name] || {}, ph = o.set ? "" : String(o.value ?? o.default ?? "");
+  const extra = type === "number" && o.min != null ? ` min="${o.min}" max="${o.max}"` : "";
+  return `<div class="field"><div class="lbl"><b>${esc(label)}</b><span>${esc(hint)}${o.set ? "" : " (đang dùng mặc định)"}</span></div>`
+    + `<div class="ctl"><input type="${type}" data-local="${esc(name)}" value="${o.set ? esc(o.value) : ""}" placeholder="${esc(ph)}"${extra}></div></div>`;
+}
+async function localSave(btn) {
+  const L = ai.local.settings || {}, patch = {};
+  document.querySelectorAll("#ai-simple [data-local]").forEach((i) => {
+    const cur = L[i.dataset.local]?.set ? String(L[i.dataset.local].value) : "";
+    if (i.value.trim() !== cur) patch[i.dataset.local] = i.value.trim();
+  });
+  const th = $("#loc-thinking");
+  if (th && th.checked !== !!L.thinking?.value) patch.thinking = th.checked;
+  const st = $("#loc-status");
+  btn.disabled = true; st.innerHTML = '<span class="sub">Đang lưu…</span>';
+  try {
+    if (Object.keys(patch).length) await api("POST", "/api/v6/ai/local", { local: patch });
+    ai = await api("GET", "/api/v6/ai");
+    paintAI(); paintAISimple();
+    say(Object.keys(patch).length ? "Đã lưu cài đặt AI" : "Không có gì thay đổi");
+  } catch (e) { st.innerHTML = `<span class="err">${esc(e.message)}</span>`; } finally { btn.disabled = false; }
+}
+// Dự phòng cho bước dịch (SIMPLE_FALLBACK_MODEL): lô nào model chính hỏng hẳn (mất mạng, hết tiền, key sai, máy chủ lỗi
+// kéo dài) thì dịch bằng model này — chọn nhà cung cấp KHÁC model chính.
+// 2026-11-21: tên phim tiếng Việt — dịch tên job (và tên bộ) bằng AI dịch chính (services/title_vi)
+let titles = null;
+function titleSecBody() {
+  if (!titles) { loadTitles(); return '<h3>Tên phim tiếng Việt</h3><p class="sub">Đang đọc…</p>'; }
+  const t = titles;
+  const left = Math.max(0, (t.chinese_titles || 0) - (t.translated || 0));
+  const lock = t.instance_flag ? " (instance đã bật sẵn)" : "";
+  return `<h3>Tên phim tiếng Việt</h3>
+    <p class="sub">Dịch tên phim / tên bộ tiếng Trung sang tiếng Việt cho danh sách job, thư viện, hàng chờ. Dùng AI dịch chính${t.model ? ` (<b>${esc(t.model)}</b>)` : ""}, lỗi thì dùng dự phòng.</p>
+    <div class="field"><div class="lbl"><b>Dịch tên phim sang tiếng Việt</b><span>${t.chinese_titles || 0} job có tên tiếng Trung · đã dịch ${t.translated || 0}${left ? ` · còn ${left}` : ""}</span></div>
+      <div class="ctl"><label class="switch"><input type="checkbox" id="tt-on"${t.enabled ? " checked" : ""}${t.instance_flag ? " disabled" : ""}><span>${t.enabled ? "Bật" : "Tắt"}${lock}</span></label></div></div>
+    <div class="actions"><span class="grow"></span><button type="button" class="btn sm" id="tt-run"${t.enabled ? "" : " disabled"}>Dịch tên các job hiện có</button></div>`;
+}
+async function loadTitles() {
+  try { titles = await api("GET", "/api/v6/titles"); } catch (e) { titles = { enabled: false, error: e.message }; }
+  const s = $("#tt-sec"); if (s) s.innerHTML = titleSecBody();
+}
+async function titleToggle(on) {
+  try { titles = await api("POST", "/api/v6/titles", { enabled: on }); say(on ? "Đã bật dịch tên phim — đang dịch tên các job" : "Đã tắt dịch tên phim"); }
+  catch (e) { say("Không lưu được: " + e.message, "err"); }
+  const s = $("#tt-sec"); if (s) s.innerHTML = titleSecBody();
+}
+async function titleRun(btn) {
+  return act(btn, "Đang dịch tên các job (chạy nền, tên hiện dần)", async () => {
+    titles = await api("POST", "/api/v6/titles", { backfill: true });
+    setTimeout(loadTitles, 15000);
+  });
+}
+function fallbackSec() {
+  const rv = ai.functions.find((f) => f.id === "review") || {}, fbf = ai.functions.find((f) => f.id === "review_fallback");
+  if (!fbf) return "";
+  const cur = fbf.value || "", main = rv.effective || "";
+  const opts = [["", "Không dùng dự phòng"]];
+  for (const p of ai.providers) {
+    if (!p.has_key) continue;
+    const m = (p.models || [])[0] || "";
+    if (m && m !== main) opts.push([m, `${p.label} · ${m.split("/").slice(1).join("/")}`]);
+  }
+  if (ai.local.llama.length && main !== "local") opts.push(["local", `AI trên máy · ${ai.local.llama[0]}`]);
+  if (ai.aurora.configured) opts.push(["chatgpt/gpt-5-6-mini", "Aurora · gpt-5-6-mini"]);
+  if (cur && !opts.some(([v]) => v === cur)) opts.push([cur, cur]);
+  // 2026-11-21: sau model dự phòng (hoặc khi chưa chọn) luồng dịch tự dùng AI trên máy nếu llama-server đang chạy
+  const warn = !cur ? (ai.local.llama.length && main !== "local"
+    ? `<div class="callout">Chưa chọn dự phòng — AI dịch chính lỗi hẳn thì tự dùng <b>AI trên máy</b> (${esc(ai.local.llama[0])}) cho tới khi model chính chạy lại.</div>`
+    : '<div class="callout warn">Chưa có dự phòng và AI trên máy không chạy: AI dịch chính lỗi hẳn thì job dừng chờ (tự thử lại sau 5 phút).</div>')
+    : (ai.local.llama.length && main !== "local" && cur !== "local" ? '<div class="sub">Dự phòng cũng lỗi → tự dùng AI trên máy.</div>' : "");
+  return `<div class="sec"><h3>Dự phòng khi AI dịch chính lỗi</h3>
+    <p class="sub">Đang dịch bằng <b>${esc(main || "?")}</b>. Dùng khi: lô dịch lỗi hẳn (sau khi đã tự thử lại), lập bảng nhân vật lỗi, hoặc vá xong vẫn sót chữ Hán / câu trống — nên chọn nhà cung cấp khác.</p>${warn}
+    <div class="field"><div class="lbl"><b>Model dự phòng</b><span>Chỉ hiện nhà cung cấp đã có key, AI trên máy đang chạy, Aurora đã cấu hình.</span></div>
+      <div class="ctl"><div class="row-ctl"><select id="fb-model">${opts.map(([v, t]) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>
+        <button type="button" class="btn sm" id="fb-save">Lưu</button></div></div></div></div>`;
+}
+async function fallbackSave(btn) {
+  return act(btn, "Đã lưu model dự phòng", async () => {
+    ai = await api("POST", "/api/v6/ai", { models: { review_fallback: $("#fb-model").value } });
+    paintAI(); paintAISimple();
+  });
+}
+async function provSaveKey() {
+  const key = $("#prov-key")?.value.trim();
+  const speed = document.querySelector('input[name="prov-speed"]:checked')?.value;
+  const pc = {};
+  if (key) pc.api_key = key;
+  const pr = ai.providers.find((x) => x.name === aiPick);
+  if (speed && pr && String(pr.concurrency) !== speed) pc.concurrency = speed;
+  const base = $("#prov-base")?.value.trim();
+  if (pr?.custom && base && base !== pr.base_url) pc.base_url = base;
+  if (Object.keys(pc).length) ai = await api("POST", "/api/v6/ai", { providers: { [aiPick]: pc } });
+}
+async function provTest(btn) {
+  const st = $("#prov-status");
+  st.innerHTML = '<span class="sub">Đang kiểm tra…</span>';
+  btn.disabled = true;
+  try {
+    await provSaveKey();
+    const r = await api("POST", "/api/v6/ai/models", { provider: aiPick });
+    $("#prov-key").value = "";
+    if (customProvs().some((x) => x.name === aiPick)) {
+      cprovModels[aiPick] = r.models;
+      const keep = $("#prov-model")?.value.trim();
+      paintAISimple();
+      const mi = $("#prov-model"); if (mi && !keep && r.suggested) mi.value = r.suggested; else if (mi && keep) mi.value = keep;
+      $("#prov-status").innerHTML = `<span class="ok">✓ Kết nối được — ${r.models.length} model. Chọn model ở ô «Model dùng để dịch».</span>`;
+      return;
+    }
+    st.innerHTML = `<span class="ok">✓ Kết nối được — sẽ dùng model <b>${esc((r.suggested || "").split("/").slice(1).join("/") || "?")}</b></span>`;
+  } catch (e) { st.innerHTML = `<span class="err">Không kết nối được: ${esc(e.message)}</span>`; } finally { btn.disabled = false; }
+}
+async function provApply(btn) {
+  const p = allProvs().find((x) => x.id === aiPick);
+  if (p.custom) {
+    const m = $("#prov-model")?.value.trim();
+    if (!m) { say("Chọn hoặc gõ model dùng để dịch trước (bấm «Kiểm tra» để lấy danh sách)", "err"); return; }
+    const full = m.startsWith(p.id + "/") ? m : `${p.id}/${m}`;
+    if (!confirm(`Dùng ${p.name} (${full}) cho dịch, soát, lập hồ sơ nhân vật và Trợ lý?\n\nÁp dụng cho các job chạy sau.`)) return;
+    return act(btn, `Đã chuyển sang ${p.name}`, async () => {
+      await provSaveKey();
+      ai = await api("POST", "/api/v6/ai", { preset: p.preset, preset_model: full });
+      paintAI(); paintAISimple();
+    });
+  }
+  // 2026-11-21: bộ «Khuyến nghị» giao lập hồ sơ nhân vật (plan) + Trợ lý dự phòng cho Aurora — máy chưa có Aurora
+  // → plan luôn lỗi → job dịch xong đứng chờ. Chưa cấu hình Aurora → DeepSeek làm hết.
+  const preset = p.id === "deepseek" && !ai.aurora?.reachable ? "deepseek" : p.preset;
+  const what = preset === "recommended"
+    ? "DeepSeek dịch & soát và chạy Trợ lý; Aurora lập hồ sơ nhân vật; AI trên máy dịch chữ trên hình."
+    : `${p.name} làm mọi việc dịch, soát, lập hồ sơ nhân vật và Trợ lý.`;
+  if (!confirm(`Dùng ${p.name}?\n\n${what}\n\nÁp dụng cho các job chạy sau.`)) return;
+  return act(btn, `Đã chuyển sang ${p.name}`, async () => {
+    if (p.api) await provSaveKey();
+    ai = await api("POST", "/api/v6/ai", { preset });
+    paintAI(); paintAISimple();
+  });
+}
+function onAISimpleClick(e) {
+  const b = e.target.closest("button");
+  if (b?.id === "prov-test") return provTest(b);
+  if (b?.id === "prov-apply") return provApply(b);
+  if (b?.id === "cp-save") return customSave(b);
+  if (b?.id === "prov-del") return customDelete(b, aiPick);
+  if (b?.id === "loc-save") return localSave(b);
+  if (b?.id === "fb-save") return fallbackSave(b);
+  if (b?.id === "tt-run") return titleRun(b);
+}
+function onAISimpleChange(e) {
+  if (e.target.id === "loc-thinking") e.target.parentElement.lastChild.textContent = e.target.checked ? "Bật" : "Tắt";
+  if (e.target.id === "tt-on") return titleToggle(e.target.checked);
+  if (e.target.id === "prov-sel") { aiPick = e.target.value; paintAISimple(); }
+  if (e.target.id === "cp-tpl") onCpTpl();
+}
+
+// ───────────── Xung đột bảng nhân vật của bộ (engines/series_glossary) ─────────────
+let conf = [];
+async function loadConflicts() {
+  try {
+    const d = await api("GET", "/api/v6/series/conflicts");
+    conf = d.items || [];
+  } catch (e) { conf = []; console.warn("xung đột bảng bộ:", e.message); }
+  $("#btn-conf").hidden = !conf.length;
+  $("#conf-n").textContent = conf.length ? String(conf.length) : "";
+  if ($("#dlg-conf").open) paintConflicts();
+}
+function fmtVal(v) { return Array.isArray(v) ? v.join(" / ") : String(v ?? ""); }
+function paintConflicts() {
+  $("#conf-rows").innerHTML = conf.length ? conf.map((c) => `<tr>
+    <td>${esc(c.core)}</td>
+    <td><span class="tag mut">${esc(c.kind_vi)}</span> <b>${esc(c.key)}</b><div class="mut small">${esc(c.field_vi)}</div></td>
+    <td><b>${esc(fmtVal(c.stored))}</b></td>
+    <td>${esc(fmtVal(c.suggested))}${c.count > 1 ? ` <span class="mut small">×${esc(c.count)}</span>` : ""}</td>
+    <td class="small">${esc((c.episodes || []).slice(-3).join(", "))}</td>
+    <td class="nowrap"><button class="btn sm" data-cf="keep" data-core="${esc(c.core)}" data-id="${esc(c.id)}">Giữ</button>
+      <button class="btn sm primary" data-cf="use_new" data-core="${esc(c.core)}" data-id="${esc(c.id)}">Dùng bản mới</button>
+      <button class="btn sm ghost" data-cf="skip" data-core="${esc(c.core)}" data-id="${esc(c.id)}">Bỏ qua</button></td></tr>`).join("")
+    : '<tr><td colspan="6" class="mut">Không còn xung đột nào.</td></tr>';
+}
+$("#btn-conf").addEventListener("click", () => { paintConflicts(); $("#dlg-conf").showModal(); });
+$("#conf-close").addEventListener("click", () => $("#dlg-conf").close());
+$("#conf-rows").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-cf]");
+  if (!b) return;
+  const msg = { keep: "Đã giữ bản đang dùng", use_new: "Đã dùng bản mới cho các tập sau", skip: "Đã bỏ qua" }[b.dataset.cf];
+  act(b, msg, async () => {
+    await api("POST", "/api/v6/series/conflicts/resolve", { core: b.dataset.core, id: b.dataset.id, action: b.dataset.cf });
+    await loadConflicts();
+  });
+});
+
+// ───────────── Thư viện phim + đăng YouTube (D7) ─────────────
+const FILM_ST = { done: "xong", uploaded: "đã đăng", uploading: "đang đăng", running: "đang làm", failed: "lỗi", pending: "chờ" };
+function fmtDur(sec) { const t = Number(sec) || 0; if (!t) return ""; const h = Math.floor(t / 3600), m = Math.round((t % 3600) / 60); return h ? `${h} giờ ${m} phút` : `${m} phút`; }
+
+const BLOCK_ST = { clean: ["Sạch", "ok"], partially_blocked: ["Chặn một phần", "warn"], blocked: ["Bị chặn", "bad"], claim: ["Claim", "warn"], private: ["Riêng tư", ""], unknown: ["Chưa kiểm", ""] };
+
+function filmsQuery() {
+  return new URLSearchParams({ q: $("#films-q").value.trim(), status: $("#films-status").value, block_status: $("#films-block").value,
+    work_exists: $("#films-hide-gone").checked ? "1" : "", limit: "500" });
+}
+async function loadFilms() {
+  const q = filmsQuery();
+  $("#films-csv").href = "/films.csv?" + q;
+  const body = $("#films-rows");
+  let d;
+  try { d = await api("GET", "/films?" + q); } catch (e) {
+    body.innerHTML = `<tr><td colspan="9" class="note">Không đọc được thư viện: ${esc(e.message)}${/404/.test(e.message) ? " — instance này chưa bật router «films» (instances/*.json → routers)" : ""}</td></tr>`;
+    return;
+  }
+  const st = d.stats || {}, gone = Number(st.work_missing) || 0;
+  $("#films-stats").textContent = [st.total != null ? `${st.total} phim` : "", st.uploaded != null ? `${st.uploaded} đã đăng` : "",
+    st.done_7d != null ? `${st.done_7d} xong trong 7 ngày` : "", st.done_hours ? `${st.done_hours} giờ phim` : "", gone ? `${gone} mất thư mục` : ""].filter(Boolean).join(" · ");
+  const purge = $("#films-purge"); purge.hidden = !gone; purge.textContent = `Dọn ${gone} phim mất thư mục`;
+  const rows = d.films || [];
+  body.innerHTML = rows.length ? rows.map((f) => {
+    const title = f.title_vi || f.title || f.job_id;
+    const yt = f.yt_url ? `<a href="${esc(f.yt_url)}" target="_blank" rel="noopener">mở</a>` : "";
+    const canUp = !f.yt_url && f.status === "done" && f.work_exists !== 0;
+    const [bt, bc] = f.yt_url ? (BLOCK_ST[f.block_status || "unknown"] || [f.block_status, ""]) : ["", ""];
+    const block = bt ? `<span class="tag ${bc}" title="${esc(f.block_reason || "")}${f.checked_at ? ` · kiểm lúc ${esc(String(f.checked_at).slice(0, 16).replace("T", " "))}` : ""}">${esc(bt)}</span>` : "";
+    const ck = canUp ? `<input type="checkbox" class="fpick"${filmPicked.has(f.job_id) ? " checked" : ""} aria-label="Chọn để đăng">` : "";
+    return `<tr data-id="${esc(f.job_id)}"><td class="ck">${ck}</td><td title="${esc(f.job_id)}"><b style="font-weight:500">${esc(title)}</b></td><td><span class="b ${esc(f.status)}">${esc(FILM_ST[f.status] || f.status || "")}</span></td>`
+      + `<td>${esc(fmtDur(f.duration_sec))}</td><td>${esc(String(f.finished_at || "").slice(0, 16).replace("T", " "))}</td><td>${yt}</td><td class="mut small">${esc(f.yt_channel || "")}</td><td>${block}</td>`
+      + `<td class="acts">${canUp ? `<button class="btn sm primary" data-film="upload">Đăng YouTube</button>` : ""}`
+      + `${f.yt_url ? `<button class="btn sm ghost" data-film="check" title="Kiểm lại bản quyền video này trên YouTube">Kiểm</button>` : ""}`
+      + `${jobs.has(f.job_id) ? `<button class="btn sm" data-film="open">Mở job</button>` : ""}`
+      + `${f.work_exists === 0 ? `<span class="mut small" title="Thư mục job không còn trên ổ (đã xoá hoặc thuộc máy / instance khác)">mất thư mục</span>` : ""}`
+      // chỉ dòng KHÔNG còn là job trong hàng (routes_films /films/delete còn gỡ job khỏi hàng chờ)
+      + `${jobs.has(f.job_id) ? "" : `<button class="btn sm ghost" data-film="delete" title="Xoá dòng này khỏi thư viện (không xoá file trên ổ)">Xoá</button>`}</td></tr>`;
+  }).join("") : '<tr><td colspan="9" class="note">Không có phim nào khớp.</td></tr>';
+  filmUploadable = rows.filter((f) => !f.yt_url && f.status === "done" && f.work_exists !== 0).map((f) => f.job_id);
+  for (const id of [...filmPicked]) if (!filmUploadable.includes(id)) filmPicked.delete(id);
+  paintPubSel();
+}
+const loadFilmsSoon = debounce(loadFilms, 300);
+
+// ── Đăng YouTube: cấu hình tự đăng (agents/auto_publisher, /api/auto-publish/config) ──
+let pubCfg = null;
+async function loadPubCfg() {
+  try {
+    const r = await api("GET", "/api/auto-publish/config");
+    pubCfg = r.config || r;
+
+    $("#films-privacy").value = pubCfg.privacy || "unlisted";
+    $("#pub-sched").value = String(Math.round(Number(pubCfg.schedule_hours) || 0));
+    // 2026-11-27: công tắc luôn bật/tắt được (lưu AUTO_PUBLISH) — trước bị khoá theo cờ instance
+    $("#pub-auto").checked = !!r.effective;
+    $("#pub-auto").disabled = false;
+    const star = (ytAcc?.accounts || []).find((a) => a.default);
+    $("#pub-note").textContent = r.effective
+      ? (star ? `Render xong tự đăng lên kênh ★ «${star.title}» (job có gán kênh riêng thì đăng theo kênh đó).` : "Bật rồi nhưng chưa có kênh YouTube — thêm kênh ở trên.")
+      : "Tắt: chỉ job có gán kênh (tab YouTube của job / «Đăng lên kênh…») mới tự đăng.";
+  } catch (e) { $("#pub-note").textContent = "Không đọc được cấu hình đăng: " + e.message; }
+}
+async function savePubCfg() {
+  const body = { ...(pubCfg || {}), enabled: $("#pub-auto").checked, privacy: $("#films-privacy").value, schedule_hours: Number($("#pub-sched").value) || 0 };
+  try { const r = await api("POST", "/api/auto-publish/config", body); pubCfg = r.config || body; say(r.effective ? "Đã BẬT tự đăng khi render xong" : "Đã lưu — tự đăng đang TẮT"); loadPubCfg(); }
+  catch (e) { say("Lưu cấu hình đăng lỗi: " + e.message, "err"); loadPubCfg(); }
+}
+
+async function filmAction(btn) {
+  const tr = btn.closest("tr[data-id]"), id = tr?.dataset.id;
+  if (!id) return;
+  if (btn.dataset.film === "open") { showView("jobs"); selected = null; select(id); return; }
+  if (btn.dataset.film === "check") {
+    return act(btn, "", async () => {
+      const r = await api("POST", "/films/check-block", { job_id: id });
+      const x = (r.results || [])[0] || {};
+      say(`Bản quyền: ${(BLOCK_ST[x.status] || [x.status || "?"])[0]}${x.reason ? " — " + x.reason : ""}`, x.status === "blocked" ? "err" : "");
+      loadFilms();
+    });
+  }
+  if (btn.dataset.film === "delete") {
+    if (!confirm(`Xoá «${tr.cells[0].textContent}» khỏi thư viện?\n\nChỉ xoá dòng trong thư viện, không xoá thư mục job / video trên ổ.`)) return;
+    return act(btn, "Đã xoá khỏi thư viện", async () => { await api("POST", "/films/delete", { job_ids: [id], delete_work: false }); loadFilms(); });
+  }
+  if (btn.dataset.film === "upload") return publishFilms([id], btn);
+}
+
+// ───────────── Kênh YouTube đăng phim — nhiều kênh (services/yt_accounts, 2026-11-21) ─────────────
+let ytAcc = null, filmUploadable = [], ytPendingAuth = "";
+// 2026-11-24: trình duyệt chặn 127.0.0.1 (hoặc đăng nhập ở máy / trình duyệt khác) → callback không tới app.
+// Google vẫn chuyển tới …/test-channel/callback?code=… — trang lỗi nhưng thanh địa chỉ còn mã: dán vào đây.
+function paintYtFinish() {
+  const box = $("#yt-finish"); if (!box) return;
+  box.hidden = !ytPendingAuth;
+  if (!ytPendingAuth) { box.innerHTML = ""; return; }
+  box.innerHTML = `<p class="sub"><b>Đăng nhập xong mà trang cuối báo lỗi / «không truy cập được» / bị chặn?</b>
+      Chép <b>nguyên địa chỉ trên thanh trình duyệt</b> của trang đó (bắt đầu bằng <code>http://127.0.0.1…/test-channel/callback?code=</code>) rồi dán vào đây.
+      Mã chỉ dùng được một lần, trong vài phút.</p>
+    <div class="keyrow"><input id="yt-finish-url" placeholder="http://127.0.0.1:…/test-channel/callback?state=yt-…&code=…"><button type="button" class="btn sm primary" data-yt="finish">Hoàn tất thêm kênh</button></div>
+    <p class="sub small">Trình duyệt mặc định không mở được / muốn đăng nhập ở trình duyệt khác: chép link đăng nhập này sang đó.</p>
+    <div class="keyrow"><input id="yt-auth-link" readonly value="${esc(ytPendingAuth)}"><button type="button" class="btn sm" data-yt="copyauth">Chép link</button></div>`;
+}
+const filmPicked = new Set();
+async function loadYtAcc() {
+  try { ytAcc = await api("GET", "/api/v6/yt/accounts"); } catch (e) { ytAcc = { accounts: [], error: e.message }; }
+  paintYtAcc();
+}
+function paintYtAcc() {
+  const box = $("#yt-acc"), sel = $("#pub-acc");
+  if (!box || !ytAcc) return;
+  const accs = ytAcc.accounts || [], cls = ytAcc.clients || [];
+  const free = cls.filter((c) => !(c.used_by || []).length);
+  // 2026-11-21: mỗi kênh một OAuth client (Google Cloud project) riêng — chọn client khi thêm kênh
+  const pick = cls.length ? `<select id="yt-client-pick" title="OAuth client dùng cho kênh sắp thêm">${cls.map((c) =>
+      `<option value="${esc(c.key)}"${free[0] && c.key === free[0].key ? " selected" : ""}>${esc(c.name)} · …${esc(c.client_tail)}${(c.used_by || []).length ? ` (đã dùng: ${esc(c.used_by.join(", "))})` : " (chưa dùng)"}</option>`).join("")}</select>` : "";
+  box.innerHTML = `<div class="yt-head"><b>Kênh YouTube</b><span class="sub">${accs.length ? `${accs.length} kênh · ★ = kênh mặc định` : "Chưa có kênh"} · mỗi kênh nên có OAuth client riêng</span>
+      <span class="grow"></span>${pick}<button type="button" class="btn sm primary" data-yt="add"${cls.length ? "" : " disabled"}>+ Thêm kênh</button></div>
+    ${ytAcc.error ? `<p class="err small">${esc(ytAcc.error)}</p>` : ""}
+    <div id="yt-finish" class="yt-client" hidden></div>
+    <div class="yt-list">${accs.map((a) => `<div class="yt-ch${a.default ? " def" : ""}" data-acc="${esc(a.id)}">
+      ${a.thumb ? `<img src="${esc(a.thumb)}" alt="" referrerpolicy="no-referrer">` : '<span class="yt-ph">▶</span>'}
+      <span class="t"><b>${a.default ? "★ " : ""}${esc(a.title)}</b><span class="mut small">${a.token ? "đã đăng nhập" : "mất đăng nhập — thêm lại kênh"}${(a.shares_client || []).length ? ` · <span class="warn">chung client với ${esc(a.shares_client.join(", "))}</span>` : ""}</span></span>
+      ${a.default ? "" : '<button type="button" class="btn sm ghost" data-yt="default">Đặt mặc định</button>'}
+      <button type="button" class="btn sm ghost danger" data-yt="remove">Gỡ</button></div>`).join("")}</div>
+    <details class="more yt-cl"${cls.length ? "" : " open"}><summary>OAuth client (${cls.length}) — ${free.length} chưa gán kênh · + thêm client</summary>
+      <div class="yt-list">${cls.map((c) => `<div class="yt-ch" data-client="${esc(c.key)}"><span class="t"><b>${esc(c.name)}</b>
+        <span class="mut small">…${esc(c.client_tail)} · ${(c.used_by || []).length ? "→ " + esc(c.used_by.join(", ")) : "chưa gán kênh"}</span></span>
+        ${c.source === "app" && !(c.used_by || []).length ? '<button type="button" class="btn sm ghost danger" data-yt="rmclient">Gỡ</button>' : ""}</div>`).join("")}</div>
+      ${ytClientForm()}</details>`;
+  const jp = $("#job-pub");
+  if (jp) {
+    const cv = jp.value;
+    jp.innerHTML = '<option value="">Đăng lên kênh…</option>' + accs.map((a) => `<option value="${esc(a.id)}"${a.id === cv ? " selected" : ""}>▶ ${esc(a.title)}</option>`).join("")
+      + (accs.length ? `<option value="__none"${cv === "__none" ? " selected" : ""}>— Bỏ tự đăng —</option>` : '<option value="" disabled>(chưa có kênh — thêm ở Phim đã làm)</option>');
+  }
+  if (sel) {
+    const cur = sel.value || ytAcc.default || "";
+    sel.innerHTML = accs.length ? accs.map((a) => `<option value="${esc(a.id)}"${a.id === cur ? " selected" : ""}>${esc(a.title)}${a.default ? " ★" : ""}</option>`).join("")
+      : '<option value="">(chưa có kênh)</option>';
+  }
+  paintYtFinish();
+  paintPubSel();
+  newPubPaint();
+}
+function ytClientForm() {
+  const cb = `${location.origin}/test-channel/callback`;
+  return `<div class="yt-client"><p class="sub"><b>Thêm OAuth client</b> — mỗi kênh 1 client (1 Google Cloud project riêng, tốt nhất tạo bằng chính Gmail của kênh đó).</p>
+    <ol class="sub small">
+      <li>Mở <a href="https://console.cloud.google.com/apis/credentials" data-ext>Google Cloud → APIs &amp; Services → Credentials</a> (tạo project nếu chưa có).</li>
+      <li>Bật <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" data-ext>YouTube Data API v3</a> cho project.</li>
+      <li>OAuth consent screen: loại <b>External</b>, thêm Gmail của kênh vào <b>Test users</b>.</li>
+      <li>Create credentials → <b>OAuth client ID</b> → loại <b>Web application</b> → Authorized redirect URI: <code>${esc(cb)}</code> → Create → <b>Download JSON</b>.</li>
+      <li>Chọn file vừa tải (hoặc dán nội dung) rồi bấm Lưu.</li></ol>
+    <div class="row"><input id="yt-client-name" placeholder="Tên gợi nhớ (vd Project kênh A)"><input type="file" id="yt-client-file" accept=".json,application/json"></div>
+    <textarea id="yt-client-json" rows="3" placeholder='…hoặc dán nội dung file: {"web": {"client_id": "…", "client_secret": "…"}}'></textarea>
+    <div class="actions"><span class="grow"></span><button type="button" class="btn sm primary" data-yt="client">Lưu OAuth client</button></div></div>`;
+}
+function paintPubSel() {
+  const b = $("#pub-sel"); if (!b) return;
+  const n = filmPicked.size, has = (ytAcc?.accounts || []).length > 0;
+  b.disabled = !n || !has;
+  b.textContent = n ? `Đăng ${n} phim đã chọn` : "Đăng phim đã chọn";
+  const all = $("#films-all");
+  if (all) { all.checked = n > 0 && n === filmUploadable.length; all.indeterminate = n > 0 && n < filmUploadable.length; }
+}
+async function onYtAccClick(e) {
+  const ext = e.target.closest("a[data-ext]");
+  if (ext) { e.preventDefault(); openExternal(ext.href); return; }
+  const b = e.target.closest("button[data-yt]"); if (!b) return;
+  const id = b.closest("[data-acc]")?.dataset.acc;
+  if (b.dataset.yt === "client") {
+    return act(b, "Đã lưu OAuth client — giờ bấm «+ Thêm kênh»", async () => {
+      const f = $("#yt-client-file")?.files?.[0];
+      const raw = f ? await f.text() : ($("#yt-client-json")?.value || "").trim();
+      if (!raw) throw new Error("chọn file JSON hoặc dán nội dung");
+      ytAcc = await api("POST", "/api/v6/yt/client", { json: raw, name: ($("#yt-client-name")?.value || "").trim() });
+      paintYtAcc();
+    });
+  }
+  if (b.dataset.yt === "add") {
+    return act(b, "", async () => {
+      const ck = $("#yt-client-pick")?.value || "";
+      const c = (ytAcc.clients || []).find((x) => x.key === ck);
+      if (c && (c.used_by || []).length && !confirm(`Client «${c.name}» đã dùng cho kênh: ${c.used_by.join(", ")}.\n\nDùng chung client = Google thấy các kênh này cùng một app (dễ bị coi là kênh liên quan). Nên thêm client mới cho kênh này.\n\nVẫn dùng chung?`)) return;
+      const r = await api("POST", "/api/v6/yt/auth-url", { client_key: ck });
+      ytPendingAuth = r.auth_url; paintYtFinish();
+      const opened = await openExternal(r.auth_url);
+      say(opened ? "Đăng nhập Google ở trình duyệt, chọn đúng kênh → kênh tự hiện ở đây. Trang cuối báo lỗi / bị chặn → dán địa chỉ của nó vào ô bên dưới"
+        : "Không mở được trình duyệt — chép link đăng nhập ở khung bên dưới", opened ? "" : "err");
+    });
+  }
+  if (b.dataset.yt === "finish") {
+    return act(b, "", async () => {
+      const v = ($("#yt-finish-url")?.value || "").trim();
+      if (!v) throw new Error("dán địa chỉ trang lỗi (có «code=») vào ô trước");
+      const r = await api("POST", "/api/v6/yt/finish", { url: v });
+      ytPendingAuth = ""; ytAcc = r; paintYtAcc();
+      say(`Đã thêm kênh YouTube: ${r.account?.title || ""}`);
+    });
+  }
+  if (b.dataset.yt === "copyauth") {
+    const inp = $("#yt-auth-link"); inp?.select();
+    try { navigator.clipboard?.writeText(inp?.value || ""); say("Đã chép link đăng nhập"); } catch (_) { say("Bôi đen link rồi Ctrl+C", "err"); }
+    return;
+  }
+  if (b.dataset.yt === "rmclient") {
+    const key = b.closest("[data-client]")?.dataset.client;
+    if (!confirm("Gỡ OAuth client này khỏi Pineline? (không ảnh hưởng Google Cloud)")) return;
+    return act(b, "Đã gỡ client", async () => { ytAcc = await api("DELETE", `/api/v6/yt/clients/${encodeURIComponent(key)}`); paintYtAcc(); });
+  }
+  if (b.dataset.yt === "default") return act(b, "Đã đặt kênh mặc định", async () => { ytAcc = await api("POST", "/api/v6/yt/accounts/default", { id }); paintYtAcc(); });
+  if (b.dataset.yt === "remove") {
+    const a = (ytAcc.accounts || []).find((x) => x.id === id);
+    if (!confirm(`Gỡ kênh «${a?.title || id}» khỏi Pineline?\n\nChỉ xoá đăng nhập trên máy này; video đã đăng vẫn còn trên YouTube.`)) return;
+    return act(b, "Đã gỡ kênh", async () => { ytAcc = await api("DELETE", `/api/v6/yt/accounts/${encodeURIComponent(id)}`); paintYtAcc(); });
+  }
+}
+async function publishFilms(ids, btn) {
+  const acc = $("#pub-acc").value, accT = $("#pub-acc").selectedOptions[0]?.text || acc;
+  if (!acc) { say("Chưa có kênh YouTube — bấm «+ Thêm kênh» trước", "err"); return; }
+  const priv = $("#films-privacy"), label = priv.options[priv.selectedIndex].text;
+  const names = ids.map((id) => $(`#films-rows tr[data-id="${CSS.escape(id)}"]`)?.cells[1]?.textContent || id);
+  if (!confirm(`Đăng ${ids.length} phim lên kênh «${accT}» ở chế độ «${label}»?\n\n${names.slice(0, 8).join("\n")}${names.length > 8 ? "\n…" : ""}\n\nVideo được gửi lên YouTube, không tự rút lại được. Đăng lần lượt từng video.`)) return;
+  return act(btn, "", async () => {
+    let r = await api("POST", "/api/v6/yt/publish", { job_ids: ids, account_id: acc, privacy: priv.value, schedule_hours: Number($("#pub-sched").value) || 0 });
+    const big = (r.refused || []).filter((x) => x.warnings);
+    if (big.length && confirm(`${big.length} phim quá dài / nặng cho YouTube:\n${big.map((x) => x.job_id + ": " + (x.warnings || []).join("; ")).join("\n")}\n\nVẫn đăng?`)) {
+      const r2 = await api("POST", "/api/v6/yt/publish", { job_ids: big.map((x) => x.job_id), account_id: acc, privacy: priv.value,
+        schedule_hours: Number($("#pub-sched").value) || 0, allow_oversized: true });
+      r = { ...r, queued: [...(r.queued || []), ...(r2.queued || [])] };
+    }
+    const other = (r.refused || []).filter((x) => !x.warnings);
+    say(`Đã xếp ${(r.queued || []).length} phim vào hàng đăng lên «${r.channel || accT}» (đăng lần lượt)`
+      + (other.length ? ` · bỏ qua ${other.length}: ${other.map((x) => x.error).join("; ")}` : ""), other.length ? "err" : "");
+    ids.forEach((id) => filmPicked.delete(id));
+    loadFilms();
+  });
+}
+
+// ───────────── Phim chờ làm (services/disk_library: thư viện Hongguo 2 + ổ, tạo job, gộp tập) ─────────────
+const DISK_ST = { ready: ["Sẵn sàng", "ok"], need_merge: ["Cần gộp tập", "warn"], merging: ["Đang gộp…", "info"], done: ["Đã làm", "mut"] };
+let disk = null, diskTrTried = new Set();
+const diskPicked = new Set();
+function fmtSize(b) { const n = Number(b) || 0; return n >= 1e9 ? (n / 1e9).toFixed(1) + " GB" : n >= 1e6 ? Math.round(n / 1e6) + " MB" : ""; }
+async function loadDisk(fresh = false) {
+  const grid = $("#disk-grid");
+  if (!disk) grid.innerHTML = '<p class="note">Đang đọc thư viện…</p>';
+  try { disk = await api("GET", "/api/v6/disk-library" + (fresh ? "?fresh=1" : "")); } catch (e) {
+    grid.innerHTML = `<p class="note">Không đọc được thư viện: ${esc(e.message)}</p>`; return;
+  }
+  $("#disk-foot").textContent = disk.source === "hongguo2"
+    ? `Nguồn: thư viện Hongguo 2 · thư mục ${disk.root}`
+    : `Nguồn: thư mục ${disk.root || "(chưa đặt)"} — không đọc được Hongguo 2${disk.hg_error ? ` (${disk.hg_error})` : ""}. Đổi thư mục ở Cài đặt → Thư mục.`;
+  if (!disk.ok) {
+    // 2026-11-27: thiếu thư mục thư viện → cho chọn ngay thư mục chứa phim đã tải (lưu LIBRARY_DIR), không phải vào Cài đặt
+    grid.innerHTML = `<p class="note">${esc(disk.error || "Không quét được")}</p>` + (disk.missing_dir ? `<div class="row-ctl lib-fix">
+      <input id="lib-dir-in" placeholder="Thư mục chứa phim đã tải, vd D:\\Hongguo\\Downloads" value="">
+      <button type="button" class="btn sm primary" id="lib-dir-save">Dùng thư mục này</button>
+      <button type="button" class="btn sm" id="lib-rescan">Quét lại (Hongguo 2)</button></div>` : "");
+    $("#disk-stats").textContent = "";
+    $("#lib-dir-save")?.addEventListener("click", (e) => act(e.currentTarget, "Đã lưu thư mục thư viện", async () => {
+      const v = ($("#lib-dir-in").value || "").trim().replace(/^"|"$/g, "");
+      if (!v) throw new Error("nhập đường dẫn thư mục");
+      await api("POST", "/api/v6/paths", { paths: { LIBRARY_DIR: v } });
+      await loadDisk(true);
+    }));
+    $("#lib-rescan")?.addEventListener("click", () => loadDisk(true));
+    return;
+  }
+  const c = disk.counts || {};
+  $("#disk-stats").textContent = [`${disk.items.length} phim`, c.ready ? `${c.ready} sẵn sàng` : "", c.need_merge ? `${c.need_merge} cần gộp tập` : "",
+    c.merging ? `${c.merging} đang gộp` : "", c.done ? `${c.done} đã làm` : ""].filter(Boolean).join(" · ");
+  paintDisk();
+  // tên tiếng Việt: dịch các phim chưa có (có cache — lần sau hiện ngay)
+  const miss = disk.items.filter((it) => !it.title_vi && it.state !== "done" && !diskTrTried.has(it.name)).slice(0, 60).map((it) => it.name);
+  if (miss.length) {
+    miss.forEach((n) => diskTrTried.add(n));
+    api("POST", "/api/v6/disk-library/translate", { names: miss }).then((r) => { if (r.translated && curView === "disk") loadDisk(); })
+      .catch((e) => console.warn("dịch tên phim lỗi", e));
+  }
+}
+let diskView = (() => { try { return localStorage.getItem("disk.view") || "grid"; } catch (_) { return "grid"; } })();
+function diskPoster(it) {
+  return it.has_poster ? `<img loading="lazy" src="/api/v6/disk-library/poster?name=${encodeURIComponent(it.name)}" alt="">` : `<span class="noimg">${esc((it.title || "?").slice(0, 2))}</span>`;
+}
+const LIB_BLOCK = { unknown: ["Chưa test", "mut"], testing: ["Đang test…", "info"], clean: ["Sạch", "ok"], partially_blocked: ["Chặn 1 phần", "warn"],
+  blocked: ["Bị chặn", "bad"], claim: ["Claim", "warn"], failed: ["Test lỗi", "bad"], private: ["Riêng tư", "mut"] };
+const BAD_BLOCK = ["blocked", "partially_blocked", "claim"];
+function diskBlockTag(it) {
+  const b = it.block || {}, [t, c] = LIB_BLOCK[b.status] || [b.status || "Chưa test", ""];
+  return `<span class="tag ${c}" title="${esc(b.reason || "Bản quyền YouTube")}">${b.status === "unknown" || !b.status ? "BQ: " : ""}${esc(t)}</span>`;
+}
+function diskMeta(it) { return [it.episodes > 1 ? `${it.episodes} tập` : "", fmtSize(it.size), it.mtime ? new Date(it.mtime * 1000).toLocaleDateString("vi-VN") : ""].filter(Boolean).join(" · "); }
+function diskActs(it) {
+  return `${it.state === "ready" ? `<button class="btn sm primary" data-disk="add">Tạo job</button>` : ""}`
+    + `${it.state === "need_merge" ? `<button class="btn sm" data-disk="merge" title="Nối các tập thành 1 file (cùng độ phân giải: giữ nguyên chất lượng)">Gộp tập</button>` : ""}`
+    + `${it.fragments ? `<button class="btn sm ghost" data-disk="cleanup" title="Đã có file gộp: chuyển ${it.fragments} tập lẻ vào thùng rác của thư viện">Dọn tập lẻ</button>` : ""}`
+    + `<button class="btn sm ghost" data-disk="test" title="Test bản quyền YouTube trên kênh test">Test BQ</button>`
+    + `${it.state !== "merging" ? `<button class="btn sm ghost danger" data-disk="delete" title="Xoá hẳn phim này khỏi ổ">Xoá</button>` : ""}`;
+}
+function diskCard(it) {
+  const [t, cls] = DISK_ST[it.state] || [it.state, ""], pick = it.state !== "merging";
+  return `<article class="lib-card${diskPicked.has(it.name) ? " picked" : ""}${pick ? " can-pick" : ""}" data-name="${esc(it.name)}" title="${esc(it.path || it.folder || "")}">`
+    + `<div class="poster">${diskPoster(it)}<span class="tag ${cls} st">${esc(t)}</span>${pick ? `<span class="pick" aria-hidden="true">✓</span>` : ""}</div>`
+    + `<div class="tt">${esc(it.title)}</div><div class="tvi">${esc(it.title_vi || "")}</div><div class="meta">${esc(diskMeta(it))} ${diskBlockTag(it)}</div>`
+    + (it.merge_error ? `<div class="err small">Gộp lỗi: ${esc(it.merge_error)}</div>${/KHÔNG gộp/.test(it.merge_error) ? '<button class="btn sm ghost" data-disk="merge-force">Gộp bỏ qua tập lỗi</button>' : ""}` : "")
+    + `<div class="acts">${diskActs(it)}</div></article>`;
+}
+function diskRow(it) {
+  const [t, cls] = DISK_ST[it.state] || [it.state, ""], pick = it.state !== "merging";
+  return `<tr class="disk-row${diskPicked.has(it.name) ? " picked" : ""}" data-name="${esc(it.name)}">`
+    + `<td>${pick ? `<input type="checkbox" data-pick${diskPicked.has(it.name) ? " checked" : ""}>` : ""}</td>`
+    + `<td><div class="thumb">${diskPoster(it)}</div></td>`
+    + `<td title="${esc(it.path || it.folder || "")}"><b style="font-weight:500">${esc(it.title)}</b>${it.title_vi ? `<div class="mut small">${esc(it.title_vi)}</div>` : ""}`
+    + `${it.merge_error ? `<div class="err small">Gộp lỗi: ${esc(it.merge_error)}</div>${/KHÔNG gộp/.test(it.merge_error) ? '<button class="btn sm ghost" data-disk="merge-force">Gộp bỏ qua tập lỗi</button>' : ""}` : ""}</td>`
+    + `<td>${it.episodes > 1 ? `${it.episodes} tập` : ""}</td><td>${esc(fmtSize(it.size))}</td>`
+    + `<td>${it.mtime ? esc(new Date(it.mtime * 1000).toLocaleDateString("vi-VN")) : ""}</td>`
+    + `<td><span class="tag ${cls}">${esc(t)}</span></td><td>${diskBlockTag(it)}</td><td class="acts">${diskActs(it)}</td></tr>`;
+}
+function paintDisk() {
+  if (!disk?.ok) return;
+  const q = $("#disk-q").value.trim().toLowerCase(), want = $("#disk-state").value, wb = $("#disk-block").value;
+  const bst = (it) => (it.block || {}).status || "unknown";
+  const rows = disk.items.filter((it) => (!q || (it.title + " " + it.name + " " + (it.title_vi || "")).toLowerCase().includes(q))
+    && (!want || (want === "todo" ? it.state !== "done" : it.state === want))
+    && (!wb || (wb === "bad" ? BAD_BLOCK.includes(bst(it)) : wb === "unknown" ? ["unknown", "failed"].includes(bst(it)) : bst(it) === wb)));
+  for (const n of [...diskPicked]) if (!disk.items.some((it) => it.name === n && it.state !== "merging")) diskPicked.delete(n);
+  const grid = $("#disk-grid");
+  grid.className = diskView === "list" ? "lib-list card scroll" : "lib-grid";
+  if (!rows.length) { grid.innerHTML = `<p class="note">${disk.items.length ? "Không có phim nào khớp bộ lọc." : "Thư viện chưa có phim nào."}</p>`; diskPickedPaint(); return; }
+  grid.innerHTML = diskView === "list"
+    ? `<table class="data"><thead><tr><th style="width:32px"><input type="checkbox" id="disk-all" aria-label="Chọn tất cả"${rows.every((it) => it.state === "merging" || diskPicked.has(it.name)) ? " checked" : ""}></th><th style="width:44px"></th><th>Phim</th><th>Tập</th><th>Dung lượng</th><th>Ngày</th><th>Trạng thái</th><th>Bản quyền</th><th></th></tr></thead><tbody>${rows.map(diskRow).join("")}</tbody></table>`
+    : rows.map(diskCard).join("");
+  diskPickedPaint();
+}
+function diskPickedPaint() {
+  const items = disk?.items || [], sel = items.filter((it) => diskPicked.has(it.name));
+  const nAdd = sel.filter((it) => it.state === "ready").length, nMerge = sel.filter((it) => it.state === "need_merge").length;
+  $("#disk-picked").textContent = sel.length ? `Đã chọn ${sel.length}` : "Bấm vào poster để chọn nhiều phim";
+  $("#disk-clear").hidden = !sel.length;
+  $("#disk-add-sel").disabled = !nAdd; $("#disk-add-sel").textContent = nAdd ? `Tạo ${nAdd} job` : "Tạo job đã chọn";
+  $("#disk-merge-sel").disabled = !nMerge; $("#disk-merge-sel").textContent = nMerge ? `Gộp tập ${nMerge} bộ` : "Gộp tập đã chọn";
+  $("#disk-del-sel").hidden = !sel.length; $("#disk-del-sel").textContent = `Xoá ${sel.length} phim`;
+  $("#disk-test-sel").hidden = !sel.length; $("#disk-test-sel").textContent = `Test bản quyền ${sel.length} phim`;
+}
+async function diskAdd(btn, names) {
+  return act(btn, "", async () => {
+    btn.textContent = "Đang tạo job…";
+    say("Đang tạo job (chép / đọc file phim — phim dài có thể mất vài phút)…");
+    let r;
+    try { r = await api("POST", "/api/v6/disk-library/add", { names }); } finally { diskPickedPaint(); }
+    const n = (r.job_ids || []).length, errs = r.errors || [];
+    say(n ? `Đã tạo ${n} job và xếp vào hàng chờ${errs.length ? ` · ${errs.length} lỗi: ${errs[0]}` : ""}` : `Không tạo được job: ${errs[0] || "lỗi không rõ"}`, n ? "" : "err");
+    names.forEach((x) => diskPicked.delete(x));
+    loadDisk();
+  });
+}
+async function diskDelete(btn, names) {
+  const items = (disk?.items || []).filter((it) => names.includes(it.name));
+  const gb = items.reduce((a, it) => a + (Number(it.size) || 0), 0);
+  const list = items.slice(0, 8).map((it) => "• " + (it.title_vi || it.title)).join("\n") + (items.length > 8 ? `\n… và ${items.length - 8} phim khác` : "");
+  if (!confirm(`XOÁ HẲN ${items.length} phim khỏi ổ${gb ? ` (khoảng ${fmtSize(gb)})` : ""}?\n\n${list}\n\nKhông khôi phục được. Job đã làm xong vẫn giữ nguyên.`)) return;
+  return act(btn, "", async () => {
+    const r = await api("POST", "/api/v6/disk-library/delete", { names });
+    const errs = r.errors || [];
+    say(r.deleted?.length ? `Đã xoá ${r.deleted.length} phim${r.freed_bytes ? `, giải phóng ${fmtSize(r.freed_bytes)}` : ""}${errs.length ? ` · ${errs.length} lỗi: ${errs[0]}` : ""}`
+      : `Không xoá được: ${errs[0] || "lỗi không rõ"}`, r.deleted?.length && !errs.length ? "" : "err");
+    names.forEach((x) => diskPicked.delete(x));
+    loadDisk();
+  });
+}
+async function diskMerge(btn, names, force = false) {
+  if (force && !confirm("Gộp BỎ QUA tập lỗi / thiếu?\n\nFile gộp sẽ thiếu các tập đó (nhảy cốt truyện). Nên tải lại tập lỗi ở Hongguo 2 trước.")) return;
+  return act(btn, "", async () => {
+    const r = await api("POST", "/api/v6/disk-library/merge", { names, force });
+    say(r.queued?.length ? `Đã xếp gộp ${r.queued.length} bộ — chạy lần lượt` : "Các bộ này đang gộp hoặc không hợp lệ");
+    names.forEach((x) => diskPicked.delete(x));
+    loadDisk();
+  });
+}
+$("#disk-grid").addEventListener("click", (e) => {
+  const card = e.target.closest(".lib-card[data-name], .disk-row[data-name]"); if (!card) return;
+  const name = card.dataset.name;
+  const b = e.target.closest("button[data-disk]");
+  if (b) {
+    if (b.dataset.disk === "add") diskAdd(b, [name]);
+    if (b.dataset.disk === "merge") diskMerge(b, [name]);
+    if (b.dataset.disk === "merge-force") diskMerge(b, [name], true);
+    if (b.dataset.disk === "delete") diskDelete(b, [name]);
+    if (b.dataset.disk === "test") openTest(name);
+    if (b.dataset.disk === "cleanup") act(b, "", async () => {
+      const r = await api("POST", "/api/v6/disk-library/cleanup", { names: [name] });
+      say(r.ok ? `Đã chuyển ${Object.values(r.cleaned).reduce((a, x) => a + x, 0)} tập lẻ vào thùng rác` : `Không dọn được: ${(r.errors || [])[0] || ""}`, r.ok ? "" : "err");
+      loadDisk();
+    });
+    return;
+  }
+  if (e.target.matches("input[data-pick]")) {
+    e.target.checked ? diskPicked.add(name) : diskPicked.delete(name);
+    card.classList.toggle("picked", diskPicked.has(name)); diskPickedPaint(); return;
+  }
+  if (!card.classList.contains("can-pick")) return;
+  diskPicked.has(name) ? diskPicked.delete(name) : diskPicked.add(name);
+  card.classList.toggle("picked", diskPicked.has(name));
+  diskPickedPaint();
+});
+$("#disk-clear").addEventListener("click", () => { diskPicked.clear(); paintDisk(); });
+$("#disk-grid").addEventListener("change", (e) => {
+  if (e.target.id !== "disk-all") return;
+  document.querySelectorAll("#disk-grid input[data-pick]").forEach((cb) => { cb.checked = e.target.checked; const n = cb.closest("[data-name]").dataset.name; e.target.checked ? diskPicked.add(n) : diskPicked.delete(n); });
+  paintDisk();
+});
+document.querySelectorAll('input[name="disk-view"]').forEach((r) => { r.checked = r.value === diskView; r.addEventListener("change", () => {
+  diskView = r.value; try { localStorage.setItem("disk.view", diskView); } catch (_) { /* không lưu được → chỉ phiên này */ }
+  paintDisk();
+}); });
+$("#disk-del-sel").addEventListener("click", (e) => diskDelete(e.currentTarget, [...diskPicked]));
+$("#disk-add-sel").addEventListener("click", (e) => {
+  const names = (disk?.items || []).filter((it) => diskPicked.has(it.name) && it.state === "ready").map((it) => it.name);
+  if (names.length > 1 && !confirm(`Tạo ${names.length} job và xếp vào hàng chờ?`)) return;
+  diskAdd(e.currentTarget, names);
+});
+$("#disk-merge-sel").addEventListener("click", (e) => diskMerge(e.currentTarget, (disk?.items || []).filter((it) => diskPicked.has(it.name) && it.state === "need_merge").map((it) => it.name)));
+$("#disk-rescan").addEventListener("click", (e) => act(e.currentTarget, "", () => loadDisk(true)));
+$("#disk-q").addEventListener("input", debounce(paintDisk, 200));
+$("#disk-state").addEventListener("change", paintDisk);
+$("#disk-block").addEventListener("change", paintDisk);
+
+// ── Test bản quyền (tools/test_channel: cắt mẫu 90s → kênh test Unlisted → recheck Content ID; kết quả qua SSE library.block) ──
+let testName = null, testCh = null;
+function testPaint() {
+  const it = (disk?.items || []).find((x) => x.name === testName);
+  if (!it) return;
+  const b = it.block || {}, [t, c] = LIB_BLOCK[b.status] || [b.status || "Chưa test", ""];
+  $("#test-title").textContent = it.title_vi ? `${it.title} — ${it.title_vi}` : it.title;
+  $("#test-name").textContent = "Thư mục: " + (it.folder || it.path || it.name);
+  const badge = $("#test-badge"); badge.className = "tag " + c; badge.textContent = t;
+  $("#test-when").textContent = b.status === "testing" && b.recheck_at ? `· kiểm lại lúc ${String(b.recheck_at).slice(11, 16)}` : (b.tested_at ? `· ${String(b.tested_at).slice(0, 16).replace("T", " ")}` : "");
+  $("#test-reason").hidden = !b.reason; $("#test-reason").textContent = b.reason || "";
+  $("#test-link").hidden = !b.yt_url; $("#test-link").innerHTML = b.yt_url ? `Video test: <a href="${esc(b.yt_url)}" target="_blank" rel="noopener">${esc(b.yt_url)}</a>` : "";
+  $("#test-recheck").hidden = !b.yt_url;
+}
+// App desktop = WebView2 (có window.chrome.webview): link mở tab mới (target=_blank) bị chặn → bấm không có gì.
+// Chặn mọi link như vậy và mở bằng trình duyệt ngoài qua server (fix 2026-11-16).
+const IN_DESKTOP = !!(window.chrome && window.chrome.webview);
+document.addEventListener("click", (e) => {
+  const a = e.target.closest('a[target="_blank"]');
+  if (!a || !IN_DESKTOP) return;
+  e.preventDefault();
+  openExternal(new URL(a.getAttribute("href"), location.href).href).then((ok) => { if (!ok) say("Không mở được trình duyệt", "err"); });
+});
+async function openExternal(url) {
+  // App desktop (WebView2) chặn cửa sổ mới → nhờ server mở trình duyệt ngoài; trình duyệt thường: window.open
+  if (!IN_DESKTOP) return !!window.open(url, "_blank");
+  try { const r = await api("POST", "/api/v6/open-external", { url }); if (r.ok) return true; } catch (e) { console.warn("open-external", e); }
+  return false;
+}
+async function testLogin(btn, pid) {
+  return act(btn, "", async () => {
+    const r = await api("GET", "/test-channel/auth-url?project_id=" + encodeURIComponent(pid));
+    if (!r.auth_url) throw new Error(r.error || "không tạo được link đăng nhập");
+    const opened = await openExternal(r.auth_url);
+    $("#test-login-hint").innerHTML = (opened ? "Đã mở trang đăng nhập Google trong trình duyệt. Chọn đúng Gmail của kênh test — đăng nhập xong hộp này tự cập nhật."
+      : "Không mở được trình duyệt — chép link dưới đây dán vào trình duyệt:")
+      + `<div class="keyrow"><input readonly value="${esc(r.auth_url)}" onclick="this.select()"><button type="button" class="btn sm" data-copy>Chép link</button></div>`;
+  });
+}
+function testAddForm() {
+  const cb = `${location.origin}/test-channel/callback`;
+  return `<div class="test-add">
+    <div id="test-cands"></div>
+    <div class="field stack"><div class="lbl"><b>File OAuth client (JSON)</b><span>Google Cloud Console → APIs &amp; Services → Credentials → OAuth client ID
+      (bật «YouTube Data API v3» cho project) → tải JSON. Loại «Web application»: thêm Authorized redirect URI <code>${esc(cb)}</code>.</span></div>
+      <div class="ctl"><div class="row"><input id="test-add-name" placeholder="Tên gợi nhớ (vd Kênh test 1)"><input type="file" id="test-add-file" accept=".json,application/json"></div>
+      <textarea id="test-add-json" rows="3" placeholder='…hoặc dán nội dung file vào đây: {"web": {"client_id": "…", "client_secret": "…"}}'></textarea>
+      <div class="actions"><span id="test-add-err" class="err small grow"></span><button type="button" class="btn sm primary" id="test-add-ok">Thêm tài khoản</button></div></div></div></div>`;
+}
+async function testLoadCandidates() {
+  const box = $("#test-cands"); if (!box) return;
+  try {
+    const r = await api("GET", "/api/v6/test-channel/candidates");
+    const items = (r.items || []).filter((c) => !c.added);
+    box.innerHTML = items.length ? `<p class="sub">Tìm thấy OAuth client trong thư mục yt_uploader — dùng luôn:</p><div class="uses">${items.map((c) =>
+      `<div class="use"><div><b>${esc(c.label)}</b><span class="mut small">client …${esc(c.client_id_tail)}</span></div><button type="button" class="btn sm" data-cand="${esc(c.path)}">Dùng file này</button></div>`).join("")}</div>` : "";
+  } catch (e) { console.warn("candidates", e); }
+}
+async function testAdd(btn, body) {
+  const err = $("#test-add-err"); if (err) err.textContent = "";
+  return act(btn, "", async () => {
+    try { const r = await api("POST", "/api/v6/test-channel/projects", body); say(`Đã thêm tài khoản «${r.project.name}» — bấm «Đăng nhập»`); }
+    catch (e) { if (err) err.textContent = e.message; throw e; }
+    await testLoadAccounts();
+  });
+}
+async function testLoadAccounts() {
+  const box = $("#test-acc");
+  box.innerHTML = '<p class="sub">Đang đọc kênh test…</p>';
+  try { testCh = await api("GET", "/test-channel/status"); } catch (e) { box.innerHTML = `<p class="err">Không đọc được kênh test: ${esc(e.message)}</p>`; $("#test-run").disabled = true; return; }
+  const all = testCh.projects || [], projs = all.filter((p) => p.connected);
+  const loginRow = (p) => `<div class="use"><div><b>${esc(p.name || p.id)}</b>${p.connected ? `<span class="mut small">${esc(p.channel_title || p.email || "đã đăng nhập")}</span>` : '<span class="mut small">chưa đăng nhập</span>'}`
+    + `${p.connected && p.api_enabled === false && p.enable_url ? ` <a href="#" data-ext="${esc(p.enable_url)}" class="small">Bật YouTube API ↗</a>` : ""}</div>`
+    + `<button type="button" class="btn sm" data-login="${esc(p.id)}">${p.connected ? "Đăng nhập lại" : "Đăng nhập"}</button></div>`;
+  const hint = '<div id="test-login-hint" class="small"></div>';
+  if (!all.length) {
+    box.innerHTML = '<div class="callout warn">Máy này chưa có tài khoản kênh test. Thêm một tài khoản (OAuth client của Google) bên dưới rồi bấm «Đăng nhập».</div>'
+      + testAddForm()
+      + '<p class="mut small">Có cây V2 trên máy: chạy <code>scripts\\import_test_channel_v2.bat</code> để chép sang (gồm cả đăng nhập cũ), rồi bấm <a href="#" id="test-reload">Tải lại</a>.</p>';
+    testLoadCandidates();
+    $("#test-run").disabled = true; return;
+  }
+  if (!projs.length) {
+    box.innerHTML = `<div class="callout warn">Chưa đăng nhập kênh test YouTube. Bấm «Đăng nhập» ở một tài khoản dưới đây (mở trình duyệt).</div><div class="uses">${all.map(loginRow).join("")}</div>${hint}`
+      + `<details class="more"><summary>Thêm tài khoản</summary><div class="inner">${testAddForm()}</div></details>`;
+    $("#test-run").disabled = true; return;
+  }
+  let pref = ""; try { pref = localStorage.getItem("tc_preferred_project") || ""; } catch (_) { /* không có storage */ }
+  if (!projs.some((p) => p.id === pref)) pref = projs.some((p) => p.id === testCh.last_connected_project) ? testCh.last_connected_project : projs[0].id;
+  box.innerHTML = `<label class="inline">Tài khoản test <select id="test-proj">${projs.map((p) => `<option value="${esc(p.id)}"${p.id === pref ? " selected" : ""}>${esc(`${p.name || p.id} — ${p.channel_title || p.email || p.id}${p.exhausted_today ? " · hết lượt hôm nay" : ""}`)}</option>`).join("")}</select></label>`
+    + (testCh.channel_limit_reached ? '<p class="err small">Kênh test đã chạm giới hạn upload hôm nay.</p>' : "")
+    + `<p class="mut small">Hôm nay đã test ${testCh.today_uploads || 0} video.</p>`
+    + `<details class="more"><summary>Tài khoản test (${projs.length}/${all.length} đã đăng nhập)</summary><div class="inner"><div class="uses">${all.map(loginRow).join("")}</div>${hint}`
+    + `<details class="more"><summary>Thêm tài khoản</summary><div class="inner">${testAddForm()}</div></details></div></details>`;
+  $("#test-run").disabled = false;
+}
+function openTest(name) {
+  testName = name; testPaint();
+  $("#dlg-test").showModal();
+  testLoadAccounts();
+}
+$("#test-close").addEventListener("click", () => $("#dlg-test").close());
+$("#test-acc").addEventListener("change", (e) => {
+  if (e.target.id !== "test-add-file" || !e.target.files[0]) return;
+  e.target.files[0].text().then((t) => { $("#test-add-json").value = t; }).catch((er) => { $("#test-add-err").textContent = "Không đọc được file: " + er.message; });
+});
+$("#test-acc").addEventListener("click", (e) => {
+  const lg = e.target.closest("button[data-login]"); if (lg) return testLogin(lg, lg.dataset.login);
+  const ex = e.target.closest("[data-ext]"); if (ex) { e.preventDefault(); return openExternal(ex.dataset.ext); }
+  if (e.target.closest("#test-reload")) { e.preventDefault(); return testLoadAccounts(); }
+  const cd = e.target.closest("button[data-cand]"); if (cd) return testAdd(cd, { path: cd.dataset.cand });
+  if (e.target.closest("#test-add-ok")) {
+    const json = $("#test-add-json").value.trim();
+    if (!json) { $("#test-add-err").textContent = "Chọn file JSON hoặc dán nội dung"; return; }
+    return testAdd(e.target.closest("#test-add-ok"), { name: $("#test-add-name").value.trim(), client_json: json });
+  }
+  const cp = e.target.closest("button[data-copy]");
+  if (cp) { const i = cp.previousElementSibling; i.select(); navigator.clipboard?.writeText(i.value).then(() => say("Đã chép link"), () => say("Chọn link rồi Ctrl+C", "err")); }
+});
+$("#test-run").addEventListener("click", (e) => {
+  const it = (disk?.items || []).find((x) => x.name === testName); if (!it) return;
+  const pid = $("#test-proj")?.value || "";
+  try { if (pid) localStorage.setItem("tc_preferred_project", pid); } catch (_) { /* không có storage */ }
+  act(e.currentTarget, "", async () => {
+    e.currentTarget.textContent = "Đang cắt mẫu + upload…";
+    say("Đang cắt mẫu 90s và đăng lên kênh test — có thể mất vài phút");
+    let r;
+    try { r = await api("POST", "/test-channel/test-one", { name: it.name, title_vi: it.title_vi || "", project_id: pid, auto_delete: $("#test-autodel").checked }); }
+    finally { $("#test-run").textContent = "Bắt đầu test"; }
+    say(r.status === "testing" ? "Đã đăng mẫu — YouTube quét Content ID, kết quả tự cập nhật sau ~5 phút" : `Kết quả: ${(LIB_BLOCK[r.status] || [r.status])[0]}${r.reason ? " — " + r.reason : ""}`);
+    await loadDisk(); testPaint();
+  });
+});
+$("#test-recheck").addEventListener("click", (e) => act(e.currentTarget, "", async () => {
+  const r = await api("POST", "/test-channel/recheck-one", { name: testName });
+  say(`Kiểm lại: ${(LIB_BLOCK[r.status] || [r.status])[0]}${r.reason ? " — " + r.reason : ""}`);
+  await loadDisk(); testPaint();
+}));
+$("#test-mark").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-mark]"); if (!b) return;
+  act(b, "Đã lưu kết quả", async () => { await api("POST", "/library/set-block-status", { name: testName, status: b.dataset.mark, reason: "Người dùng đánh dấu" }); await loadDisk(); testPaint(); });
+});
+$("#disk-test-sel").addEventListener("click", (e) => {
+  const items = (disk?.items || []).filter((it) => diskPicked.has(it.name));
+  if (!items.length) return;
+  if (!confirm(`Test bản quyền ${items.length} phim trên kênh test?\n\nMỗi phim: cắt mẫu 90s, đăng «Không công khai» lên kênh test, kết quả về sau ~5 phút. Chạy nền lần lượt.`)) return;
+  act(e.currentTarget, "", async () => {
+    let pid = ""; try { pid = localStorage.getItem("tc_preferred_project") || ""; } catch (_) { /* không có storage */ }
+    // 2026-11-27: test hàng loạt theo tài khoản test đã chọn lần trước (trước: xoay pool, dính tài khoản hết lượt)
+    const r = await api("POST", "/test-channel/batch-start", { names: items.map((it) => it.name), project_id: pid,
+      title_vi_map: Object.fromEntries(items.map((it) => [it.name, it.title_vi || ""])) });
+    say(`Đã bắt đầu test ${r.total ?? items.length} phim — kết quả hiện dần trên từng phim`);
+    diskPicked.clear(); loadDisk();
+  });
+});
+
+// ───────────── Chat Agent (D10) ─────────────
+let agentHistory = [];
+function agentAppend(role, text, meta) {
+  const log = $("#agent-log");
+  const hello = log.querySelector(".chat-hello"); if (hello) hello.hidden = true;
+  const d = document.createElement("div");
+  d.className = "msg " + role;
+  d.textContent = text;
+  if (meta) { const m = document.createElement("div"); m.className = "msg-meta"; m.textContent = meta; d.appendChild(m); }
+  log.appendChild(d); log.scrollTop = log.scrollHeight;
+  return d;
+}
+async function agentSend(ev) {
+  ev.preventDefault();
+  const box = $("#agent-msg"), msg = box.value.trim();
+  if (!msg) return;
+  agentAppend("me", msg);
+  box.value = "";
+  const wait = agentAppend("bot", "Đang nghĩ…");
+  const btn = $("#agent-send"); btn.disabled = true;
+  try {
+    const r = await api("POST", "/api/agent/chat", { message: msg, history: agentHistory.slice(-10), allow_mutate: $("#agent-mutate").checked });
+    wait.remove();
+    const steps = Array.isArray(r.steps) ? r.steps.length : 0;
+    agentAppend("bot", r.reply || "(không có trả lời)", [r.model, steps ? `${steps} bước công cụ` : ""].filter(Boolean).join(" · "));
+    agentHistory.push({ role: "user", content: msg }, { role: "assistant", content: r.reply || "" });
+  } catch (e) {
+    wait.remove();
+    const m = e.message || "";
+    const hint = /Max retries|Connection refused|ConnectionError|Failed to establish|timed out/i.test(m)
+      ? "Không kết nối được AI của trợ lý. Kiểm tra Cài đặt → AI dịch (nhà cung cấp, key; AI trên máy: llama-server có đang chạy không)."
+      : "";
+    // hiện đủ lỗi từng model (chính | dự phòng) — trước cắt 200 ký tự chỉ còn lỗi Aurora
+    agentAppend("err", "Agent lỗi: " + (hint || m), hint ? m.split(" | ").map((x) => "• " + x.slice(0, 260)).join("\n") : "");
+  } finally { btn.disabled = false; box.focus(); }
+}
+
+// ───────────── SSE ─────────────
 function connect() {
   const es = new EventSource("/api/events");
-  es.onopen = () => { $("#conn").className = "conn on"; $("#conn").textContent = "trực tiếp"; };
-  es.onerror = () => { $("#conn").className = "conn off"; $("#conn").textContent = "mất kết nối — tự nối lại"; };
+  es.onopen = () => { $("#conn").className = "conn on"; $("#conn").textContent = "Đã kết nối"; };
+  es.onerror = () => { $("#conn").className = "conn off"; $("#conn").textContent = "Mất kết nối — đang nối lại"; };
   es.addEventListener("snapshot", (e) => {
     jobs.clear();
     for (const j of JSON.parse(e.data).jobs) jobs.set(j.job_id, j);
     fullRedraw = true; schedule();
+    refreshQueue();                           // 1 lần mỗi lần (nối / nối lại)
+    loadConflicts();                          // 1 lần mỗi lần nối; sau đó chỉ theo sự kiện series.conflict
+    loadYtAcc();                              // kênh YouTube cho «Đăng lên kênh…» ở Công việc
+    if (selected) { if (jobs.has(selected)) loadDetail(selected); else select(null); }
   });
   es.addEventListener("job.updated", (e) => upsert(JSON.parse(e.data)));
-  es.addEventListener("job.removed", (e) => { jobs.delete(JSON.parse(e.data).job_id); fullRedraw = true; schedule(); });
+  es.addEventListener("job.removed", (e) => {
+    const id = JSON.parse(e.data).job_id;
+    jobs.delete(id); picked.delete(id);
+    if (id === selected) select(null);
+    fullRedraw = true; schedule(); refreshQueueSoon();
+  });
+  es.addEventListener("queue.changed", (e) => {
+    refreshQueueSoon();
+    try {
+      const d = JSON.parse(e.data);
+      if (d.text && /TẠM DỪNG|nhường ghế/.test(d.text)) say(d.text, "err");
+      // 2026-11-21: lượt chạy kết thúc lỗi → nói ngay vì sao (trước: thanh hàng chờ đứng «chuẩn bị», tưởng treo)
+      if (d.result === "failed") say(`«${jobs.get(d.job_id)?.title || d.job_id}» không chạy được: ${d.detail || "lỗi"}`, "err");
+    } catch (_) { /* event không có text */ }
+  });
+  es.addEventListener("series.conflict", () => loadConflicts());
+  es.addEventListener("test_channel.changed", (e) => {      // đăng nhập kênh test xong (callback Google)
+    const d = JSON.parse(e.data);
+    say(`Đã đăng nhập kênh test${d.channel_title ? ": " + d.channel_title : ""}`);
+    if ($("#dlg-test").open) testLoadAccounts();
+  });
+  es.addEventListener("yt.accounts.changed", (e) => {      // đăng nhập kênh YouTube xong (callback Google)
+    const d = JSON.parse(e.data);
+    say(`Đã thêm kênh YouTube: ${d.title || d.id}`);
+    ytPendingAuth = "";
+    loadYtAcc();
+  });
+  es.addEventListener("library.block", (e) => {             // kết quả test bản quyền (recheck nền ~5 phút)
+    const d = JSON.parse(e.data), it = (disk?.items || []).find((x) => x.name === d.name);
+    if (!it) return;
+    it.block = { ...(it.block || {}), status: d.status, reason: d.reason || "", yt_url: d.test_yt_url || (it.block || {}).yt_url || "", recheck_at: d.recheck_at || "" };
+    if (curView === "disk") paintDisk();
+    if (testName === d.name && $("#dlg-test").open) testPaint();
+  });
+  es.addEventListener("disk_library.merge", (e) => {          // gộp tập xong / lỗi → quét lại nếu đang xem
+    const d = JSON.parse(e.data);
+    if (d.state === "done") say(`Đã gộp xong «${d.name}»`);
+    if (d.state === "error") say(`Gộp «${d.name}» lỗi: ${d.error}`, "err");
+    if ((d.state === "done" || d.state === "error") && curView === "disk") loadDisk();
+  });
+  es.addEventListener("job.touched", (e) => { if (JSON.parse(e.data).job_id === selected) refreshDetailSoon(); });
   es.addEventListener("stage.progress", (e) => {
     const d = JSON.parse(e.data), j = jobs.get(d.job_id);
     if (!j) return;
     if (d.cur_text) j.cur_text = d.cur_text;
     dirty.add(d.job_id); schedule();
+    if (d.job_id === selected) refreshDetailSoon();
   });
 }
 
+// ───────────── gắn sự kiện ─────────────
 $("#q").addEventListener("input", (e) => { filter = e.target.value; fullRedraw = true; schedule(); });
-fetch("/api/health").then((r) => r.json()).then((h) => { $("#inst").textContent = `${h.instance} :${h.port}`; }).catch(() => {});
+$("#rows").addEventListener("click", (e) => {
+  const tr = e.target.closest("tr[data-id]");
+  if (!tr) return;
+  const id = tr.dataset.id;
+  if (e.target.classList.contains("pick")) {
+    if (e.target.checked) picked.add(id); else picked.delete(id);
+    return syncToolbar();
+  }
+  if (e.target.closest("td.ck")) return;
+  select(id);
+});
+$("#ck-all").addEventListener("change", (e) => {
+  for (const j of visible()) { if (e.target.checked) picked.add(j.job_id); else picked.delete(j.job_id); }
+  fullRedraw = true; schedule();
+});
+$("#detail").addEventListener("click", (e) => { const b = e.target.closest("button[data-act]"); if (b) detailAction(b); });
+$("#detail").addEventListener("change", (e) => {
+  if (e.target.matches("textarea.vi")) saveLine(e.target);
+  if (e.target.matches("textarea.zh-edit")) saveZh(e.target);
+  if (e.target.matches("input.clone-file")) { const n = e.target.form?.elements["clone-name"]; if (n && !n.value) n.value = (e.target.files[0]?.name || "").replace(/\.[^.]+$/, ""); }
+  if (e.target.id === "sc-filter") { scriptFilter = e.target.value; scriptShown = PAGE; paintScript(false); }
+});
+$("#detail").addEventListener("keydown", (e) => {
+  if (e.target.matches("textarea.vi, textarea.zh-edit") && e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); e.target.blur(); }
+  if (e.target.matches("textarea.zh-edit") && e.key === "Escape") { e.target.value = e.target.defaultValue; e.target.hidden = true; }
+});
+const onScriptSearch = debounce(() => { scriptShown = PAGE; paintScript(false); }, 250);
+$("#detail").addEventListener("input", (e) => { if (e.target.id === "sc-q") { scriptQ = e.target.value.trim(); onScriptSearch(); } });
+$("#btn-enqueue").addEventListener("click", (e) => act(e.currentTarget, "Đã xếp vào hàng chờ", async () => {
+  await api("POST", "/api/queue/jobs", { job_ids: [...picked] });
+  picked.clear(); await refreshQueue();
+}));
+$("#btn-dequeue").addEventListener("click", (e) => act(e.currentTarget, "Đã gỡ khỏi hàng chờ", async () => {
+  await api("POST", "/api/queue/jobs/remove", { job_ids: [...picked].filter(inQueue) });
+  picked.clear(); await refreshQueue();
+}));
+$("#btn-q-panel").addEventListener("click", () => { const p = $("#qpanel"); p.hidden = !p.hidden; if (!p.hidden) paintQueuePanel(); });
+$("#qp-close").addEventListener("click", () => { $("#qpanel").hidden = true; });
+$("#qp-sort").addEventListener("click", (e) => act(e.currentTarget, "Đã xếp lại hàng chờ theo bộ / tập", async () => {
+  await api("POST", "/api/queue/jobs/sort", { by: "series_season" }); await refreshQueue();
+}));
+$("#qp-list").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-qm]"); if (!b) return;
+  const id = b.closest("li[data-id]").dataset.id, m = b.dataset.qm;
+  act(b, "", async () => {
+    if (m === "remove") await api("POST", "/api/queue/jobs/remove", { job_ids: [id] });
+    else await api("POST", "/api/queue/jobs/move", { job_id: id, action: m });
+    await refreshQueue();
+  });
+});
+$("#job-filter").addEventListener("change", (e) => {
+  if (e.target.name !== "job-filter") return;
+  jobFilter = e.target.value; try { localStorage.setItem("jobs.filter", jobFilter); } catch (_) { /* chỉ phiên này */ }
+  fullRedraw = true; schedule();
+});
+$("#btn-retry-failed").addEventListener("click", (e) => {
+  const ids = [...jobs.values()].filter((j) => j.status === "failed" && !inQueue(j.job_id)).map((j) => j.job_id);
+  if (!ids.length) return;
+  if (!confirm(`Xếp lại ${ids.length} job lỗi vào hàng chờ?\nMỗi job làm tiếp từ bước bị lỗi.`)) return;
+  act(e.currentTarget, `Đã xếp ${ids.length} job lỗi vào hàng chờ`, async () => { await api("POST", "/api/queue/jobs", { job_ids: ids }); await refreshQueue(); });
+});
+$("#btn-del-sel").addEventListener("click", (e) => {
+  const ids = [...picked].filter((id) => jobs.get(id)?.status !== "running" && queue.current !== id);
+  if (!ids.length) return;
+  const names = ids.slice(0, 6).map((id) => "• " + (jobs.get(id)?.title || id)).join("\n") + (ids.length > 6 ? `\n… và ${ids.length - 6} job khác` : "");
+  if (!confirm(`Xoá VĨNH VIỄN ${ids.length} job?\n\n${names}\n\nToàn bộ thư mục job (video, âm thanh, bản dịch) bị xoá, không phục hồi được.`)) return;
+  act(e.currentTarget, "", async () => {
+    const q = ids.filter(inQueue);
+    if (q.length) await api("POST", "/api/queue/jobs/remove", { job_ids: q });
+    let ok = 0; const errs = [];
+    for (const id of ids) {
+      try { await api("DELETE", "/api/jobs/" + encodeURIComponent(id)); jobs.delete(id); picked.delete(id); ok++; }
+      catch (er) { errs.push(`${jobs.get(id)?.title || id}: ${er.message}`); }
+    }
+    if (ids.includes(selected)) select(null);
+    fullRedraw = true; schedule(); refreshQueueSoon();
+    say(`Đã xoá ${ok} job${errs.length ? ` · ${errs.length} lỗi: ${errs[0]}` : ""}`, errs.length ? "err" : "");
+  });
+});
+$("#btn-q-stop").addEventListener("click", (e) => {
+  if (!confirm("Dừng job đang chạy và xoá toàn bộ hàng chờ?")) return;
+  act(e.currentTarget, "Đã dừng hàng chờ", async () => { await api("POST", "/api/queue/jobs/stop"); await refreshQueue(); });
+});
+$("#btn-q-resume").addEventListener("click", (e) => act(e.currentTarget, "Đã chạy tiếp hàng chờ", async () => {
+  await api("POST", "/api/v6/queue/resume"); await refreshQueue();
+}));
+$("#btn-q-log").addEventListener("click", (e) => act(e.currentTarget, "", showQueueLog));
+$("#log-close").addEventListener("click", () => $("#dlg-log").close());
+
+// ───────────── chuyển màn hình (thanh bên) ─────────────
+let curView = "jobs";
+function showView(v) {
+  curView = v;
+  document.querySelectorAll(".nav-it").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
+  document.querySelectorAll(".view").forEach((s) => { s.hidden = s.id !== "view-" + v; });
+  if (v === "films") { syncFilms(false).then(loadFilms); loadPubCfg(); loadYtAcc(); }
+  if (v === "disk") loadDisk();
+  if (v === "settings") act(null, "", openSettings);
+  if (v === "agent") $("#agent-msg").focus();
+}
+document.querySelectorAll(".nav-it").forEach((b) => b.addEventListener("click", () => showView(b.dataset.view)));
+document.querySelectorAll(".set-it").forEach((b) => b.addEventListener("click", () => showPane(b.dataset.pane)));
+$("#ai-simple").addEventListener("click", onAISimpleClick);
+$("#ai-simple").addEventListener("change", onAISimpleChange);
+$("#form-cfg").addEventListener("input", onCfgInput);
+$("#form-cfg").addEventListener("change", onCfgInput);
+$("#form-cfg").addEventListener("submit", saveSettings);
+$("#cfg-cancel").addEventListener("click", () => paintCfg());
+$("#form-cfg").addEventListener("click", (e) => {
+  const btn = e.target.closest("#cfg-sample");
+  if (!btn) return;
+  const f = $("#form-cfg"), voice = f.elements.voice?.value || "";
+  if (!voice) return say("Chưa có giọng để nghe", "err");
+  const engine = f.querySelector('input[name="tts_engine"]:checked')?.value || "vieneu";
+  const q = new URLSearchParams({ engine, voice, speed: f.elements.speed?.value || "1" });
+  act(btn, "", async () => {
+    btn.textContent = "Đang đọc…";
+    try {
+      const r = await fetch("/api/voice-sample?" + q);
+      if (!r.ok) { let m = `HTTP ${r.status}`; try { m = (await r.json()).error || m; } catch (_) { /* không phải JSON */ } throw new Error(m); }
+      player.src = URL.createObjectURL(await r.blob());
+      await player.play();
+    } finally { btn.textContent = "▶ Nghe thử"; }
+  });
+});
+$("#form-ai").addEventListener("submit", saveAI);
+$("#form-ai").addEventListener("click", (e) => { const b = e.target.closest("button[data-ai]"); if (b) aiAction(b); });
+
+// Đồng bộ films.db = đọc lại MỌI manifest → chỉ làm khi lần trước đã cũ (FILM_SYNC_MS) hoặc người dùng bấm «Đồng bộ».
+const FILM_SYNC_MS = 120000;
+let filmSyncedAt = 0;
+async function syncFilms(force) {
+  if (!force && Date.now() - filmSyncedAt < FILM_SYNC_MS) return;
+  $("#films-rows").innerHTML = '<tr><td colspan="7" class="note">Đang đồng bộ thư viện…</td></tr>';
+  try { await api("POST", "/films/sync"); filmSyncedAt = Date.now(); }
+  catch (e) { say("Không đồng bộ được thư viện: " + e.message, "err"); }
+}
+$("#films-sync").addEventListener("click", (e) => act(e.currentTarget, "Đã đồng bộ thư viện", async () => { await syncFilms(true); await loadFilms(); }));
+$("#films-q").addEventListener("input", loadFilmsSoon);
+$("#films-status").addEventListener("change", loadFilms);
+$("#films-block").addEventListener("change", loadFilms);
+$("#films-hide-gone").addEventListener("change", loadFilms);
+["#pub-auto", "#films-privacy", "#pub-sched"].forEach((sel) => $(sel).addEventListener("change", savePubCfg));
+$("#pub-skip").addEventListener("click", (e) => {
+  if (!confirm("Bỏ qua video đang tải lên YouTube?")) return;
+  // 2026-11-27: huỷ upload TRONG server (auto_publisher) — trước chỉ gọi yt_uploader cũ nên không dừng được
+  act(e.currentTarget, "", async () => {
+    let r = null;
+    try { r = await api("POST", "/api/auto-publish/skip-current"); } catch (err) { r = { ok: false, error: err.message }; }
+    try { await api("POST", "/api/uploader/skip-current"); } catch (_) { /* yt_uploader không có trên máy này */ }
+    say(r?.ok ? (r.message || "Đã yêu cầu bỏ qua") : (r?.error || "Không có video nào đang đăng"), r?.ok ? "" : "err");
+  });
+});
+$("#yt-acc").addEventListener("click", onYtAccClick);
+$("#job-pub").addEventListener("change", syncToolbar);
+$("#btn-pub-sel").addEventListener("click", (e) => {
+  const v = $("#job-pub").value, ids = [...picked];
+  if (!v || !ids.length) return;
+  const none = v === "__none";
+  const name = $("#job-pub").selectedOptions[0]?.text.replace(/^▶ /, "") || v;
+  if (!none && !confirm(`Gán ${ids.length} job: render xong TỰ ĐĂNG lên kênh «${name}»?\n\nChế độ / hẹn giờ lấy theo mục Đăng YouTube ở Phim đã làm. Job đã xong mà chưa đăng sẽ được xếp đăng ngay.`)) return;
+  return act(e.currentTarget, "", async () => {
+    const r = await api("POST", "/api/v6/yt/targets", { job_ids: ids, account_id: none ? null : v,
+      privacy: $("#films-privacy")?.value || null, schedule_hours: Number($("#pub-sched")?.value) || 0 });
+    say(none ? `Đã bỏ tự đăng cho ${r.set.length} job` : `Đã gán ${r.set.length} job → kênh «${r.channel}»`
+      + (r.published_now?.length ? ` · ${r.published_now.length} job đã xong nên xếp đăng ngay` : "")
+      + (r.errors?.length ? ` · lỗi: ${r.errors.join("; ")}` : ""), r.errors?.length ? "err" : "");
+  });
+});
+$("#pub-acc").addEventListener("change", paintPubSel);
+$("#pub-sel").addEventListener("click", (e) => publishFilms([...filmPicked], e.currentTarget));
+$("#films-rows").addEventListener("change", (e) => {
+  if (!e.target.classList.contains("fpick")) return;
+  const id = e.target.closest("tr")?.dataset.id;
+  if (id) { if (e.target.checked) filmPicked.add(id); else filmPicked.delete(id); }
+  paintPubSel();
+});
+$("#films-all").addEventListener("change", (e) => {
+  filmPicked.clear();
+  if (e.target.checked) filmUploadable.forEach((id) => filmPicked.add(id));
+  document.querySelectorAll("#films-rows .fpick").forEach((c) => { c.checked = e.target.checked; });
+  paintPubSel();
+});
+$("#pub-scan").addEventListener("click", (e) => {
+  const label = $("#films-privacy").options[$("#films-privacy").selectedIndex].text;
+  if (!confirm(`Đăng MỌI phim đã xong mà chưa có trên YouTube, chế độ «${label}»?\n\nVideo sẽ được gửi lên kênh YouTube đã cấu hình.`)) return;
+  act(e.currentTarget, "", async () => {
+    const r = await api("POST", "/api/auto-publish/scan");
+    // 2026-11-27: nói đúng tình trạng (trước luôn «đã bắt đầu» dù đang bận / 0 phim)
+    say(r.busy ? `Đang đăng «${r.current_title || r.current_job_id || "?"}» (${r.progress_percent || 0}%) — các phim khác sẽ đăng sau`
+      : (r.scanned ? `Đã xếp ${r.scanned} phim vào hàng đăng` : "Không có phim mới nào cần đăng"));
+    loadFilms();
+  });
+});
+$("#films-check-all").addEventListener("click", (e) => act(e.currentTarget, "Đã kiểm bản quyền xong", async () => { await api("POST", "/films/check-block-all"); loadFilms(); }));
+$("#films-purge").addEventListener("click", (e) => {
+  if (!confirm("Xoá khỏi thư viện mọi phim mà thư mục job không còn trên ổ?\n\nChỉ xoá dòng trong thư viện (file trên ổ vốn đã không còn).")) return;
+  act(e.currentTarget, "", async () => { const r = await api("POST", "/films/purge-missing", {}); say(`Đã dọn ${r.count || 0} phim`); loadFilms(); });
+});
+$("#films-rows").addEventListener("click", (e) => { const b = e.target.closest("button[data-film]"); if (b) filmAction(b); });
+$("#agent-clear").addEventListener("click", () => {
+  agentHistory = []; $("#agent-log").querySelectorAll(".msg").forEach((m) => m.remove());
+  const h = $("#agent-log .chat-hello"); if (h) h.hidden = false;
+});
+$("#agent-log").addEventListener("click", (e) => { const c = e.target.closest(".chip[data-ask]"); if (c) { $("#agent-msg").value = c.dataset.ask; $("#form-agent").requestSubmit(); } });
+$("#form-agent").addEventListener("submit", agentSend);
+$("#agent-msg").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $("#form-agent").requestSubmit(); } });
+function openNew() {
+  $("#new-err").hidden = true; newReset(); newPaintPaths(); newTab("link"); newPubPaint(); $("#dlg-new").showModal(); $("#new-src").focus();
+  if (!ytAcc) loadYtAcc().then(newPubPaint);
+}
+$("#btn-new").addEventListener("click", openNew);
+document.querySelector('[data-open="new"]').addEventListener("click", openNew);
+$("#new-cancel").addEventListener("click", () => $("#dlg-new").close());
+$("#form-new").addEventListener("submit", createJob);
+
+fetch("/api/health").then((r) => r.json()).then((h) => { $("#inst").textContent = `${h.instance} · cổng ${h.port}`; }).catch((e) => console.warn("health:", e));
 connect();

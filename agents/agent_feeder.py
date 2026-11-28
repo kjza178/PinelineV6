@@ -32,7 +32,25 @@ import core.film_db as film_db
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "work"
-STATE_PATH = WORK / "logs" / "feeder_state.json"
+_DEFAULT_WORK = WORK
+
+
+def _work() -> Path:
+    """Work root của instance đang chạy (fix 2026-11-14: trước cứng ROOT/"work"); WORK bị đặt riêng (test) → giữ."""
+    if WORK != _DEFAULT_WORK:
+        return WORK
+    from core.instance import work_root_now
+    return work_root_now(WORK)
+STATE_PATH = _work() / "logs" / "feeder_state.json"
+_DEFAULT_STATE_PATH = STATE_PATH
+
+
+def _state_path() -> Path:
+    """fix 2026-11-14 (review): tính LÚC GỌI — sidecar import module trước khi áp instance, STATE_PATH lúc import trỏ
+    ROOT/work. STATE_PATH bị đặt riêng (test) → giữ."""
+    if STATE_PATH != _DEFAULT_STATE_PATH:
+        return STATE_PATH
+    return _work() / "logs" / "feeder_state.json"
 
 SOURCES = ("lib_merged", "auto_merge", "hongguo")
 DEFAULT_SPEC: dict[str, Any] = {
@@ -67,9 +85,9 @@ def _today() -> str:
 
 def load_state() -> dict:
     st: dict[str, Any] = {}
-    if STATE_PATH.is_file():
+    if _state_path().is_file():
         try:
-            st = json.loads(STATE_PATH.read_text(encoding="utf-8"))
+            st = json.loads(_state_path().read_text(encoding="utf-8"))
         except Exception:  # noqa: BLE001
             st = {}
     st.setdefault("enabled", False)
@@ -85,9 +103,9 @@ def load_state() -> dict:
 
 
 def save_state(st: dict) -> None:
-    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _state_path().parent.mkdir(parents=True, exist_ok=True)
     st["fed"] = st.get("fed", [])[-50:]
-    STATE_PATH.write_text(json.dumps(st, ensure_ascii=False, indent=2), encoding="utf-8")
+    _state_path().write_text(json.dumps(st, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def normalize_spec(d: dict) -> dict:
@@ -165,9 +183,9 @@ def _hg():
 
 def _job_manifests() -> list[tuple[str, dict]]:
     out = []
-    if not WORK.is_dir():
+    if not _work().is_dir():
         return out
-    for d in WORK.iterdir():
+    for d in _work().iterdir():
         mf = d / "manifest.json"
         if not mf.is_file():
             continue
@@ -396,14 +414,12 @@ def process_ratio() -> float:
         rows = [r for r in film_db.query(status="done", limit=500) if r.get("finished_at") and r.get("duration_sec")]
     except Exception:  # noqa: BLE001
         rows = []
-    rows.sort(key=lambda r: r["finished_at"])
+    # finished_at trong DB cũ lẫn ISO / epoch dạng chữ → quy về epoch rồi mới sắp và trừ (core/timeutil).
+    from core.timeutil import to_epoch  # noqa: PLC0415
+    timed = [(t, r) for t, r in ((to_epoch(r["finished_at"]), r) for r in rows) if t is not None]
+    timed.sort(key=lambda x: x[0])
     ratios = []
-    for a, b in zip(rows, rows[1:]):
-        try:
-            ta = datetime.fromisoformat(a["finished_at"].replace("Z", "+00:00")).timestamp()
-            tb = datetime.fromisoformat(b["finished_at"].replace("Z", "+00:00")).timestamp()
-        except ValueError:
-            continue
+    for (ta, _a), (tb, b) in zip(timed, timed[1:]):
         gap = tb - ta
         if 600 < gap < 12 * 3600:
             ratios.append(gap / float(b["duration_sec"]))
@@ -810,18 +826,24 @@ def _concat_videos_smart(inputs: list[Path], out_mp4: Path) -> dict:
                         "part_durations": [m["duration"] for m in metas],
                     }
 
-        # Fallback: chỉ encode phần lệch W×H; phần đã khớp giữ -c:v copy (audio AAC chuẩn hoá).
+        # Fallback: chuẩn hoá canvas. Port lỗi V2 11-23 (combine-duration-inflated): trước chỉ encode phần lệch W×H,
+        # phần khớp giữ -c:v copy rồi concat -c copy → timebase/fps lệch giữa phần encode và phần copy → thời lượng
+        # ảo (2 phần 5,8 h báo 34 h, auto-publish từ chối). Nay có BẤT KỲ phần nào phải encode → encode TẤT CẢ.
         hg = _hg()
         vargs = hg._pick_h264_encoder()
         vf = hg._scale_vf(tw, th)
         norm_parts: list[Path] = []
         reencoded = 0
         copied = 0
+
+        def _copyable(i: int) -> bool:
+            mm = metas[i] if i < len(metas) else {}
+            return (int(mm.get("width") or 0) == tw and int(mm.get("height") or 0) == th
+                    and mm.get("vcodec") == "h264")
+        all_copy = all(_copyable(i) for i in range(len(valid)))
         for idx, src in enumerate(valid):
             part_p = tmp_root / f"norm_{idx:04d}.mp4"
-            m = metas[idx] if idx < len(metas) else {}
-            same_wh = int(m.get("width") or 0) == tw and int(m.get("height") or 0) == th
-            can_copy = same_wh and (m.get("vcodec") == "h264")
+            can_copy = all_copy and _copyable(idx)
             if can_copy:
                 cmd = [
                     "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
@@ -1169,7 +1191,7 @@ def combine_rendered_jobs(
 
     job_records: list[dict] = []
     for jid in clean_ids:
-        wdir = WORK / jid
+        wdir = _work() / jid
         mf_path = wdir / "manifest.json"
         if not mf_path.is_file():
             return {"ok": False, "error": f"Job {jid} không còn manifest.json trên ổ đĩa"}
@@ -1190,7 +1212,7 @@ def combine_rendered_jobs(
         clean_ids = [r["job_id"] for r in job_records]
 
     merged_jid = hashlib.sha1(f"merged_jobs:{','.join(clean_ids)}:{int(time.time())}".encode("utf-8")).hexdigest()[:12]
-    merged_dir = WORK / merged_jid
+    merged_dir = _work() / merged_jid
     merged_dir.mkdir(parents=True, exist_ok=True)
     merged_mp4 = merged_dir / "output.mp4"
 
@@ -1735,7 +1757,7 @@ def _server_tree_cpu(lib: Path | None) -> float | None:
 
 
 def _job_activity(job_id: str) -> float:
-    wd = WORK / job_id
+    wd = _work() / job_id
     newest = 0.0
     try:
         with os.scandir(wd) as it:
@@ -1751,7 +1773,7 @@ def _job_activity(job_id: str) -> float:
 
 def _running_stage(job_id: str) -> tuple[str | None, dict, dict]:
     try:
-        m = json.loads((WORK / job_id / "manifest.json").read_text(encoding="utf-8"))
+        m = json.loads((_work() / job_id / "manifest.json").read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001
         return None, {}, {}
     for name, s in (m.get("stages") or {}).items():

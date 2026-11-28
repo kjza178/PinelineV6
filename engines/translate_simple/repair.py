@@ -19,22 +19,29 @@ def run(store: ScriptStore, pv: PlanView, flags: dict[int, list[dict]], *, model
     rounds = cfg.repair_rounds() if rounds is None else max(0, min(2, int(rounds)))
     log: list[dict] = []
     pos_of = {int(r["i"]): p for p, r in enumerate(rows) if r.get("i") is not None}
+    film = None
+    if flags and rounds:
+        from . import film_context          # A8: cùng phần đầu cả phim với bước soát → trúng cache
+        film = film_context.for_stage(rows, pv, model, label="[simple-repair]")
+    from . import film_context as _fc
+    lot_size = _fc.lot_size(model, film, len(flags))
     for rnd in range(1, rounds + 1):
         if not flags:
             break
         if stop_check and stop_check():
             raise RuntimeError("stopped by user")
         idx = sorted(pos_of[i] for i in flags if i in pos_of)
-        jobs = stage_review.make_jobs(rows, idx, cfg.batch(), cfg.ctx())
+        jobs = _fc.make_jobs(rows, idx, lot_size, cfg.ctx(), film)
         sent = [int(rows[p]["i"]) for p in idx]
         print(f"[simple-repair] lượt {rnd}/{rounds}: {len(sent)} câu bị cờ · {len(jobs)} lô", flush=True)
         for j in jobs:
             lot = [rows[p] for p in j["pos"]]
             want = {int(r["i"]) for r in lot}
-            system, user = stage_review.build_prompt(lot, j["before"], j["after"], pv, repair_flags=flags)
+            ch = j.get("ch")
+            system, user = stage_review.build_prompt(lot, j["before"], j["after"], pv, repair_flags=flags, film=ch)
             try:
                 res = stage_review.call_llm(system, user, want, model=model, stop_check=stop_check,
-                                            label="[simple-repair]")
+                                            label="[simple-repair]", prefix=ch.text if ch is not None else None)
             except Exception as e:  # noqa: BLE001
                 if "stopped by user" in str(e).lower():
                     raise
