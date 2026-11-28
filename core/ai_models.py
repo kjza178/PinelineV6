@@ -6,7 +6,8 @@ màn hình luôn nói đúng thứ sẽ chạy. Ghi = sửa khoá trong pineline
 lực ở lần gọi kế, không cần restart.
 
 Tiền tố model: deepseek/… · alibaba/… (qwen/…) · chatgpt/… aurora/… (Aurora) · local (llama :8083) · llama/<tên> ·
-local/<tên> (Ollama). V6 không dùng 9router (ollama/…-cloud).
+local/<tên> (Ollama) · <tên tùy chỉnh>/… (nhà cung cấp tùy chỉnh: engines/providers/custom.py — OpenAI, Gemini,
+OpenRouter…). V6 không dùng 9router (ollama/…-cloud).
 """
 from __future__ import annotations
 
@@ -206,10 +207,20 @@ def _aurora_reachable(base: str | None) -> bool:
         return False
 
 
-def _preset_models(pr: dict) -> dict:
+def _preset_models(pr: dict, model: str | None = None) -> dict:
+    """model: tên người dùng tự chọn cho bộ của nhà cung cấp (vd «openrouter/…») — bỏ qua bước tự chọn bản «flash»
+    (không cần GET /models, dùng được với nhà không có /models)."""
     if "provider" not in pr:
         return dict(pr["models"])
-    res = fetch_models(pr["provider"])                 # ValueError nếu chưa có key / lỗi mạng
+    m = str(model or "").strip()
+    if m:
+        from engines import providers
+        hit = providers.resolve(m)
+        if hit is None or hit[0].name != pr["provider"] or not hit[1]:
+            raise ValueError(f"model «{m}» không thuộc nhà cung cấp «{pr['provider']}»")
+        res = {"suggested": m}
+    else:
+        res = fetch_models(pr["provider"])                 # ValueError nếu chưa có key / lỗi mạng
     if not res["suggested"]:
         raise ValueError(f"{res['label']}: không tìm thấy model dịch được trong danh sách ({len(res['models'])} model)"
                          " — chọn tay ở từng chức năng")
@@ -252,6 +263,14 @@ def check_model(fid: str, model: str) -> str:
     hit = providers.resolve(m)
     if hit and not hit[1]:
         return f"thiếu tên model sau «{hit[0].name}/» — bấm «Lấy danh sách model» ở dòng {hit[0].label}"
+    if hit:                                   # tên model của nhà cung cấp có thể chứa «/» (OpenRouter: hang/model)
+        if not re.match(r"^[\w.:@\-]+(/[\w.:@\-]+)*$", hit[1]):
+            return "tên model không hợp lệ"
+        if _needs(f) == "aurora_file":
+            return "chức năng này cần upload file — chỉ Aurora (chatgpt/… aurora/…) làm được"
+        return ""
+    if "/" in m and m.split("/", 1)[0].lower() not in ("chatgpt", "aurora", "llama", "local"):
+        return f"không có nhà cung cấp «{m.split('/', 1)[0]}» — thêm ở Cài đặt → AI → Nhà cung cấp tùy chỉnh"
     if not MODEL_RE.match(m) and not re.match(r"^[\w.:\-]+$", m):
         return "tên model không hợp lệ"
     if _needs(f) == "aurora_file" and not m.lower().startswith(AURORA_PREFIXES):
@@ -285,9 +304,9 @@ def snapshot() -> dict:
         provs.append({"name": p.name, "label": p.label, "base_url": p.base(), "default_base": p.default_base,
                       "base_key": p.base_keys[0], "key_key": p.key_keys[0], "has_key": bool(k),
                       "max_tokens": p.out_cap(), "max_tokens_default": p.max_tokens_cap,
-                      "max_tokens_key": f"{p.name.upper()}_MAX_TOKENS",
+                      "max_tokens_key": f"{p.env_prefix()}_MAX_TOKENS", "custom": p.custom,
                       "concurrency": p.concurrency(), "concurrency_default": p.default_concurrency,
-                      "concurrency_key": f"{p.name.upper()}_CONCURRENCY",
+                      "concurrency_key": f"{p.env_prefix()}_CONCURRENCY",
                       "key_hint": _key_hint(k), "models": [f"{p.name}/{m}" for m in providers.cached_models(p)[1]],
                       "models_fetched_at": providers.cached_models(p)[0] or None})
     try:
@@ -323,12 +342,79 @@ def snapshot() -> dict:
         "local": {"llama": llama, "ollama": [f"local/{m}" for m in ollama], "settings": local_cfg},
         "functions": funcs,
         "plan_mode": {"value": _get("PLAN_MODE") or "file", "effective": T.plan_mode_effective()},
-        "presets": [{"id": k, "label": v["label"]} for k, v in PRESETS.items()],
+        "presets": [{"id": k, "label": v["label"]} for k, v in PRESETS.items()]
+                   + [{"id": f"custom:{p.name}", "label": f"Tất cả {p.label}"} for p in providers.all_providers() if p.custom],
+        "custom_templates": _custom_templates(),
     }
 
 
+def _custom_templates() -> list[dict]:
+    from engines.providers import custom
+    return [dict(t) for t in custom.TEMPLATES]
+
+
+def _preset(preset: str) -> dict | None:
+    """Bộ cài sẵn theo id; «custom:<tên>» = mọi chức năng dùng nhà cung cấp tùy chỉnh đó (model «flash»/đầu danh sách)."""
+    if preset.startswith("custom:"):
+        name = preset.split(":", 1)[1]
+        p = _provider(name)                       # ValueError nếu không có
+        return {"label": f"Tất cả {p.label}", "plan_mode": "sample", "provider": p.name}
+    return PRESETS.get(preset)
+
+
+def save_custom_provider(spec: dict, *, api_key: str | None = None, editing: str | None = None) -> dict:
+    """Thêm / sửa nhà cung cấp tùy chỉnh. editing = tên cũ khi sửa (đổi tên → chuyển key sang tên mới).
+    Lỗi → ValueError, không ghi gì."""
+    from core.config import save_config
+    from engines.providers import custom
+    cur = custom.specs()
+    if editing and not any(x["name"] == editing for x in cur):
+        raise ValueError(f"không có nhà cung cấp tùy chỉnh «{editing}»")
+    item = custom.validate(spec or {}, existing=cur, editing=editing)
+    if editing and editing != item["name"] and _users_of(editing):
+        raise ValueError(f"đang có chức năng dùng «{editing}/…» ({', '.join(_users_of(editing))}) — đổi model các "
+                         "chức năng đó trước khi đổi tên")
+    out = [x for x in cur if x["name"] != (editing or item["name"])] + [item]
+    updates: dict = {custom.CFG_KEY: custom.dump(out)}
+    pre_new = custom.env_prefix(item["name"])
+    if editing and editing != item["name"]:
+        old = _provider(editing)
+        if not str(api_key or "").strip() and old.key():
+            updates[f"{pre_new}_API_KEY"] = old.key()
+        for suf in ("API_KEY", "BASE_URL", "MAX_TOKENS", "CONCURRENCY"):
+            updates[f"{custom.env_prefix(editing)}_{suf}"] = None
+    if str(api_key or "").strip():
+        updates[f"{pre_new}_API_KEY"] = str(api_key).strip()
+    updates[f"{pre_new}_BASE_URL"] = None             # địa chỉ nằm trong danh sách — bỏ bản ghi đè cũ
+    save_config(updates)
+    return {"changed": sorted(updates), "provider": item["name"], **snapshot()}
+
+
+def _users_of(name: str) -> list[str]:
+    pre = f"{name}/"
+    return [f.label for f in FUNCTIONS if f.key and _get(f.key).lower().startswith(pre)]
+
+
+def remove_custom_provider(name: str) -> dict:
+    """Xoá nhà cung cấp tùy chỉnh + key của nó. Còn chức năng dùng → ValueError (nói rõ chức năng nào)."""
+    from core.config import save_config
+    from engines.providers import custom
+    n = str(name or "").strip().lower()
+    cur = custom.specs()
+    if not any(x["name"] == n for x in cur):
+        raise ValueError(f"không có nhà cung cấp tùy chỉnh «{n}»")
+    users = _users_of(n)
+    if users:
+        raise ValueError(f"đang có chức năng dùng «{n}/…»: {', '.join(users)} — đổi model các chức năng đó trước")
+    updates: dict = {custom.CFG_KEY: custom.dump([x for x in cur if x["name"] != n]) if len(cur) > 1 else None}
+    for suf in ("API_KEY", "BASE_URL", "MAX_TOKENS", "CONCURRENCY"):
+        updates[f"{custom.env_prefix(n)}_{suf}"] = None
+    save_config(updates)
+    return {"changed": sorted(updates), **snapshot()}
+
+
 def apply(models: dict | None = None, *, plan_mode: str | None = None, providers_cfg: dict | None = None,
-          preset: str | None = None) -> dict:
+          preset: str | None = None, preset_model: str | None = None) -> dict:
     """Ghi lựa chọn vào pineline.config.json. models: {id chức năng: model | "" (= dùng dự phòng)}.
     providers_cfg: {tên: {"api_key": "...", "base_url": "..."}} — api_key rỗng/thiếu = giữ nguyên key cũ;
     "clear_key": True = xoá key. Lỗi → ValueError (không ghi gì)."""
@@ -336,10 +422,10 @@ def apply(models: dict | None = None, *, plan_mode: str | None = None, providers
     from engines import providers
     models = dict(models or {})
     if preset:
-        pr = PRESETS.get(preset)
+        pr = _preset(str(preset))
         if pr is None:
             raise ValueError(f"không có bộ cài sẵn «{preset}»")
-        models = {**_preset_models(pr), **models}
+        models = {**_preset_models(pr, preset_model), **models}
         plan_mode = plan_mode or pr["plan_mode"]
     updates: dict = {}
     errors = []
@@ -379,7 +465,7 @@ def apply(models: dict | None = None, *, plan_mode: str | None = None, providers
                 updates[p.base_keys[0]] = None if (not b or b == p.default_base.rstrip("/")) else b
         if "max_tokens" in pc:
             raw = str(pc.get("max_tokens") or "").strip()
-            mk = f"{p.name.upper()}_MAX_TOKENS"
+            mk = f"{p.env_prefix()}_MAX_TOKENS"
             if not raw:
                 updates[mk] = None
             elif not raw.isdigit() or not (256 <= int(raw) <= 1_000_000):
@@ -388,7 +474,7 @@ def apply(models: dict | None = None, *, plan_mode: str | None = None, providers
                 updates[mk] = None if int(raw) == p.max_tokens_cap else raw
         if "concurrency" in pc:
             raw = str(pc.get("concurrency") or "").strip()
-            ck = f"{p.name.upper()}_CONCURRENCY"
+            ck = f"{p.env_prefix()}_CONCURRENCY"
             if not raw:
                 updates[ck] = None
             elif not raw.isdigit() or not (1 <= int(raw) <= 512):

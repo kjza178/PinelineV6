@@ -261,7 +261,7 @@ def _v6_router(inst: Instance) -> APIRouter:
         b = body if isinstance(body, dict) else {}
         try:
             out = ai_models.apply(b.get("models"), plan_mode=b.get("plan_mode"), providers_cfg=b.get("providers"),
-                                  preset=b.get("preset"))
+                                  preset=b.get("preset"), preset_model=b.get("preset_model"))
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
         if out.get("changed"):
@@ -269,6 +269,29 @@ def _v6_router(inst: Instance) -> APIRouter:
             # 2026-11-21: đổi model/key → job đang chờ thử lại soát chạy lại ngay (services, không logic ở route)
             from services import translate_wake
             out["woke"] = translate_wake.on_ai_changed(out["changed"])
+        return out
+
+    # ── Nhà cung cấp AI tùy chỉnh (2026-11-28) — core/ai_models + engines/providers/custom ──
+    @r.post(V6_PREFIX + "/ai/custom-provider")
+    def ai_custom_save(body: dict):
+        """{name, label, base_url, max_tokens?, template?, api_key?, editing?} — thêm / sửa. Sai → 400, không ghi."""
+        from core import ai_models
+        b = body if isinstance(body, dict) else {}
+        try:
+            out = ai_models.save_custom_provider(b, api_key=b.get("api_key"), editing=b.get("editing") or None)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        bus.publish("config.changed", {"changed": out["changed"]})
+        return out
+
+    @r.delete(V6_PREFIX + "/ai/custom-provider/{name}")
+    def ai_custom_delete(name: str):
+        from core import ai_models
+        try:
+            out = ai_models.remove_custom_provider(name)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        bus.publish("config.changed", {"changed": out["changed"]})
         return out
 
     # ── Kênh YouTube đăng phim (nhiều kênh) — services/yt_accounts (2026-11-21) ──

@@ -1220,7 +1220,7 @@ function aiFuncRow(f) {
 
 function aiProviderRow(p) {
   const status = p.has_key ? `<span class="tag ok">đã có key ${esc(p.key_hint)}</span>` : '<span class="tag warn">chưa có key</span>';
-  return `<tr data-prov="${esc(p.name)}"><td><b>${esc(p.label)}</b><div class="mut small">${esc(p.key_key)}</div></td>`
+  return `<tr data-prov="${esc(p.name)}"><td><b>${esc(p.label)}</b>${p.custom ? ' <span class="tag">tùy chỉnh</span>' : ""}<div class="mut small">${esc(p.key_key)}</div>${p.custom ? `<button type="button" class="btn sm" data-ai="cdel">Xoá</button>` : ""}</td>`
     + `<td>${status}<input type="password" class="ai-key" placeholder="${p.has_key ? "Dán key mới để thay" : "Dán API key"}" autocomplete="off">`
     + `${p.has_key ? '<label class="row small"><input type="checkbox" class="ai-clear"> Xoá key</label>' : ""}</td>`
     + `<td><input class="ai-base" value="${esc(p.base_url)}" placeholder="${esc(p.default_base)}" spellcheck="false">`
@@ -1240,13 +1240,14 @@ function paintAI() {
   const presets = ai.presets.map((p) => `<button type="button" class="btn sm" data-ai="preset" data-preset="${esc(p.id)}">${esc(p.label)}</button>`).join(" ");
   $("#ai-body").innerHTML = `
     <div class="sec"><h3>AI cho từng chức năng</h3>
-    <p class="sub">Để trống = dùng mặc định (cột «Đang dùng»). Tiền tố: <code>deepseek/…</code> <code>alibaba/…</code> <code>chatgpt/…</code> (Aurora) <code>local</code>. Bộ cài sẵn: ${presets}</p>
+    <p class="sub">Để trống = dùng mặc định (cột «Đang dùng»). Tiền tố: <code>deepseek/…</code> <code>alibaba/…</code> <code>chatgpt/…</code> (Aurora) <code>local</code>${customProvs().map((p) => ` <code>${esc(p.name)}/…</code>`).join("")}. Bộ cài sẵn: ${presets}</p>
     <table class="ai-tbl"><thead><tr><th>Chức năng · dùng ở đâu</th><th>Model</th><th>Đang dùng thực tế</th><th></th></tr></thead><tbody>${funcs}</tbody></table>
     ${old.length ? `<details class="ai-old"><summary>Luồng cũ / thử nghiệm đang tắt — KHÔNG dùng trong luồng dịch V6 (${old.length})</summary>
       <table class="ai-tbl"><tbody>${oldRows}</tbody></table></details>` : ""}
     </div>
     <div class="sec"><h3>Nhà cung cấp API</h3>
     <table class="ai-tbl"><thead><tr><th>Nhà cung cấp</th><th>API key</th><th>Địa chỉ · trần output · song song</th><th></th></tr></thead><tbody>${ai.providers.map(aiProviderRow).join("")}</tbody></table>
+    <p class="mut small">Thêm nhà cung cấp khác (OpenAI, Gemini, OpenRouter…): Cài đặt → AI dịch → «+ Thêm nhà cung cấp khác».</p>
     <p class="mut small">Aurora: ${au.configured ? esc(au.base_url) : "chưa cấu hình AURORA_BASE_URL / CHATGPT_BASE_URL"} ·
       llama (${esc(lo.settings?.llama_url?.value || "")}): ${lo.llama.length ? esc(lo.llama.join(", ")) : "không chạy"} · Ollama: ${lo.ollama.length ? esc(lo.ollama.join(", ")) : "không có"}</p></div>`;
 }
@@ -1297,6 +1298,7 @@ async function saveAI(ev) {
 }
 
 async function aiAction(btn) {
+  if (btn.dataset.ai === "cdel") return customDelete(btn, btn.closest("tr").dataset.prov);
   if (btn.dataset.ai === "preset") {
     const label = btn.textContent;
     const prov = { deepseek: "DeepSeek", alibaba: "Alibaba", recommended: "DeepSeek" }[btn.dataset.preset];
@@ -1353,6 +1355,64 @@ const USE_VI = {
 };
 const PROV_OF = (label) => (/deepseek/i.test(label) ? "deepseek" : /alibaba|qwen/i.test(label) ? "alibaba" : /aurora/i.test(label) ? "aurora" : "local");
 let aiPick = null;
+// 2026-11-28: nhà cung cấp TÙY CHỈNH (engines/providers/custom.py) — mọi API chuẩn OpenAI, người dùng tự khai.
+const ADD_PROV = "__add";
+// 2026-11-28: chọn nhà cung cấp bằng danh sách thả xuống (trước: lưới thẻ — nhiều nhà tùy chỉnh thì rối).
+function provOptions(PV, cur) {
+  const opt = (x) => `<option value="${esc(x.id)}"${x.id === aiPick ? " selected" : ""}>${esc(x.name)}${x.id === cur ? " — đang dùng" : ""}${x.pill ? ` (${esc(x.pill)})` : ""}</option>`;
+  const own = PV.filter((x) => x.custom);
+  return `<optgroup label="Có sẵn">${PV.filter((x) => !x.custom && x.id !== ADD_PROV).map(opt).join("")}</optgroup>`
+    + (own.length ? `<optgroup label="Tùy chỉnh">${own.map(opt).join("")}</optgroup>` : "")
+    + `<option value="${ADD_PROV}"${aiPick === ADD_PROV ? " selected" : ""}>+ Thêm nhà cung cấp khác…</option>`;
+}
+function customProvs() { return (ai.providers || []).filter((p) => p.custom); }
+function allProvs() {
+  return [...PROVS, ...customProvs().map((p) => ({ id: p.name, preset: `custom:${p.name}`, name: p.label, custom: true, api: true,
+    desc: `Tùy chỉnh · ${p.base_url}` })), { id: ADD_PROV, name: "+ Thêm nhà cung cấp khác", desc: "OpenAI, Gemini, OpenRouter, Groq, Claude… hoặc máy chủ AI riêng (API chuẩn OpenAI)." }];
+}
+function curProvId(review) {
+  const pre = (review.effective || "").split("/")[0].toLowerCase();
+  if (customProvs().some((p) => p.name === pre)) return pre;
+  return PROV_OF(review.provider || "");
+}
+let cprovModels = {};   // tên → [model] lấy được lúc «Kiểm tra»
+function customAddForm() {
+  const T = ai.custom_templates || [];
+  return `<div class="field"><div class="lbl"><b>Mẫu có sẵn</b><span>Chọn để điền sẵn địa chỉ — vẫn sửa được. Dịch vụ khác: «Tự nhập».</span></div>
+      <div class="ctl"><select id="cp-tpl"><option value="">Tự nhập</option>${T.map((t) => `<option value="${esc(t.id)}">${esc(t.label)}</option>`).join("")}</select><div id="cp-note" class="small sub"></div></div></div>
+    <div class="field"><div class="lbl"><b>Tên hiển thị</b><span>Vd «OpenRouter», «Máy chủ AI của Nam».</span></div><div class="ctl"><input id="cp-label" autocomplete="off"></div></div>
+    <div class="field"><div class="lbl"><b>Tên ngắn</b><span>Chữ thường không dấu, số, «_». Thành tiền tố model: <code>tên/model</code>.</span></div><div class="ctl"><input id="cp-name" autocomplete="off" spellcheck="false" placeholder="vd openrouter"></div></div>
+    <div class="field"><div class="lbl"><b>Địa chỉ API</b><span>Phần trước <code>/chat/completions</code>, thường kết thúc bằng <code>/v1</code>.</span></div><div class="ctl"><input id="cp-base" autocomplete="off" spellcheck="false" placeholder="https://…/v1"></div></div>
+    <div class="field"><div class="lbl"><b>API key</b><span>Chỉ lưu trên máy này (pineline.config.json), không lên git.</span></div><div class="ctl"><input type="password" id="cp-key" autocomplete="off"></div></div>
+    <div class="actions"><span id="cp-status" class="small grow"></span><button type="button" class="btn primary" id="cp-save">Thêm & kiểm tra</button></div>`;
+}
+function onCpTpl() {
+  const t = (ai.custom_templates || []).find((x) => x.id === $("#cp-tpl").value);
+  $("#cp-note").textContent = t?.note || "";
+  if (!t) return;
+  $("#cp-label").value = t.label; $("#cp-name").value = t.id; $("#cp-base").value = t.base_url;
+}
+async function customSave(btn) {
+  const st = $("#cp-status");
+  const body = { name: $("#cp-name").value.trim(), label: $("#cp-label").value.trim(), base_url: $("#cp-base").value.trim(),
+    api_key: $("#cp-key").value.trim(), template: $("#cp-tpl").value };
+  btn.disabled = true; st.innerHTML = '<span class="sub">Đang lưu…</span>';
+  try {
+    ai = await api("POST", "/api/v6/ai/custom-provider", body);
+    aiPick = ai.provider;
+    paintAI(); paintAISimple();
+    say(`Đã thêm ${body.label || body.name}`);
+    const tb = $("#prov-test"); if (tb && body.api_key) provTest(tb);
+  } catch (e) { st.innerHTML = `<span class="err">${esc(e.message)}</span>`; } finally { btn.disabled = false; }
+}
+async function customDelete(btn, name) {
+  const p = customProvs().find((x) => x.name === name);
+  if (!confirm(`Xoá nhà cung cấp «${p?.label || name}» và API key của nó?`)) return;
+  return act(btn, "Đã xoá nhà cung cấp", async () => {
+    ai = await api("DELETE", `/api/v6/ai/custom-provider/${encodeURIComponent(name)}`);
+    delete cprovModels[name]; aiPick = null; paintAI(); paintAISimple();
+  });
+}
 
 function niceModel(f) {
   if (!f.effective) return '<span class="err">chưa có</span>';
@@ -1361,14 +1421,17 @@ function niceModel(f) {
 }
 function paintAISimple() {
   const review = ai.functions.find((f) => f.id === "review") || {};
-  const cur = PROV_OF(review.provider || "");
-  if (!aiPick) aiPick = cur;
-  const p = PROVS.find((x) => x.id === aiPick);
+  const cur = curProvId(review);
+  const PV = allProvs();
+  if (!aiPick || !PV.some((x) => x.id === aiPick)) aiPick = cur;
+  const p = PV.find((x) => x.id === aiPick);
   const pr = ai.providers.find((x) => x.name === aiPick);
   const uses = ai.functions.filter((f) => !f.legacy && USE_VI[f.id]).map((f) =>
     `<div class="use"><div><b>${esc(USE_VI[f.id])}</b>${f.problem ? `<span class="err">${esc(f.problem)}</span>` : ""}</div><div class="m">${niceModel(f)}</div></div>`).join("");
   let detail = "";
-  if (p.api) {
+  if (p.id === ADD_PROV) {
+    detail = customAddForm();
+  } else if (p.api) {
     const conc = pr?.concurrency || 32;
     detail = `
       <div class="field"><div class="lbl"><b>API key</b><span>Lấy ở trang tài khoản ${esc(p.name)}. Chỉ lưu trên máy này.</span></div>
@@ -1376,6 +1439,15 @@ function paintAISimple() {
           <button type="button" class="btn" id="prov-test">Kiểm tra</button></div><div id="prov-status" class="small">${pr?.has_key ? '<span class="ok">✓ Đã có key</span>' : ""}</div></div></div>
       <div class="field"><div class="lbl"><b>Tốc độ dịch</b><span>Số phần phim dịch cùng lúc. Nhanh hơn không tốn thêm tiền.</span></div>
         <div class="ctl"><div class="seg">${SPEEDS.map(([n, t, d]) => `<label title="${esc(d)}"><input type="radio" name="prov-speed" value="${n}"${Math.abs(conc - n) === Math.min(...SPEEDS.map(([m]) => Math.abs(conc - m))) ? " checked" : ""}>${esc(t)}</label>`).join("")}</div></div></div>`;
+    if (p.custom) {
+      const ms = cprovModels[p.id] || pr?.models || [];
+      const curM = (review.effective || "").startsWith(p.id + "/") ? review.effective : "";
+      detail += `<div class="field"><div class="lbl"><b>Địa chỉ API</b><span>Đổi nếu dịch vụ đổi địa chỉ.</span></div>
+          <div class="ctl"><input id="prov-base" spellcheck="false" value="${esc(pr?.base_url || "")}"></div></div>
+        <div class="field"><div class="lbl"><b>Model dùng để dịch</b><span>${ms.length ? `${ms.length} model lấy từ dịch vụ — gõ để tìm.` : "Bấm «Kiểm tra» để lấy danh sách, hoặc gõ tên model."} Dạng <code>${esc(p.id)}/tên-model</code>.</span></div>
+          <div class="ctl"><input id="prov-model" list="dl-cmodels" spellcheck="false" value="${esc(curM)}" placeholder="${esc(p.id)}/…"><datalist id="dl-cmodels">${ms.map((m) => `<option value="${esc(m)}">`).join("")}</datalist></div></div>
+        <div class="actions"><span class="grow"></span><button type="button" class="btn sm danger" id="prov-del">Xoá nhà cung cấp này</button></div>`;
+    }
   } else if (p.id === "aurora") {
     const L = ai.local.settings || {};
     detail = localField("aurora_url", "Địa chỉ Aurora", "Proxy ChatGPT (OpenAI-compatible). Để trống = mặc định (CHATGPT_BASE_URL hoặc 127.0.0.1:3377).", L)
@@ -1400,11 +1472,11 @@ function paintAISimple() {
   $("#ai-simple").innerHTML = `
     <h2>AI dịch</h2><p class="sub">Chọn AI làm việc dịch. Hệ thống tự phân việc cho từng bước và tự chọn model phù hợp.</p>
     <div class="sec"><h3>Nhà cung cấp</h3>
-      <div class="prov">${PROVS.map((x) => `<label><input type="radio" name="prov" value="${x.id}"${x.id === aiPick ? " checked" : ""}>
-        <b>${esc(x.name)}${x.pill ? `<span class="pill">${esc(x.pill)}</span>` : ""}${x.warn ? `<span class="pill warn">${esc(x.warn)}</span>` : ""}</b><span>${esc(x.desc)}</span></label>`).join("")}</div>
+      <div class="field"><div class="lbl"><b>Dùng AI nào</b><span>${esc(p.desc)}${p.pill ? ` <span class="pill">${esc(p.pill)}</span>` : ""}${p.warn ? ` <span class="pill warn">${esc(p.warn)}</span>` : ""}</span></div>
+        <div class="ctl"><select id="prov-sel">${provOptions(PV, cur)}</select></div></div>
       ${detail}
-      <div class="actions"><span class="sub grow">${isCur ? `Đang dùng ${esc(p.name)}.` : `Hiện đang dùng ${esc((PROVS.find((x) => x.id === cur) || {}).name || "")}.`}</span>
-        <button type="button" class="btn primary" id="prov-apply">${isCur ? "Áp dụng lại" : `Chuyển sang ${esc(p.name)}`}</button></div>
+      ${p.id === ADD_PROV ? "" : `<div class="actions"><span class="sub grow">${isCur ? `Đang dùng ${esc(p.name)}.` : `Hiện đang dùng ${esc((PV.find((x) => x.id === cur) || {}).name || "")}.`}</span>
+        <button type="button" class="btn primary" id="prov-apply">${isCur ? "Áp dụng lại" : `Chuyển sang ${esc(p.name)}`}</button></div>`}
     </div>
     ${fallbackSec()}
     <div class="sec" id="tt-sec">${titleSecBody()}</div>
@@ -1500,6 +1572,8 @@ async function provSaveKey() {
   if (key) pc.api_key = key;
   const pr = ai.providers.find((x) => x.name === aiPick);
   if (speed && pr && String(pr.concurrency) !== speed) pc.concurrency = speed;
+  const base = $("#prov-base")?.value.trim();
+  if (pr?.custom && base && base !== pr.base_url) pc.base_url = base;
   if (Object.keys(pc).length) ai = await api("POST", "/api/v6/ai", { providers: { [aiPick]: pc } });
 }
 async function provTest(btn) {
@@ -1509,12 +1583,31 @@ async function provTest(btn) {
   try {
     await provSaveKey();
     const r = await api("POST", "/api/v6/ai/models", { provider: aiPick });
-    st.innerHTML = `<span class="ok">✓ Kết nối được — sẽ dùng model <b>${esc((r.suggested || "").split("/").slice(1).join("/") || "?")}</b></span>`;
     $("#prov-key").value = "";
+    if (customProvs().some((x) => x.name === aiPick)) {
+      cprovModels[aiPick] = r.models;
+      const keep = $("#prov-model")?.value.trim();
+      paintAISimple();
+      const mi = $("#prov-model"); if (mi && !keep && r.suggested) mi.value = r.suggested; else if (mi && keep) mi.value = keep;
+      $("#prov-status").innerHTML = `<span class="ok">✓ Kết nối được — ${r.models.length} model. Chọn model ở ô «Model dùng để dịch».</span>`;
+      return;
+    }
+    st.innerHTML = `<span class="ok">✓ Kết nối được — sẽ dùng model <b>${esc((r.suggested || "").split("/").slice(1).join("/") || "?")}</b></span>`;
   } catch (e) { st.innerHTML = `<span class="err">Không kết nối được: ${esc(e.message)}</span>`; } finally { btn.disabled = false; }
 }
 async function provApply(btn) {
-  const p = PROVS.find((x) => x.id === aiPick);
+  const p = allProvs().find((x) => x.id === aiPick);
+  if (p.custom) {
+    const m = $("#prov-model")?.value.trim();
+    if (!m) { say("Chọn hoặc gõ model dùng để dịch trước (bấm «Kiểm tra» để lấy danh sách)", "err"); return; }
+    const full = m.startsWith(p.id + "/") ? m : `${p.id}/${m}`;
+    if (!confirm(`Dùng ${p.name} (${full}) cho dịch, soát, lập hồ sơ nhân vật và Trợ lý?\n\nÁp dụng cho các job chạy sau.`)) return;
+    return act(btn, `Đã chuyển sang ${p.name}`, async () => {
+      await provSaveKey();
+      ai = await api("POST", "/api/v6/ai", { preset: p.preset, preset_model: full });
+      paintAI(); paintAISimple();
+    });
+  }
   // 2026-11-21: bộ «Khuyến nghị» giao lập hồ sơ nhân vật (plan) + Trợ lý dự phòng cho Aurora — máy chưa có Aurora
   // → plan luôn lỗi → job dịch xong đứng chờ. Chưa cấu hình Aurora → DeepSeek làm hết.
   const preset = p.id === "deepseek" && !ai.aurora?.reachable ? "deepseek" : p.preset;
@@ -1532,6 +1625,8 @@ function onAISimpleClick(e) {
   const b = e.target.closest("button");
   if (b?.id === "prov-test") return provTest(b);
   if (b?.id === "prov-apply") return provApply(b);
+  if (b?.id === "cp-save") return customSave(b);
+  if (b?.id === "prov-del") return customDelete(b, aiPick);
   if (b?.id === "loc-save") return localSave(b);
   if (b?.id === "fb-save") return fallbackSave(b);
   if (b?.id === "tt-run") return titleRun(b);
@@ -1539,7 +1634,8 @@ function onAISimpleClick(e) {
 function onAISimpleChange(e) {
   if (e.target.id === "loc-thinking") e.target.parentElement.lastChild.textContent = e.target.checked ? "Bật" : "Tắt";
   if (e.target.id === "tt-on") return titleToggle(e.target.checked);
-  if (e.target.name === "prov") { aiPick = e.target.value; paintAISimple(); }
+  if (e.target.id === "prov-sel") { aiPick = e.target.value; paintAISimple(); }
+  if (e.target.id === "cp-tpl") onCpTpl();
 }
 
 // ───────────── Xung đột bảng nhân vật của bộ (engines/series_glossary) ─────────────

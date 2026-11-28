@@ -42,6 +42,11 @@ class Provider:
     max_tokens_cap: int = 8192                  # trần max_tokens của nhà cung cấp
     default_concurrency: int = 32               # số request song song mặc định (<TÊN>_CONCURRENCY để đổi)
     adjust: Callable[[dict, str], None] | None = field(default=None, compare=False)   # chỉnh payload riêng
+    env: str = ""                               # tiền tố khoá cấu hình phụ (<env>_MAX_TOKENS…); rỗng = NAME
+    custom: bool = False                        # nhà cung cấp tùy chỉnh (người dùng tự khai — providers/custom.py)
+
+    def env_prefix(self) -> str:
+        return self.env or self.name.upper()
 
     def base(self) -> str:
         for k in self.base_keys:
@@ -62,11 +67,11 @@ class Provider:
 
     def concurrency(self) -> int:
         """Số request gửi cùng lúc tới nhà cung cấp (luồng dịch simple): <TÊN>_CONCURRENCY, mặc định 32."""
-        raw = _cfg(f"{self.name.upper()}_CONCURRENCY")
+        raw = _cfg(f"{self.env_prefix()}_CONCURRENCY")
         try:
             v = int(float(raw)) if raw else self.default_concurrency
         except ValueError:
-            print(f"[{self.name}] {self.name.upper()}_CONCURRENCY={raw!r} không phải số → {self.default_concurrency}",
+            print(f"[{self.name}] {self.env_prefix()}_CONCURRENCY={raw!r} không phải số → {self.default_concurrency}",
                   flush=True)
             v = self.default_concurrency
         return max(1, min(v, 512))
@@ -74,11 +79,11 @@ class Provider:
     def out_cap(self) -> int:
         """Trần max_tokens output: <TÊN>_MAX_TOKENS trong cấu hình (vd DEEPSEEK_MAX_TOKENS=16384), mặc định
         max_tokens_cap. Gửi quá trần model hỗ trợ → nhà cung cấp trả 400, nên chỉ nâng khi model cho phép."""
-        raw = _cfg(f"{self.name.upper()}_MAX_TOKENS")
+        raw = _cfg(f"{self.env_prefix()}_MAX_TOKENS")
         try:
             v = int(float(raw)) if raw else self.max_tokens_cap
         except ValueError:
-            print(f"[{self.name}] {self.name.upper()}_MAX_TOKENS={raw!r} không phải số → {self.max_tokens_cap}", flush=True)
+            print(f"[{self.name}] {self.env_prefix()}_MAX_TOKENS={raw!r} không phải số → {self.max_tokens_cap}", flush=True)
             v = self.max_tokens_cap
         return max(256, min(v, 1_000_000))
 
@@ -102,6 +107,24 @@ def _ensure_json_word(messages: list[dict]) -> list[dict]:
     else:
         out.insert(0, {"role": "system", "content": note})
     return out
+
+
+def _autofix_400(payload: dict, text: str) -> bool:
+    """Nhà cung cấp bên thứ ba từ chối tham số chuẩn OpenAI (400): bỏ / đổi đúng tham số bị chê rồi gửi lại.
+    - response_format (JSON mode) không hỗ trợ → bỏ (prompt vẫn yêu cầu JSON);
+    - model mới của OpenAI: «max_tokens» → «max_completion_tokens»; temperature chỉ nhận mặc định → bỏ.
+    Mỗi tham số sửa tối đa 1 lần (payload đổi → lần sau không khớp nữa). True = đã sửa, gửi lại."""
+    t = (text or "").lower()
+    if "max_tokens" in payload and "max_completion_tokens" in t:
+        payload["max_completion_tokens"] = payload.pop("max_tokens")
+        return True
+    if "temperature" in payload and "temperature" in t:
+        payload.pop("temperature")
+        return True
+    if "response_format" in payload and ("response_format" in t or "json_object" in t or "json mode" in t):
+        payload.pop("response_format")
+        return True
+    return False
 
 
 def chat_message(
@@ -146,13 +169,19 @@ def chat_message(
     url = f"{provider.base()}/chat/completions"
     headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
     last: BaseException | None = None
-    for attempt in range(max(1, retries)):
+    n_try, fixes, attempt = max(1, retries), 0, -1
+    while attempt + 1 < n_try + fixes:
+        attempt += 1
         try:
             r = requests.post(url, headers=headers, json=payload, timeout=timeout)
         except (requests.Timeout, requests.ConnectionError) as e:
             last = e
-            print(f"[{provider.name}] lỗi mạng (thử {attempt + 1}/{retries}): {e}", flush=True)
+            print(f"[{provider.name}] lỗi mạng (thử {attempt + 1 - fixes}/{retries}): {e}", flush=True)
             time.sleep(min(2 ** attempt, 8))
+            continue
+        if r.status_code == 400 and fixes < 4 and _autofix_400(payload, r.text):
+            fixes += 1                    # sửa tham số không tính là một lần thử
+            print(f"[{provider.name}] HTTP 400 — bỏ/đổi tham số không hỗ trợ rồi gửi lại: {r.text[:160]}", flush=True)
             continue
         if r.status_code in NO_RETRY_STATUS:
             hint = {401: "sai API key", 403: "key không có quyền / hết hạn mức", 404: "sai địa chỉ hoặc tên model",
@@ -211,7 +240,8 @@ def list_models(provider: Provider, *, api_key: str | None = None, base_url: str
     except ValueError as e:
         raise _error(provider, f"phản hồi /models không phải JSON: {r.text[:200]}", e) from e
     items = data.get("data") if isinstance(data, dict) else data
-    ids = sorted({str(x.get("id") if isinstance(x, dict) else x).strip() for x in (items or [])} - {"", "None"})
+    ids = sorted({str(x.get("id") if isinstance(x, dict) else x).strip().removeprefix("models/")
+                  for x in (items or [])} - {"", "None"})
     if not ids:
         raise _error(provider, f"/models trả danh sách rỗng: {r.text[:200]}")
     if not api_key and not base_url:          # chỉ nhớ danh sách của key/URL ĐÃ LƯU

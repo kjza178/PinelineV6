@@ -9,11 +9,14 @@ Tên model KHÔNG ghi cứng — lấy từ nhà cung cấp: `list_models(provid
 `engines.llm.chat()` và Agent (`agents.agent_core`) hỏi `resolve(model)` trước mọi đường khác. Thêm nhà cung cấp mới =
 thêm một file khai báo `PROVIDER = Provider(...)` rồi đăng ký vào `_REGISTRY` dưới đây.
 
+Nhà cung cấp TÙY CHỈNH (người dùng tự khai trong Cài đặt → AI, `providers/custom.py`): mọi API chuẩn OpenAI —
+`<tên>/<model>`; đọc cấu hình lúc gọi nên thêm / xoá không cần restart.
+
 Đường khác giữ nguyên ở engines.llm: `chatgpt/…` / `aurora/…` (Aurora), `local/…` (Ollama), `llama/…` / "local" (:8083).
 """
 from __future__ import annotations
 
-from . import alibaba, deepseek
+from . import alibaba, custom, deepseek
 from ._openai import Provider, cached_models, chat_message, chat_text, list_models, pick_model
 
 _REGISTRY: dict[str, Provider] = {
@@ -29,7 +32,8 @@ def resolve(model: str | None) -> tuple[Provider, str] | None:
     if "/" not in m:
         return None
     prefix, _, rest = m.partition("/")
-    p = _REGISTRY.get(prefix.strip().lower())
+    key = prefix.strip().lower()
+    p = _REGISTRY.get(key) or custom.providers().get(key)
     if p is None:
         return None
     return p, rest.strip()
@@ -37,7 +41,7 @@ def resolve(model: str | None) -> tuple[Provider, str] | None:
 
 def all_providers() -> list[Provider]:
     seen, out = set(), []
-    for p in _REGISTRY.values():
+    for p in [*_REGISTRY.values(), *custom.providers().values()]:
         if p.name not in seen:
             seen.add(p.name)
             out.append(p)

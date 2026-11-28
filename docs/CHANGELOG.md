@@ -1,5 +1,18 @@
 # CHANGELOG — V6
 
+## 2026-11-28
+- **Nhà cung cấp AI tùy chỉnh** (Cài đặt → AI dịch → «+ Thêm nhà cung cấp khác…»): dùng mọi dịch vụ có API chuẩn
+  OpenAI — OpenAI, Gemini, OpenRouter, Groq, Mistral, xAI, Moonshot, Anthropic (mẫu điền sẵn địa chỉ) hoặc máy chủ AI
+  riêng. Khai tên ngắn + địa chỉ + key → «Kiểm tra» lấy danh sách model → chọn model → «Chuyển sang». Model gọi dạng
+  `<tên>/<model>`, dùng được ở mọi chức năng, làm dự phòng, Trợ lý. Lưu `CUSTOM_PROVIDERS` + `CUSTOM_<TÊN>_API_KEY`
+  trong pineline.config.json (không lên git); thêm / xoá có hiệu lực ngay, **không cần restart** (chỉ cần restart
+  server 1 lần để có code mới). Xoá bị từ chối khi còn chức năng đang dùng.
+  `engines/providers/custom.py`, `core/ai_models.save_custom_provider / remove_custom_provider`,
+  `POST/DELETE /api/v6/ai/custom-provider`.
+- Nhà cung cấp API từ chối tham số chuẩn (400: JSON mode, `max_tokens`→`max_completion_tokens`, temperature) → tự
+  bỏ / đổi tham số rồi gửi lại (`_openai._autofix_400`, không tính là lần thử).
+- Cài đặt → AI dịch: chọn nhà cung cấp bằng danh sách thả xuống (nhóm «Có sẵn» / «Tùy chỉnh») thay cho lưới thẻ.
+
 ## 2026-11-27
 - **Job đã xong vẫn báo «đang chạy»**: quét nền mỗi 60 s (`server._stale_running_sweep_once`) — job báo running mà
   không phải job hàng chờ đang chạy, không còn tiến trình và manifest 3 phút không đổi → chữa trạng thái (log
